@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MiniPay</title>
+<style>
+  :root { color-scheme: light dark; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
+  code { background: rgba(127,127,127,.15); padding: 1px 5px; border-radius: 4px; }
+  h1 { margin-bottom: 4px; } .muted { opacity:.7; }
+  li { margin: 4px 0; }
+</style>
+</head>
+<body>
+  <h1>MiniPay</h1>
+  <p class="muted">Cổng thanh toán VNPay cho fleet — ký &amp; xác thực HMAC-SHA512.</p>
+  <h3>API</h3>
+  <ul>
+    <li><code>POST /api/pay/create</code> — tạo giao dịch, trả <code>payUrl</code> (cần <code>X-Api-Key</code>)</li>
+    <li><code>GET /api/pay/ipn</code> — VNPay gọi server→server, xác thực chữ ký</li>
+    <li><code>GET /api/pay/return</code> — trình duyệt quay về, xác thực chữ ký</li>
+    <li><code>GET /api/pay/status?txnRef=</code> — tra trạng thái (cần <code>X-Api-Key</code>)</li>
+    <li><code>POST /api/orgs/register</code> — đăng ký merchant, nhận ApiKey</li>
+  </ul>
+  <p class="muted">SSO: <code>GET /api/whoami</code> (token MiniSSO). Swagger: <a href="/swagger">/swagger</a>.</p>
+</body>
+</html>
