@@ -24,7 +24,9 @@ builder.Services.AddDbContext<AppDbContext>(o =>
     else o.UseSqlite(conn);
 });
 builder.Services.AddScoped<ITenantContext, TenantContext>();
+builder.Services.AddHttpClient();
 builder.Services.AddSingleton<VnPayService>();
+builder.Services.AddSingleton<MomoService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -152,6 +154,46 @@ app.MapGet("/api/pay/status", async (string txnRef, AppDbContext db) =>
         createdAt = p.CreatedAt, paidAt = p.PaidAt
     });
 }).RequireAuthorization();
+
+// ===== Cổng thanh toán MoMo =====
+
+// 1) Tạo giao dịch MoMo → gọi MoMo lấy payUrl/deeplink. Cần X-Api-Key (merchant).
+app.MapPost("/api/pay/momo/create", async (CreatePayDto dto, MomoService momo, AppDbContext db, ITenantContext tenant, HttpContext ctx) =>
+{
+    if (dto.Amount <= 0) return Results.BadRequest(new { error = "Amount phải > 0 (VND)." });
+    var orderId = (dto.OrderId ?? "OD") + "-" + DateTime.Now.ToString("yyyyMMddHHmmssfff");
+    var requestId = orderId;
+    var orderInfo = string.IsNullOrWhiteSpace(dto.OrderInfo) ? $"ThanhToanDon{dto.OrderId}" : dto.OrderInfo!;
+    var intent = new PaymentIntent
+    {
+        OrgId = tenant.OrgId, TxnRef = orderId, OrderId = dto.OrderId ?? orderId,
+        Amount = dto.Amount, OrderInfo = orderInfo, Provider = "momo", Status = PayStatus.Pending
+    };
+    db.Payments.Add(intent);
+    await db.SaveChangesAsync();
+
+    var baseUrl = $"{ctx.Request.Scheme}://{ctx.Request.Host}";
+    var redirectUrl = Environment.GetEnvironmentVariable("MOMO_REDIRECTURL") ?? $"{baseUrl}/api/pay/momo/return";
+    var ipnUrl = Environment.GetEnvironmentVariable("MOMO_IPNURL") ?? $"{baseUrl}/api/pay/momo/ipn";
+    var (payUrl, deeplink, rc, msg, _) = await momo.CreateAsync(orderId, requestId, dto.Amount, orderInfo, redirectUrl, ipnUrl);
+    return Results.Ok(new { orderId, amount = dto.Amount, resultCode = rc, message = msg, payUrl, deeplink, status = "Pending" });
+}).RequireAuthorization();
+
+// 2) IPN MoMo (server→server, POST JSON): xác thực chữ ký + cập nhật trạng thái. Trả 204/không body theo chuẩn MoMo.
+app.MapPost("/api/pay/momo/ipn", async (MomoIpn dto, MomoService momo, AppDbContext db) =>
+{
+    if (!momo.ValidateIpn(dto)) return Results.Json(new { RspCode = "97", Message = "Invalid signature" });
+    var p = await db.Payments.FirstOrDefaultAsync(x => x.TxnRef == dto.orderId);
+    if (p is null) return Results.Json(new { RspCode = "01", Message = "Order not found" });
+    if (p.Amount != dto.amount) return Results.Json(new { RspCode = "04", Message = "Invalid amount" });
+    if (p.Status != PayStatus.Pending) return Results.Json(new { RspCode = "02", Message = "Order already confirmed" });
+    p.ResponseCode = dto.resultCode.ToString();
+    p.VnpTransactionNo = dto.transId.ToString();
+    if (dto.resultCode == 0) { p.Status = PayStatus.Paid; p.PaidAt = DateTime.Now; }
+    else p.Status = PayStatus.Failed;
+    await db.SaveChangesAsync();
+    return Results.Json(new { RspCode = "00", Message = "Confirm Success" });
+});
 
 // Đăng ký merchant mới → ApiKey.
 app.MapPost("/api/orgs/register", async (RegisterOrgDto dto, AppDbContext db) =>
