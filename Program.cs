@@ -204,7 +204,33 @@ app.MapPost("/api/orgs/register", async (RegisterOrgDto dto, AppDbContext db) =>
     return Results.Ok(new { orgId = org.Id, apiKey = org.ApiKey });
 });
 
+// Import giao dịch thanh toán thật từ Pmt_Payment (dedupe theo TxnRef)
+app.MapPost("/api/import/payments", async (List<ImportPayDto> rows, AppDbContext db, ITenantContext tc) =>
+{
+    if (rows == null || rows.Count == 0) return Results.BadRequest(new { error = "Không có dữ liệu." });
+    int added = 0, skipped = 0;
+    var orgId = tc.OrgId;
+    var existRefs = db.Payments.Where(p => p.OrgId == orgId).Select(p => p.TxnRef).ToHashSet();
+    foreach (var row in rows)
+    {
+        if (string.IsNullOrWhiteSpace(row.TxnRef)) { skipped++; continue; }
+        if (existRefs.Contains(row.TxnRef.Trim())) { skipped++; continue; }
+        db.Payments.Add(new PaymentIntent
+        {
+            OrgId = orgId, TxnRef = row.TxnRef.Trim(), OrderId = row.OrderId ?? row.TxnRef.Trim(),
+            Amount = row.Amount, OrderInfo = row.OrderInfo ?? "", Provider = "internal",
+            Status = row.IsPaid ? PayStatus.Paid : PayStatus.Pending,
+            BankCode = row.BankCode, CreatedAt = row.CreatedAt ?? DateTime.Now,
+            PaidAt = row.IsPaid ? row.CreatedAt : null
+        });
+        existRefs.Add(row.TxnRef.Trim()); added++;
+    }
+    await db.SaveChangesAsync();
+    return Results.Ok(new { added, skipped, total = added + skipped });
+});
+
 app.Run();
 
 record CreatePayDto(long Amount, string? OrderId, string? OrderInfo, string? BankCode);
 record RegisterOrgDto(string Name);
+record ImportPayDto(string? TxnRef, string? OrderId, long Amount, string? OrderInfo, string? BankCode, bool IsPaid, DateTime? CreatedAt);
