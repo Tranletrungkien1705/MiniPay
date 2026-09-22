@@ -163,6 +163,102 @@ public static class Seeder
                 CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PaymentGuarantees_OrgId_GuaranteeNo"" ON ""PaymentGuarantees"" (""OrgId"", ""GuaranteeNo"");
                 CREATE INDEX IF NOT EXISTS ""IX_PaymentGuaranteeDetails_GuaranteeId"" ON ""PaymentGuaranteeDetails"" (""GuaranteeId"");
                 CREATE INDEX IF NOT EXISTS ""IX_PaymentGuaranteeDetails_OrgId_ItemRefNo"" ON ""PaymentGuaranteeDetails"" (""OrgId"", ""ItemRefNo"");
+
+                CREATE TABLE IF NOT EXISTS ""MortgageRequests"" (
+                    ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_MortgageRequests"" PRIMARY KEY AUTOINCREMENT,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""ReqRMNo"" TEXT NOT NULL,
+                    ""BankCode"" TEXT NOT NULL,
+                    ""BankName"" TEXT NOT NULL,
+                    ""PartnerCode"" TEXT NOT NULL,
+                    ""PartnerName"" TEXT NOT NULL,
+                    ""CreditContractNo"" TEXT NULL,
+                    ""MortgageDate"" TEXT NOT NULL,
+                    ""TotalItems"" INTEGER NOT NULL,
+                    ""ActiveItems"" INTEGER NOT NULL,
+                    ""RedeemedItems"" INTEGER NOT NULL,
+                    ""TotalCollateralValue"" INTEGER NOT NULL,
+                    ""TotalLoanAmount"" INTEGER NOT NULL,
+                    ""RemainingLoanAmount"" INTEGER NOT NULL,
+                    ""InterestRate"" TEXT NOT NULL,
+                    ""LoanPeriodDays"" INTEGER NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""CreatedBy"" TEXT NULL,
+                    ""CreatedAt"" TEXT NOT NULL,
+                    ""ApprovedBy"" TEXT NULL,
+                    ""ApprovedAt"" TEXT NULL,
+                    ""FinishedBy"" TEXT NULL,
+                    ""FinishedAt"" TEXT NULL,
+                    ""RejectReason"" TEXT NULL,
+                    ""CancelledAt"" TEXT NULL,
+                    ""Remark"" TEXT NULL
+                );
+                CREATE TABLE IF NOT EXISTS ""MortgageDetails"" (
+                    ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_MortgageDetails"" PRIMARY KEY AUTOINCREMENT,
+                    ""MortgageRequestId"" INTEGER NOT NULL,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""ItemRefNo"" TEXT NOT NULL,
+                    ""ModelCode"" TEXT NOT NULL,
+                    ""EngineNo"" TEXT NULL,
+                    ""CQNo"" TEXT NULL,
+                    ""CONo"" TEXT NULL,
+                    ""DeclarationNo"" TEXT NULL,
+                    ""CODate"" TEXT NULL,
+                    ""CollateralValue"" INTEGER NOT NULL,
+                    ""LoanAmount"" INTEGER NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""ApprovedBy"" TEXT NULL,
+                    ""ApprovedAt"" TEXT NULL,
+                    ""ReqDMNo"" TEXT NULL,
+                    ""RedeemedAt"" TEXT NULL,
+                    ""Note"" TEXT NULL,
+                    CONSTRAINT ""FK_MortgageDetails_MortgageRequests_MortgageRequestId"" FOREIGN KEY (""MortgageRequestId"") REFERENCES ""MortgageRequests"" (""Id"") ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_MortgageRequests_OrgId_ReqRMNo"" ON ""MortgageRequests"" (""OrgId"", ""ReqRMNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_MortgageDetails_MortgageRequestId"" ON ""MortgageDetails"" (""MortgageRequestId"");
+                CREATE INDEX IF NOT EXISTS ""IX_MortgageDetails_OrgId_ItemRefNo"" ON ""MortgageDetails"" (""OrgId"", ""ItemRefNo"");
+
+                CREATE TABLE IF NOT EXISTS ""RedeemRequests"" (
+                    ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_RedeemRequests"" PRIMARY KEY AUTOINCREMENT,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""ReqDMNo"" TEXT NOT NULL,
+                    ""BankCode"" TEXT NOT NULL,
+                    ""BankName"" TEXT NOT NULL,
+                    ""PartnerCode"" TEXT NOT NULL,
+                    ""PartnerName"" TEXT NOT NULL,
+                    ""RedeemDate"" TEXT NOT NULL,
+                    ""TotalItems"" INTEGER NOT NULL,
+                    ""ApprovedItems"" INTEGER NOT NULL,
+                    ""TotalSettlementAmount"" INTEGER NOT NULL,
+                    ""PaymentProofNo"" TEXT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""CreatedBy"" TEXT NULL,
+                    ""CreatedAt"" TEXT NOT NULL,
+                    ""ApprovedBy"" TEXT NULL,
+                    ""ApprovedAt"" TEXT NULL,
+                    ""RejectReason"" TEXT NULL,
+                    ""CancelledAt"" TEXT NULL,
+                    ""Remark"" TEXT NULL
+                );
+                CREATE TABLE IF NOT EXISTS ""RedeemDetails"" (
+                    ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_RedeemDetails"" PRIMARY KEY AUTOINCREMENT,
+                    ""RedeemRequestId"" INTEGER NOT NULL,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""ItemRefNo"" TEXT NOT NULL,
+                    ""ReqRMNo"" TEXT NOT NULL,
+                    ""MortgageDetailId"" INTEGER NULL,
+                    ""ModelCode"" TEXT NULL,
+                    ""DealerCode"" TEXT NULL,
+                    ""SettlementAmount"" INTEGER NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""ApprovedBy"" TEXT NULL,
+                    ""ApprovedAt"" TEXT NULL,
+                    ""Note"" TEXT NULL,
+                    CONSTRAINT ""FK_RedeemDetails_RedeemRequests_RedeemRequestId"" FOREIGN KEY (""RedeemRequestId"") REFERENCES ""RedeemRequests"" (""Id"") ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_RedeemRequests_OrgId_ReqDMNo"" ON ""RedeemRequests"" (""OrgId"", ""ReqDMNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_RedeemDetails_RedeemRequestId"" ON ""RedeemDetails"" (""RedeemRequestId"");
+                CREATE INDEX IF NOT EXISTS ""IX_RedeemDetails_OrgId_ItemRefNo"" ON ""RedeemDetails"" (""OrgId"", ""ItemRefNo"");
             ");
         }
         else if (db.Database.IsNpgsql())
@@ -315,6 +411,100 @@ public static class Seeder
                 CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PaymentGuarantees_OrgId_GuaranteeNo"" ON ""PaymentGuarantees"" (""OrgId"", ""GuaranteeNo"");
                 CREATE INDEX IF NOT EXISTS ""IX_PaymentGuaranteeDetails_GuaranteeId"" ON ""PaymentGuaranteeDetails"" (""GuaranteeId"");
                 CREATE INDEX IF NOT EXISTS ""IX_PaymentGuaranteeDetails_OrgId_ItemRefNo"" ON ""PaymentGuaranteeDetails"" (""OrgId"", ""ItemRefNo"");
+
+                CREATE TABLE IF NOT EXISTS ""MortgageRequests"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""OrgId"" uuid NOT NULL,
+                    ""ReqRMNo"" text NOT NULL,
+                    ""BankCode"" text NOT NULL,
+                    ""BankName"" text NOT NULL,
+                    ""PartnerCode"" text NOT NULL,
+                    ""PartnerName"" text NOT NULL,
+                    ""CreditContractNo"" text NULL,
+                    ""MortgageDate"" timestamp without time zone NOT NULL,
+                    ""TotalItems"" integer NOT NULL,
+                    ""ActiveItems"" integer NOT NULL,
+                    ""RedeemedItems"" integer NOT NULL,
+                    ""TotalCollateralValue"" bigint NOT NULL,
+                    ""TotalLoanAmount"" bigint NOT NULL,
+                    ""RemainingLoanAmount"" bigint NOT NULL,
+                    ""InterestRate"" numeric NOT NULL,
+                    ""LoanPeriodDays"" integer NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""CreatedBy"" text NULL,
+                    ""CreatedAt"" timestamp without time zone NOT NULL,
+                    ""ApprovedBy"" text NULL,
+                    ""ApprovedAt"" timestamp without time zone NULL,
+                    ""FinishedBy"" text NULL,
+                    ""FinishedAt"" timestamp without time zone NULL,
+                    ""RejectReason"" text NULL,
+                    ""CancelledAt"" timestamp without time zone NULL,
+                    ""Remark"" text NULL
+                );
+                CREATE TABLE IF NOT EXISTS ""MortgageDetails"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""MortgageRequestId"" bigint NOT NULL REFERENCES ""MortgageRequests"" (""Id"") ON DELETE CASCADE,
+                    ""OrgId"" uuid NOT NULL,
+                    ""ItemRefNo"" text NOT NULL,
+                    ""ModelCode"" text NOT NULL,
+                    ""EngineNo"" text NULL,
+                    ""CQNo"" text NULL,
+                    ""CONo"" text NULL,
+                    ""DeclarationNo"" text NULL,
+                    ""CODate"" timestamp without time zone NULL,
+                    ""CollateralValue"" bigint NOT NULL,
+                    ""LoanAmount"" bigint NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""ApprovedBy"" text NULL,
+                    ""ApprovedAt"" timestamp without time zone NULL,
+                    ""ReqDMNo"" text NULL,
+                    ""RedeemedAt"" timestamp without time zone NULL,
+                    ""Note"" text NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_MortgageRequests_OrgId_ReqRMNo"" ON ""MortgageRequests"" (""OrgId"", ""ReqRMNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_MortgageDetails_MortgageRequestId"" ON ""MortgageDetails"" (""MortgageRequestId"");
+                CREATE INDEX IF NOT EXISTS ""IX_MortgageDetails_OrgId_ItemRefNo"" ON ""MortgageDetails"" (""OrgId"", ""ItemRefNo"");
+
+                CREATE TABLE IF NOT EXISTS ""RedeemRequests"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""OrgId"" uuid NOT NULL,
+                    ""ReqDMNo"" text NOT NULL,
+                    ""BankCode"" text NOT NULL,
+                    ""BankName"" text NOT NULL,
+                    ""PartnerCode"" text NOT NULL,
+                    ""PartnerName"" text NOT NULL,
+                    ""RedeemDate"" timestamp without time zone NOT NULL,
+                    ""TotalItems"" integer NOT NULL,
+                    ""ApprovedItems"" integer NOT NULL,
+                    ""TotalSettlementAmount"" bigint NOT NULL,
+                    ""PaymentProofNo"" text NULL,
+                    ""Status"" integer NOT NULL,
+                    ""CreatedBy"" text NULL,
+                    ""CreatedAt"" timestamp without time zone NOT NULL,
+                    ""ApprovedBy"" text NULL,
+                    ""ApprovedAt"" timestamp without time zone NULL,
+                    ""RejectReason"" text NULL,
+                    ""CancelledAt"" timestamp without time zone NULL,
+                    ""Remark"" text NULL
+                );
+                CREATE TABLE IF NOT EXISTS ""RedeemDetails"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""RedeemRequestId"" bigint NOT NULL REFERENCES ""RedeemRequests"" (""Id"") ON DELETE CASCADE,
+                    ""OrgId"" uuid NOT NULL,
+                    ""ItemRefNo"" text NOT NULL,
+                    ""ReqRMNo"" text NOT NULL,
+                    ""MortgageDetailId"" bigint NULL,
+                    ""ModelCode"" text NULL,
+                    ""DealerCode"" text NULL,
+                    ""SettlementAmount"" bigint NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""ApprovedBy"" text NULL,
+                    ""ApprovedAt"" timestamp without time zone NULL,
+                    ""Note"" text NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_RedeemRequests_OrgId_ReqDMNo"" ON ""RedeemRequests"" (""OrgId"", ""ReqDMNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_RedeemDetails_RedeemRequestId"" ON ""RedeemDetails"" (""RedeemRequestId"");
+                CREATE INDEX IF NOT EXISTS ""IX_RedeemDetails_OrgId_ItemRefNo"" ON ""RedeemDetails"" (""OrgId"", ""ItemRefNo"");
             ");
         }
 
@@ -984,6 +1174,273 @@ public static class Seeder
                 }
             );
             await db.SaveChangesAsync();
+        }
+
+        // Dữ liệu mẫu Hồ sơ Thế chấp & Giải chấp tài sản ngân hàng (RM_ReqMortgage & RD_ReqRedeem / BizHTC.GiaiChap)
+        if (!await db.MortgageRequests.AnyAsync(r => r.OrgId == TenantContext.DefaultOrgId))
+        {
+            // 1. Hồ sơ thế chấp kho xe vay VietinBank (CTG) - Đã giải chấp 1 xe, còn 2 xe đang thế chấp
+            var mReq1 = new MortgageRequest
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                ReqRMNo = "RM-DEMO-20250501-001",
+                BankCode = "CTG",
+                BankName = "Ngân hàng TMCP Công thương Việt Nam (VietinBank)",
+                PartnerCode = "DLR-HYUNDAI-THANHXUAN",
+                PartnerName = "Đại lý Ô tô Hyundai Thanh Xuân",
+                CreditContractNo = "TD-CTG-2025/09",
+                MortgageDate = DateTime.Today.AddDays(-20),
+                TotalItems = 3,
+                ActiveItems = 2,
+                RedeemedItems = 1,
+                TotalCollateralValue = 2_890_000_000,
+                TotalLoanAmount = 2_020_000_000,
+                RemainingLoanAmount = 1_070_000_000,
+                InterestRate = 8.2m,
+                LoanPeriodDays = 90,
+                Status = MortgageStatus.Approved,
+                CreatedBy = "ChuyenVienTinDung",
+                ApprovedBy = "GiamDocTinDung_VietinBank",
+                ApprovedAt = DateTime.Now.AddDays(-19),
+                Remark = "Thế chấp bảo đảm lô xe du lịch Hyundai phục vụ giải ngân nguồn vốn lưu động",
+                CreatedAt = DateTime.Now.AddDays(-20)
+            };
+            db.MortgageRequests.Add(mReq1);
+            await db.SaveChangesAsync();
+
+            var mDtl1_1 = new MortgageDetail
+            {
+                MortgageRequestId = mReq1.Id,
+                OrgId = TenantContext.DefaultOrgId,
+                ItemRefNo = "VIN-SANTAFE-2025-01",
+                ModelCode = "SANTAFE-CAL",
+                EngineNo = "ENG-SF25-99881",
+                CQNo = "CQ-2025-88120",
+                CONo = "CO-2025-11020",
+                DeclarationNo = "TK-HQ-2025-01991",
+                CODate = DateTime.Today.AddDays(-25),
+                CollateralValue = 1_350_000_000,
+                LoanAmount = 950_000_000,
+                Status = MortgageDetailStatus.Redeemed,
+                ApprovedBy = "GiamDocTinDung_VietinBank",
+                ApprovedAt = DateTime.Now.AddDays(-19),
+                ReqDMNo = "DM-DEMO-20250512-001",
+                RedeemedAt = DateTime.Now.AddDays(-2),
+                Note = "Đã hoàn tất giải chấp, bàn giao hồ sơ gốc cho đại lý xuất xưởng"
+            };
+            var mDtl1_2 = new MortgageDetail
+            {
+                MortgageRequestId = mReq1.Id,
+                OrgId = TenantContext.DefaultOrgId,
+                ItemRefNo = "VIN-TUCSON-2025-02",
+                ModelCode = "TUCSON-2.0D",
+                EngineNo = "ENG-TC25-77210",
+                CQNo = "CQ-2025-88121",
+                CONo = "CO-2025-11021",
+                DeclarationNo = "TK-HQ-2025-01992",
+                CODate = DateTime.Today.AddDays(-25),
+                CollateralValue = 980_000_000,
+                LoanAmount = 680_000_000,
+                Status = MortgageDetailStatus.Approved,
+                ApprovedBy = "GiamDocTinDung_VietinBank",
+                ApprovedAt = DateTime.Now.AddDays(-19),
+                Note = "Đang lưu kho phong tỏa thế chấp tại Chi nhánh Hoàn Kiếm"
+            };
+            var mDtl1_3 = new MortgageDetail
+            {
+                MortgageRequestId = mReq1.Id,
+                OrgId = TenantContext.DefaultOrgId,
+                ItemRefNo = "VIN-ACCENT-2025-03",
+                ModelCode = "ACCENT-1.5AT",
+                EngineNo = "ENG-AC25-33105",
+                CQNo = "CQ-2025-88122",
+                CONo = "CO-2025-11022",
+                DeclarationNo = "TK-HQ-2025-01993",
+                CODate = DateTime.Today.AddDays(-25),
+                CollateralValue = 560_000_000,
+                LoanAmount = 390_000_000,
+                Status = MortgageDetailStatus.Approved,
+                ApprovedBy = "GiamDocTinDung_VietinBank",
+                ApprovedAt = DateTime.Now.AddDays(-19),
+                Note = "Đang lưu kho phong tỏa thế chấp tại Chi nhánh Hoàn Kiếm"
+            };
+            db.MortgageDetails.AddRange(mDtl1_1, mDtl1_2, mDtl1_3);
+            await db.SaveChangesAsync();
+
+            // 2. Hồ sơ thế chấp MBBank (MBB) - 2 xe đang thế chấp
+            var mReq2 = new MortgageRequest
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                ReqRMNo = "RM-DEMO-20250510-002",
+                BankCode = "MBB",
+                BankName = "Ngân hàng TMCP Quân đội (MBBank)",
+                PartnerCode = "DLR-HYUNDAI-DONGDO",
+                PartnerName = "Đại lý Ô tô Hyundai Đông Đô",
+                CreditContractNo = "TD-MBB-2025/14",
+                MortgageDate = DateTime.Today.AddDays(-5),
+                TotalItems = 2,
+                ActiveItems = 2,
+                RedeemedItems = 0,
+                TotalCollateralValue = 1_370_000_000,
+                TotalLoanAmount = 950_000_000,
+                RemainingLoanAmount = 950_000_000,
+                InterestRate = 8.5m,
+                LoanPeriodDays = 60,
+                Status = MortgageStatus.Approved,
+                CreatedBy = "ChuyenVienTinDung",
+                ApprovedBy = "QuanLyTinDung_MBBank",
+                ApprovedAt = DateTime.Now.AddDays(-4),
+                Remark = "Thế chấp kho xe bảo đảm khoản vay thanh toán nhà máy HTMV",
+                CreatedAt = DateTime.Now.AddDays(-5)
+            };
+            db.MortgageRequests.Add(mReq2);
+            await db.SaveChangesAsync();
+
+            var mDtl2_1 = new MortgageDetail
+            {
+                MortgageRequestId = mReq2.Id,
+                OrgId = TenantContext.DefaultOrgId,
+                ItemRefNo = "VIN-CRETA-2025-01",
+                ModelCode = "CRETA-1.5PRE",
+                EngineNo = "ENG-CR25-55410",
+                CQNo = "CQ-2025-99011",
+                CONo = "CO-2025-22011",
+                DeclarationNo = "TK-HQ-2025-03411",
+                CODate = DateTime.Today.AddDays(-10),
+                CollateralValue = 720_000_000,
+                LoanAmount = 500_000_000,
+                Status = MortgageDetailStatus.Approved,
+                ApprovedBy = "QuanLyTinDung_MBBank",
+                ApprovedAt = DateTime.Now.AddDays(-4),
+                Note = "Giấy chứng nhận đăng kiểm CQ gốc gửi kho bảo mật MBBank"
+            };
+            var mDtl2_2 = new MortgageDetail
+            {
+                MortgageRequestId = mReq2.Id,
+                OrgId = TenantContext.DefaultOrgId,
+                ItemRefNo = "VIN-STARGAZER-2025-02",
+                ModelCode = "STARGAZER-X",
+                EngineNo = "ENG-SG25-66720",
+                CQNo = "CQ-2025-99012",
+                CONo = "CO-2025-22012",
+                DeclarationNo = "TK-HQ-2025-03412",
+                CODate = DateTime.Today.AddDays(-10),
+                CollateralValue = 650_000_000,
+                LoanAmount = 450_000_000,
+                Status = MortgageDetailStatus.Approved,
+                ApprovedBy = "QuanLyTinDung_MBBank",
+                ApprovedAt = DateTime.Now.AddDays(-4),
+                Note = "Giấy chứng nhận đăng kiểm CQ gốc gửi kho bảo mật MBBank"
+            };
+            db.MortgageDetails.AddRange(mDtl2_1, mDtl2_2);
+            await db.SaveChangesAsync();
+
+            // 3. Hồ sơ thế chấp Techcombank (TCB) - Mới lập, đang chờ phê duyệt
+            var mReq3 = new MortgageRequest
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                ReqRMNo = "RM-DEMO-20250514-003",
+                BankCode = "TCB",
+                BankName = "Ngân hàng TMCP Kỹ thương Việt Nam (Techcombank)",
+                PartnerCode = "DLR-HYUNDAI-PHAMVANVO",
+                PartnerName = "Đại lý Ô tô Hyundai Phạm Văn Đồng",
+                CreditContractNo = "TD-TCB-2025/22",
+                MortgageDate = DateTime.Today,
+                TotalItems = 2,
+                ActiveItems = 0,
+                RedeemedItems = 0,
+                TotalCollateralValue = 2_215_000_000,
+                TotalLoanAmount = 1_550_000_000,
+                RemainingLoanAmount = 1_550_000_000,
+                InterestRate = 8.0m,
+                LoanPeriodDays = 90,
+                Status = MortgageStatus.PendingApproval,
+                CreatedBy = "KeToanVayVon",
+                Remark = "Hồ sơ thế chấp tài sản xe Custin & Palisade đang chờ thẩm định định giá tài sản",
+                CreatedAt = DateTime.Now.AddHours(-2)
+            };
+            db.MortgageRequests.Add(mReq3);
+            await db.SaveChangesAsync();
+
+            db.MortgageDetails.AddRange(
+                new MortgageDetail
+                {
+                    MortgageRequestId = mReq3.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    ItemRefNo = "VIN-CUSTIN-2025-03",
+                    ModelCode = "CUSTIN-1.5T",
+                    EngineNo = "ENG-CU25-11230",
+                    CQNo = "CQ-2025-99801",
+                    CONo = "CO-2025-33001",
+                    DeclarationNo = "TK-HQ-2025-04551",
+                    CODate = DateTime.Today.AddDays(-5),
+                    CollateralValue = 850_000_000,
+                    LoanAmount = 600_000_000,
+                    Status = MortgageDetailStatus.Pending,
+                    Note = "Chờ cán bộ định giá TCB phê duyệt"
+                },
+                new MortgageDetail
+                {
+                    MortgageRequestId = mReq3.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    ItemRefNo = "VIN-PALISADE-2025-04",
+                    ModelCode = "PALISADE-PRE",
+                    EngineNo = "ENG-PA25-88902",
+                    CQNo = "CQ-2025-99802",
+                    CONo = "CO-2025-33002",
+                    DeclarationNo = "TK-HQ-2025-04552",
+                    CODate = DateTime.Today.AddDays(-5),
+                    CollateralValue = 1_365_000_000,
+                    LoanAmount = 950_000_000,
+                    Status = MortgageDetailStatus.Pending,
+                    Note = "Chờ cán bộ định giá TCB phê duyệt"
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // 4. Hồ sơ đề nghị giải chấp đã hoàn tất cho xe SantaFe (VietinBank CTG)
+            if (!await db.RedeemRequests.AnyAsync(r => r.OrgId == TenantContext.DefaultOrgId))
+            {
+                var rReq1 = new RedeemRequest
+                {
+                    OrgId = TenantContext.DefaultOrgId,
+                    ReqDMNo = "DM-DEMO-20250512-001",
+                    BankCode = "CTG",
+                    BankName = "Ngân hàng TMCP Công thương Việt Nam (VietinBank)",
+                    PartnerCode = "DLR-HYUNDAI-THANHXUAN",
+                    PartnerName = "Đại lý Ô tô Hyundai Thanh Xuân",
+                    RedeemDate = DateTime.Today.AddDays(-2),
+                    TotalItems = 1,
+                    ApprovedItems = 1,
+                    TotalSettlementAmount = 950_000_000,
+                    PaymentProofNo = "UNC-CTG-20250512-88712",
+                    Status = RedeemStatus.Completed,
+                    CreatedBy = "KeToanThanhToan",
+                    ApprovedBy = "TruongPhongGD_VietinBank",
+                    ApprovedAt = DateTime.Now.AddDays(-2),
+                    Remark = "Đại lý nộp đủ 950 triệu đồng tiền tất toán gốc vay xe SantaFe qua tài khoản CTG",
+                    CreatedAt = DateTime.Now.AddDays(-3)
+                };
+                db.RedeemRequests.Add(rReq1);
+                await db.SaveChangesAsync();
+
+                db.RedeemDetails.Add(new RedeemDetail
+                {
+                    RedeemRequestId = rReq1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    ItemRefNo = "VIN-SANTAFE-2025-01",
+                    ReqRMNo = "RM-DEMO-20250501-001",
+                    MortgageDetailId = mDtl1_1.Id,
+                    ModelCode = "SANTAFE-CAL",
+                    DealerCode = "DLR-HYUNDAI-THANHXUAN",
+                    SettlementAmount = 950_000_000,
+                    Status = RedeemDetailStatus.Approved,
+                    ApprovedBy = "TruongPhongGD_VietinBank",
+                    ApprovedAt = DateTime.Now.AddDays(-2),
+                    Note = "Đã thu nợ gốc thành công, phát hành giấy xóa thế chấp xe"
+                });
+                await db.SaveChangesAsync();
+            }
         }
     }
 }

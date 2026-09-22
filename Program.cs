@@ -31,6 +31,7 @@ builder.Services.AddScoped<ReconcileService>();
 builder.Services.AddScoped<BankingPayoutService>();
 builder.Services.AddScoped<PaymentDiscountService>();
 builder.Services.AddScoped<PaymentGuaranteeService>();
+builder.Services.AddScoped<MortgageRedeemService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -1365,6 +1366,484 @@ app.MapGet("/api/guarantee/summary", async (PaymentGuaranteeService grtService, 
     return Results.Ok(summary);
 });
 
+// ===== Quản lý Thế chấp & Giải chấp tài sản ngân hàng (Bank Collateral Mortgage & Redemption - BizHTC.GiaiChap) =====
+
+// 1) Tạo đề nghị thế chấp tài sản / kho xe vay ngân hàng (RM_ReqMortgage_Create)
+app.MapPost("/api/mortgage/requests", async (CreateMortgageDto dto, MortgageRedeemService mgService, ITenantContext tc) =>
+{
+    if (string.IsNullOrWhiteSpace(dto.BankCode))
+        return Results.BadRequest(new { error = "Cần mã ngân hàng nhận thế chấp (BankCode: CTG, MBB, TCB, VCB...)." });
+    if (string.IsNullOrWhiteSpace(dto.PartnerCode))
+        return Results.BadRequest(new { error = "Cần mã đối tác / đại lý thế chấp (PartnerCode)." });
+    if (dto.Items == null || dto.Items.Count == 0)
+        return Results.BadRequest(new { error = "Hồ sơ thế chấp phải có ít nhất 1 tài sản / xe bảo đảm." });
+
+    try
+    {
+        var req = await mgService.CreateMortgageRequestAsync(
+            tc.OrgId,
+            dto.ReqRMNo,
+            dto.BankCode,
+            dto.BankName,
+            dto.PartnerCode,
+            dto.PartnerName,
+            dto.CreditContractNo,
+            dto.MortgageDate,
+            dto.InterestRate,
+            dto.LoanPeriodDays,
+            dto.Remark,
+            dto.Items
+        );
+
+        return Results.Ok(new
+        {
+            req.Id,
+            req.ReqRMNo,
+            req.BankCode,
+            req.BankName,
+            req.PartnerCode,
+            req.PartnerName,
+            req.CreditContractNo,
+            req.MortgageDate,
+            req.TotalItems,
+            req.ActiveItems,
+            req.RedeemedItems,
+            req.TotalCollateralValue,
+            req.TotalLoanAmount,
+            req.RemainingLoanAmount,
+            req.InterestRate,
+            req.LoanPeriodDays,
+            status = req.Status.ToString(),
+            req.Remark,
+            req.CreatedBy,
+            req.CreatedAt,
+            details = req.Details.Select(d => new
+            {
+                d.Id,
+                d.ItemRefNo,
+                d.ModelCode,
+                d.EngineNo,
+                d.CQNo,
+                d.CONo,
+                d.DeclarationNo,
+                d.CODate,
+                d.CollateralValue,
+                d.LoanAmount,
+                status = d.Status.ToString(),
+                d.Note
+            })
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 2) Danh sách hồ sơ thế chấp ngân hàng (FrmMngRM_ReqMortgage)
+app.MapGet("/api/mortgage/requests", async (AppDbContext db, ITenantContext tc, string? status, string? bankCode, string? partnerCode) =>
+{
+    var q = db.MortgageRequests.Where(r => r.OrgId == tc.OrgId);
+    if (!string.IsNullOrWhiteSpace(bankCode))
+        q = q.Where(r => r.BankCode == bankCode.ToUpper());
+    if (!string.IsNullOrWhiteSpace(partnerCode))
+        q = q.Where(r => r.PartnerCode == partnerCode.ToUpper());
+    if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<MortgageStatus>(status, true, out var st))
+        q = q.Where(r => r.Status == st);
+
+    var list = await q.OrderByDescending(r => r.CreatedAt)
+        .Select(r => new
+        {
+            r.Id,
+            r.ReqRMNo,
+            r.BankCode,
+            r.BankName,
+            r.PartnerCode,
+            r.PartnerName,
+            r.CreditContractNo,
+            r.MortgageDate,
+            r.TotalItems,
+            r.ActiveItems,
+            r.RedeemedItems,
+            r.TotalCollateralValue,
+            r.TotalLoanAmount,
+            r.RemainingLoanAmount,
+            r.InterestRate,
+            r.LoanPeriodDays,
+            status = r.Status.ToString(),
+            r.Remark,
+            r.RejectReason,
+            r.CreatedBy,
+            r.CreatedAt,
+            r.ApprovedBy,
+            r.ApprovedAt,
+            r.FinishedBy,
+            r.FinishedAt,
+            r.CancelledAt
+        })
+        .ToListAsync();
+
+    return Results.Ok(list);
+});
+
+// 3) Chi tiết 1 hồ sơ thế chấp kèm danh sách tài sản (FrmMngRM_ReqMortgage.Detail)
+app.MapGet("/api/mortgage/requests/{id:long}", async (long id, AppDbContext db, ITenantContext tc) =>
+{
+    var req = await db.MortgageRequests
+        .Include(r => r.Details)
+        .FirstOrDefaultAsync(r => r.Id == id && r.OrgId == tc.OrgId);
+
+    if (req == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ thế chấp #{id}." });
+
+    return Results.Ok(new
+    {
+        req.Id,
+        req.ReqRMNo,
+        req.BankCode,
+        req.BankName,
+        req.PartnerCode,
+        req.PartnerName,
+        req.CreditContractNo,
+        req.MortgageDate,
+        req.TotalItems,
+        req.ActiveItems,
+        req.RedeemedItems,
+        req.TotalCollateralValue,
+        req.TotalLoanAmount,
+        req.RemainingLoanAmount,
+        req.InterestRate,
+        req.LoanPeriodDays,
+        status = req.Status.ToString(),
+        req.Remark,
+        req.RejectReason,
+        req.CreatedBy,
+        req.CreatedAt,
+        req.ApprovedBy,
+        req.ApprovedAt,
+        req.FinishedBy,
+        req.FinishedAt,
+        req.CancelledAt,
+        details = req.Details.OrderBy(d => d.Id).Select(d => new
+        {
+            d.Id,
+            d.ItemRefNo,
+            d.ModelCode,
+            d.EngineNo,
+            d.CQNo,
+            d.CONo,
+            d.DeclarationNo,
+            d.CODate,
+            d.CollateralValue,
+            d.LoanAmount,
+            status = d.Status.ToString(),
+            d.ApprovedBy,
+            d.ApprovedAt,
+            d.ReqDMNo,
+            d.RedeemedAt,
+            d.Note
+        })
+    });
+});
+
+// 4) Phê duyệt đề nghị thế chấp & phong tỏa tài sản bảo đảm (RM_ReqMortgageDtl_Approve)
+app.MapPost("/api/mortgage/requests/{id:long}/approve", async (long id, ApproveMortgageDto? dto, MortgageRedeemService mgService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await mgService.ApproveMortgageRequestAsync(id, tc.OrgId, dto?.ApproverName);
+        if (req == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ thế chấp #{id}." });
+
+        return Results.Ok(new
+        {
+            req.Id,
+            req.ReqRMNo,
+            status = req.Status.ToString(),
+            req.ActiveItems,
+            req.ApprovedBy,
+            req.ApprovedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 5) Từ chối hồ sơ thế chấp
+app.MapPost("/api/mortgage/requests/{id:long}/reject", async (long id, RejectMortgageDto dto, MortgageRedeemService mgService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await mgService.RejectMortgageRequestAsync(id, tc.OrgId, dto.Reason, dto.RejecterName);
+        if (req == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ thế chấp #{id}." });
+
+        return Results.Ok(new
+        {
+            req.Id,
+            req.ReqRMNo,
+            status = req.Status.ToString(),
+            req.RejectReason,
+            req.ApprovedBy,
+            req.ApprovedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Hủy hồ sơ thế chấp
+app.MapPost("/api/mortgage/requests/{id:long}/cancel", async (long id, CancelMortgageDto? dto, MortgageRedeemService mgService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await mgService.CancelMortgageRequestAsync(id, tc.OrgId, dto?.Reason);
+        if (req == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ thế chấp #{id}." });
+
+        return Results.Ok(new
+        {
+            req.Id,
+            req.ReqRMNo,
+            status = req.Status.ToString(),
+            req.CancelledAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 7) Tạo đề nghị giải chấp tài sản ngân hàng (RD_ReqRedeem_Create)
+app.MapPost("/api/redeem/requests", async (CreateRedeemDto dto, MortgageRedeemService mgService, ITenantContext tc) =>
+{
+    if (string.IsNullOrWhiteSpace(dto.BankCode))
+        return Results.BadRequest(new { error = "Cần mã ngân hàng nhận giải chấp (BankCode)." });
+    if (string.IsNullOrWhiteSpace(dto.PartnerCode))
+        return Results.BadRequest(new { error = "Cần mã đối tác / đại lý giải chấp (PartnerCode)." });
+    if (dto.Items == null || dto.Items.Count == 0)
+        return Results.BadRequest(new { error = "Đề nghị giải chấp phải có ít nhất 1 tài sản / xe cần giải phóng." });
+
+    try
+    {
+        var req = await mgService.CreateRedeemRequestAsync(
+            tc.OrgId,
+            dto.ReqDMNo,
+            dto.BankCode,
+            dto.BankName,
+            dto.PartnerCode,
+            dto.PartnerName,
+            dto.RedeemDate,
+            dto.TotalSettlementAmount,
+            dto.PaymentProofNo,
+            dto.Remark,
+            dto.Items
+        );
+
+        return Results.Ok(new
+        {
+            req.Id,
+            req.ReqDMNo,
+            req.BankCode,
+            req.BankName,
+            req.PartnerCode,
+            req.PartnerName,
+            req.RedeemDate,
+            req.TotalItems,
+            req.ApprovedItems,
+            req.TotalSettlementAmount,
+            req.PaymentProofNo,
+            status = req.Status.ToString(),
+            req.Remark,
+            req.CreatedBy,
+            req.CreatedAt,
+            details = req.Details.Select(d => new
+            {
+                d.Id,
+                d.ItemRefNo,
+                d.ReqRMNo,
+                d.ModelCode,
+                d.DealerCode,
+                d.SettlementAmount,
+                status = d.Status.ToString(),
+                d.Note
+            })
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 8) Danh sách đề nghị giải chấp (FrmMngRedeem)
+app.MapGet("/api/redeem/requests", async (AppDbContext db, ITenantContext tc, string? status, string? bankCode) =>
+{
+    var q = db.RedeemRequests.Where(r => r.OrgId == tc.OrgId);
+    if (!string.IsNullOrWhiteSpace(bankCode))
+        q = q.Where(r => r.BankCode == bankCode.ToUpper());
+    if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<RedeemStatus>(status, true, out var st))
+        q = q.Where(r => r.Status == st);
+
+    var list = await q.OrderByDescending(r => r.CreatedAt)
+        .Select(r => new
+        {
+            r.Id,
+            r.ReqDMNo,
+            r.BankCode,
+            r.BankName,
+            r.PartnerCode,
+            r.PartnerName,
+            r.RedeemDate,
+            r.TotalItems,
+            r.ApprovedItems,
+            r.TotalSettlementAmount,
+            r.PaymentProofNo,
+            status = r.Status.ToString(),
+            r.Remark,
+            r.RejectReason,
+            r.CreatedBy,
+            r.CreatedAt,
+            r.ApprovedBy,
+            r.ApprovedAt,
+            r.CancelledAt
+        })
+        .ToListAsync();
+
+    return Results.Ok(list);
+});
+
+// 9) Chi tiết 1 đề nghị giải chấp kèm danh mục xe
+app.MapGet("/api/redeem/requests/{id:long}", async (long id, AppDbContext db, ITenantContext tc) =>
+{
+    var req = await db.RedeemRequests
+        .Include(r => r.Details)
+        .FirstOrDefaultAsync(r => r.Id == id && r.OrgId == tc.OrgId);
+
+    if (req == null) return Results.NotFound(new { error = $"Không tìm thấy đề nghị giải chấp #{id}." });
+
+    return Results.Ok(new
+    {
+        req.Id,
+        req.ReqDMNo,
+        req.BankCode,
+        req.BankName,
+        req.PartnerCode,
+        req.PartnerName,
+        req.RedeemDate,
+        req.TotalItems,
+        req.ApprovedItems,
+        req.TotalSettlementAmount,
+        req.PaymentProofNo,
+        status = req.Status.ToString(),
+        req.Remark,
+        req.RejectReason,
+        req.CreatedBy,
+        req.CreatedAt,
+        req.ApprovedBy,
+        req.ApprovedAt,
+        req.CancelledAt,
+        details = req.Details.OrderBy(d => d.Id).Select(d => new
+        {
+            d.Id,
+            d.ItemRefNo,
+            d.ReqRMNo,
+            d.ModelCode,
+            d.DealerCode,
+            d.SettlementAmount,
+            status = d.Status.ToString(),
+            d.ApprovedBy,
+            d.ApprovedAt,
+            d.Note
+        })
+    });
+});
+
+// 10) Phê duyệt đề nghị giải chấp & giải phóng tài sản thế chấp (RD_ReqRedeemDtl_Approve & Check Finish RM_ReqMortgage)
+app.MapPost("/api/redeem/requests/{id:long}/approve", async (long id, ApproveRedeemDto? dto, MortgageRedeemService mgService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await mgService.ApproveRedeemRequestAsync(id, tc.OrgId, dto?.ApproverName);
+        if (req == null) return Results.NotFound(new { error = $"Không tìm thấy đề nghị giải chấp #{id}." });
+
+        return Results.Ok(new
+        {
+            req.Id,
+            req.ReqDMNo,
+            status = req.Status.ToString(),
+            req.ApprovedItems,
+            req.ApprovedBy,
+            req.ApprovedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 11) Từ chối đề nghị giải chấp
+app.MapPost("/api/redeem/requests/{id:long}/reject", async (long id, RejectRedeemDto dto, MortgageRedeemService mgService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await mgService.RejectRedeemRequestAsync(id, tc.OrgId, dto.Reason, dto.RejecterName);
+        if (req == null) return Results.NotFound(new { error = $"Không tìm thấy đề nghị giải chấp #{id}." });
+
+        return Results.Ok(new
+        {
+            req.Id,
+            req.ReqDMNo,
+            status = req.Status.ToString(),
+            req.RejectReason,
+            req.ApprovedBy,
+            req.ApprovedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 12) Hủy đề nghị giải chấp
+app.MapPost("/api/redeem/requests/{id:long}/cancel", async (long id, CancelRedeemDto? dto, MortgageRedeemService mgService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await mgService.CancelRedeemRequestAsync(id, tc.OrgId, dto?.Reason);
+        if (req == null) return Results.NotFound(new { error = $"Không tìm thấy đề nghị giải chấp #{id}." });
+
+        return Results.Ok(new
+        {
+            req.Id,
+            req.ReqDMNo,
+            status = req.Status.ToString(),
+            req.CancelledAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 13) Lấy danh sách tài sản đang thế chấp để chọn giải chấp
+app.MapGet("/api/mortgage/active-items", async (MortgageRedeemService mgService, ITenantContext tc, string? bankCode) =>
+{
+    var list = await mgService.GetActiveMortgagedItemsAsync(tc.OrgId, bankCode);
+    return Results.Ok(list);
+});
+
+// 14) Báo cáo tổng hợp số liệu thế chấp & giải chấp ngân hàng
+app.MapGet("/api/mortgage/summary", async (MortgageRedeemService mgService, ITenantContext tc) =>
+{
+    var summary = await mgService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
 app.Run();
 
 record CreatePayDto(long Amount, string? OrderId, string? OrderInfo, string? BankCode);
@@ -1386,3 +1865,11 @@ record ClaimGuaranteeDto(long ClaimAmount, string ClaimReason, string? ClaimedBy
 record SettleGuaranteeDto(string? SettlerName, string? Remark);
 record RejectGuaranteeDto(string Reason, string? RejecterName);
 record CancelGuaranteeDto(string? Reason);
+record CreateMortgageDto(string? ReqRMNo, string BankCode, string? BankName, string PartnerCode, string? PartnerName, string? CreditContractNo, DateTime? MortgageDate, decimal? InterestRate, int? LoanPeriodDays, string? Remark, List<MortgageItemInputDto> Items);
+record ApproveMortgageDto(string? ApproverName);
+record RejectMortgageDto(string Reason, string? RejecterName);
+record CancelMortgageDto(string? Reason);
+record CreateRedeemDto(string? ReqDMNo, string BankCode, string? BankName, string PartnerCode, string? PartnerName, DateTime? RedeemDate, long? TotalSettlementAmount, string? PaymentProofNo, string? Remark, List<RedeemItemInputDto> Items);
+record ApproveRedeemDto(string? ApproverName);
+record RejectRedeemDto(string Reason, string? RejecterName);
+record CancelRedeemDto(string? Reason);

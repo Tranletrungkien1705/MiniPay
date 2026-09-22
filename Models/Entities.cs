@@ -35,6 +35,14 @@ public enum GuaranteeType { Payment = 0, ContractPerformance = 1, DeferredPaymen
 
 public enum GuaranteeDetailStatus { Active = 0, Paid = 1, Claimed = 2, Released = 3, Cancelled = 4 }
 
+public enum MortgageStatus { Draft = 0, PendingApproval = 1, Approved = 2, Finished = 3, Rejected = 4, Cancelled = 5 }
+
+public enum MortgageDetailStatus { Pending = 0, Approved = 1, Redeemed = 2, Cancelled = 3 }
+
+public enum RedeemStatus { Draft = 0, PendingApproval = 1, Approved = 2, Completed = 3, Rejected = 4, Cancelled = 5 }
+
+public enum RedeemDetailStatus { Pending = 0, Approved = 1, Cancelled = 2 }
+
 /// <summary>Ý định thanh toán (payment intent) — 1 dòng / 1 lần khởi tạo cổng.</summary>
 public sealed class PaymentIntent
 {
@@ -253,5 +261,107 @@ public sealed class PaymentGuaranteeDetail
     public DateTime DateStart { get; set; } = DateTime.Today; // Ngày bắt đầu hiệu lực bảo lãnh của món
     public DateTime DateEnd { get; set; }                     // Hạn thanh toán của món
     public GuaranteeDetailStatus Status { get; set; } = GuaranteeDetailStatus.Active; // Trạng thái món bảo lãnh
+    public string? Note { get; set; }
+}
+
+/// <summary>Hồ sơ đề nghị thế chấp tài sản / kho xe vay ngân hàng — tương ứng RM_ReqMortgage trong BizHTC.GiaiChap / FrmMngRM_ReqMortgage.</summary>
+public sealed class MortgageRequest
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string ReqRMNo { get; set; } = "";             // Số đề nghị thế chấp (RM-20250514-001)
+    public string BankCode { get; set; } = "";            // Mã ngân hàng tài trợ vốn (CTG, MBB, TCB, VCB, BIDV, VPB...)
+    public string BankName { get; set; } = "";            // Tên ngân hàng nhận thế chấp
+    public string PartnerCode { get; set; } = "";         // Mã đơn vị / đại lý thế chấp (DealerCode)
+    public string PartnerName { get; set; } = "";         // Tên đơn vị / đại lý thế chấp (DealerName)
+    public string? CreditContractNo { get; set; }         // Số hợp đồng tín dụng / hạn mức vay thế chấp
+    public DateTime MortgageDate { get; set; } = DateTime.Today; // Ngày lập đề nghị thế chấp
+    public int TotalItems { get; set; }                   // Tổng số lượng tài sản / xe thế chấp
+    public int ActiveItems { get; set; }                  // Số lượng tài sản đang thế chấp (trạng thái Approved)
+    public int RedeemedItems { get; set; }                // Số lượng tài sản đã giải chấp thành công (trạng thái Redeemed)
+    public long TotalCollateralValue { get; set; }        // Tổng giá trị định giá tài sản bảo đảm (VND)
+    public long TotalLoanAmount { get; set; }             // Tổng số tiền vay giải ngân thế chấp (VND)
+    public long RemainingLoanAmount { get; set; }         // Dư nợ vay thế chấp còn lại chưa giải chấp (VND)
+    public decimal InterestRate { get; set; } = 8.5m;     // Lãi suất vay thế chấp (%/năm)
+    public int LoanPeriodDays { get; set; } = 90;         // Thời hạn vay vốn thế chấp (ngày)
+    public MortgageStatus Status { get; set; } = MortgageStatus.PendingApproval; // Trạng thái hồ sơ thế chấp
+    public string? CreatedBy { get; set; }                // Người lập đề nghị
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public string? ApprovedBy { get; set; }               // Người / Ngân hàng phê duyệt
+    public DateTime? ApprovedAt { get; set; }             // Thời điểm phê duyệt thế chấp
+    public string? FinishedBy { get; set; }               // Người tất toán toàn bộ hồ sơ
+    public DateTime? FinishedAt { get; set; }             // Thời điểm giải chấp tất toán toàn bộ
+    public string? RejectReason { get; set; }             // Lý do từ chối
+    public DateTime? CancelledAt { get; set; }            // Thời điểm hủy
+    public string? Remark { get; set; }                   // Ghi chú / diễn giải hồ sơ thế chấp
+
+    public List<MortgageDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết danh mục tài sản / xe thế chấp ngân hàng — tương ứng RM_ReqMortgageDtl trong BizHTC.GiaiChap.</summary>
+public sealed class MortgageDetail
+{
+    public long Id { get; set; }
+    public long MortgageRequestId { get; set; }
+    public Guid OrgId { get; set; }
+    public string ItemRefNo { get; set; } = "";           // Số khung / Mã tài sản (VIN - cv_VIN)
+    public string ModelCode { get; set; } = "";           // Model xe / Chủng loại tài sản (cv_ModelCode)
+    public string? EngineNo { get; set; }                 // Số máy (cv_EngineNo)
+    public string? CQNo { get; set; }                     // Số chứng nhận kiểm định an toàn kỹ thuật / Đăng kiểm (cv_CQNo)
+    public string? CONo { get; set; }                     // Số chứng nhận chất lượng xuất xưởng / Nguồn gốc (cv_CONo)
+    public string? DeclarationNo { get; set; }            // Số tờ khai hải quan nhập khẩu (cv_DeclarationNo)
+    public DateTime? CODate { get; set; }                 // Ngày chứng từ nguồn gốc (cv_CODate)
+    public long CollateralValue { get; set; }             // Giá trị định giá tài sản bảo đảm (VND)
+    public long LoanAmount { get; set; }                  // Số tiền vay thế chấp phân bổ (VND)
+    public MortgageDetailStatus Status { get; set; } = MortgageDetailStatus.Pending; // RMDtlStatus
+    public string? ApprovedBy { get; set; }               // Người duyệt dòng
+    public DateTime? ApprovedAt { get; set; }             // Thời điểm duyệt dòng
+    public string? ReqDMNo { get; set; }                  // Số đề nghị giải chấp liên kết khi đã giải chấp (rdrrd_ReqDMNo)
+    public DateTime? RedeemedAt { get; set; }             // Ngày hoàn tất giải chấp (rdrrd_ApprovedDate)
+    public string? Note { get; set; }
+}
+
+/// <summary>Hồ sơ đề nghị giải chấp tài sản ngân hàng — tương ứng RD_ReqRedeem trong BizHTC.GiaiChap / FrmMngRedeem.</summary>
+public sealed class RedeemRequest
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string ReqDMNo { get; set; } = "";             // Số đề nghị giải chấp (DM-20250514-001)
+    public string BankCode { get; set; } = "";            // Ngân hàng nhận đề nghị giải chấp
+    public string BankName { get; set; } = "";            // Tên ngân hàng
+    public string PartnerCode { get; set; } = "";         // Mã đơn vị / đại lý đề nghị giải chấp
+    public string PartnerName { get; set; } = "";         // Tên đơn vị / đại lý
+    public DateTime RedeemDate { get; set; } = DateTime.Today; // Ngày lập đề nghị giải chấp
+    public int TotalItems { get; set; }                   // Tổng số tài sản đề nghị giải chấp
+    public int ApprovedItems { get; set; }                // Số tài sản đã duyệt giải chấp
+    public long TotalSettlementAmount { get; set; }       // Tổng tiền nộp tất toán nợ vay giải chấp (VND)
+    public string? PaymentProofNo { get; set; }           // Mã chứng từ thanh toán / Ủy nhiệm chi (UNC / TransNo)
+    public RedeemStatus Status { get; set; } = RedeemStatus.PendingApproval; // DMReqStatus
+    public string? CreatedBy { get; set; }                // Người lập
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public string? ApprovedBy { get; set; }               // Người / Ngân hàng phê duyệt giải chấp
+    public DateTime? ApprovedAt { get; set; }             // Thời điểm phê duyệt giải chấp
+    public string? RejectReason { get; set; }             // Lý do từ chối giải chấp
+    public DateTime? CancelledAt { get; set; }            // Thời điểm hủy
+    public string? Remark { get; set; }                   // Diễn giải / ghi chú hồ sơ giải chấp
+
+    public List<RedeemDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết tài sản đề nghị giải chấp ngân hàng — tương ứng RD_ReqRedeemDtl trong BizHTC.GiaiChap.</summary>
+public sealed class RedeemDetail
+{
+    public long Id { get; set; }
+    public long RedeemRequestId { get; set; }
+    public Guid OrgId { get; set; }
+    public string ItemRefNo { get; set; } = "";           // Số khung / Mã tài sản giải chấp (VIN)
+    public string ReqRMNo { get; set; } = "";             // Số hồ sơ thế chấp gốc tương ứng (ReqRMNo)
+    public long? MortgageDetailId { get; set; }           // ID dòng thế chấp gốc
+    public string? ModelCode { get; set; }                // Model xe / Tên tài sản
+    public string? DealerCode { get; set; }               // Đại lý tiếp nhận tài sản sau giải chấp
+    public long SettlementAmount { get; set; }            // Số tiền nộp tất toán giải chấp món này (VND)
+    public RedeemDetailStatus Status { get; set; } = RedeemDetailStatus.Pending; // DMReqDtlStatus
+    public string? ApprovedBy { get; set; }               // Người duyệt giải chấp
+    public DateTime? ApprovedAt { get; set; }             // Thời điểm duyệt giải chấp
     public string? Note { get; set; }
 }

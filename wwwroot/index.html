@@ -58,7 +58,7 @@
   <div style="display:flex; justify-content:space-between; align-items:center;">
     <div>
       <h1>MiniPay</h1>
-      <p class="muted">Cổng thanh toán điện tử (VNPay/MoMo), Đối soát sao kê, Lệnh chi chuyển tiền, Chiết khấu thanh toán sớm &amp; Bảo lãnh ngân hàng (BizHTC.Payment / FrmMngGrt).</p>
+      <p class="muted">Cổng thanh toán điện tử (VNPay/MoMo), Đối soát sao kê, Lệnh chi chuyển tiền, Chiết khấu thanh toán, Bảo lãnh &amp; Thế chấp/Giải chấp ngân hàng (BizHTC.Payment / BizHTC.GiaiChap).</p>
     </div>
     <div>
       <span class="badge badge-info">Demo Merchant</span>
@@ -90,10 +90,13 @@
     <button class="tab-btn" onclick="showTab('payout')">Lệnh Chi Ngân Hàng (Banking Payout)</button>
     <button class="tab-btn" onclick="showTab('discount')">Chiết Khấu Thanh Toán (Payment Discount)</button>
     <button class="tab-btn" onclick="showTab('guarantee')">Bảo Lãnh Ngân Hàng (Bank Guarantee)</button>
+    <button class="tab-btn" onclick="showTab('mortgage')">Thế Chấp &amp; Giải Chấp (Bank Mortgage &amp; Redeem)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
     <button class="tab-btn" onclick="showTab('newGuarantee')">+ Lập Thư Bảo Lãnh Mới</button>
+    <button class="tab-btn" onclick="showTab('newMortgage')">+ Lập Đề Nghị Thế Chấp</button>
+    <button class="tab-btn" onclick="showTab('newRedeem')">+ Lập Đề Nghị Giải Chấp</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -422,6 +425,187 @@
     </div>
   </div>
 
+  <!-- TAB: Thế Chấp & Giải Chấp Ngân Hàng (Bank Mortgage & Collateral Redemption) -->
+  <div id="tab-mortgage" style="display:none;">
+    <!-- Phần 1: Hồ sơ thế chấp ngân hàng -->
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+        <div>
+          <h3 style="margin:0;">Danh mục Hồ sơ Thế chấp Tài sản / Kho xe Ngân hàng (RM_ReqMortgage)</h3>
+          <p class="muted" style="margin:2px 0 0;">Quản lý tài sản thế chấp bảo đảm vốn lưu động &amp; hạn mức tín dụng theo mẫu nghiệp vụ 2010.HTC.</p>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <select id="filterMgBank" onchange="loadMortgages()" style="width:auto; margin:0;">
+            <option value="">-- Tất cả ngân hàng --</option>
+            <option value="CTG">CTG — VietinBank</option>
+            <option value="MBB">MBB — MBBank</option>
+            <option value="TCB">TCB — Techcombank</option>
+            <option value="VCB">VCB — Vietcombank</option>
+            <option value="BIDV">BIDV</option>
+            <option value="VPB">VPB — VPBank</option>
+          </select>
+          <select id="filterMgStatus" onchange="loadMortgages()" style="width:auto; margin:0;">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="PendingApproval">Chờ Phê Duyệt</option>
+            <option value="Approved">Đang Thế Chấp (Approved)</option>
+            <option value="Finished">Đã Tất Toán Xong (Finished)</option>
+            <option value="Rejected">Bị Từ Chối</option>
+            <option value="Cancelled">Đã Hủy</option>
+          </select>
+          <button class="secondary" onclick="loadMortgages()">Làm mới</button>
+        </div>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Đề Nghị</th>
+              <th>Ngân Hàng</th>
+              <th>Đối Tác / Đại Lý</th>
+              <th>HĐ Tín Dụng</th>
+              <th>Tổng Xe</th>
+              <th>Đang TC</th>
+              <th>Đã GC</th>
+              <th>Định Giá TS</th>
+              <th>Tiền Vay GN</th>
+              <th>Dư Nợ Còn Lại</th>
+              <th>Lãi Suất</th>
+              <th>Trạng Thái</th>
+              <th>Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="mortgageTableBody">
+            <tr><td colspan="13" class="muted" style="text-align:center;">Đang tải danh sách hồ sơ thế chấp...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Chi tiết Hồ sơ thế chấp -->
+    <div class="card" id="mortgageDetailCard" style="margin-top:18px; display:none; border-color:var(--primary);">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+        <div>
+          <h3 id="mortgageDetailTitle" style="margin:0;">Chi tiết hồ sơ thế chấp</h3>
+          <p class="muted" id="mortgageDetailSubtitle" style="margin:4px 0 0;"></p>
+        </div>
+        <button class="secondary" onclick="document.getElementById('mortgageDetailCard').style.display='none'">Đóng</button>
+      </div>
+
+      <div id="mortgageAuditBox" style="background:rgba(127,127,127,.08); border-radius:6px; padding:10px 14px; margin-bottom:12px; font-size:.88em; display:none;"></div>
+
+      <div style="margin:10px 0; display:flex; gap:8px; flex-wrap:wrap;">
+        <button id="btnApproveMortgage" style="background:var(--success);">Phê Duyệt Thế Chấp &amp; Phong Tỏa Tài Sản</button>
+        <button id="btnRejectMortgage" class="secondary" style="color:var(--danger); border-color:var(--danger);">Từ Chối Hồ Sơ</button>
+        <button id="btnCancelMortgage" class="secondary">Hủy Đề Nghị</button>
+      </div>
+
+      <h4 style="margin:14px 0 6px;">Danh mục tài sản / xe bảo đảm (RM_ReqMortgageDtl):</h4>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Khung (VIN)</th>
+              <th>Model Xe</th>
+              <th>Số Máy</th>
+              <th>Đăng Kiểm (CQNo)</th>
+              <th>Nguồn Gốc (CONo)</th>
+              <th>Tờ Khai HQ</th>
+              <th>Ngày Nguồn Gốc</th>
+              <th>Định Giá</th>
+              <th>Tiền Vay</th>
+              <th>Trạng Thái</th>
+              <th>Đề Nghị Giải Chấp</th>
+              <th>Ghi Chú</th>
+            </tr>
+          </thead>
+          <tbody id="mortgageDetailTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Phần 2: Đề nghị giải chấp ngân hàng -->
+    <div class="card" style="margin-top:20px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px; margin-bottom:10px;">
+        <div>
+          <h3 style="margin:0;">Danh mục Đề nghị Giải chấp Tài sản Ngân hàng (RD_ReqRedeem)</h3>
+          <p class="muted" style="margin:2px 0 0;">Tất toán nợ vay giải phóng xe / bàn giao đăng kiểm CQNo &amp; nguồn gốc CONo cho đại lý (BizHTC.GiaiChap).</p>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <select id="filterRedeemStatus" onchange="loadRedeems()" style="width:auto; margin:0;">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="PendingApproval">Chờ Phê Duyệt</option>
+            <option value="Completed">Đã Hoàn Tất Giải Chấp</option>
+            <option value="Rejected">Bị Từ Chối</option>
+            <option value="Cancelled">Đã Hủy</option>
+          </select>
+          <button class="secondary" onclick="loadRedeems()">Làm mới</button>
+        </div>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Đề Nghị GC</th>
+              <th>Ngân Hàng</th>
+              <th>Đối Tác / Đại Lý</th>
+              <th>Ngày Lập</th>
+              <th>Tổng Món</th>
+              <th>Đã Duyệt</th>
+              <th>Tiền Tất Toán</th>
+              <th>Chứng Từ UNC / TT</th>
+              <th>Trạng Thái</th>
+              <th>Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="redeemTableBody">
+            <tr><td colspan="10" class="muted" style="text-align:center;">Đang tải danh sách đề nghị giải chấp...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Chi tiết Đề nghị giải chấp -->
+    <div class="card" id="redeemDetailCard" style="margin-top:18px; display:none; border-color:var(--success);">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; margin-bottom:8px;">
+        <div>
+          <h3 id="redeemDetailTitle" style="margin:0;">Chi tiết đề nghị giải chấp</h3>
+          <p class="muted" id="redeemDetailSubtitle" style="margin:4px 0 0;"></p>
+        </div>
+        <button class="secondary" onclick="document.getElementById('redeemDetailCard').style.display='none'">Đóng</button>
+      </div>
+
+      <div id="redeemAuditBox" style="background:rgba(127,127,127,.08); border-radius:6px; padding:10px 14px; margin-bottom:12px; font-size:.88em; display:none;"></div>
+
+      <div style="margin:10px 0; display:flex; gap:8px; flex-wrap:wrap;">
+        <button id="btnApproveRedeem" style="background:var(--success);">Phê Duyệt Giải Chấp &amp; Trừ Dư Nợ</button>
+        <button id="btnRejectRedeem" class="secondary" style="color:var(--danger); border-color:var(--danger);">Từ Chối Giải Chấp</button>
+        <button id="btnCancelRedeem" class="secondary">Hủy Đề Nghị</button>
+      </div>
+
+      <h4 style="margin:14px 0 6px;">Danh mục xe giải chấp (RD_ReqRedeemDtl):</h4>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Khung (VIN)</th>
+              <th>Hồ Sơ Thế Chấp Gốc</th>
+              <th>Model Xe</th>
+              <th>Đại Lý Nhận Xe</th>
+              <th>Tiền Nộp Tất Toán</th>
+              <th>Trạng Thái</th>
+              <th>Người Duyệt</th>
+              <th>Ngày Duyệt</th>
+              <th>Ghi Chú</th>
+            </tr>
+          </thead>
+          <tbody id="redeemDetailTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB 3: Nạp sao kê & đối soát mới -->
   <div id="tab-newBatch" style="display:none;">
     <div class="card">
@@ -676,6 +860,145 @@
     </div>
   </div>
 
+  <!-- TAB: Lập đề nghị thế chấp tài sản mới -->
+  <div id="tab-newMortgage" style="display:none;">
+    <div class="card">
+      <h3>Lập Hồ Sơ Đề Nghị Thế Chấp Tài Sản / Kho Xe Ngân Hàng (RM_ReqMortgage_Create)</h3>
+      <p class="muted">Thế chấp danh mục xe bảo đảm khoản vay vốn lưu động với các ngân hàng tài trợ (VietinBank CTG, MBBank MBB, Techcombank TCB, Vietcombank VCB).</p>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Đề Nghị Thế Chấp (để trống để tự sinh):</label>
+          <input type="text" id="inpMortgageReqNo" placeholder="Ví dụ: RM-20250514-05">
+        </div>
+        <div class="col">
+          <label class="muted">Ngân Hàng Tài Trợ Vốn (*):</label>
+          <select id="inpMortgageBankCode">
+            <option value="CTG">CTG — VietinBank (Ngân hàng TMCP Công Thương Việt Nam)</option>
+            <option value="MBB">MBB — MBBank (Ngân hàng TMCP Quân Đội)</option>
+            <option value="TCB">TCB — Techcombank (Ngân hàng TMCP Kỹ Thương Việt Nam)</option>
+            <option value="VCB">VCB — Vietcombank (Ngân hàng TMCP Ngoại Thương Việt Nam)</option>
+            <option value="BIDV">BIDV (Ngân hàng TMCP Đầu tư và Phát triển VN)</option>
+            <option value="VPB">VPB (Ngân hàng TMCP Việt Nam Thịnh Vượng)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Mã Đơn Vị / Đại Lý Thế Chấp (*):</label>
+          <input type="text" id="inpMortgagePartnerCode" value="DLR-HYUNDAI-THANHXUAN">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Tên Đơn Vị / Đại Lý Thế Chấp:</label>
+          <input type="text" id="inpMortgagePartnerName" value="Đại lý Ô tô Hyundai Thanh Xuân">
+        </div>
+        <div class="col">
+          <label class="muted">Số Hợp Đồng Tín Dụng / Hạn Mức:</label>
+          <input type="text" id="inpMortgageContractNo" value="TD-CTG-2025/18">
+        </div>
+        <div class="col">
+          <label class="muted">Ngày Thế Chấp:</label>
+          <input type="date" id="inpMortgageDate">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Lãi Suất Vay (%/năm):</label>
+          <input type="number" id="inpMortgageRate" value="8.2" step="0.1">
+        </div>
+        <div class="col">
+          <label class="muted">Thời Hạn Vay (ngày):</label>
+          <input type="number" id="inpMortgageDays" value="90">
+        </div>
+        <div class="col">
+          <label class="muted">Diễn Giải / Căn Cứ Hồ Sơ:</label>
+          <input type="text" id="inpMortgageRemark" value="Thế chấp lưu kho lô xe du lịch bảo đảm giải ngân vốn lưu động">
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="muted">Danh mục xe thế chấp bảo đảm (VIN, Model, Đăng kiểm CQNo, Nguồn gốc CONo, Tờ khai HQ) [JSON]:</label>
+          <button class="secondary" type="button" onclick="loadSampleMortgageData()">Nạp Dữ Liệu Xe Mẫu</button>
+        </div>
+        <textarea id="inpMortgageItemsJson" rows="8" style="font-family:monospace; font-size:.85em;"></textarea>
+      </div>
+
+      <div style="margin-top:16px;">
+        <button type="button" onclick="submitMortgage()">Khởi Tạo Hồ Sơ Thế Chấp</button>
+        <span id="submitMortgageMsg" style="margin-left:12px;" class="muted"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Lập đề nghị giải chấp tài sản -->
+  <div id="tab-newRedeem" style="display:none;">
+    <div class="card">
+      <h3>Lập Đề Nghị Giải Chấp Tài Sản Ngân Hàng (RD_ReqRedeem_Create)</h3>
+      <p class="muted">Tất toán nợ vay giải phóng xe / bàn giao đăng kiểm CQNo &amp; nguồn gốc CONo cho đại lý xuất kho (BizHTC.GiaiChap).</p>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Đề Nghị Giải Chấp (để trống để tự sinh):</label>
+          <input type="text" id="inpRedeemReqNo" placeholder="Ví dụ: DM-20250514-02">
+        </div>
+        <div class="col">
+          <label class="muted">Ngân Hàng Nhận Giải Chấp (*):</label>
+          <select id="inpRedeemBankCode" onchange="loadActiveMortgagedItemsForRedeem()">
+            <option value="CTG">CTG — VietinBank</option>
+            <option value="MBB">MBB — MBBank</option>
+            <option value="TCB">TCB — Techcombank</option>
+            <option value="VCB">VCB — Vietcombank</option>
+            <option value="BIDV">BIDV</option>
+            <option value="VPB">VPB — VPBank</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Mã Đối Tác / Đại Lý Nhận Xe (*):</label>
+          <input type="text" id="inpRedeemPartnerCode" value="DLR-HYUNDAI-THANHXUAN">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Tên Đại Lý / Đối Tác:</label>
+          <input type="text" id="inpRedeemPartnerName" value="Đại lý Ô tô Hyundai Thanh Xuân">
+        </div>
+        <div class="col">
+          <label class="muted">Ngày Đề Nghị Giải Chấp:</label>
+          <input type="date" id="inpRedeemDate">
+        </div>
+        <div class="col">
+          <label class="muted">Số Chứng Từ / UNC Nộp Tiền Tất Toán:</label>
+          <input type="text" id="inpRedeemPaymentProofNo" value="UNC-CTG-20250514-99812">
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <label class="muted">Diễn Giải / Căn Cứ Giải Chấp:</label>
+        <input type="text" id="inpRedeemRemark" value="Đại lý nộp đủ tiền tất toán nợ gốc vay ngân hàng, đề nghị phát hành giấy xóa thế chấp xe">
+      </div>
+
+      <div style="margin-top:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="muted">Danh mục xe đề nghị giải chấp (JSON):</label>
+          <div>
+            <button class="secondary" type="button" onclick="loadActiveMortgagedItemsForRedeem()" style="margin-right:6px;">Lấy Xe Đang Thế Chấp Từ Ngân Hàng Này</button>
+            <button class="secondary" type="button" onclick="loadSampleRedeemData()">Nạp Dữ Liệu Xe Mẫu</button>
+          </div>
+        </div>
+        <textarea id="inpRedeemItemsJson" rows="8" style="font-family:monospace; font-size:.85em;"></textarea>
+      </div>
+
+      <div style="margin-top:16px;">
+        <button type="button" onclick="submitRedeem()">Khởi Tạo Đề Nghị Giải Chấp</button>
+        <span id="submitRedeemMsg" style="margin-left:12px;" class="muted"></span>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB 5: API Docs -->
   <div id="tab-apiDocs" style="display:none;">
     <div class="card">
@@ -735,6 +1058,23 @@
         <li><code>POST /api/guarantee/{id}/cancel</code> — Hủy thư bảo lãnh</li>
         <li><code>GET /api/guarantee/summary</code> — Báo cáo tổng hợp số liệu bảo lãnh, phân loại theo ngân hàng &amp; tình trạng</li>
       </ul>
+      <h3>Nghiệp Vụ Thế Chấp &amp; Giải Chấp Tài Sản Ngân Hàng (Bank Mortgage &amp; Collateral Redemption - BizHTC.GiaiChap)</h3>
+      <ul>
+        <li><code>POST /api/mortgage/requests</code> — Tạo hồ sơ đề nghị thế chấp tài sản / kho xe vay ngân hàng (RM_ReqMortgage_Create)</li>
+        <li><code>GET /api/mortgage/requests</code> — Danh mục hồ sơ thế chấp (hỗ trợ lọc theo <code>status</code>, <code>bankCode</code>, <code>partnerCode</code>)</li>
+        <li><code>GET /api/mortgage/requests/{id}</code> — Chi tiết hồ sơ thế chấp và danh mục xe bảo đảm (VIN, Model, Đăng kiểm CQNo, Nguồn gốc CONo, Tờ khai HQ)</li>
+        <li><code>POST /api/mortgage/requests/{id}/approve</code> — Phê duyệt hồ sơ thế chấp &amp; phong tỏa tài sản bảo đảm (RM_ReqMortgageDtl_Approve)</li>
+        <li><code>POST /api/mortgage/requests/{id}/reject</code> — Từ chối hồ sơ thế chấp kèm lý do</li>
+        <li><code>POST /api/mortgage/requests/{id}/cancel</code> — Hủy hồ sơ thế chấp</li>
+        <li><code>POST /api/redeem/requests</code> — Lập đề nghị giải chấp tài sản ngân hàng (RD_ReqRedeem_Create)</li>
+        <li><code>GET /api/redeem/requests</code> — Danh mục đề nghị giải chấp (lọc theo <code>status</code>, <code>bankCode</code>)</li>
+        <li><code>GET /api/redeem/requests/{id}</code> — Chi tiết đề nghị giải chấp và danh mục xe cần giải phóng</li>
+        <li><code>POST /api/redeem/requests/{id}/approve</code> — Phê duyệt giải chấp, trừ dư nợ vay và tự động chuyển hồ sơ thế chấp sang Finished nếu tất toán toàn bộ</li>
+        <li><code>POST /api/redeem/requests/{id}/reject</code> — Từ chối đề nghị giải chấp</li>
+        <li><code>POST /api/redeem/requests/{id}/cancel</code> — Hủy đề nghị giải chấp</li>
+        <li><code>GET /api/mortgage/active-items?bankCode=</code> — Lấy danh sách tài sản đang ở trạng thái thế chấp sẵn sàng để lập đề nghị giải chấp</li>
+        <li><code>GET /api/mortgage/summary</code> — Báo cáo tổng hợp số liệu thế chấp, giải chấp, dư nợ vay phân bổ theo từng ngân hàng</li>
+      </ul>
     </div>
   </div>
 
@@ -749,10 +1089,13 @@
       document.getElementById('tab-payout').style.display = tabName === 'payout' ? 'block' : 'none';
       document.getElementById('tab-discount').style.display = tabName === 'discount' ? 'block' : 'none';
       document.getElementById('tab-guarantee').style.display = tabName === 'guarantee' ? 'block' : 'none';
+      document.getElementById('tab-mortgage').style.display = tabName === 'mortgage' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
       document.getElementById('tab-newGuarantee').style.display = tabName === 'newGuarantee' ? 'block' : 'none';
+      document.getElementById('tab-newMortgage').style.display = tabName === 'newMortgage' ? 'block' : 'none';
+      document.getElementById('tab-newRedeem').style.display = tabName === 'newRedeem' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
@@ -761,17 +1104,21 @@
           (tabName === 'payout' && i === 1) ||
           (tabName === 'discount' && i === 2) ||
           (tabName === 'guarantee' && i === 3) ||
-          (tabName === 'newBatch' && i === 4) ||
-          (tabName === 'newPayout' && i === 5) ||
-          (tabName === 'newDiscount' && i === 6) ||
-          (tabName === 'newGuarantee' && i === 7) ||
-          (tabName === 'apiDocs' && i === 8));
+          (tabName === 'mortgage' && i === 4) ||
+          (tabName === 'newBatch' && i === 5) ||
+          (tabName === 'newPayout' && i === 6) ||
+          (tabName === 'newDiscount' && i === 7) ||
+          (tabName === 'newGuarantee' && i === 8) ||
+          (tabName === 'newMortgage' && i === 9) ||
+          (tabName === 'newRedeem' && i === 10) ||
+          (tabName === 'apiDocs' && i === 11));
       });
 
       if (tabName === 'reconcile') loadBatches();
       else if (tabName === 'payout') loadPayoutBatches();
       else if (tabName === 'discount') loadDiscountRequests();
       else if (tabName === 'guarantee') loadGuarantees();
+      else if (tabName === 'mortgage') { loadMortgages(); loadRedeems(); }
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====
@@ -1814,6 +2161,515 @@
     };
     initGrtDates();
     loadSampleGuaranteeData();
+
+    // ===== TAB: THẾ CHẤP & GIẢI CHẤP TÀI SẢN NGÂN HÀNG (MORTGAGE & REDEEM) =====
+    async function loadMortgageSummary() {
+      try {
+        const res = await fetch('/api/mortgage/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng hồ sơ thế chấp';
+        document.getElementById('stat1').textContent = `${d.totalMortgageRequests} (Đang TC: ${d.activeMortgageRequests})`;
+        document.getElementById('statLabel2').textContent = 'Tổng tài sản thế chấp';
+        document.getElementById('stat2').textContent = `${d.totalCollateralItems} xe (Đã GC: ${d.redeemedCollateralItems})`;
+        document.getElementById('statLabel3').textContent = 'Tổng tiền vay giải ngân';
+        document.getElementById('stat3').textContent = (d.totalLoanAmount >= 1e9 ? (d.totalLoanAmount / 1e9).toFixed(2) + ' tỷ đ' : Number(d.totalLoanAmount).toLocaleString('vi-VN') + ' đ');
+        document.getElementById('statLabel4').textContent = 'Dư nợ thế chấp còn lại';
+        document.getElementById('stat4').textContent = (d.remainingLoanAmount >= 1e9 ? (d.remainingLoanAmount / 1e9).toFixed(2) + ' tỷ đ' : Number(d.remainingLoanAmount).toLocaleString('vi-VN') + ' đ');
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadMortgages() {
+      await loadMortgageSummary();
+      const bank = document.getElementById('filterMgBank').value;
+      const status = document.getElementById('filterMgStatus').value;
+      let url = '/api/mortgage/requests?';
+      if (bank) url += 'bankCode=' + encodeURIComponent(bank) + '&';
+      if (status) url += 'status=' + encodeURIComponent(status) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('mortgageTableBody');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="13" class="muted" style="text-align:center;">Chưa có hồ sơ thế chấp nào phù hợp.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(r => {
+          let badge = 'badge-warning';
+          let stText = 'Chờ Duyệt';
+          if (r.status === 'Approved') { badge = 'badge-success'; stText = 'Đang Thế Chấp'; }
+          else if (r.status === 'Finished') { badge = 'badge-info'; stText = 'Đã Tất Toán (Finished)'; }
+          else if (r.status === 'Rejected') { badge = 'badge-danger'; stText = 'Bị Từ Chối'; }
+          else if (r.status === 'Cancelled') { badge = 'badge-warning'; stText = 'Đã Hủy'; }
+
+          return `
+            <tr>
+              <td><strong>${r.reqRMNo}</strong></td>
+              <td><span class="badge badge-info">${r.bankCode}</span></td>
+              <td><strong>${r.partnerName}</strong></td>
+              <td><code>${r.creditContractNo || '-'}</code></td>
+              <td>${r.totalItems}</td>
+              <td style="color:var(--success); font-weight:600;">${r.activeItems}</td>
+              <td style="color:var(--primary); font-weight:600;">${r.redeemedItems}</td>
+              <td>${Number(r.totalCollateralValue).toLocaleString('vi-VN')} đ</td>
+              <td style="color:var(--primary); font-weight:700;">${Number(r.totalLoanAmount).toLocaleString('vi-VN')} đ</td>
+              <td style="color:var(--danger); font-weight:600;">${Number(r.remainingLoanAmount).toLocaleString('vi-VN')} đ</td>
+              <td>${r.interestRate}%</td>
+              <td><span class="badge ${badge}">${stText}</span></td>
+              <td>
+                <button class="secondary" style="padding:4px 8px; font-size:.82em;" onclick="viewMortgageDetail(${r.id})">Chi Tiết</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function viewMortgageDetail(id) {
+      try {
+        const res = await fetch(`/api/mortgage/requests/${id}`, { headers });
+        if (!res.ok) return;
+        const r = await res.json();
+
+        const card = document.getElementById('mortgageDetailCard');
+        card.style.display = 'block';
+
+        let badge = 'badge-warning';
+        let stText = 'Chờ Duyệt';
+        if (r.status === 'Approved') { badge = 'badge-success'; stText = 'Đang Thế Chấp (Approved)'; }
+        else if (r.status === 'Finished') { badge = 'badge-info'; stText = 'Đã Hoàn Tất Tất Toán (Finished)'; }
+        else if (r.status === 'Rejected') { badge = 'badge-danger'; stText = 'Bị Từ Chối'; }
+        else if (r.status === 'Cancelled') { badge = 'badge-warning'; stText = 'Đã Hủy'; }
+
+        document.getElementById('mortgageDetailTitle').innerHTML = `
+          Hồ Sơ Thế Chấp <strong>${r.reqRMNo}</strong> — Ngân hàng: <code>${r.bankCode}</code>
+          <span class="badge ${badge}" style="margin-left:8px;">${stText}</span>
+        `;
+        document.getElementById('mortgageDetailSubtitle').innerHTML = `
+          Ngân hàng: <strong>${r.bankName}</strong> | Đơn vị thế chấp: <strong>${r.partnerName} (${r.partnerCode})</strong> |
+          HĐ Tín dụng: <code>${r.creditContractNo || 'Không'}</code> | Lãi suất: <strong>${r.interestRate}%/năm</strong> | Vay: <strong>${r.loanPeriodDays} ngày</strong> |
+          Tổng định giá: <strong style="color:var(--primary);">${Number(r.totalCollateralValue).toLocaleString('vi-VN')} đ</strong> |
+          Tiền vay: <strong style="color:var(--primary);">${Number(r.totalLoanAmount).toLocaleString('vi-VN')} đ</strong> |
+          Dư nợ còn lại: <strong style="color:var(--danger);">${Number(r.remainingLoanAmount).toLocaleString('vi-VN')} đ</strong> |
+          Tài sản: <strong>${r.totalItems} xe</strong> (Đang thế chấp: <strong>${r.activeItems}</strong>, Đã giải chấp: <strong>${r.redeemedItems}</strong>)
+        `;
+
+        let auditHtml = `<div><strong>Thông tin phê duyệt thế chấp:</strong> Ngày lập: ${r.mortgageDate ? r.mortgageDate.slice(0, 10) : '-'} | Người lập: ${r.createdBy || 'Accountant'}</div>`;
+        if (r.approvedBy) auditHtml += `<div style="margin-top:4px;">Người / Ngân hàng phê duyệt: <strong>${r.approvedBy}</strong> (${r.approvedAt ? r.approvedAt.slice(0, 19).replace('T', ' ') : '-'})</div>`;
+        if (r.status === 'Finished') {
+          auditHtml += `<div style="margin-top:4px; color:var(--success);"><strong>HỒ SƠ ĐÃ HOÀN TẤT GIẢI CHẤP:</strong> Tất cả tài sản trong hồ sơ đã được tất toán nợ và giải phóng tài sản thành công. Người tất toán: <strong>${r.finishedBy}</strong> (${r.finishedAt ? r.finishedAt.slice(0, 19).replace('T', ' ') : '-'})</div>`;
+        }
+        if (r.status === 'Rejected') {
+          auditHtml += `<div style="margin-top:4px; color:var(--danger);"><strong>TỪ CHỐI THẾ CHẤP:</strong> Lý do: <em>${r.rejectReason || '-'}</em></div>`;
+        }
+        if (r.remark) auditHtml += `<div style="margin-top:4px; color:var(--muted);">Ghi chú: ${r.remark}</div>`;
+
+        const auditBox = document.getElementById('mortgageAuditBox');
+        auditBox.style.display = 'block';
+        auditBox.innerHTML = auditHtml;
+
+        const btnApprove = document.getElementById('btnApproveMortgage');
+        const btnReject = document.getElementById('btnRejectMortgage');
+        const btnCancel = document.getElementById('btnCancelMortgage');
+
+        btnApprove.style.display = (r.status === 'PendingApproval' || r.status === 'Draft') ? 'inline-block' : 'none';
+        btnReject.style.display = (r.status === 'PendingApproval' || r.status === 'Draft') ? 'inline-block' : 'none';
+        btnCancel.style.display = (r.status !== 'Approved' && r.status !== 'Finished' && r.status !== 'Cancelled') ? 'inline-block' : 'none';
+
+        btnApprove.onclick = async () => {
+          const approver = prompt('Nhập họ tên người / cán bộ ngân hàng ký duyệt thế chấp:', 'GiamDocTinDung_NganHang');
+          if (!approver) return;
+          const resp = await fetch(`/api/mortgage/requests/${id}/approve`, {
+            method: 'POST', headers, body: JSON.stringify({ approverName: approver })
+          });
+          if (resp.ok) { viewMortgageDetail(id); loadMortgages(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        btnReject.onclick = async () => {
+          const reason = prompt('Nhập lý do từ chối hồ sơ thế chấp:', 'Định giá tài sản không đáp ứng hạn mức tín dụng.');
+          if (!reason) return;
+          const rejecter = prompt('Cán bộ từ chối:', 'BanKiemSoatTinDung');
+          const resp = await fetch(`/api/mortgage/requests/${id}/reject`, {
+            method: 'POST', headers, body: JSON.stringify({ reason, rejecterName: rejecter })
+          });
+          if (resp.ok) { viewMortgageDetail(id); loadMortgages(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        btnCancel.onclick = async () => {
+          if (!confirm(`Xác nhận hủy Hồ sơ thế chấp ${r.reqRMNo}?`)) return;
+          const reason = prompt('Nhập lý do hủy hồ sơ:', 'Hủy kế hoạch giải ngân');
+          const resp = await fetch(`/api/mortgage/requests/${id}/cancel`, {
+            method: 'POST', headers, body: JSON.stringify({ reason })
+          });
+          if (resp.ok) { viewMortgageDetail(id); loadMortgages(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        const tbody = document.getElementById('mortgageDetailTableBody');
+        tbody.innerHTML = (r.details || []).map(d => {
+          let itemBadge = 'badge-warning';
+          let itemSt = 'Chờ duyệt';
+          if (d.status === 'Approved') { itemBadge = 'badge-success'; itemSt = 'Đang thế chấp'; }
+          else if (d.status === 'Redeemed') { itemBadge = 'badge-info'; itemSt = 'Đã giải chấp'; }
+          else if (d.status === 'Cancelled') { itemBadge = 'badge-danger'; itemSt = 'Đã hủy'; }
+
+          return `
+            <tr>
+              <td><code>${d.itemRefNo}</code></td>
+              <td><strong>${d.modelCode}</strong></td>
+              <td><code>${d.engineNo || '-'}</code></td>
+              <td><code>${d.cqNo || '-'}</code></td>
+              <td><code>${d.coNo || '-'}</code></td>
+              <td><code>${d.declarationNo || '-'}</code></td>
+              <td>${d.coDate ? d.coDate.slice(0, 10) : '-'}</td>
+              <td>${Number(d.collateralValue).toLocaleString('vi-VN')} đ</td>
+              <td style="color:var(--primary); font-weight:700;">${Number(d.loanAmount).toLocaleString('vi-VN')} đ</td>
+              <td><span class="badge ${itemBadge}">${itemSt}</span></td>
+              <td>${d.reqDMNo ? `<code style="color:var(--primary); font-weight:600;">${d.reqDMNo}</code>` : '-'}</td>
+              <td class="muted" style="font-size:.85em;">${d.note || '-'}</td>
+            </tr>
+          `;
+        }).join('');
+
+        card.scrollIntoView({ behavior: 'smooth' });
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadRedeems() {
+      const status = document.getElementById('filterRedeemStatus').value;
+      let url = '/api/redeem/requests?';
+      if (status) url += 'status=' + encodeURIComponent(status) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('redeemTableBody');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="10" class="muted" style="text-align:center;">Chưa có đề nghị giải chấp nào phù hợp.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(r => {
+          let badge = 'badge-warning';
+          let stText = 'Chờ Duyệt';
+          if (r.status === 'Completed') { badge = 'badge-success'; stText = 'Đã Giải Chấp Xong'; }
+          else if (r.status === 'Rejected') { badge = 'badge-danger'; stText = 'Bị Từ Chối'; }
+          else if (r.status === 'Cancelled') { badge = 'badge-warning'; stText = 'Đã Hủy'; }
+
+          return `
+            <tr>
+              <td><strong>${r.reqDMNo}</strong></td>
+              <td><span class="badge badge-info">${r.bankCode}</span></td>
+              <td><strong>${r.partnerName}</strong></td>
+              <td>${r.redeemDate ? r.redeemDate.slice(0, 10) : '-'}</td>
+              <td>${r.totalItems} xe</td>
+              <td style="color:var(--success); font-weight:600;">${r.approvedItems} xe</td>
+              <td style="color:var(--primary); font-weight:700;">${Number(r.totalSettlementAmount).toLocaleString('vi-VN')} đ</td>
+              <td><code>${r.paymentProofNo || '-'}</code></td>
+              <td><span class="badge ${badge}">${stText}</span></td>
+              <td>
+                <button class="secondary" style="padding:4px 8px; font-size:.82em;" onclick="viewRedeemDetail(${r.id})">Chi Tiết</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function viewRedeemDetail(id) {
+      try {
+        const res = await fetch(`/api/redeem/requests/${id}`, { headers });
+        if (!res.ok) return;
+        const r = await res.json();
+
+        const card = document.getElementById('redeemDetailCard');
+        card.style.display = 'block';
+
+        let badge = 'badge-warning';
+        let stText = 'Chờ Duyệt';
+        if (r.status === 'Completed') { badge = 'badge-success'; stText = 'Đã Hoàn Tất Giải Chấp'; }
+        else if (r.status === 'Rejected') { badge = 'badge-danger'; stText = 'Bị Từ Chối'; }
+        else if (r.status === 'Cancelled') { badge = 'badge-warning'; stText = 'Đã Hủy'; }
+
+        document.getElementById('redeemDetailTitle').innerHTML = `
+          Đề Nghị Giải Chấp <strong>${r.reqDMNo}</strong> — Ngân hàng: <code>${r.bankCode}</code>
+          <span class="badge ${badge}" style="margin-left:8px;">${stText}</span>
+        `;
+        document.getElementById('redeemDetailSubtitle').innerHTML = `
+          Ngân hàng: <strong>${r.bankName}</strong> | Đại lý nhận xe: <strong>${r.partnerName} (${r.partnerCode})</strong> |
+          Ngày đề nghị: <strong>${r.redeemDate ? r.redeemDate.slice(0, 10) : '-'}</strong> |
+          Tổng tiền nộp tất toán: <strong style="color:var(--primary);">${Number(r.totalSettlementAmount).toLocaleString('vi-VN')} đ</strong> |
+          Chứng từ UNC: <code>${r.paymentProofNo || 'Không'}</code> | Tổng xe: <strong>${r.totalItems} xe</strong> (Đã duyệt: <strong>${r.approvedItems}</strong>)
+        `;
+
+        let auditHtml = `<div><strong>Thông tin kiểm soát giải chấp:</strong> Người lập: ${r.createdBy || 'Accountant'} | Ngày nộp đề nghị: ${r.createdAt ? r.createdAt.slice(0, 19).replace('T', ' ') : '-'}</div>`;
+        if (r.approvedBy) auditHtml += `<div style="margin-top:4px;">Người / Ngân hàng phê duyệt giải chấp: <strong>${r.approvedBy}</strong> (${r.approvedAt ? r.approvedAt.slice(0, 19).replace('T', ' ') : '-'})</div>`;
+        if (r.status === 'Completed') {
+          auditHtml += `<div style="margin-top:4px; color:var(--success);"><strong>ĐÃ GIẢI PHÓNG TÀI SẢN:</strong> Đã cập nhật trạng thái các xe liên quan sang Đã giải chấp (Redeemed) và trừ dư nợ gốc ngân hàng thành công! Đã cho phép xuất kho và bàn giao giấy tờ gốc.</div>`;
+        }
+        if (r.status === 'Rejected') {
+          auditHtml += `<div style="margin-top:4px; color:var(--danger);"><strong>TỪ CHỐI GIẢI CHẤP:</strong> Lý do: <em>${r.rejectReason || '-'}</em></div>`;
+        }
+        if (r.remark) auditHtml += `<div style="margin-top:4px; color:var(--muted);">Ghi chú: ${r.remark}</div>`;
+
+        const auditBox = document.getElementById('redeemAuditBox');
+        auditBox.style.display = 'block';
+        auditBox.innerHTML = auditHtml;
+
+        const btnApprove = document.getElementById('btnApproveRedeem');
+        const btnReject = document.getElementById('btnRejectRedeem');
+        const btnCancel = document.getElementById('btnCancelRedeem');
+
+        btnApprove.style.display = (r.status === 'PendingApproval' || r.status === 'Draft') ? 'inline-block' : 'none';
+        btnReject.style.display = (r.status === 'PendingApproval' || r.status === 'Draft') ? 'inline-block' : 'none';
+        btnCancel.style.display = (r.status !== 'Completed' && r.status !== 'Cancelled') ? 'inline-block' : 'none';
+
+        btnApprove.onclick = async () => {
+          const approver = prompt('Ký duyệt giải chấp tài sản & trừ dư nợ vay ngân hàng:', 'TruongPhongTinDung_NganHang');
+          if (!approver) return;
+          const resp = await fetch(`/api/redeem/requests/${id}/approve`, {
+            method: 'POST', headers, body: JSON.stringify({ approverName: approver })
+          });
+          if (resp.ok) { viewRedeemDetail(id); loadRedeems(); loadMortgages(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        btnReject.onclick = async () => {
+          const reason = prompt('Nhập lý do từ chối giải chấp:', 'Chưa nhận đủ tiền ghi có theo lệnh ủy nhiệm chi.');
+          if (!reason) return;
+          const rejecter = prompt('Cán bộ từ chối:', 'KeToanTruong_NganHang');
+          const resp = await fetch(`/api/redeem/requests/${id}/reject`, {
+            method: 'POST', headers, body: JSON.stringify({ reason, rejecterName: rejecter })
+          });
+          if (resp.ok) { viewRedeemDetail(id); loadRedeems(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        btnCancel.onclick = async () => {
+          if (!confirm(`Xác nhận hủy Đề nghị giải chấp ${r.reqDMNo}?`)) return;
+          const reason = prompt('Nhập lý do hủy đề nghị giải chấp:', 'Đại lý điều chỉnh lịch nộp tiền');
+          const resp = await fetch(`/api/redeem/requests/${id}/cancel`, {
+            method: 'POST', headers, body: JSON.stringify({ reason })
+          });
+          if (resp.ok) { viewRedeemDetail(id); loadRedeems(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        const tbody = document.getElementById('redeemDetailTableBody');
+        tbody.innerHTML = (r.details || []).map(d => {
+          let itemBadge = d.status === 'Approved' ? 'badge-success' : 'badge-warning';
+          let itemSt = d.status === 'Approved' ? 'Đã duyệt GC' : 'Chờ duyệt';
+          return `
+            <tr>
+              <td><code>${d.itemRefNo}</code></td>
+              <td><code>${d.reqRMNo}</code></td>
+              <td><strong>${d.modelCode || '-'}</strong></td>
+              <td>${d.dealerCode || '-'}</td>
+              <td style="color:var(--primary); font-weight:700;">${Number(d.settlementAmount).toLocaleString('vi-VN')} đ</td>
+              <td><span class="badge ${itemBadge}">${itemSt}</span></td>
+              <td>${d.approvedBy || '-'}</td>
+              <td>${d.approvedAt ? d.approvedAt.slice(0, 19).replace('T', ' ') : '-'}</td>
+              <td class="muted" style="font-size:.85em;">${d.note || '-'}</td>
+            </tr>
+          `;
+        }).join('');
+
+        card.scrollIntoView({ behavior: 'smooth' });
+      } catch(e) { console.error(e); }
+    }
+
+    function loadSampleMortgageData() {
+      const today = new Date();
+      const formatDate = (d) => d.toISOString().slice(0, 10);
+      const coDate = new Date(today.getTime() - 15 * 86400000);
+
+      const sample = [
+        {
+          "itemRefNo": "VIN-SANTAFE-" + Math.floor(1000 + Math.random() * 9000),
+          "modelCode": "SANTAFE-CAL",
+          "engineNo": "ENG-SF25-" + Math.floor(10000 + Math.random() * 90000),
+          "cqNo": "CQ-2025-" + Math.floor(10000 + Math.random() * 90000),
+          "coNo": "CO-2025-" + Math.floor(10000 + Math.random() * 90000),
+          "declarationNo": "TK-HQ-2025-0991",
+          "coDate": formatDate(coDate),
+          "collateralValue": 1350000000,
+          "loanAmount": 950000000,
+          "note": "Xe hoàn tất kiểm định chất lượng xuất xưởng"
+        },
+        {
+          "itemRefNo": "VIN-TUCSON-" + Math.floor(1000 + Math.random() * 9000),
+          "modelCode": "TUCSON-2.0D",
+          "engineNo": "ENG-TC25-" + Math.floor(10000 + Math.random() * 90000),
+          "cqNo": "CQ-2025-" + Math.floor(10000 + Math.random() * 90000),
+          "coNo": "CO-2025-" + Math.floor(10000 + Math.random() * 90000),
+          "declarationNo": "TK-HQ-2025-0992",
+          "coDate": formatDate(coDate),
+          "collateralValue": 980000000,
+          "loanAmount": 680000000,
+          "note": "Xe hoàn tất kiểm định chất lượng xuất xưởng"
+        },
+        {
+          "itemRefNo": "VIN-ACCENT-" + Math.floor(1000 + Math.random() * 9000),
+          "modelCode": "ACCENT-1.5AT",
+          "engineNo": "ENG-AC25-" + Math.floor(10000 + Math.random() * 90000),
+          "cqNo": "CQ-2025-" + Math.floor(10000 + Math.random() * 90000),
+          "coNo": "CO-2025-" + Math.floor(10000 + Math.random() * 90000),
+          "declarationNo": "TK-HQ-2025-0993",
+          "coDate": formatDate(coDate),
+          "collateralValue": 560000000,
+          "loanAmount": 390000000,
+          "note": "Xe hoàn tất kiểm định chất lượng xuất xưởng"
+        }
+      ];
+      document.getElementById('inpMortgageItemsJson').value = JSON.stringify(sample, null, 2);
+    }
+
+    async function submitMortgage() {
+      const msg = document.getElementById('submitMortgageMsg');
+      try {
+        const rawJson = document.getElementById('inpMortgageItemsJson').value.trim();
+        if (!rawJson) { alert('Vui lòng nhập danh mục xe thế chấp.'); return; }
+        const items = JSON.parse(rawJson);
+        const payload = {
+          reqRMNo: document.getElementById('inpMortgageReqNo').value.trim() || null,
+          bankCode: document.getElementById('inpMortgageBankCode').value.trim(),
+          bankName: null,
+          partnerCode: document.getElementById('inpMortgagePartnerCode').value.trim(),
+          partnerName: document.getElementById('inpMortgagePartnerName').value.trim(),
+          creditContractNo: document.getElementById('inpMortgageContractNo').value.trim() || null,
+          mortgageDate: document.getElementById('inpMortgageDate').value || null,
+          interestRate: parseFloat(document.getElementById('inpMortgageRate').value) || 8.2,
+          loanPeriodDays: parseInt(document.getElementById('inpMortgageDays').value) || 90,
+          remark: document.getElementById('inpMortgageRemark').value.trim(),
+          items: items
+        };
+
+        if (!payload.bankCode) { alert('Vui lòng chọn ngân hàng.'); return; }
+        if (!payload.partnerCode) { alert('Vui lòng nhập mã đối tác thế chấp.'); return; }
+
+        msg.textContent = 'Đang khởi tạo hồ sơ thế chấp...';
+        const res = await fetch('/api/mortgage/requests', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Hồ sơ: ${data.reqRMNo} (Tiền vay: ${Number(data.totalLoanAmount).toLocaleString('vi-VN')} đ)`;
+        setTimeout(() => {
+          showTab('mortgage');
+          viewMortgageDetail(data.id);
+        }, 800);
+      } catch(e) {
+        msg.textContent = 'Lỗi cú pháp JSON: ' + e.message;
+      }
+    }
+
+    async function loadActiveMortgagedItemsForRedeem() {
+      const bank = document.getElementById('inpRedeemBankCode').value;
+      try {
+        const res = await fetch(`/api/mortgage/active-items?bankCode=${encodeURIComponent(bank)}`, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        if (!list.length) {
+          alert(`Không có tài sản nào đang ở trạng thái thế chấp (Approved) tại ngân hàng ${bank}.`);
+          return;
+        }
+        // Chọn ra xe đầu tiên hoặc tất cả
+        const sampleRedeem = list.slice(0, 2).map(it => ({
+          itemRefNo: it.itemRefNo,
+          reqRMNo: it.reqRMNo,
+          modelCode: it.modelCode,
+          dealerCode: it.partnerCode,
+          settlementAmount: it.loanAmount,
+          note: `Tất toán nợ vay giải phóng xe ${it.itemRefNo}`
+        }));
+        document.getElementById('inpRedeemItemsJson').value = JSON.stringify(sampleRedeem, null, 2);
+      } catch(e) { console.error(e); }
+    }
+
+    function loadSampleRedeemData() {
+      const sample = [
+        {
+          "itemRefNo": "VIN-TUCSON-2025-02",
+          "reqRMNo": "RM-DEMO-20250501-001",
+          "modelCode": "TUCSON-2.0D",
+          "dealerCode": "DLR-HYUNDAI-THANHXUAN",
+          "settlementAmount": 680000000,
+          "note": "Nộp đủ 680 triệu tất toán gốc vay ngân hàng VietinBank"
+        }
+      ];
+      document.getElementById('inpRedeemItemsJson').value = JSON.stringify(sample, null, 2);
+    }
+
+    async function submitRedeem() {
+      const msg = document.getElementById('submitRedeemMsg');
+      try {
+        const rawJson = document.getElementById('inpRedeemItemsJson').value.trim();
+        if (!rawJson) { alert('Vui lòng nhập danh mục xe cần giải chấp.'); return; }
+        const items = JSON.parse(rawJson);
+        const payload = {
+          reqDMNo: document.getElementById('inpRedeemReqNo').value.trim() || null,
+          bankCode: document.getElementById('inpRedeemBankCode').value.trim(),
+          bankName: null,
+          partnerCode: document.getElementById('inpRedeemPartnerCode').value.trim(),
+          partnerName: document.getElementById('inpRedeemPartnerName').value.trim(),
+          redeemDate: document.getElementById('inpRedeemDate').value || null,
+          paymentProofNo: document.getElementById('inpRedeemPaymentProofNo').value.trim() || null,
+          remark: document.getElementById('inpRedeemRemark').value.trim(),
+          items: items
+        };
+
+        if (!payload.bankCode) { alert('Vui lòng chọn ngân hàng.'); return; }
+        if (!payload.partnerCode) { alert('Vui lòng nhập mã đối tác giải chấp.'); return; }
+
+        msg.textContent = 'Đang khởi tạo đề nghị giải chấp...';
+        const res = await fetch('/api/redeem/requests', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Đề nghị GC: ${data.reqDMNo} (Tổng tiền tất toán: ${Number(data.totalSettlementAmount).toLocaleString('vi-VN')} đ)`;
+        setTimeout(() => {
+          showTab('mortgage');
+          viewRedeemDetail(data.id);
+        }, 800);
+      } catch(e) {
+        msg.textContent = 'Lỗi cú pháp JSON: ' + e.message;
+      }
+    }
+
+    // Khởi tạo ngày cho form thế chấp & giải chấp
+    const initMortgageDates = () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const elMgDate = document.getElementById('inpMortgageDate');
+      const elRdDate = document.getElementById('inpRedeemDate');
+      if (elMgDate) elMgDate.value = today;
+      if (elRdDate) elRdDate.value = today;
+    };
+    initMortgageDates();
+    loadSampleMortgageData();
+    loadSampleRedeemData();
 
     // Khởi tạo
     loadSampleData();

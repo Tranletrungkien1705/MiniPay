@@ -15,6 +15,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<PaymentDiscountDetail> DiscountDetails => Set<PaymentDiscountDetail>();
     public DbSet<PaymentGuarantee> Guarantees => Set<PaymentGuarantee>();
     public DbSet<PaymentGuaranteeDetail> GuaranteeDetails => Set<PaymentGuaranteeDetail>();
+    public DbSet<MortgageRequest> MortgageRequests => Set<MortgageRequest>();
+    public DbSet<MortgageDetail> MortgageDetails => Set<MortgageDetail>();
+    public DbSet<RedeemRequest> RedeemRequests => Set<RedeemRequest>();
+    public DbSet<RedeemDetail> RedeemDetails => Set<RedeemDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -49,13 +53,31 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<PaymentDiscountDetail>().HasIndex(x => x.RequestId);
         b.Entity<PaymentDiscountDetail>().HasIndex(x => new { x.OrgId, x.ItemRefNo });
 
+        b.Entity<PaymentGuarantee>().ToTable("PaymentGuarantees");
         b.Entity<PaymentGuarantee>().HasIndex(x => new { x.OrgId, x.GuaranteeNo }).IsUnique();
         b.Entity<PaymentGuarantee>().Property(x => x.Status).HasConversion<int>();
         b.Entity<PaymentGuarantee>().Property(x => x.GuaranteeType).HasConversion<int>();
         b.Entity<PaymentGuarantee>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.GuaranteeId).OnDelete(DeleteBehavior.Cascade);
 
+        b.Entity<PaymentGuaranteeDetail>().ToTable("PaymentGuaranteeDetails");
         b.Entity<PaymentGuaranteeDetail>().Property(x => x.Status).HasConversion<int>();
         b.Entity<PaymentGuaranteeDetail>().HasIndex(x => x.GuaranteeId);
         b.Entity<PaymentGuaranteeDetail>().HasIndex(x => new { x.OrgId, x.ItemRefNo });
+
+        b.Entity<MortgageRequest>().HasIndex(x => new { x.OrgId, x.ReqRMNo }).IsUnique();
+        b.Entity<MortgageRequest>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<MortgageRequest>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.MortgageRequestId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<MortgageDetail>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<MortgageDetail>().HasIndex(x => x.MortgageRequestId);
+        b.Entity<MortgageDetail>().HasIndex(x => new { x.OrgId, x.ItemRefNo });
+
+        b.Entity<RedeemRequest>().HasIndex(x => new { x.OrgId, x.ReqDMNo }).IsUnique();
+        b.Entity<RedeemRequest>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<RedeemRequest>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.RedeemRequestId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<RedeemDetail>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<RedeemDetail>().HasIndex(x => x.RedeemRequestId);
+        b.Entity<RedeemDetail>().HasIndex(x => new { x.OrgId, x.ItemRefNo });
     }
 }
