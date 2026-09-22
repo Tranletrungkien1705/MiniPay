@@ -97,6 +97,7 @@
     <button class="tab-btn" onclick="showTab('penaltyDelay')">Phạt Chậm TT (TTC Penalty)</button>
     <button class="tab-btn" onclick="showTab('transportIns')">Vận Tải &amp; Bảo Hiểm (Transport &amp; Ins)</button>
     <button class="tab-btn" onclick="showTab('paymentStorage')">Chi Phí Lưu Kho Xe (Storage Payment)</button>
+    <button class="tab-btn" onclick="showTab('guaranteeExt')">Gia Hạn Bảo Lãnh (Guarantee Extension Dispatch)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -109,6 +110,7 @@
     <button class="tab-btn" onclick="showTab('newPenaltyDelay')">+ Lập Hồ Sơ Phạt TTC</button>
     <button class="tab-btn" onclick="showTab('newTransportIns')">+ Lập Bảng Kê Vận Tải</button>
     <button class="tab-btn" onclick="showTab('newPaymentStorage')">+ Lập Bảng Kê Lưu Kho</button>
+    <button class="tab-btn" onclick="showTab('newGuaranteeExt')">+ Lập Công Văn Gia Hạn</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -1279,6 +1281,165 @@
     </div>
   </div>
 
+  <!-- TAB: Quản Lý Công Văn Đề Nghị Gia Hạn Bảo Lãnh Ngân Hàng (Pmt_GrtClaimExt / FrmQLCVanGiaHan_PhatHanhBL) -->
+  <div id="tab-guaranteeExt" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="margin:0;">Quản Lý Công Văn Đề Nghị Gia Hạn Thư Bảo Lãnh Ngân Hàng (Pmt_GrtClaimExt)</h3>
+        <div style="display:flex; gap:8px;">
+          <button class="secondary" onclick="openAutoGenerateModal()">⚡ Quét &amp; Sinh CV Tự Động</button>
+          <button onclick="showTab('newGuaranteeExt')">+ Lập Công Văn Mới</button>
+        </div>
+      </div>
+      <p class="muted">Nghiệp vụ lập công văn đề nghị ngân hàng gia hạn thời hạn hiệu lực Thư bảo lãnh thanh toán xe ô tô, luồng ký số điện tử CA 2 cấp và cập nhật ngày hết hạn mới từ hệ nguồn 2010.HTC (BizHTC.Payment / FrmQLCVanGiaHan_PhatHanhBL / CR_ClaimPM).</p>
+
+      <!-- KPI Thống kê -->
+      <div class="row" style="margin-top:14px; margin-bottom:14px;">
+        <div class="col card" style="text-align:center; padding:10px;">
+          <div class="muted" style="font-size:.85em;">Tổng Công Văn</div>
+          <div id="extStatTotal" style="font-size:1.4em; font-weight:bold; color:var(--primary);">-</div>
+        </div>
+        <div class="col card" style="text-align:center; padding:10px;">
+          <div class="muted" style="font-size:.85em;">Dự Thảo (Draft)</div>
+          <div id="extStatDraft" style="font-size:1.4em; font-weight:bold; color:#f39c12;">-</div>
+        </div>
+        <div class="col card" style="text-align:center; padding:10px;">
+          <div class="muted" style="font-size:.85em;">Đã Ký CA / Gửi NH</div>
+          <div id="extStatSigned" style="font-size:1.4em; font-weight:bold; color:#3498db;">-</div>
+        </div>
+        <div class="col card" style="text-align:center; padding:10px;">
+          <div class="muted" style="font-size:.85em;">NH Chấp Thuận Gia Hạn</div>
+          <div id="extStatAccepted" style="font-size:1.4em; font-weight:bold; color:#2ecc71;">-</div>
+        </div>
+        <div class="col card" style="text-align:center; padding:10px;">
+          <div class="muted" style="font-size:.85em;">Tổng Giá Trị BL Gia Hạn</div>
+          <div id="extStatTotalAmount" style="font-size:1.25em; font-weight:bold; color:#e74c3c;">-</div>
+        </div>
+      </div>
+
+      <!-- Bộ lọc -->
+      <div class="row" style="margin-top:8px; margin-bottom:12px; gap:8px; align-items:flex-end;">
+        <div class="col">
+          <label class="muted">Ngân Hàng Phát Hành:</label>
+          <select id="selExtFilterBank" onchange="loadGuaranteeExtList()">
+            <option value="">-- Tất cả ngân hàng --</option>
+            <option value="VPB">VPBank (VPB)</option>
+            <option value="CTG">VietinBank (CTG)</option>
+            <option value="TCB">Techcombank (TCB)</option>
+            <option value="MBB">MBBank (MBB)</option>
+            <option value="VCB">Vietcombank (VCB)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Trạng Thái Công Văn:</label>
+          <select id="selExtFilterStatus" onchange="loadGuaranteeExtList()">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="Draft">Mới tạo (Draft)</option>
+            <option value="Signed">Đã ký số CA (Signed)</option>
+            <option value="BankAccepted">Ngân hàng chấp thuận (BankAccepted)</option>
+            <option value="BankRejected">Ngân hàng từ chối (BankRejected)</option>
+            <option value="Cancelled">Đã hủy (Cancelled)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Pháp Nhân Bán:</label>
+          <select id="selExtFilterFlag" onchange="loadGuaranteeExtList()">
+            <option value="">-- Tất cả pháp nhân --</option>
+            <option value="1">Hyundai Thành Công (HTC)</option>
+            <option value="2">Hyundai Thương Mại (HTV)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Tìm theo số VIN / Đại lý / Số CV:</label>
+          <input type="text" id="inpExtFilterSearch" placeholder="Nhập từ khóa tìm kiếm..." onkeyup="if(event.key==='Enter') loadGuaranteeExtList()">
+        </div>
+        <div style="margin-bottom:2px;">
+          <button class="secondary" onclick="loadGuaranteeExtList()">Lọc Dữ Liệu</button>
+        </div>
+      </div>
+
+      <!-- Danh sách công văn -->
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>STT</th>
+              <th>Số Công Văn</th>
+              <th>Pháp Nhân</th>
+              <th>Đại Lý Đề Nghị</th>
+              <th>Ngân Hàng BL</th>
+              <th>Ngày Gia Hạn</th>
+              <th>Số Xe</th>
+              <th>Chưa / Đã Giao</th>
+              <th>Tổng Tiền Bảo Lãnh</th>
+              <th>Trạng Thái</th>
+              <th>Ký CA</th>
+              <th>Ngày Lập</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="guaranteeExtTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Chi tiết công văn và danh sách xe được chọn -->
+    <div id="cardGuaranteeExtDetail" class="card" style="margin-top:16px; display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <h3 id="extDetailTitle" style="margin:0;">Chi Tiết Công Văn Đề Nghị Gia Hạn Bảo Lãnh</h3>
+        <div style="display:flex; gap:6px;">
+          <button class="secondary" onclick="document.getElementById('cardGuaranteeExtDetail').style.display='none'">Đóng [X]</button>
+        </div>
+      </div>
+
+      <div id="extDetailSummaryBlock" style="margin-top:12px;"></div>
+
+      <div id="extDetailActionButtons" style="margin-top:14px; margin-bottom:14px; display:flex; flex-wrap:wrap; gap:8px;"></div>
+
+      <div style="margin-top:16px; display:flex; justify-content:space-between; align-items:center;">
+        <h4 style="margin:0;">Danh Sách Xe Ô Tô Đề Nghị Gia Hạn Bảo Lãnh (Pmt_GrtClaimExtDtl)</h4>
+        <span id="extVehiclesCountBadge" class="badge" style="background:#2c3e50; color:#fff;">0 xe</span>
+      </div>
+
+      <!-- Thêm nhanh 1 xe vào công văn khi ở trạng thái Draft -->
+      <div id="extQuickAddVehicleBox" style="margin-top:12px; padding:10px; background:rgba(255,255,255,0.03); border:1px dashed var(--border); border-radius:6px; display:none;">
+        <div style="font-weight:600; font-size:.9em; margin-bottom:8px;">+ Bổ Sung Xe Vào Công Văn Gia Hạn (Trạng thái Draft):</div>
+        <div class="row" style="gap:6px;">
+          <div class="col"><input type="text" id="inpAddExtVIN" placeholder="Số khung VIN (17 ký tự)"></div>
+          <div class="col"><input type="text" id="inpAddExtModelCode" placeholder="Model (SANTAFE, TUCSON...)"></div>
+          <div class="col"><input type="text" id="inpAddExtModelName" placeholder="Tên mẫu xe"></div>
+          <div class="col"><input type="text" id="inpAddExtBankGuaranteeNo" placeholder="Số thư BL gốc (BL-...)"></div>
+          <div class="col"><input type="number" id="inpAddExtGrtValue" placeholder="Giá trị BL (VND)" step="10000000"></div>
+          <div style="display:flex; align-items:center;"><button type="button" onclick="quickAddVehicleToDispatch()">Thêm Xe</button></div>
+        </div>
+      </div>
+
+      <div style="overflow-x:auto; margin-top:10px;">
+        <table>
+          <thead>
+            <tr>
+              <th>STT</th>
+              <th>Số Khung (VIN)</th>
+              <th>Mẫu Xe / Phiên Bản</th>
+              <th>Màu Sơn</th>
+              <th>Số HĐ / Đơn Hàng</th>
+              <th>Thư BL Gốc</th>
+              <th>Hạn Cũ</th>
+              <th>Hạn Mới Đề Nghị</th>
+              <th>Giá Trị Bảo Lãnh</th>
+              <th>Giá Trị Xe</th>
+              <th>Bàn Giao</th>
+              <th>Trạng Thái Dòng</th>
+              <th>Ghi Chú</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="extDetailTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div id="tab-newBatch" style="display:none;">
     <div class="card">
       <h3>Nạp bảng sao kê ngân hàng &amp; Chạy đối soát tức thì</h3>
@@ -2109,6 +2270,79 @@
     </div>
   </div>
 
+  <!-- TAB: Lập Công Văn Đề Nghị Gia Hạn Bảo Lãnh Mới -->
+  <div id="tab-newGuaranteeExt" style="display:none;">
+    <div class="card">
+      <h3>Lập Công Văn Đề Nghị Gia Hạn Thư Bảo Lãnh Ngân Hàng Mới</h3>
+      <p class="muted">Khởi tạo công văn đề nghị ngân hàng gia hạn thời hạn hiệu lực Thư bảo lãnh thanh toán xe ô tô theo quy trình BizHTC.Payment / FrmTaoCVanGiaHan_PhatHanhBL.</p>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Công Văn (để trống để tự sinh):</label>
+          <input type="text" id="inpNewExtNo" placeholder="Ví dụ: CVGH-202505-005">
+        </div>
+        <div class="col">
+          <label class="muted">Pháp Nhân Bán Xe (FlagIsHTC):</label>
+          <select id="inpNewExtFlagIsHTC">
+            <option value="1">1 - Hyundai Thành Công Việt Nam (HTC)</option>
+            <option value="2">2 - Hyundai Thành Công Thương Mại (HTV)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Mã Đại Lý (DealerCode):</label>
+          <input type="text" id="inpNewExtDealerCode" value="DLR-HYUNDAI-HADONG">
+        </div>
+        <div class="col">
+          <label class="muted">Tên Đại Lý:</label>
+          <input type="text" id="inpNewExtDealerName" value="Công ty CP Ô tô Hyundai Hà Đông">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Ngân Hàng Phát Hành BL (BankCode):</label>
+          <select id="inpNewExtBankCode" onchange="onNewExtBankChange()">
+            <option value="VPB">VPBank - Ngân hàng TMCP Việt Nam Thịnh Vượng</option>
+            <option value="CTG">VietinBank - Ngân hàng TMCP Công Thương Việt Nam</option>
+            <option value="TCB">Techcombank - Ngân hàng TMCP Kỹ Thương Việt Nam</option>
+            <option value="MBB">MBBank - Ngân hàng TMCP Quân Đội</option>
+            <option value="VCB">Vietcombank - Ngân hàng TMCP Ngoại Thương Việt Nam</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Tên Ngân Hàng:</label>
+          <input type="text" id="inpNewExtBankName" value="Ngân hàng TMCP Việt Nam Thịnh Vượng (VPBank)">
+        </div>
+        <div class="col">
+          <label class="muted">Ngân Hàng Giám Sát (BankCodeMonitor):</label>
+          <input type="text" id="inpNewExtBankCodeMonitor" value="VPBANK_HO">
+        </div>
+        <div class="col">
+          <label class="muted">Số Ngày Đề Nghị Gia Hạn (NumberOfDaysExt):</label>
+          <input type="number" id="inpNewExtDays" value="30" min="1" max="180">
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <label class="muted">Diễn Giải / Lý Do Gia Hạn (Remark):</label>
+        <input type="text" id="inpNewExtRemark" value="Đề nghị gia hạn hiệu lực bảo lãnh 30 ngày để hoàn thiện thủ tục giao xe và thanh toán theo hợp đồng đại lý">
+      </div>
+
+      <div style="margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="muted">Danh sách xe ô tô đề nghị gia hạn (VIN, Model, Đơn giá, Giá trị bảo lãnh, Thư BL gốc, Ngày bắt đầu, Ngày hết hạn cũ) [JSON]:</label>
+          <button class="secondary" type="button" onclick="loadSampleGuaranteeExtData()">Nạp Dữ Liệu Xe Mẫu</button>
+        </div>
+        <textarea id="inpNewExtVehiclesJson" rows="8" style="font-family:monospace; font-size:.85em;"></textarea>
+      </div>
+
+      <div style="margin-top:16px;">
+        <button type="button" onclick="submitGuaranteeExt()">Khởi Tạo Công Văn Gia Hạn</button>
+        <span id="submitNewExtMsg" style="margin-left:12px;" class="muted"></span>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Xem & In Mẫu Bảng Kê Quyết Toán Vận Tải & Bảo Hiểm Xe (Transport Statement Advice) -->
   <div id="modalTransportInsAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
     <div style="max-width:920px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
@@ -2298,6 +2532,58 @@
     </div>
   </div>
 
+  <!-- Modal Xem & In Mẫu Công Văn Đề Nghị Gia Hạn Bảo Lãnh (CR_ClaimPM Advice) -->
+  <div id="modalDispatchAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:920px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.25em;">CÔNG VĂN ĐỀ NGHỊ GIA HẠN THỜI HẠN THƯ BẢO LÃNH (CR_ClaimPM)</h2>
+        <button class="secondary" onclick="closeDispatchAdviceModal()">Đóng [X]</button>
+      </div>
+      <div id="dispatchAdviceContent" style="margin-top:16px; font-size:.9em; line-height:1.6;"></div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('dispatchAdviceContent').innerText); alert('Đã sao chép nội dung công văn vào clipboard!');">Sao Chép Nội Dung</button>
+        <button onclick="window.print()">In Công Văn</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Quét Tự Động & Sinh Công Văn Gia Hạn (Pmt_GrtClaimExt_GenAuto) -->
+  <div id="modalAutoGenerateDispatch" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:600px; margin:60px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <h3 style="margin:0;">Tự Động Quét &amp; Sinh Công Văn Gia Hạn Bảo Lãnh</h3>
+        <button class="secondary" onclick="closeAutoGenerateModal()">Đóng [X]</button>
+      </div>
+      <p class="muted" style="margin-top:10px;">Hệ thống sẽ quét toàn bộ các Thư bảo lãnh đang có hiệu lực trong hệ thống có ngày hết hạn trong vòng N ngày tới, tự động gom theo từng Đại lý &amp; Ngân hàng để lập dự thảo công văn.</p>
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Quét bảo lãnh hết hạn trong vòng (ngày):</label>
+          <input type="number" id="inpAutoWithinDays" value="15" min="1" max="90">
+        </div>
+        <div class="col">
+          <label class="muted">Số ngày đề nghị gia hạn thêm (ngày):</label>
+          <input type="number" id="inpAutoExtDays" value="30" min="1" max="180">
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <label class="muted">Pháp Nhân Phát Hành Công Văn:</label>
+        <select id="inpAutoFlagIsHTC">
+          <option value="1">Hyundai Thành Công Việt Nam (HTC)</option>
+          <option value="2">Hyundai Thành Công Thương Mại (HTV)</option>
+        </select>
+      </div>
+      <div style="margin-top:12px;">
+        <label class="muted">Ghi chú tự động:</label>
+        <input type="text" id="inpAutoRemark" value="Quét tự động định kỳ các bảo lãnh sắp đến hạn cần gia hạn">
+      </div>
+      <div style="margin-top:18px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="closeAutoGenerateModal()">Hủy</button>
+        <button onclick="executeAutoGenerate()">Bắt Đầu Quét &amp; Sinh Công Văn</button>
+      </div>
+      <div id="autoGenerateMsg" style="margin-top:12px; font-weight:600; color:var(--primary);"></div>
+    </div>
+  </div>
+
   <!-- TAB 5: API Docs -->
   <div id="tab-apiDocs" style="display:none;">
     <div class="card">
@@ -2469,6 +2755,22 @@
         <li><code>GET /api/payment-storage/{id}/statement-advice</code> — Sinh dữ liệu mẫu in Bảng kê quyết toán CR_PAYMENT_STORAGE kèm số tiền bằng chữ tiếng Việt</li>
         <li><code>GET /api/payment-storage/summary</code> — Báo cáo tổng hợp số liệu chi phí lưu bãi, xe lưu kho và trạng thái quyết toán</li>
       </ul>
+      <h3>Nghiệp Vụ Công Văn Đề Nghị Gia Hạn Bảo Lãnh Ngân Hàng (Guarantee Extension Dispatch - BizHTC.Payment / FrmQLCVanGiaHan_PhatHanhBL)</h3>
+      <ul>
+        <li><code>POST /api/guarantee-extensions</code> — Lập công văn đề nghị gia hạn bảo lãnh mới (Pmt_GrtClaimExt_Save)</li>
+        <li><code>GET /api/guarantee-extensions</code> — Danh sách công văn gia hạn (lọc theo <code>dealerCode</code>, <code>bankCode</code>, <code>status</code>, <code>flagIsHTC</code>, <code>vin</code>)</li>
+        <li><code>GET /api/guarantee-extensions/{id}</code> — Chi tiết 1 công văn kèm toàn bộ danh sách xe và hạn bảo lãnh mới</li>
+        <li><code>POST /api/guarantee-extensions/auto-generate</code> — Tự động quét các bảo lãnh sắp hết hạn sinh công văn dự thảo (Pmt_GrtClaimExt_GenAuto)</li>
+        <li><code>POST /api/guarantee-extensions/{id}/sign-ca</code> — Phê duyệt lãnh đạo &amp; Ký số điện tử CA phát hành công văn (Pmt_GrtClaimExt_SignAndSendEmail)</li>
+        <li><code>POST /api/guarantee-extensions/{id}/bank-accept</code> — Ghi nhận ngân hàng đối tác chấp thuận gia hạn và đồng bộ cập nhật hạn bảo lãnh gốc</li>
+        <li><code>POST /api/guarantee-extensions/{id}/bank-reject</code> — Ghi nhận ngân hàng từ chối gia hạn bảo lãnh kèm lý do thẩm định tín dụng</li>
+        <li><code>POST /api/guarantee-extensions/{id}/cancel</code> — Hủy công văn gia hạn bảo lãnh (Pmt_GrtClaimExt_Cancel)</li>
+        <li><code>POST /api/guarantee-extensions/{id}/vehicles</code> — Bổ sung xe vào công văn Draft</li>
+        <li><code>DELETE /api/guarantee-extensions/{id}/vehicles/{detailId}</code> — Xóa 1 xe khỏi công văn Draft</li>
+        <li><code>DELETE /api/guarantee-extensions/{id}</code> — Xóa hoàn toàn bản ghi công văn nháp (Delete Draft)</li>
+        <li><code>GET /api/guarantee-extensions/{id}/advice</code> — Sinh dữ liệu mẫu in Công văn gửi ngân hàng CR_ClaimPM kèm số tiền bằng chữ tiếng Việt</li>
+        <li><code>GET /api/guarantee-extensions/summary</code> — Báo cáo tổng hợp số liệu công văn gia hạn bảo lãnh, phân bổ theo từng ngân hàng đối tác</li>
+      </ul>
     </div>
   </div>
 
@@ -2490,6 +2792,7 @@
       document.getElementById('tab-penaltyDelay').style.display = tabName === 'penaltyDelay' ? 'block' : 'none';
       document.getElementById('tab-transportIns').style.display = tabName === 'transportIns' ? 'block' : 'none';
       document.getElementById('tab-paymentStorage').style.display = tabName === 'paymentStorage' ? 'block' : 'none';
+      document.getElementById('tab-guaranteeExt').style.display = tabName === 'guaranteeExt' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -2502,6 +2805,7 @@
       document.getElementById('tab-newPenaltyDelay').style.display = tabName === 'newPenaltyDelay' ? 'block' : 'none';
       document.getElementById('tab-newTransportIns').style.display = tabName === 'newTransportIns' ? 'block' : 'none';
       document.getElementById('tab-newPaymentStorage').style.display = tabName === 'newPaymentStorage' ? 'block' : 'none';
+      document.getElementById('tab-newGuaranteeExt').style.display = tabName === 'newGuaranteeExt' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
@@ -2517,19 +2821,21 @@
           (tabName === 'penaltyDelay' && i === 8) ||
           (tabName === 'transportIns' && i === 9) ||
           (tabName === 'paymentStorage' && i === 10) ||
-          (tabName === 'newBatch' && i === 11) ||
-          (tabName === 'newPayout' && i === 12) ||
-          (tabName === 'newDiscount' && i === 13) ||
-          (tabName === 'newGuarantee' && i === 14) ||
-          (tabName === 'newMortgage' && i === 15) ||
-          (tabName === 'newRedeem' && i === 16) ||
-          (tabName === 'newPaymentOrder' && i === 17) ||
-          (tabName === 'newBankBill' && i === 18) ||
-          (tabName === 'newPaymentPDI' && i === 19) ||
-          (tabName === 'newPenaltyDelay' && i === 20) ||
-          (tabName === 'newTransportIns' && i === 21) ||
-          (tabName === 'newPaymentStorage' && i === 22) ||
-          (tabName === 'apiDocs' && i === 23));
+          (tabName === 'guaranteeExt' && i === 11) ||
+          (tabName === 'newBatch' && i === 12) ||
+          (tabName === 'newPayout' && i === 13) ||
+          (tabName === 'newDiscount' && i === 14) ||
+          (tabName === 'newGuarantee' && i === 15) ||
+          (tabName === 'newMortgage' && i === 16) ||
+          (tabName === 'newRedeem' && i === 17) ||
+          (tabName === 'newPaymentOrder' && i === 18) ||
+          (tabName === 'newBankBill' && i === 19) ||
+          (tabName === 'newPaymentPDI' && i === 20) ||
+          (tabName === 'newPenaltyDelay' && i === 21) ||
+          (tabName === 'newTransportIns' && i === 22) ||
+          (tabName === 'newPaymentStorage' && i === 23) ||
+          (tabName === 'newGuaranteeExt' && i === 24) ||
+          (tabName === 'apiDocs' && i === 25));
       });
 
       if (tabName === 'reconcile') loadBatches();
@@ -2543,6 +2849,7 @@
       else if (tabName === 'penaltyDelay') loadPenaltyRecords();
       else if (tabName === 'transportIns') loadTransportRecords();
       else if (tabName === 'paymentStorage') loadStorageRecords();
+      else if (tabName === 'guaranteeExt') { loadGuaranteeExtList(); loadGuaranteeExtSummary(); }
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====
@@ -7197,6 +7504,722 @@
       }
     }
 
+    // ===== NGHIỆP VỤ CÔNG VĂN ĐỀ NGHỊ GIA HẠN BẢO LÃNH (Pmt_GrtClaimExt / FrmQLCVanGiaHan_PhatHanhBL) =====
+    let currentExtDetailId = null;
+
+    async function loadGuaranteeExtSummary() {
+      try {
+        const res = await fetch('/api/guarantee-extensions/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('extStatTotal').textContent = d.totalDispatches;
+        document.getElementById('extStatDraft').textContent = d.draftCount;
+        document.getElementById('extStatSigned').textContent = d.signedCount;
+        document.getElementById('extStatAccepted').textContent = d.acceptedCount;
+        document.getElementById('extStatTotalAmount').textContent = Number(d.totalGuaranteeAmount).toLocaleString('vi-VN') + ' đ';
+      } catch(e) {
+        console.error('Lỗi load summary gia hạn BL:', e);
+      }
+    }
+
+    async function loadGuaranteeExtList() {
+      try {
+        const bankCode = document.getElementById('selExtFilterBank').value;
+        const status = document.getElementById('selExtFilterStatus').value;
+        const flagIsHTC = document.getElementById('selExtFilterFlag').value;
+        const search = document.getElementById('inpExtFilterSearch').value.trim();
+
+        const params = new URLSearchParams();
+        if (bankCode) params.append('bankCode', bankCode);
+        if (status) params.append('status', status);
+        if (flagIsHTC) params.append('flagIsHTC', flagIsHTC);
+        if (search) params.append('vin', search);
+
+        const url = '/api/guarantee-extensions' + (params.toString() ? '?' + params.toString() : '');
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+
+        const tbody = document.getElementById('guaranteeExtTableBody');
+        tbody.innerHTML = '';
+
+        if (!list || list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="13" class="muted" style="text-align:center; padding:20px;">Không có công văn gia hạn bảo lãnh nào phù hợp điều kiện lọc.</td></tr>';
+          return;
+        }
+
+        list.forEach((item, idx) => {
+          const tr = document.createElement('tr');
+          const statusBadge = getExtStatusBadge(item.status);
+          const signBadge = item.signCAStatus === 1 || item.signCAStatus === 'Signed'
+            ? '<span class="badge" style="background:#2ecc71; color:#fff;">Đã Ký CA</span>'
+            : '<span class="badge" style="background:#95a5a6; color:#fff;">Chưa Ký</span>';
+
+          const phapNhanText = item.flagIsHTC === '2' ? 'HTV' : 'HTC';
+
+          tr.innerHTML = `
+            <td>${idx + 1}</td>
+            <td><strong style="color:var(--primary); cursor:pointer;" onclick="viewGuaranteeExtDetail(${item.id})">${item.dispatchNo}</strong></td>
+            <td><span class="badge" style="background:#34495e; color:#fff;">${phapNhanText}</span></td>
+            <td><strong>${item.dealerCode}</strong><br><small class="muted">${item.dealerName || ''}</small></td>
+            <td><span class="badge" style="background:#2980b9; color:#fff;">${item.bankCode}</span><br><small class="muted">${item.bankName || ''}</small></td>
+            <td style="text-align:center;"><strong>+${item.numberOfDaysExt}</strong> ngày</td>
+            <td style="text-align:center;"><strong>${item.totalCarCount}</strong> xe</td>
+            <td style="text-align:center;"><small>${item.totalCarsNotDelivered} chưa / ${item.totalCarsDelivered} đã</small></td>
+            <td style="font-weight:600; color:#e74c3c;">${Number(item.totalAmount).toLocaleString('vi-VN')} đ</td>
+            <td>${statusBadge}</td>
+            <td style="text-align:center;">${signBadge}</td>
+            <td><small class="muted">${formatDate(item.createdAt)}</small></td>
+            <td>
+              <button class="secondary" style="padding:4px 8px; font-size:.85em;" onclick="viewGuaranteeExtDetail(${item.id})">Chi Tiết</button>
+              <button class="secondary" style="padding:4px 8px; font-size:.85em; margin-left:4px;" onclick="openDispatchAdviceModal(${item.id})">In CV</button>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        loadGuaranteeExtSummary();
+      } catch(e) {
+        console.error('Lỗi load danh sách công văn:', e);
+      }
+    }
+
+    function getExtStatusBadge(status) {
+      const s = typeof status === 'number' ? status : parseExtStatusNumber(status);
+      switch(s) {
+        case 0: return '<span class="badge" style="background:#f39c12; color:#fff;">Mới tạo (Draft)</span>';
+        case 1: return '<span class="badge" style="background:#e67e22; color:#fff;">Chờ Ký Số</span>';
+        case 2: return '<span class="badge" style="background:#3498db; color:#fff;">Đã Ký CA (Signed)</span>';
+        case 3: return '<span class="badge" style="background:#27ae60; color:#fff;">NH Chấp Thuận (BankAccepted)</span>';
+        case 4: return '<span class="badge" style="background:#c0392b; color:#fff;">NH Từ Chối (BankRejected)</span>';
+        case 5: return '<span class="badge" style="background:#7f8c8d; color:#fff;">Đã Hủy (Cancelled)</span>';
+        default: return `<span class="badge">${status}</span>`;
+      }
+    }
+
+    function parseExtStatusNumber(st) {
+      if (st === 'Draft') return 0;
+      if (st === 'PendingSign') return 1;
+      if (st === 'Signed') return 2;
+      if (st === 'BankAccepted') return 3;
+      if (st === 'BankRejected') return 4;
+      if (st === 'Cancelled') return 5;
+      return 0;
+    }
+
+    async function viewGuaranteeExtDetail(id) {
+      currentExtDetailId = id;
+      try {
+        const res = await fetch(`/api/guarantee-extensions/${id}`, { headers });
+        if (!res.ok) { alert('Không thể tải chi tiết công văn #' + id); return; }
+        const item = await res.json();
+
+        document.getElementById('cardGuaranteeExtDetail').style.display = 'block';
+        document.getElementById('extDetailTitle').textContent = `Chi Tiết Công Văn: ${item.dispatchNo} (${item.flagIsHTC === '2' ? 'HTV' : 'HTC'})`;
+        document.getElementById('extVehiclesCountBadge').textContent = `${item.details?.length || 0} xe`;
+
+        const statusBadge = getExtStatusBadge(item.status);
+        const signBadge = item.signCAStatus === 1 || item.signCAStatus === 'Signed'
+          ? '<span class="badge" style="background:#2ecc71; color:#fff;">Đã Ký CA</span>'
+          : '<span class="badge" style="background:#95a5a6; color:#fff;">Chưa Ký</span>';
+
+        const summaryHtml = `
+          <div class="row" style="background:rgba(255,255,255,0.02); padding:12px; border-radius:6px; border:1px solid var(--border);">
+            <div class="col">
+              <div><strong>Số Công Văn:</strong> <span style="color:var(--primary); font-weight:bold;">${item.dispatchNo}</span></div>
+              <div><strong>Đại Lý:</strong> ${item.dealerName} (${item.dealerCode})</div>
+              <div><strong>Pháp Nhân Xuất Bán:</strong> ${item.flagIsHTC === '2' ? 'Hyundai Thành Công Thương Mại (HTV)' : 'Hyundai Thành Công Việt Nam (HTC)'}</div>
+              <div><strong>Ngân Hàng Bảo Lãnh:</strong> ${item.bankName} (${item.bankCode})</div>
+              <div><strong>Ngân Hàng Giám Sát:</strong> ${item.bankCodeMonitor || 'VPBANK_HO'}</div>
+            </div>
+            <div class="col">
+              <div><strong>Số Ngày Đề Nghị Gia Hạn:</strong> <span style="font-weight:bold; color:#e67e22;">+${item.numberOfDaysExt} ngày</span></div>
+              <div><strong>Tổng Số Lượng Xe:</strong> ${item.totalCarCount} xe (Chưa giao: ${item.totalCarsNotDelivered} | Đã giao: ${item.totalCarsDelivered})</div>
+              <div><strong>Tổng Giá Trị Bảo Lãnh:</strong> <span style="color:#e74c3c; font-weight:bold; font-size:1.1em;">${Number(item.totalAmount).toLocaleString('vi-VN')} đ</span></div>
+              <div><strong>Trạng Thái:</strong> ${statusBadge} &nbsp; <strong>Ký CA:</strong> ${signBadge}</div>
+              <div><strong>Ngày Lập:</strong> ${formatDate(item.createdAt)} bởi <em>${item.createdBy || 'System'}</em></div>
+            </div>
+            <div class="col">
+              <div><strong>Người Ký Số CA:</strong> ${item.signedBy || '<span class="muted">Chưa ký</span>'}</div>
+              <div><strong>Ngày Giờ Ký CA:</strong> ${item.signedAt ? formatDate(item.signedAt) : '-'}</div>
+              <div><strong>Mã Vân Tay Chứng Thư CA:</strong> <code>${item.certThumbprint || '-'}</code></div>
+              <div><strong>Số VB Chấp Thuận Của NH:</strong> <strong style="color:#27ae60;">${item.bankResponseRef || '<span class="muted">Chờ NH phê duyệt</span>'}</strong></div>
+              <div><strong>Lý Do Từ Chối / Ghi Chú:</strong> <span style="color:#e74c3c;">${item.bankRejectReason || item.remark || '-'}</span></div>
+            </div>
+          </div>
+        `;
+        document.getElementById('extDetailSummaryBlock').innerHTML = summaryHtml;
+
+        // Render Action buttons
+        const btnBox = document.getElementById('extDetailActionButtons');
+        btnBox.innerHTML = '';
+
+        const stNum = typeof item.status === 'number' ? item.status : parseExtStatusNumber(item.status);
+
+        // Nút In Công Văn luôn hiển thị
+        btnBox.innerHTML += `<button onclick="openDispatchAdviceModal(${item.id})">📄 Xem &amp; In Mẫu Công Văn (CR_ClaimPM)</button>`;
+
+        if (stNum === 0 || stNum === 1) { // Draft
+          btnBox.innerHTML += `<button style="background:#3498db; margin-left:6px;" onclick="signGuaranteeExtCA(${item.id})">✍️ Ký Số Điện Tử CA (Lãnh Đạo HTV/HTC)</button>`;
+          btnBox.innerHTML += `<button class="secondary" style="color:#e74c3c; margin-left:6px;" onclick="cancelGuaranteeExt(${item.id})">Hủy Công Văn</button>`;
+          btnBox.innerHTML += `<button class="secondary" style="color:#c0392b; margin-left:6px;" onclick="deleteDraftGuaranteeExt(${item.id})">Xóa Bản Ghi Nháp</button>`;
+          document.getElementById('extQuickAddVehicleBox').style.display = 'block';
+        } else if (stNum === 2) { // Signed
+          btnBox.innerHTML += `<button style="background:#2ecc71; margin-left:6px;" onclick="bankAcceptGuaranteeExt(${item.id})">✅ Ngân Hàng Chấp Thuận Gia Hạn</button>`;
+          btnBox.innerHTML += `<button style="background:#e74c3c; margin-left:6px;" onclick="bankRejectGuaranteeExt(${item.id})">❌ Ngân Hàng Từ Chối Gia Hạn</button>`;
+          btnBox.innerHTML += `<button class="secondary" style="color:#e74c3c; margin-left:6px;" onclick="cancelGuaranteeExt(${item.id})">Hủy Công Văn</button>`;
+          document.getElementById('extQuickAddVehicleBox').style.display = 'none';
+        } else {
+          document.getElementById('extQuickAddVehicleBox').style.display = 'none';
+        }
+
+        // Render bảng xe
+        const tbody = document.getElementById('extDetailTableBody');
+        tbody.innerHTML = '';
+
+        if (!item.details || item.details.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="14" class="muted" style="text-align:center; padding:16px;">Công văn chưa có dòng xe nào.</td></tr>';
+          return;
+        }
+
+        item.details.forEach((dt, idx) => {
+          const tr = document.createElement('tr');
+          const dtlStatusBadge = getExtDetailStatusBadge(dt.status);
+          const deliveredText = dt.isDelivered
+            ? '<span class="badge" style="background:#27ae60; color:#fff;">Đã Giao Xe</span>'
+            : '<span class="badge" style="background:#7f8c8d; color:#fff;">Chưa Giao (Chờ hồ sơ)</span>';
+
+          const actionHtml = (stNum === 0 || stNum === 1)
+            ? `<button class="secondary" style="padding:2px 6px; font-size:.8em; color:#e74c3c;" onclick="removeVehicleFromDispatch(${item.id}, ${dt.id})">Xóa</button>`
+            : '<small class="muted">Đã khóa</small>';
+
+          tr.innerHTML = `
+            <td>${idx + 1}</td>
+            <td><strong style="color:var(--primary); font-family:monospace;">${dt.vin}</strong></td>
+            <td><strong>${dt.modelCode}</strong><br><small class="muted">${dt.modelName || ''}</small></td>
+            <td>${dt.colorName || '-'}</td>
+            <td><small>${dt.dlrCtrNo || dt.soCode || '-'}</small></td>
+            <td><strong style="color:#2980b9;">${dt.bankGuaranteeNo}</strong></td>
+            <td><small class="muted">${formatDate(dt.grtDateExpired)}</small></td>
+            <td><strong style="color:#e67e22;">${formatDate(dt.extendedDate)}</strong></td>
+            <td style="font-weight:600; color:#e74c3c;">${Number(dt.grtValue).toLocaleString('vi-VN')} đ</td>
+            <td>${Number(dt.unitPrice).toLocaleString('vi-VN')} đ</td>
+            <td>${deliveredText}</td>
+            <td>${dtlStatusBadge}</td>
+            <td><small class="muted">${dt.remark || '-'}</small></td>
+            <td style="text-align:center;">${actionHtml}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+      } catch(e) {
+        console.error('Lỗi view chi tiết:', e);
+      }
+    }
+
+    function getExtDetailStatusBadge(status) {
+      const s = typeof status === 'number' ? status : parseExtDetailStatusNumber(status);
+      switch(s) {
+        case 0: return '<span class="badge" style="background:#95a5a6; color:#fff;">Chờ Duyệt</span>';
+        case 1: return '<span class="badge" style="background:#3498db; color:#fff;">Hiệu Lực</span>';
+        case 2: return '<span class="badge" style="background:#2ecc71; color:#fff;">Đã Gia Hạn</span>';
+        case 3: return '<span class="badge" style="background:#e74c3c; color:#fff;">Bị Từ Chối</span>';
+        case 4: return '<span class="badge" style="background:#7f8c8d; color:#fff;">Hủy</span>';
+        default: return `<span class="badge">${status}</span>`;
+      }
+    }
+
+    function parseExtDetailStatusNumber(st) {
+      if (st === 'Pending') return 0;
+      if (st === 'Active') return 1;
+      if (st === 'BankAccepted') return 2;
+      if (st === 'BankRejected') return 3;
+      if (st === 'Cancelled') return 4;
+      return 0;
+    }
+
+    async function signGuaranteeExtCA(id) {
+      const signer = prompt('Nhập họ tên Lãnh đạo ký số điện tử CA đại diện:', 'NguyenVanHieu_TongGiamDoc_HTV');
+      if (signer === null) return;
+      try {
+        const res = await fetch(`/api/guarantee-extensions/${id}/sign-ca`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ signerName: signer })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi ký số CA: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Ký số điện tử CA thành công! Công văn đã được phát hành và sẵn sàng gửi ngân hàng.');
+        loadGuaranteeExtList();
+        viewGuaranteeExtDetail(id);
+      } catch(e) {
+        alert('Lỗi: ' + e.message);
+      }
+    }
+
+    async function bankAcceptGuaranteeExt(id) {
+      const ref = prompt('Nhập số văn bản / công văn chấp thuận của ngân hàng phát hành:', 'VPB-CV-2025/0515-BL');
+      if (!ref) return;
+      const note = prompt('Ghi chú thêm từ ngân hàng (nếu có):', 'Ngân hàng đồng ý gia hạn thời hạn bảo lãnh thêm 30 ngày');
+      try {
+        const res = await fetch(`/api/guarantee-extensions/${id}/bank-accept`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ bankResponseRef: ref, note: note })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi ghi nhận chấp thuận: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Ghi nhận ngân hàng chấp thuận thành công! Đã tự động cập nhật ngày hết hạn mới cho Thư bảo lãnh gốc.');
+        loadGuaranteeExtList();
+        viewGuaranteeExtDetail(id);
+      } catch(e) {
+        alert('Lỗi: ' + e.message);
+      }
+    }
+
+    async function bankRejectGuaranteeExt(id) {
+      const reason = prompt('Nhập lý do ngân hàng từ chối gia hạn bảo lãnh:', 'Đại lý vượt hạn mức tín dụng hoặc phát sinh nợ quá hạn');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/guarantee-extensions/${id}/bank-reject`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ reason: reason })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã cập nhật trạng thái Ngân hàng từ chối gia hạn.');
+        loadGuaranteeExtList();
+        viewGuaranteeExtDetail(id);
+      } catch(e) {
+        alert('Lỗi: ' + e.message);
+      }
+    }
+
+    async function cancelGuaranteeExt(id) {
+      const reason = prompt('Nhập lý do hủy công văn đề nghị gia hạn:', 'Đại lý đã thanh toán chuyển khoản UNC trực tiếp');
+      if (reason === null) return;
+      try {
+        const res = await fetch(`/api/guarantee-extensions/${id}/cancel`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ reason: reason })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã hủy công văn thành công.');
+        loadGuaranteeExtList();
+        viewGuaranteeExtDetail(id);
+      } catch(e) {
+        alert('Lỗi: ' + e.message);
+      }
+    }
+
+    async function deleteDraftGuaranteeExt(id) {
+      if (!confirm('Bạn có chắc chắn muốn xóa bản ghi công văn nháp này?')) return;
+      try {
+        const res = await fetch(`/api/guarantee-extensions/${id}`, {
+          method: 'DELETE',
+          headers
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã xóa công văn nháp thành công.');
+        document.getElementById('cardGuaranteeExtDetail').style.display = 'none';
+        loadGuaranteeExtList();
+      } catch(e) {
+        alert('Lỗi: ' + e.message);
+      }
+    }
+
+    async function quickAddVehicleToDispatch() {
+      if (!currentExtDetailId) return;
+      const vin = document.getElementById('inpAddExtVIN').value.trim();
+      const modelCode = document.getElementById('inpAddExtModelCode').value.trim();
+      const modelName = document.getElementById('inpAddExtModelName').value.trim();
+      const bankGrtNo = document.getElementById('inpAddExtBankGuaranteeNo').value.trim();
+      const grtVal = parseInt(document.getElementById('inpAddExtGrtValue').value) || 1000000000;
+
+      if (!vin) { alert('Vui lòng nhập số khung VIN.'); return; }
+
+      const item = {
+        vin: vin,
+        modelCode: modelCode || 'SANTAFE-CALLI',
+        modelName: modelName || 'Hyundai Santa Fe Calligraphy',
+        bankGuaranteeNo: bankGrtNo || ('BL-' + vin.substring(0, 8)),
+        grtValue: grtVal,
+        unitPrice: Math.round(grtVal / 0.85),
+        isDelivered: false
+      };
+
+      try {
+        const res = await fetch(`/api/guarantee-extensions/${currentExtDetailId}/vehicles`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ items: [item] })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi thêm xe: ' + (err.error || res.statusText));
+          return;
+        }
+        document.getElementById('inpAddExtVIN').value = '';
+        document.getElementById('inpAddExtModelCode').value = '';
+        document.getElementById('inpAddExtModelName').value = '';
+        document.getElementById('inpAddExtBankGuaranteeNo').value = '';
+        document.getElementById('inpAddExtGrtValue').value = '';
+        alert('Bổ sung xe thành công!');
+        viewGuaranteeExtDetail(currentExtDetailId);
+        loadGuaranteeExtList();
+      } catch(e) {
+        alert('Lỗi: ' + e.message);
+      }
+    }
+
+    async function removeVehicleFromDispatch(dispatchId, detailId) {
+      if (!confirm('Bạn có chắc chắn muốn xóa dòng xe này khỏi công văn?')) return;
+      try {
+        const res = await fetch(`/api/guarantee-extensions/${dispatchId}/vehicles/${detailId}`, {
+          method: 'DELETE',
+          headers
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi xóa xe: ' + (err.error || res.statusText));
+          return;
+        }
+        viewGuaranteeExtDetail(dispatchId);
+        loadGuaranteeExtList();
+      } catch(e) {
+        alert('Lỗi: ' + e.message);
+      }
+    }
+
+    async function openDispatchAdviceModal(id) {
+      try {
+        const res = await fetch(`/api/guarantee-extensions/${id}/advice`, { headers });
+        if (!res.ok) { alert('Không thể lấy mẫu in công văn #' + id); return; }
+        const data = await res.json();
+
+        let tableRows = '';
+        data.vehicles.forEach((v, idx) => {
+          tableRows += `
+            <tr>
+              <td style="border:1px solid #ddd; padding:6px; text-align:center;">${idx + 1}</td>
+              <td style="border:1px solid #ddd; padding:6px; font-family:monospace; font-weight:bold;">${v.vin}</td>
+              <td style="border:1px solid #ddd; padding:6px;"><strong>${v.modelCode}</strong> - ${v.modelName}</td>
+              <td style="border:1px solid #ddd; padding:6px;">${v.colorName}</td>
+              <td style="border:1px solid #ddd; padding:6px;">${v.dlrCtrNo}</td>
+              <td style="border:1px solid #ddd; padding:6px; font-weight:600;">${v.bankGuaranteeNo}</td>
+              <td style="border:1px solid #ddd; padding:6px; text-align:center;">${v.grtDateExpired}</td>
+              <td style="border:1px solid #ddd; padding:6px; text-align:center; font-weight:bold; color:#e67e22;">${v.extendedDate}</td>
+              <td style="border:1px solid #ddd; padding:6px; text-align:right; font-weight:bold;">${Number(v.grtValue).toLocaleString('vi-VN')} đ</td>
+              <td style="border:1px solid #ddd; padding:6px; text-align:center;">${v.deliveryStatusText}</td>
+            </tr>
+          `;
+        });
+
+        const html = `
+          <div style="font-family:'Times New Roman', Times, serif; color:#111; background:#fff; padding:30px; border-radius:4px; line-height:1.5;">
+            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+              <div style="text-align:center; width:45%;">
+                <strong style="font-size:1.05em;">${data.companyLegalName.toUpperCase()}</strong><br>
+                <span style="font-size:.9em;">Số: <strong>${data.dispatchSubNo}</strong></span><br>
+                <span style="font-size:.85em; font-style:italic;">V/v Đề nghị gia hạn hiệu lực Thư bảo lãnh thanh toán mua bán xe ô tô</span>
+              </div>
+              <div style="text-align:center; width:50%;">
+                <strong style="font-size:1em;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</strong><br>
+                <strong style="font-size:.95em; text-decoration:underline;">Độc lập - Tự do - Hạnh phúc</strong><br><br>
+                <span style="font-size:.9em; font-style:italic;">Hà Nội, ngày ${data.dateCreated}</span>
+              </div>
+            </div>
+
+            <div style="margin-top:25px; text-align:center;">
+              <h2 style="font-size:1.35em; font-weight:bold; margin:0 0 6px 0;">CÔNG VĂN ĐỀ NGHỊ GIA HẠN THỜI HẠN THƯ BẢO LÃNH THANH TOÁN</h2>
+              <span style="font-style:italic; font-size:.95em;">(Mẫu biểu tiêu chuẩn HTC: CR_ClaimPM / BizHTC.Payment)</span>
+            </div>
+
+            <div style="margin-top:20px; font-size:1em;">
+              <p><strong><u>Kính gửi:</u></strong></p>
+              <ul style="list-style-type:none; padding-left:15px; margin-top:4px;">
+                <li><strong>- BAN GIÁM ĐỐC / PHÒNG QUẢN LÝ TÍN DỤNG DOANH NGHIỆP:</strong> ${data.bankName.toUpperCase()}</li>
+                <li><strong>- NGÂN HÀNG QUẢN LÝ / GIÁM SÁT TÀI KHOẢN PHONG TỎA:</strong> ${data.bankCodeMonitor}</li>
+                <li><strong>- ĐẠI LÝ PHÂN PHỐI ĐƯỢC BẢO LÃNH:</strong> ${data.dealerName.toUpperCase()} (Mã ĐL: ${data.dealerCode})</li>
+              </ul>
+
+              <p style="text-indent:25px; margin-top:12px;">
+                Căn cứ Hợp đồng đại lý phân phối xe ô tô ký kết giữa <strong>${data.companyLegalName}</strong> và <strong>${data.dealerName}</strong>;
+                Căn cứ Thư bảo lãnh thanh toán do Quý Ngân hàng phát hành bảo lãnh cho nghĩa vụ thanh toán của Đại lý mua xe ô tô từ Công ty chúng tôi.
+              </p>
+              <p style="text-indent:25px;">
+                Để tạo điều kiện cho Đại lý và Quý Ngân hàng phối hợp hoàn tất thủ tục bàn giao xe, kiểm tra đăng ký lưu hành và quyết toán thanh toán chuyển khoản, Công ty chúng tôi trân trọng đề nghị Quý Ngân hàng xem xét chấp thuận <strong>gia hạn thời hạn hiệu lực thêm ${data.numberOfDaysExt} ngày</strong> đối với danh mục các Thư bảo lãnh của các dòng xe ô tô dưới đây:
+              </p>
+            </div>
+
+            <div style="margin-top:16px; overflow-x:auto;">
+              <table style="width:100%; border-collapse:collapse; font-size:.85em; border:1px solid #ddd;">
+                <thead>
+                  <tr style="background:#f2f2f2; text-align:center;">
+                    <th style="border:1px solid #ddd; padding:6px;">STT</th>
+                    <th style="border:1px solid #ddd; padding:6px;">Số Khung (VIN)</th>
+                    <th style="border:1px solid #ddd; padding:6px;">Mẫu Xe</th>
+                    <th style="border:1px solid #ddd; padding:6px;">Màu</th>
+                    <th style="border:1px solid #ddd; padding:6px;">Số HĐ</th>
+                    <th style="border:1px solid #ddd; padding:6px;">Thư BL Gốc</th>
+                    <th style="border:1px solid #ddd; padding:6px;">Hạn Cũ</th>
+                    <th style="border:1px solid #ddd; padding:6px;">Hạn Mới Đề Nghị</th>
+                    <th style="border:1px solid #ddd; padding:6px;">Giá Trị BL</th>
+                    <th style="border:1px solid #ddd; padding:6px;">Tình Trạng Xe</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  ${tableRows}
+                </tbody>
+                <tfoot>
+                  <tr style="background:#fafafa; font-weight:bold;">
+                    <td colspan="8" style="border:1px solid #ddd; padding:8px; text-align:right;">TỔNG GIÁ TRỊ BẢO LÃNH ĐỀ NGHỊ GIA HẠN (${data.totalCarCount} XE):</td>
+                    <td style="border:1px solid #ddd; padding:8px; text-align:right; color:#c0392b;">${Number(data.totalAmount).toLocaleString('vi-VN')} đ</td>
+                    <td style="border:1px solid #ddd; padding:8px; text-align:center;">${data.totalCarsNotDelivered} chưa / ${data.totalCarsDelivered} đã</td>
+                  </tr>
+                </tfoot>
+              </table>
+            </div>
+
+            <div style="margin-top:14px; font-size:.95em;">
+              <p><strong>Số tiền bảo lãnh đề nghị gia hạn bằng chữ:</strong> <em style="color:#2c3e50; font-weight:bold;">${data.amountInWords}</em></p>
+              <p><strong>Lý do giải trình:</strong> ${data.remark || 'Gia hạn theo thỏa thuận tiến độ giao nhận xe thương mại'}</p>
+            </div>
+
+            <div style="margin-top:35px; display:flex; justify-content:space-between; align-items:flex-start;">
+              <div style="width:40%; font-size:.9em;">
+                <strong><u>Nơi nhận:</u></strong><br>
+                - Như trên;<br>
+                - Phòng Tín dụng &amp; Quản lý Rủi ro;<br>
+                - Phòng Kế toán Thanh toán HTC/HTV;<br>
+                - Lưu: VT, BHD.
+              </div>
+              <div style="width:50%; text-align:center; font-size:.95em;">
+                <strong>ĐẠI DIỆN CÔNG TY BÁN XE</strong><br>
+                <span style="font-size:.85em; font-style:italic;">(Ký số điện tử CA / Đóng dấu)</span><br><br>
+                <div style="min-height:50px; display:flex; justify-content:center; align-items:center;">
+                  ${data.signCAStatus === 'Signed' ? `
+                    <div style="border:2px solid #27ae60; padding:6px 14px; border-radius:4px; display:inline-block; background:rgba(39,174,96,0.06); color:#27ae60;">
+                      <strong style="font-size:.9em;">✓ DIGITAL SIGNATURE VERIFIED</strong><br>
+                      <small>Ký bởi: <strong>${data.signedBy || 'TongGiamDoc'}</strong></small><br>
+                      <small>Thời gian: ${data.signedDate || '-'}</small><br>
+                      <small style="font-family:monospace; font-size:.75em;">Thumbprint: ${data.certThumbprint || '-'}</small>
+                    </div>
+                  ` : '<span style="color:#e67e22; font-style:italic;">[Dự thảo - Chưa ký số CA]</span>'}
+                </div>
+                <br>
+                <strong>${data.signedBy || 'BAN GIÁM ĐỐC'}</strong>
+              </div>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('dispatchAdviceContent').innerHTML = html;
+        document.getElementById('modalDispatchAdvice').style.display = 'block';
+      } catch(e) {
+        alert('Lỗi: ' + e.message);
+      }
+    }
+
+    function closeDispatchAdviceModal() {
+      document.getElementById('modalDispatchAdvice').style.display = 'none';
+    }
+
+    function openAutoGenerateModal() {
+      document.getElementById('modalAutoGenerateDispatch').style.display = 'block';
+      document.getElementById('autoGenerateMsg').textContent = '';
+    }
+
+    function closeAutoGenerateModal() {
+      document.getElementById('modalAutoGenerateDispatch').style.display = 'none';
+    }
+
+    async function executeAutoGenerate() {
+      const msg = document.getElementById('autoGenerateMsg');
+      const withinDays = parseInt(document.getElementById('inpAutoWithinDays').value) || 15;
+      const extDays = parseInt(document.getElementById('inpAutoExtDays').value) || 30;
+      const flag = document.getElementById('inpAutoFlagIsHTC').value;
+      const remark = document.getElementById('inpAutoRemark').value.trim();
+
+      msg.textContent = 'Đang quét hệ thống bảo lãnh và gom nhóm lập công văn...';
+
+      try {
+        const res = await fetch('/api/guarantee-extensions/auto-generate', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            withinDays: withinDays,
+            numberOfDaysExt: extDays,
+            flagIsHTC: flag,
+            remark: remark,
+            createdBy: 'AutoScheduleService'
+          })
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! ${data.message}`;
+        setTimeout(() => {
+          closeAutoGenerateModal();
+          showTab('guaranteeExt');
+          loadGuaranteeExtList();
+        }, 1200);
+      } catch(e) {
+        msg.textContent = 'Lỗi: ' + e.message;
+      }
+    }
+
+    function onNewExtBankChange() {
+      const bCode = document.getElementById('inpNewExtBankCode').value;
+      const mapNames = {
+        'VPB': { name: 'Ngân hàng TMCP Việt Nam Thịnh Vượng (VPBank)', mon: 'VPBANK_HO' },
+        'CTG': { name: 'Ngân hàng TMCP Công Thương Việt Nam (VietinBank)', mon: 'CTG_HANOI' },
+        'TCB': { name: 'Ngân hàng TMCP Kỹ Thương Việt Nam (Techcombank)', mon: 'TCB_HO' },
+        'MBB': { name: 'Ngân hàng TMCP Quân Đội (MBBank)', mon: 'MBB_DANANG' },
+        'VCB': { name: 'Ngân hàng TMCP Ngoại Thương Việt Nam (Vietcombank)', mon: 'VCB_HO' }
+      };
+      if (mapNames[bCode]) {
+        document.getElementById('inpNewExtBankName').value = mapNames[bCode].name;
+        document.getElementById('inpNewExtBankCodeMonitor').value = mapNames[bCode].mon;
+      }
+    }
+
+    function loadSampleGuaranteeExtData() {
+      const sample = [
+        {
+          "vin": "KMHCT81EPHU700501",
+          "carId": "CAR-SAN-7005",
+          "modelCode": "SANTAFE-CALLI",
+          "modelName": "Hyundai SantaFe 2.5 Turbo Calligraphy",
+          "specCode": "SAN-2.5T-CAL",
+          "specDescription": "SUV 7 chỗ Turbo HTRAC cao cấp",
+          "colorName": "Trắng Tinh Khôi",
+          "soCode": "SO-2025-0518",
+          "dlrCtrNo": "PLHD-HADONG-2025/051",
+          "guaranteeNo": "GRT-2025-0518",
+          "bankGuaranteeNo": "BL-VPB-2025-0988",
+          "grtDateStart": "2025-04-10",
+          "grtDateExpired": "2025-05-25",
+          "grtValue": 1250000000,
+          "unitPrice": 1470000000,
+          "isDelivered": false,
+          "remark": "Xe đang vận chuyển chờ hồ sơ xuất xưởng"
+        },
+        {
+          "vin": "KMHCT81EPHU700502",
+          "carId": "CAR-TUC-7006",
+          "modelCode": "TUCSON-TURBO",
+          "modelName": "Hyundai Tucson 1.6 T-GDi Turbo",
+          "specCode": "TUC-1.6T-PREM",
+          "specDescription": "Crossover 5 chỗ HTRAC máy xăng tăng áp",
+          "colorName": "Đen Phantom",
+          "soCode": "SO-2025-0518",
+          "dlrCtrNo": "PLHD-HADONG-2025/051",
+          "guaranteeNo": "GRT-2025-0518",
+          "bankGuaranteeNo": "BL-VPB-2025-0988",
+          "grtDateStart": "2025-04-10",
+          "grtDateExpired": "2025-05-25",
+          "grtValue": 950000000,
+          "unitPrice": 1120000000,
+          "isDelivered": true,
+          "remark": "Đã giao xe cho đại lý trưng bày"
+        },
+        {
+          "vin": "KMHCT81EPHU700503",
+          "carId": "CAR-ACC-7007",
+          "modelCode": "ACCENT-AT-DB",
+          "modelName": "Hyundai Accent 1.5 AT Đặc Biệt",
+          "specCode": "ACC-1.5L-DB",
+          "specDescription": "Sedan phân khúc B Smartstream",
+          "colorName": "Đỏ Mận",
+          "soCode": "SO-2025-0518",
+          "dlrCtrNo": "PLHD-HADONG-2025/051",
+          "guaranteeNo": "GRT-2025-0518",
+          "bankGuaranteeNo": "BL-VPB-2025-0988",
+          "grtDateStart": "2025-04-10",
+          "grtDateExpired": "2025-05-25",
+          "grtValue": 550000000,
+          "unitPrice": 650000000,
+          "isDelivered": false,
+          "remark": "Chờ hoàn tất đăng ký xe khách dự án"
+        }
+      ];
+
+      document.getElementById('inpNewExtVehiclesJson').value = JSON.stringify(sample, null, 2);
+    }
+
+    async function submitGuaranteeExt() {
+      const msg = document.getElementById('submitNewExtMsg');
+      try {
+        const rawJson = document.getElementById('inpNewExtVehiclesJson').value.trim();
+        const items = rawJson ? JSON.parse(rawJson) : [];
+        if (!items.length) { alert('Vui lòng nhập ít nhất 1 dòng xe đề nghị gia hạn.'); return; }
+
+        const payload = {
+          dispatchNo: document.getElementById('inpNewExtNo').value.trim() || null,
+          dealerCode: document.getElementById('inpNewExtDealerCode').value.trim(),
+          dealerName: document.getElementById('inpNewExtDealerName').value.trim(),
+          bankCode: document.getElementById('inpNewExtBankCode').value.trim(),
+          bankName: document.getElementById('inpNewExtBankName').value.trim(),
+          bankCodeMonitor: document.getElementById('inpNewExtBankCodeMonitor').value.trim() || null,
+          flagIsHTC: document.getElementById('inpNewExtFlagIsHTC').value,
+          numberOfDaysExt: parseInt(document.getElementById('inpNewExtDays').value) || 30,
+          remark: document.getElementById('inpNewExtRemark').value.trim(),
+          createdBy: 'ChuyenVienTinDungHTC',
+          items: items
+        };
+
+        if (!payload.dealerCode) { alert('Vui lòng nhập mã đại lý.'); return; }
+        if (!payload.bankCode) { alert('Vui lòng chọn ngân hàng phát hành bảo lãnh.'); return; }
+
+        msg.textContent = 'Đang khởi tạo công văn đề nghị gia hạn bảo lãnh...';
+        const res = await fetch('/api/guarantee-extensions', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Công văn: ${data.dispatchNo} (Tổng giá trị bảo lãnh: ${Number(data.totalAmount).toLocaleString('vi-VN')} đ)`;
+        setTimeout(() => {
+          showTab('guaranteeExt');
+          viewGuaranteeExtDetail(data.id);
+        }, 800);
+      } catch(e) {
+        msg.textContent = 'Lỗi cú pháp JSON: ' + e.message;
+      }
+    }
+
     // Khởi tạo
     loadSampleData();
     loadSamplePayoutData();
@@ -7205,6 +8228,7 @@
     loadSamplePenaltyData();
     loadSampleTransportData();
     loadSampleStorageData();
+    loadSampleGuaranteeExtData();
     loadBatches();
   </script>
 </body>

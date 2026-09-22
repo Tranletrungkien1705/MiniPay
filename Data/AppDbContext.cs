@@ -31,6 +31,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<TransportInsPaymentDetail> TransportInsPaymentDetails => Set<TransportInsPaymentDetail>();
     public DbSet<PaymentStorage> PaymentStorages => Set<PaymentStorage>();
     public DbSet<PaymentStorageDetail> PaymentStorageDetails => Set<PaymentStorageDetail>();
+    public DbSet<GuaranteeExtensionDispatch> GuaranteeExtensionDispatches => Set<GuaranteeExtensionDispatch>();
+    public DbSet<GuaranteeExtensionDetail> GuaranteeExtensionDetails => Set<GuaranteeExtensionDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -151,5 +153,15 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<PaymentStorageDetail>().Property(x => x.Status).HasConversion<int>();
         b.Entity<PaymentStorageDetail>().HasIndex(x => x.PaymentStorageId);
         b.Entity<PaymentStorageDetail>().HasIndex(x => new { x.OrgId, x.VIN });
+
+        b.Entity<GuaranteeExtensionDispatch>().HasIndex(x => new { x.OrgId, x.DispatchNo }).IsUnique();
+        b.Entity<GuaranteeExtensionDispatch>().HasIndex(x => new { x.OrgId, x.BankCode });
+        b.Entity<GuaranteeExtensionDispatch>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<GuaranteeExtensionDispatch>().Property(x => x.SignCAStatus).HasConversion<int>();
+        b.Entity<GuaranteeExtensionDispatch>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.DispatchId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<GuaranteeExtensionDetail>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<GuaranteeExtensionDetail>().HasIndex(x => x.DispatchId);
+        b.Entity<GuaranteeExtensionDetail>().HasIndex(x => new { x.OrgId, x.VIN });
     }
 }

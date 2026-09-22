@@ -79,6 +79,12 @@ public enum StorageSignCAStatus { Pending = 0, Signed = 1 }
 
 public enum PaymentStorageDetailStatus { Pending = 0, Approved = 1, Adjusted = 2, Cancelled = 3 }
 
+public enum GuaranteeExtensionStatus { Draft = 0, PendingSign = 1, Signed = 2, BankAccepted = 3, BankRejected = 4, Cancelled = 5 }
+
+public enum ExtensionSignCAStatus { Pending = 0, Signed = 1 }
+
+public enum GuaranteeExtensionDetailStatus { Pending = 0, Active = 1, BankAccepted = 2, BankRejected = 3, Cancelled = 4 }
+
 /// <summary>Ý định thanh toán (payment intent) — 1 dòng / 1 lần khởi tạo cổng.</summary>
 public sealed class PaymentIntent
 {
@@ -808,6 +814,68 @@ public sealed class PaymentStorageDetail
     public long TotalAmount { get; set; }                          // Tổng chi phí dòng xe (= CostCoat + CostStorage)
     public PaymentStorageDetailStatus Status { get; set; } = PaymentStorageDetailStatus.Pending;
     public string? Remark { get; set; }                            // Ghi chú chi tiết dòng xe
+}
+
+/// <summary>Công văn đề nghị gia hạn thời hạn hiệu lực Thư bảo lãnh thanh toán ngân hàng — tương ứng Pmt_GrtClaimExt trong BizHTC.Payment / Biz.HTC.PaymentGrtExt &amp; FrmQLCVanGiaHan_PhatHanhBL.</summary>
+public sealed class GuaranteeExtensionDispatch
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string DispatchNo { get; set; } = "";                     // Số công văn đề nghị (ví dụ: CVGH-202505-001)
+    public string DealerCode { get; set; } = "";                     // Mã đại lý đề nghị gia hạn (DealerCode)
+    public string DealerName { get; set; } = "";                     // Tên đại lý phân phối
+    public string BankCode { get; set; } = "";                       // Mã ngân hàng phát hành thư bảo lãnh (VPB, CTG, TCB, MBB, VCB...)
+    public string BankName { get; set; } = "";                       // Tên ngân hàng phát hành thư bảo lãnh
+    public string? BankCodeMonitor { get; set; }                     // Ngân hàng giám sát / quản lý tài khoản phong tỏa HTC
+    public string FlagIsHTC { get; set; } = "1";                     // Pháp nhân bán xe: "1" = Hyundai Thành Công HTC, "2" = Hyundai Liên Doanh HTV
+    public int NumberOfDaysExt { get; set; } = 30;                   // Số ngày đề nghị gia hạn bảo lãnh (NumberOfGuaranteeExt, ví dụ 15, 30 ngày)
+    public int TotalCarCount { get; set; }                           // Tổng số lượng xe đề nghị gia hạn
+    public long TotalAmount { get; set; }                            // Tổng giá trị bảo lãnh các dòng xe (VND)
+    public int TotalCarsNotDelivered { get; set; }                   // Số lượng xe chưa giao nhận thực tế (TotalCarId_NoStart)
+    public int TotalCarsDelivered { get; set; }                      // Số lượng xe đã bàn giao đại lý (TotalCarId_Start)
+    public GuaranteeExtensionStatus Status { get; set; } = GuaranteeExtensionStatus.Draft;
+    public ExtensionSignCAStatus SignCAStatus { get; set; } = ExtensionSignCAStatus.Pending;
+    public string? SignedBy { get; set; }                            // Người ký số công văn CA
+    public DateTime? SignedAt { get; set; }                          // Ngày giờ ký số CA
+    public string? CertThumbprint { get; set; }                      // Dấu vân tay chứng thư số điện tử CA
+    public string? BankResponseRef { get; set; }                     // Số văn bản/thông báo chấp thuận gia hạn của ngân hàng
+    public DateTime? BankAcceptedAt { get; set; }                    // Ngày giờ ngân hàng chấp thuận
+    public string? BankRejectReason { get; set; }                    // Lý do ngân hàng từ chối gia hạn
+    public DateTime? CancelledAt { get; set; }                       // Ngày giờ hủy công văn
+    public string? FilePath { get; set; }                            // Đường dẫn file công văn ký số điện tử (CR_ClaimPM.pdf)
+    public string? Remark { get; set; }                              // Lý do / giải trình đề nghị gia hạn bảo lãnh
+    public string? CreatedBy { get; set; }                           // Người lập công văn
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    public List<GuaranteeExtensionDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết xe trong công văn đề nghị gia hạn bảo lãnh ngân hàng — tương ứng Pmt_GrtClaimExtDtl trong BizHTC.Payment.</summary>
+public sealed class GuaranteeExtensionDetail
+{
+    public long Id { get; set; }
+    public long DispatchId { get; set; }
+    public Guid OrgId { get; set; }
+    public string? CarId { get; set; }                               // Mã xe nội bộ
+    public string VIN { get; set; } = "";                            // Số khung xe (17 ký tự VIN)
+    public string ModelCode { get; set; } = "";                      // Mã model xe (SANTAFE, TUCSON, CRETA, ACCENT...)
+    public string? ModelName { get; set; }                           // Tên thương mại mẫu xe
+    public string? SpecCode { get; set; }                            // Đặc tả phiên bản xe
+    public string? SpecDescription { get; set; }                     // Mô tả phiên bản
+    public string? ColorName { get; set; }                           // Tên màu xe ngoại thất
+    public string? SOCode { get; set; }                              // Mã đơn đặt hàng xe bán buôn
+    public string? DlrCtrNo { get; set; }                            // Số Phụ lục hợp đồng mua bán xe
+    public string? GuaranteeNo { get; set; }                         // Mã bảo lãnh hệ thống
+    public string BankGuaranteeNo { get; set; } = "";                // Số thư bảo lãnh gốc ngân hàng (BankGuaranteeNo)
+    public DateTime GrtDateStart { get; set; }                       // Ngày bắt đầu hiệu lực bảo lãnh ban đầu
+    public DateTime GrtDateExpired { get; set; }                     // Ngày hết hạn hiệu lực bảo lãnh cũ
+    public DateTime ExtendedDate { get; set; }                       // Ngày hết hạn mới sau khi gia hạn (= GrtDateExpired + NumberOfDaysExt)
+    public long GrtValue { get; set; }                               // Giá trị bảo lãnh xe áp dụng (VND)
+    public long UnitPrice { get; set; }                              // Giá trị xe theo phụ lục hợp đồng (VND)
+    public bool IsDelivered { get; set; } = false;                   // Đã giao xe thực tế hay chưa
+    public DateTime? DeliveryDate { get; set; }                      // Ngày bàn giao xe thực tế
+    public GuaranteeExtensionDetailStatus Status { get; set; } = GuaranteeExtensionDetailStatus.Pending;
+    public string? Remark { get; set; }                              // Ghi chú dòng xe
 }
 
 
