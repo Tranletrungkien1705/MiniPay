@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MiniPay — Cổng Thanh Toán, Đối Soát Sao Kê & Lệnh Chi Ngân Hàng</title>
+<title>MiniPay — Cổng Thanh Toán, Đối Soát Sao Kê, Lệnh Chi & Chiết Khấu Thanh Toán Sớm</title>
 <style>
   :root {
     --bg: #0f172a; --surface: #1e293b; --border: #334155;
@@ -58,7 +58,7 @@
   <div style="display:flex; justify-content:space-between; align-items:center;">
     <div>
       <h1>MiniPay</h1>
-      <p class="muted">Cổng thanh toán điện tử (VNPay/MoMo), Đối soát sao kê ngân hàng &amp; Lệnh chi chuyển tiền tự động (Banking Payout).</p>
+      <p class="muted">Cổng thanh toán điện tử (VNPay/MoMo), Đối soát sao kê ngân hàng, Lệnh chi chuyển tiền &amp; Quản lý chiết khấu thanh toán sớm (BizHTC.PaymentDiscount).</p>
     </div>
     <div>
       <span class="badge badge-info">Demo Merchant</span>
@@ -88,8 +88,10 @@
   <div class="tab-header">
     <button class="tab-btn active" onclick="showTab('reconcile')">Đối Soát Sao Kê (Reconciliation)</button>
     <button class="tab-btn" onclick="showTab('payout')">Lệnh Chi Ngân Hàng (Banking Payout)</button>
+    <button class="tab-btn" onclick="showTab('discount')">Chiết Khấu Thanh Toán (Payment Discount)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
+    <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -241,6 +243,90 @@
     </div>
   </div>
 
+  <!-- TAB 3: Chiết khấu thanh toán sớm (Payment Discount) -->
+  <div id="tab-discount" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="margin:0;">Hồ sơ đề nghị chiết khấu thanh toán sớm (Req_PaymentDiscount)</h3>
+        <div style="display:flex; gap:8px;">
+          <select id="filterDiscountStatus" onchange="loadDiscountRequests()" style="width:170px;">
+            <option value="">Tất cả trạng thái</option>
+            <option value="Draft">Draft (Bản nháp)</option>
+            <option value="PartnerSigned">PartnerSigned (Đại lý đã ký)</option>
+            <option value="Approved">Approved (Kế toán đã duyệt)</option>
+            <option value="Settled">Settled (Hoàn tất quyết toán)</option>
+            <option value="Rejected">Rejected (Bị từ chối)</option>
+            <option value="Cancelled">Cancelled (Đã hủy)</option>
+          </select>
+          <input type="text" id="filterDiscountPartner" placeholder="Lọc mã đại lý..." onkeyup="loadDiscountRequests()" style="width:160px;">
+          <button class="secondary" onclick="loadDiscountRequests()">Làm mới</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Mã Đề Nghị</th>
+              <th>Đại Lý / Đối Tác</th>
+              <th>Hợp Đồng</th>
+              <th>Tổng Tiền Gốc</th>
+              <th>Tiền Chiết Khấu</th>
+              <th>Thực Nộp Sau CK</th>
+              <th>Tỷ Lệ Năm</th>
+              <th>Ký Đại Lý</th>
+              <th>Trạng Thái</th>
+              <th>Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="discountTableBody">
+            <tr><td colspan="10" class="muted" style="text-align:center;">Đang tải danh sách hồ sơ chiết khấu...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Chi tiết hồ sơ chiết khấu -->
+    <div class="card" id="discountDetailCard" style="margin-top:18px; display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div>
+          <h3 id="discountDetailTitle" style="margin:0;">Chi tiết hồ sơ chiết khấu</h3>
+          <p class="muted" id="discountDetailSubtitle"></p>
+        </div>
+        <div id="discountActions">
+          <button id="btnPartnerSign" style="background:var(--primary); margin-right:4px;">Đại Lý Ký Xác Nhận</button>
+          <button id="btnApproveDiscount" style="background:var(--success); margin-right:4px;">Phê Duyệt Chiết Khấu</button>
+          <button id="btnSettleDiscount" style="background:#8b5cf6; margin-right:4px;">Ký Số &amp; Quyết Toán Cấn Trừ</button>
+          <button id="btnRejectDiscount" class="secondary" style="color:var(--danger); border-color:var(--danger); margin-right:4px;">Từ Chối</button>
+          <button id="btnCancelDiscount" class="secondary" style="margin-right:6px;">Hủy Hồ Sơ</button>
+          <button class="secondary" onclick="document.getElementById('discountDetailCard').style.display='none'">Đóng</button>
+        </div>
+      </div>
+
+      <div id="discountAuditBox" style="background:rgba(127,127,127,.08); border-radius:6px; padding:10px 14px; margin-bottom:12px; font-size:.86em;">
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Mã Tham Chiếu</th>
+              <th>Diễn Giải Khoản Thanh Toán</th>
+              <th>Hạn Thanh Toán</th>
+              <th>Ngày TT Thực Tế</th>
+              <th>Sớm (Ngày)</th>
+              <th>Số Tiền Gốc</th>
+              <th>Tỷ Lệ CK (%/năm)</th>
+              <th>Tiền Chiết Khấu</th>
+              <th>Thực Nộp</th>
+              <th>Ghi Chú</th>
+            </tr>
+          </thead>
+          <tbody id="discountDetailTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB 3: Nạp sao kê & đối soát mới -->
   <div id="tab-newBatch" style="display:none;">
     <div class="card">
@@ -341,6 +427,62 @@
     </div>
   </div>
 
+  <!-- TAB 6: Lập đề nghị chiết khấu mới -->
+  <div id="tab-newDiscount" style="display:none;">
+    <div class="card">
+      <h3>Lập đề nghị chiết khấu thanh toán sớm (Early Payment Settlement Discount)</h3>
+      <p class="muted">Áp dụng công thức tài chính chuẩn HTC / Ngân hàng (360 ngày): Tiền chiết khấu = Tiền thanh toán × (Tỷ lệ % / 100) × Ngày trả sớm / 360.</p>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Mã Hồ Sơ (để trống để tự sinh):</label>
+          <input type="text" id="inpDiscountNo" placeholder="Ví dụ: DIS-20250514-03">
+        </div>
+        <div class="col">
+          <label class="muted">Mã Đại Lý / Đối Tác (PartnerCode):</label>
+          <input type="text" id="inpDiscountPartnerCode" value="DLR-HYUNDAI-KINHDUONGVUONG">
+        </div>
+        <div class="col">
+          <label class="muted">Tên Đại Lý / Đối Tác:</label>
+          <input type="text" id="inpDiscountPartnerName" value="ĐẠI LÝ HYUNDAI KINH DƯƠNG VƯƠNG">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Hợp Đồng / Thư Bảo Lãnh Gốc:</label>
+          <input type="text" id="inpDiscountContractNo" value="CTR-HTCV-2025-115">
+        </div>
+        <div class="col">
+          <label class="muted">Tỷ Lệ Chiết Khấu Mặc Định (%/năm):</label>
+          <input type="number" step="0.1" id="inpDiscountDefaultRate" value="7.5">
+        </div>
+        <div class="col">
+          <label class="muted">Diễn Giải / Căn Cứ Đề Nghị:</label>
+          <input type="text" id="inpDiscountRemark" value="Đề nghị duyệt chiết khấu thanh toán sớm theo phụ lục hợp đồng thương mại">
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="muted">Danh sách các đợt/khoản thanh toán (JSON):</label>
+          <div>
+            <button class="secondary" type="button" onclick="previewDiscountCalculation()" style="margin-right:6px;">Xem Thử Tính Toán Chiết Khấu</button>
+            <button class="secondary" type="button" onclick="loadSampleDiscountData()">Nạp Dữ Liệu Mẫu</button>
+          </div>
+        </div>
+        <textarea id="inpDiscountItemsJson" rows="8" style="font-family:monospace; font-size:.85em;"></textarea>
+      </div>
+
+      <div id="previewResultBox" style="margin-top:10px; display:none; background:rgba(56,189,248,.1); border:1px solid rgba(56,189,248,.3); border-radius:6px; padding:10px 14px; font-size:.88em;"></div>
+
+      <div style="margin-top:16px;">
+        <button type="button" onclick="submitDiscountRequest()">Khởi Tạo Hồ Sơ Chiết Khấu</button>
+        <span id="submitDiscountMsg" style="margin-left:12px;" class="muted"></span>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB 5: API Docs -->
   <div id="tab-apiDocs" style="display:none;">
     <div class="card">
@@ -372,6 +514,19 @@
         <li><code>POST /api/payout/batches/{id}/cancel</code> — Hủy lệnh chi khi chưa đẩy ngân hàng</li>
         <li><code>GET /api/payout/summary</code> — Báo cáo tổng hợp số liệu giải ngân, tỷ lệ thành công theo ngân hàng</li>
       </ul>
+      <h3>Nghiệp Vụ Chiết Khấu Thanh Toán Sớm (Payment Discount / Req_PaymentDiscount)</h3>
+      <ul>
+        <li><code>POST /api/discount/requests</code> — Tạo hồ sơ đề nghị chiết khấu thanh toán kèm tính toán chiết khấu tự động (chuẩn 360 ngày)</li>
+        <li><code>GET /api/discount/requests</code> — Danh sách các hồ sơ chiết khấu (hỗ trợ lọc theo <code>status</code>, <code>partnerCode</code>)</li>
+        <li><code>GET /api/discount/requests/{id}</code> — Chi tiết hồ sơ chiết khấu và danh mục các đợt/khoản thanh toán sớm</li>
+        <li><code>POST /api/discount/requests/{id}/partner-sign</code> — Đại lý / Đối tác ký số xác nhận hồ sơ chiết khấu</li>
+        <li><code>POST /api/discount/requests/{id}/approve</code> — Kế toán trưởng / Phòng tài chính phê duyệt mức chiết khấu</li>
+        <li><code>POST /api/discount/requests/{id}/settle</code> — Ký số lãnh đạo &amp; Hoàn tất quyết toán cấn trừ công nợ</li>
+        <li><code>POST /api/discount/requests/{id}/reject</code> — Từ chối hồ sơ chiết khấu kèm lý do thẩm định</li>
+        <li><code>POST /api/discount/requests/{id}/cancel</code> — Hủy hồ sơ chiết khấu</li>
+        <li><code>POST /api/discount/calculate-preview</code> — Tính toán preview nhanh số ngày sớm và số tiền chiết khấu</li>
+        <li><code>GET /api/discount/summary</code> — Báo cáo tổng hợp số liệu chiết khấu thanh toán của doanh nghiệp</li>
+      </ul>
     </div>
   </div>
 
@@ -384,21 +539,26 @@
       currentTab = tabName;
       document.getElementById('tab-reconcile').style.display = tabName === 'reconcile' ? 'block' : 'none';
       document.getElementById('tab-payout').style.display = tabName === 'payout' ? 'block' : 'none';
+      document.getElementById('tab-discount').style.display = tabName === 'discount' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
+      document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
         b.classList.toggle('active',
           (tabName === 'reconcile' && i === 0) ||
           (tabName === 'payout' && i === 1) ||
-          (tabName === 'newBatch' && i === 2) ||
-          (tabName === 'newPayout' && i === 3) ||
-          (tabName === 'apiDocs' && i === 4));
+          (tabName === 'discount' && i === 2) ||
+          (tabName === 'newBatch' && i === 3) ||
+          (tabName === 'newPayout' && i === 4) ||
+          (tabName === 'newDiscount' && i === 5) ||
+          (tabName === 'apiDocs' && i === 6));
       });
 
       if (tabName === 'reconcile') loadBatches();
       else if (tabName === 'payout') loadPayoutBatches();
+      else if (tabName === 'discount') loadDiscountRequests();
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====
@@ -795,9 +955,296 @@
       }
     }
 
+    // ===== TAB 3: CHIẾT KHẤU THANH TOÁN SỚM =====
+    async function loadDiscountSummary() {
+      try {
+        const res = await fetch('/api/discount/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng hồ sơ chiết khấu';
+        document.getElementById('stat1').textContent = d.totalRequests;
+        document.getElementById('statLabel2').textContent = 'Tổng tiền thanh toán';
+        document.getElementById('stat2').textContent = (d.totalPaymentAmount >= 1e9 ? (d.totalPaymentAmount / 1e9).toFixed(2) + ' tỷ' : Number(d.totalPaymentAmount).toLocaleString('vi-VN') + ' đ');
+        document.getElementById('statLabel3').textContent = 'Tỷ lệ chiết khấu TB';
+        document.getElementById('stat3').textContent = d.discountRatePercent + '%';
+        document.getElementById('statLabel4').textContent = 'Tiền chiết khấu tiết kiệm';
+        document.getElementById('stat4').textContent = Number(d.totalDiscountAmount).toLocaleString('vi-VN') + ' đ';
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadDiscountRequests() {
+      await loadDiscountSummary();
+      const status = document.getElementById('filterDiscountStatus').value;
+      const partner = document.getElementById('filterDiscountPartner').value.trim();
+      let url = '/api/discount/requests?';
+      if (status) url += 'status=' + encodeURIComponent(status) + '&';
+      if (partner) url += 'partnerCode=' + encodeURIComponent(partner) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('discountTableBody');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="10" class="muted" style="text-align:center;">Chưa có hồ sơ chiết khấu nào phù hợp.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = list.map(r => {
+          let badge = 'badge-info';
+          let stLabel = r.status;
+          if (r.status === 'Settled') { badge = 'badge-success'; stLabel = 'Đã Quyết Toán'; }
+          else if (r.status === 'Approved') { badge = 'badge-info'; stLabel = 'Đã Duyệt'; }
+          else if (r.status === 'PartnerSigned') { badge = 'badge-warning'; stLabel = 'Đại Lý Đã Ký'; }
+          else if (r.status === 'Draft') { badge = 'muted'; stLabel = 'Bản Nháp'; }
+          else if (r.status === 'Rejected') { badge = 'badge-danger'; stLabel = 'Từ Chối'; }
+          else if (r.status === 'Cancelled') { badge = 'muted'; stLabel = 'Đã Hủy'; }
+
+          let signBadge = r.partnerSignStatus === 'Signed'
+            ? '<span class="badge badge-success">Đã Ký</span>'
+            : '<span class="badge badge-warning">Chờ Ký</span>';
+
+          return `
+            <tr>
+              <td><strong>${r.discountNo}</strong></td>
+              <td>${r.partnerName}<br><code class="muted">${r.partnerCode}</code></td>
+              <td>${r.contractNo || '-'}</td>
+              <td>${Number(r.totalPaymentAmount).toLocaleString('vi-VN')} đ</td>
+              <td style="color:var(--success); font-weight:600;">${Number(r.totalDiscountAmount).toLocaleString('vi-VN')} đ</td>
+              <td><strong>${Number(r.netPaymentAmount).toLocaleString('vi-VN')} đ</strong></td>
+              <td>${r.defaultAnnualRate}%</td>
+              <td>${signBadge}</td>
+              <td><span class="badge ${badge}">${stLabel}</span></td>
+              <td><button class="secondary" onclick="viewDiscountDetail(${r.id})">Chi tiết</button></td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function viewDiscountDetail(id) {
+      try {
+        const res = await fetch('/api/discount/requests/' + id, { headers });
+        if (!res.ok) return;
+        const r = await res.json();
+        const card = document.getElementById('discountDetailCard');
+        card.style.display = 'block';
+
+        document.getElementById('discountDetailTitle').textContent = `Chi tiết hồ sơ chiết khấu: ${r.discountNo}`;
+        document.getElementById('discountDetailSubtitle').textContent = `Đại lý: ${r.partnerName} (${r.partnerCode}) | Hợp đồng: ${r.contractNo || 'Không'} | Ngày lập: ${r.createdAt ? r.createdAt.slice(0, 10) : '-'}`;
+
+        // Audit box
+        let auditHtml = `
+          <div style="display:flex; flex-wrap:wrap; gap:16px;">
+            <div><strong>Tổng tiền thanh toán gốc:</strong> ${Number(r.totalPaymentAmount).toLocaleString('vi-VN')} đ</div>
+            <div><strong>Tổng chiết khấu được hưởng:</strong> <span style="color:var(--success); font-weight:700;">${Number(r.totalDiscountAmount).toLocaleString('vi-VN')} đ</span></div>
+            <div><strong>Thực nộp sau chiết khấu:</strong> <span style="color:var(--primary); font-weight:700;">${Number(r.netPaymentAmount).toLocaleString('vi-VN')} đ</span></div>
+            <div><strong>Tỷ lệ chiết khấu năm:</strong> ${r.defaultAnnualRate}%</div>
+          </div>
+          <div style="margin-top:8px; display:flex; flex-wrap:wrap; gap:16px; border-top:1px dashed var(--border); padding-top:6px;">
+            <div><strong>Ký xác nhận đại lý:</strong> ${r.partnerSignStatus === 'Signed' ? `<span style="color:var(--success);">✓ ${r.partnerSignedBy || 'Đã ký'} (${r.partnerSignedAt ? r.partnerSignedAt.slice(0,16).replace('T',' ') : ''})</span>` : '<span style="color:var(--warning);">Chưa ký</span>'}</div>
+            <div><strong>Thẩm định & Duyệt:</strong> ${r.approvedBy ? `<span style="color:var(--success);">✓ ${r.approvedBy} (${r.approvedAt ? r.approvedAt.slice(0,16).replace('T',' ') : ''})</span>` : '<span class="muted">Chưa duyệt</span>'}</div>
+            <div><strong>Quyết toán cấn trừ:</strong> ${r.settledBy ? `<span style="color:var(--primary);">✓ ${r.settledBy} (${r.settledAt ? r.settledAt.slice(0,16).replace('T',' ') : ''})</span>` : '<span class="muted">Chưa quyết toán</span>'}</div>
+            ${r.rejectReason ? `<div><strong>Lý do từ chối:</strong> <span style="color:var(--danger);">${r.rejectReason}</span></div>` : ''}
+          </div>
+        `;
+        document.getElementById('discountAuditBox').innerHTML = auditHtml;
+
+        // Button visibility
+        const btnSign = document.getElementById('btnPartnerSign');
+        const btnApprove = document.getElementById('btnApproveDiscount');
+        const btnSettle = document.getElementById('btnSettleDiscount');
+        const btnReject = document.getElementById('btnRejectDiscount');
+        const btnCancel = document.getElementById('btnCancelDiscount');
+
+        btnSign.style.display = (r.status === 'Draft') ? 'inline-block' : 'none';
+        btnApprove.style.display = (r.status === 'Draft' || r.status === 'PartnerSigned') ? 'inline-block' : 'none';
+        btnSettle.style.display = (r.status === 'Approved') ? 'inline-block' : 'none';
+        btnReject.style.display = (r.status !== 'Settled' && r.status !== 'Rejected' && r.status !== 'Cancelled') ? 'inline-block' : 'none';
+        btnCancel.style.display = (r.status !== 'Settled' && r.status !== 'Cancelled') ? 'inline-block' : 'none';
+
+        btnSign.onclick = async () => {
+          const signer = prompt('Nhập họ tên / chức vụ đại diện Đại lý ký xác nhận:', 'GiamDoc_DaiLy');
+          if (!signer) return;
+          const resp = await fetch(`/api/discount/requests/${id}/partner-sign`, {
+            method: 'POST', headers, body: JSON.stringify({ signerName: signer })
+          });
+          if (resp.ok) { viewDiscountDetail(id); loadDiscountRequests(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        btnApprove.onclick = async () => {
+          const approver = prompt('Nhập họ tên người duyệt (Phòng Tài chính - Kế toán):', 'TruongPhongKeToan_HTC');
+          if (!approver) return;
+          const resp = await fetch(`/api/discount/requests/${id}/approve`, {
+            method: 'POST', headers, body: JSON.stringify({ signerName: approver })
+          });
+          if (resp.ok) { viewDiscountDetail(id); loadDiscountRequests(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        btnSettle.onclick = async () => {
+          const settler = prompt('Ký số hoàn tất quyết toán & áp dụng giảm trừ công nợ (Ban Lãnh Đạo):', 'GiamDocTaiChinh_HTC');
+          if (!settler) return;
+          const resp = await fetch(`/api/discount/requests/${id}/settle`, {
+            method: 'POST', headers, body: JSON.stringify({ signerName: settler })
+          });
+          if (resp.ok) { viewDiscountDetail(id); loadDiscountRequests(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        btnReject.onclick = async () => {
+          const reason = prompt('Nhập lý do từ chối chiết khấu:', 'Ngày thanh toán không thỏa điều kiện trả sớm.');
+          if (!reason) return;
+          const resp = await fetch(`/api/discount/requests/${id}/reject`, {
+            method: 'POST', headers, body: JSON.stringify({ reason })
+          });
+          if (resp.ok) { viewDiscountDetail(id); loadDiscountRequests(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        btnCancel.onclick = async () => {
+          if (!confirm(`Xác nhận hủy hồ sơ chiết khấu ${r.discountNo}?`)) return;
+          const resp = await fetch(`/api/discount/requests/${id}/cancel`, { method: 'POST', headers });
+          if (resp.ok) { viewDiscountDetail(id); loadDiscountRequests(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        const tbody = document.getElementById('discountDetailTableBody');
+        tbody.innerHTML = (r.details || []).map(d => {
+          return `
+            <tr>
+              <td><code>${d.itemRefNo}</code></td>
+              <td>${d.description}</td>
+              <td>${d.dueDate ? d.dueDate.slice(0,10) : '-'}</td>
+              <td>${d.actualPaymentDate ? d.actualPaymentDate.slice(0,10) : '-'}</td>
+              <td style="color:var(--primary); font-weight:700;">${d.earlyDays} ngày</td>
+              <td>${Number(d.originalAmount).toLocaleString('vi-VN')} đ</td>
+              <td>${d.annualDiscountRate}%</td>
+              <td style="color:var(--success); font-weight:600;">${Number(d.discountAmount).toLocaleString('vi-VN')} đ</td>
+              <td><strong>${Number(d.netPayAmount).toLocaleString('vi-VN')} đ</strong></td>
+              <td class="muted" style="font-size:.85em;">${d.note || '-'}</td>
+            </tr>
+          `;
+        }).join('');
+        card.scrollIntoView({ behavior: 'smooth' });
+      } catch(e) { console.error(e); }
+    }
+
+    function loadSampleDiscountData() {
+      const today = new Date();
+      const formatDate = (d) => d.toISOString().slice(0, 10);
+      const due1 = new Date(today.getTime() + 20 * 86400000);
+      const due2 = new Date(today.getTime() + 35 * 86400000);
+
+      const sample = [
+        {
+          "itemRefNo": "INV-2025-KD-01",
+          "description": "Thanh toán lô 03 xe Hyundai Accent 2025",
+          "dueDate": formatDate(due1),
+          "actualPaymentDate": formatDate(today),
+          "originalAmount": 1650000000,
+          "annualDiscountRate": 7.5,
+          "note": "UNC trích nợ Techcombank"
+        },
+        {
+          "itemRefNo": "INV-2025-KD-02",
+          "description": "Thanh toán linh kiện bảo hành định kỳ quý 2",
+          "dueDate": formatDate(due2),
+          "actualPaymentDate": formatDate(today),
+          "originalAmount": 480000000,
+          "annualDiscountRate": 7.5,
+          "note": "Cấn trừ phụ lục 02"
+        }
+      ];
+      document.getElementById('inpDiscountItemsJson').value = JSON.stringify(sample, null, 2);
+    }
+
+    async function previewDiscountCalculation() {
+      const box = document.getElementById('previewResultBox');
+      try {
+        const rawJson = document.getElementById('inpDiscountItemsJson').value.trim();
+        if (!rawJson) { alert('Vui lòng nhập danh sách các khoản thanh toán.'); return; }
+        const items = JSON.parse(rawJson);
+        const defaultRate = parseFloat(document.getElementById('inpDiscountDefaultRate').value) || 7.5;
+
+        let totalOriginal = 0;
+        let totalDiscount = 0;
+        let detailsHtml = '';
+
+        for (const item of items) {
+          const rate = item.annualDiscountRate || defaultRate;
+          const res = await fetch('/api/discount/calculate-preview', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({
+              originalAmount: item.originalAmount,
+              annualDiscountRate: rate,
+              dueDate: item.dueDate,
+              actualPaymentDate: item.actualPaymentDate
+            })
+          });
+          if (res.ok) {
+            const data = await res.json();
+            totalOriginal += item.originalAmount;
+            totalDiscount += data.discountAmount;
+            detailsHtml += `<li><strong>${item.itemRefNo || 'Mục'}:</strong> Trả sớm <strong>${data.earlyDays}</strong> ngày | Gốc: ${Number(item.originalAmount).toLocaleString('vi-VN')} đ | Chiết khấu: <span style="color:var(--success); font-weight:700;">${Number(data.discountAmount).toLocaleString('vi-VN')} đ</span> | Thực nộp: ${Number(data.netPayAmount).toLocaleString('vi-VN')} đ</li>`;
+          }
+        }
+
+        const net = totalOriginal - totalDiscount;
+        box.style.display = 'block';
+        box.innerHTML = `
+          <div><strong>Kết Quả Xem Thử Tính Toán Chiết Khấu (Chuẩn 360 ngày):</strong></div>
+          <div style="margin:4px 0 8px;">Tổng thanh toán gốc: <strong>${Number(totalOriginal).toLocaleString('vi-VN')} đ</strong> | Tổng chiết khấu: <strong style="color:var(--success);">${Number(totalDiscount).toLocaleString('vi-VN')} đ</strong> | Thực nộp: <strong style="color:var(--primary);">${Number(net).toLocaleString('vi-VN')} đ</strong></div>
+          <ul style="margin:0; padding-left:18px;">${detailsHtml}</ul>
+        `;
+      } catch(e) {
+        box.style.display = 'block';
+        box.innerHTML = `<span style="color:var(--danger);">Lỗi kiểm tra tính toán: ${e.message}</span>`;
+      }
+    }
+
+    async function submitDiscountRequest() {
+      const msg = document.getElementById('submitDiscountMsg');
+      try {
+        const rawJson = document.getElementById('inpDiscountItemsJson').value.trim();
+        if (!rawJson) { alert('Vui lòng nhập danh sách các khoản thanh toán.'); return; }
+        const items = JSON.parse(rawJson);
+        const payload = {
+          discountNo: document.getElementById('inpDiscountNo').value.trim() || null,
+          partnerCode: document.getElementById('inpDiscountPartnerCode').value.trim(),
+          partnerName: document.getElementById('inpDiscountPartnerName').value.trim(),
+          contractNo: document.getElementById('inpDiscountContractNo').value.trim(),
+          defaultAnnualRate: parseFloat(document.getElementById('inpDiscountDefaultRate').value) || 7.5,
+          remark: document.getElementById('inpDiscountRemark').value.trim(),
+          items: items
+        };
+        msg.textContent = 'Đang khởi tạo hồ sơ chiết khấu...';
+        const res = await fetch('/api/discount/requests', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+        const data = await res.json();
+        msg.textContent = `Thành công! Hồ sơ: ${data.discountNo} (Chiết khấu: ${Number(data.totalDiscountAmount).toLocaleString('vi-VN')} đ)`;
+        setTimeout(() => {
+          showTab('discount');
+          viewDiscountDetail(data.id);
+        }, 800);
+      } catch(e) {
+        msg.textContent = 'Lỗi cú pháp JSON: ' + e.message;
+      }
+    }
+
     // Khởi tạo
     loadSampleData();
     loadSamplePayoutData();
+    loadSampleDiscountData();
     loadBatches();
   </script>
 </body>

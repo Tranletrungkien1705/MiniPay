@@ -11,6 +11,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<ReconcileDetail> ReconcileDetails => Set<ReconcileDetail>();
     public DbSet<BankingPayoutBatch> PayoutBatches => Set<BankingPayoutBatch>();
     public DbSet<BankingPayoutDetail> PayoutDetails => Set<BankingPayoutDetail>();
+    public DbSet<PaymentDiscountRequest> DiscountRequests => Set<PaymentDiscountRequest>();
+    public DbSet<PaymentDiscountDetail> DiscountDetails => Set<PaymentDiscountDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -34,5 +36,15 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<BankingPayoutDetail>().Property(x => x.Status).HasConversion<int>();
         b.Entity<BankingPayoutDetail>().HasIndex(x => x.BatchId);
         b.Entity<BankingPayoutDetail>().HasIndex(x => new { x.OrgId, x.TransNo });
+
+        b.Entity<PaymentDiscountRequest>().HasIndex(x => new { x.OrgId, x.DiscountNo }).IsUnique();
+        b.Entity<PaymentDiscountRequest>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<PaymentDiscountRequest>().Property(x => x.PartnerSignStatus).HasConversion<int>();
+        b.Entity<PaymentDiscountRequest>().Property(x => x.ApproverSignStatus).HasConversion<int>();
+        b.Entity<PaymentDiscountRequest>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.RequestId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<PaymentDiscountDetail>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<PaymentDiscountDetail>().HasIndex(x => x.RequestId);
+        b.Entity<PaymentDiscountDetail>().HasIndex(x => new { x.OrgId, x.ItemRefNo });
     }
 }

@@ -23,6 +23,12 @@ public enum DisbursementType { Supplier = 0, Refund = 1, Commission = 2, Salary 
 
 public enum PayoutItemStatus { Pending = 0, Success = 1, Failed = 2 }
 
+public enum DiscountRequestStatus { Draft = 0, PartnerSigned = 1, Approved = 2, Settled = 3, Rejected = 4, Cancelled = 5 }
+
+public enum DiscountSignStatus { Pending = 0, Signed = 1 }
+
+public enum DiscountItemStatus { Active = 0, Excluded = 1 }
+
 /// <summary>Ý định thanh toán (payment intent) — 1 dòng / 1 lần khởi tạo cổng.</summary>
 public sealed class PaymentIntent
 {
@@ -135,4 +141,53 @@ public sealed class BankingPayoutDetail
     public string? BankTxnRef { get; set; }            // TransactionID trả về từ ngân hàng
     public string? ErrorMessage { get; set; }          // Lỗi nếu thất bại
     public DateTime? ExecutedAt { get; set; }
+}
+
+/// <summary>Hồ sơ đề nghị chiết khấu thanh toán sớm — tương ứng Req_PaymentDiscount trong BizHTC.PaymentDiscount.</summary>
+public sealed class PaymentDiscountRequest
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string DiscountNo { get; set; } = "";             // Mã hồ sơ chiết khấu (PaymentDiscountNo: DIS-20250514-001)
+    public string PartnerCode { get; set; } = "";            // Mã đối tác / đại lý (DealerCode)
+    public string PartnerName { get; set; } = "";            // Tên đối tác / đại lý (DealerName)
+    public string? ContractNo { get; set; }                  // Mã hợp đồng / thỏa thuận tài trợ / thư bảo lãnh
+    public long TotalPaymentAmount { get; set; }             // Tổng số tiền thanh toán gốc (VND)
+    public long TotalDiscountAmount { get; set; }            // Tổng tiền chiết khấu được hưởng (VND - SUMTotalDiscountPrice)
+    public long NetPaymentAmount { get; set; }               // Tổng tiền thực nộp sau chiết khấu (VND)
+    public decimal DefaultAnnualRate { get; set; } = 7.5m;   // Tỷ lệ chiết khấu năm mặc định (%/năm)
+    public DiscountRequestStatus Status { get; set; } = DiscountRequestStatus.Draft; // PmtDctStatus
+    public DiscountSignStatus PartnerSignStatus { get; set; } = DiscountSignStatus.Pending; // DlrSignStatus
+    public string? PartnerSignedBy { get; set; }             // DlrSignBy
+    public DateTime? PartnerSignedAt { get; set; }           // DlrSignDTime
+    public DiscountSignStatus ApproverSignStatus { get; set; } = DiscountSignStatus.Pending; // HTCSignStatus
+    public string? ApprovedBy { get; set; }                  // HTCApprBy
+    public DateTime? ApprovedAt { get; set; }                // HTCApprDTime
+    public string? SettledBy { get; set; }                   // HTCSignBy
+    public DateTime? SettledAt { get; set; }                 // HTCSignDTime
+    public string? RejectReason { get; set; }                // Lý do từ chối (RejectBy / RejectDTime)
+    public DateTime? CancelledAt { get; set; }               // CancelDTime
+    public string Remark { get; set; } = "";                 // Diễn giải / ghi chú
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    public List<PaymentDiscountDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết đợt thanh toán đề nghị chiết khấu — tương ứng Req_PaymentDiscountDtl trong BizHTC.PaymentDiscount.</summary>
+public sealed class PaymentDiscountDetail
+{
+    public long Id { get; set; }
+    public long RequestId { get; set; }
+    public Guid OrgId { get; set; }
+    public string ItemRefNo { get; set; } = "";              // Mã tham chiếu (CarId / Số hóa đơn / Phase: INV-01, PHASE-1)
+    public string Description { get; set; } = "";            // Diễn giải hàng hóa/xe/hợp đồng
+    public DateTime DueDate { get; set; }                    // Hạn thanh toán theo thỏa thuận / bảo lãnh (DateEnd / PaymentEndDate)
+    public DateTime ActualPaymentDate { get; set; }          // Ngày thanh toán thực tế (PaymentEndDatePhase)
+    public int EarlyDays { get; set; }                       // Số ngày thanh toán trước hạn (DiscountDateNumberPhase)
+    public long OriginalAmount { get; set; }                 // Số tiền thanh toán đợt này (AmountPhase)
+    public decimal AnnualDiscountRate { get; set; }          // Tỷ lệ chiết khấu năm áp dụng (%/năm - DiscountPercentPhase)
+    public long DiscountAmount { get; set; }                 // Số tiền chiết khấu (DiscountPricePhase = Amount * Rate/100 * Days / 360)
+    public long NetPayAmount { get; set; }                   // Số tiền thực trả đợt này (OriginalAmount - DiscountAmount)
+    public DiscountItemStatus Status { get; set; } = DiscountItemStatus.Active; // PmtDctDtlStatus
+    public string? Note { get; set; }
 }

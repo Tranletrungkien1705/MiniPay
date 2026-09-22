@@ -29,6 +29,7 @@ builder.Services.AddSingleton<VnPayService>();
 builder.Services.AddSingleton<MomoService>();
 builder.Services.AddScoped<ReconcileService>();
 builder.Services.AddScoped<BankingPayoutService>();
+builder.Services.AddScoped<PaymentDiscountService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -690,6 +691,295 @@ app.MapGet("/api/payout/summary", async (BankingPayoutService payoutService, ITe
     return Results.Ok(summary);
 });
 
+// ===== Chiết khấu thanh toán sớm (Payment Discount Request - BizHTC.PaymentDiscount) =====
+
+// 1) Tính toán preview chiết khấu nhanh
+app.MapPost("/api/discount/calculate-preview", (PreviewDiscountDto dto) =>
+{
+    var (earlyDays, discountAmount, netPayAmount) = PaymentDiscountService.CalculateDiscount(
+        dto.OriginalAmount,
+        dto.AnnualDiscountRate ?? 7.5m,
+        dto.DueDate,
+        dto.ActualPaymentDate ?? DateTime.Today
+    );
+    return Results.Ok(new { earlyDays, discountAmount, netPayAmount });
+});
+
+// 2) Tạo hồ sơ yêu cầu chiết khấu thanh toán sớm (Req_PaymentDiscount_Save)
+app.MapPost("/api/discount/requests", async (CreateDiscountRequestDto dto, PaymentDiscountService discountService, ITenantContext tc) =>
+{
+    if (dto.Items == null || dto.Items.Count == 0)
+        return Results.BadRequest(new { error = "Hồ sơ chiết khấu phải có ít nhất 1 dòng thanh toán." });
+    if (string.IsNullOrWhiteSpace(dto.PartnerCode))
+        return Results.BadRequest(new { error = "Cần mã đối tác / đại lý (PartnerCode)." });
+
+    try
+    {
+        var req = await discountService.CreateRequestAsync(
+            tc.OrgId,
+            dto.DiscountNo,
+            dto.PartnerCode,
+            dto.PartnerName,
+            dto.ContractNo,
+            dto.DefaultAnnualRate,
+            dto.Remark,
+            dto.Items
+        );
+
+        return Results.Ok(new
+        {
+            req.Id,
+            req.DiscountNo,
+            req.PartnerCode,
+            req.PartnerName,
+            req.ContractNo,
+            req.TotalPaymentAmount,
+            req.TotalDiscountAmount,
+            req.NetPaymentAmount,
+            req.DefaultAnnualRate,
+            status = req.Status.ToString(),
+            partnerSignStatus = req.PartnerSignStatus.ToString(),
+            approverSignStatus = req.ApproverSignStatus.ToString(),
+            req.Remark,
+            req.CreatedAt,
+            details = req.Details.Select(d => new
+            {
+                d.Id,
+                d.ItemRefNo,
+                d.Description,
+                d.DueDate,
+                d.ActualPaymentDate,
+                d.EarlyDays,
+                d.OriginalAmount,
+                d.AnnualDiscountRate,
+                d.DiscountAmount,
+                d.NetPayAmount,
+                status = d.Status.ToString(),
+                d.Note
+            })
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 3) Lấy danh sách hồ sơ chiết khấu (Req_PaymentDiscount_Get)
+app.MapGet("/api/discount/requests", async (AppDbContext db, ITenantContext tc, string? status, string? partnerCode) =>
+{
+    var q = db.DiscountRequests.Where(r => r.OrgId == tc.OrgId);
+    if (!string.IsNullOrWhiteSpace(partnerCode))
+        q = q.Where(r => r.PartnerCode == partnerCode.ToUpper());
+    if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<DiscountRequestStatus>(status, true, out var st))
+        q = q.Where(r => r.Status == st);
+
+    var list = await q.OrderByDescending(r => r.CreatedAt)
+        .Select(r => new
+        {
+            r.Id,
+            r.DiscountNo,
+            r.PartnerCode,
+            r.PartnerName,
+            r.ContractNo,
+            r.TotalPaymentAmount,
+            r.TotalDiscountAmount,
+            r.NetPaymentAmount,
+            r.DefaultAnnualRate,
+            status = r.Status.ToString(),
+            partnerSignStatus = r.PartnerSignStatus.ToString(),
+            r.PartnerSignedBy,
+            r.PartnerSignedAt,
+            approverSignStatus = r.ApproverSignStatus.ToString(),
+            r.ApprovedBy,
+            r.ApprovedAt,
+            r.SettledBy,
+            r.SettledAt,
+            r.RejectReason,
+            r.Remark,
+            r.CreatedAt,
+            r.CancelledAt
+        })
+        .ToListAsync();
+
+    return Results.Ok(list);
+});
+
+// 4) Lấy chi tiết 1 hồ sơ chiết khấu kèm các dòng thanh toán (Req_PaymentDiscount_Get / Req_PaymentDiscountDtl)
+app.MapGet("/api/discount/requests/{id:long}", async (long id, AppDbContext db, ITenantContext tc) =>
+{
+    var req = await db.DiscountRequests
+        .Include(r => r.Details)
+        .FirstOrDefaultAsync(r => r.Id == id && r.OrgId == tc.OrgId);
+
+    if (req == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ chiết khấu #{id}." });
+
+    return Results.Ok(new
+    {
+        req.Id,
+        req.DiscountNo,
+        req.PartnerCode,
+        req.PartnerName,
+        req.ContractNo,
+        req.TotalPaymentAmount,
+        req.TotalDiscountAmount,
+        req.NetPaymentAmount,
+        req.DefaultAnnualRate,
+        status = req.Status.ToString(),
+        partnerSignStatus = req.PartnerSignStatus.ToString(),
+        req.PartnerSignedBy,
+        req.PartnerSignedAt,
+        approverSignStatus = req.ApproverSignStatus.ToString(),
+        req.ApprovedBy,
+        req.ApprovedAt,
+        req.SettledBy,
+        req.SettledAt,
+        req.RejectReason,
+        req.Remark,
+        req.CreatedAt,
+        req.CancelledAt,
+        details = req.Details.OrderBy(d => d.Id).Select(d => new
+        {
+            d.Id,
+            d.ItemRefNo,
+            d.Description,
+            d.DueDate,
+            d.ActualPaymentDate,
+            d.EarlyDays,
+            d.OriginalAmount,
+            d.AnnualDiscountRate,
+            d.DiscountAmount,
+            d.NetPayAmount,
+            status = d.Status.ToString(),
+            d.Note
+        })
+    });
+});
+
+// 5) Đại lý / Đối tác ký số xác nhận hồ sơ (Req_PaymentDiscount_DlrSign)
+app.MapPost("/api/discount/requests/{id:long}/partner-sign", async (long id, SignDiscountDto? dto, PaymentDiscountService discountService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await discountService.PartnerSignAsync(id, tc.OrgId, dto?.SignerName);
+        if (req == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ chiết khấu #{id}." });
+
+        return Results.Ok(new
+        {
+            req.Id,
+            req.DiscountNo,
+            status = req.Status.ToString(),
+            partnerSignStatus = req.PartnerSignStatus.ToString(),
+            req.PartnerSignedBy,
+            req.PartnerSignedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Kế toán trưởng duyệt hồ sơ chiết khấu (Req_PaymentDiscount_HTCApprove)
+app.MapPost("/api/discount/requests/{id:long}/approve", async (long id, SignDiscountDto? dto, PaymentDiscountService discountService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await discountService.ApproveRequestAsync(id, tc.OrgId, dto?.SignerName);
+        if (req == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ chiết khấu #{id}." });
+
+        return Results.Ok(new
+        {
+            req.Id,
+            req.DiscountNo,
+            status = req.Status.ToString(),
+            req.ApprovedBy,
+            req.ApprovedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 7) Ký số lãnh đạo & Hoàn tất quyết toán cấn trừ công nợ (Req_PaymentDiscount_HTCSign)
+app.MapPost("/api/discount/requests/{id:long}/settle", async (long id, SignDiscountDto? dto, PaymentDiscountService discountService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await discountService.SettleRequestAsync(id, tc.OrgId, dto?.SignerName);
+        if (req == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ chiết khấu #{id}." });
+
+        return Results.Ok(new
+        {
+            req.Id,
+            req.DiscountNo,
+            status = req.Status.ToString(),
+            approverSignStatus = req.ApproverSignStatus.ToString(),
+            req.SettledBy,
+            req.SettledAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 8) Từ chối yêu cầu chiết khấu (Req_PaymentDiscount_HTCReject)
+app.MapPost("/api/discount/requests/{id:long}/reject", async (long id, RejectDiscountDto? dto, PaymentDiscountService discountService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await discountService.RejectRequestAsync(id, tc.OrgId, dto?.Reason, dto?.RejecterName);
+        if (req == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ chiết khấu #{id}." });
+
+        return Results.Ok(new
+        {
+            req.Id,
+            req.DiscountNo,
+            status = req.Status.ToString(),
+            req.RejectReason,
+            req.ApprovedBy,
+            req.ApprovedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 9) Hủy hồ sơ chiết khấu (Req_PaymentDiscount_HTCCancel)
+app.MapPost("/api/discount/requests/{id:long}/cancel", async (long id, PaymentDiscountService discountService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await discountService.CancelRequestAsync(id, tc.OrgId);
+        if (req == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ chiết khấu #{id}." });
+
+        return Results.Ok(new
+        {
+            req.Id,
+            req.DiscountNo,
+            status = req.Status.ToString(),
+            req.CancelledAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 10) Báo cáo tổng hợp số liệu chiết khấu thanh toán
+app.MapGet("/api/discount/summary", async (PaymentDiscountService discountService, ITenantContext tc) =>
+{
+    var summary = await discountService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
 app.Run();
 
 record CreatePayDto(long Amount, string? OrderId, string? OrderInfo, string? BankCode);
@@ -698,3 +988,7 @@ record ImportPayDto(string? TxnRef, string? OrderId, long Amount, string? OrderI
 record CreateReconcileBatchDto(string? BatchCode, string? BankCode, string? AccountNo, DateTime? StatementDate, string? Note, List<BankStatementInputDto> Items);
 record CreatePayoutBatchDto(string? BatchNo, string BankCode, string SourceAccount, string? SourceAccountName, string? BizResNumber, string? Remark, List<PayoutItemInputDto> Items);
 record RejectPayoutDto(string? Reason);
+record CreateDiscountRequestDto(string? DiscountNo, string PartnerCode, string? PartnerName, string? ContractNo, decimal? DefaultAnnualRate, string? Remark, List<DiscountItemInputDto> Items);
+record SignDiscountDto(string? SignerName);
+record RejectDiscountDto(string? Reason, string? RejecterName);
+record PreviewDiscountDto(long OriginalAmount, decimal? AnnualDiscountRate, DateTime DueDate, DateTime? ActualPaymentDate);
