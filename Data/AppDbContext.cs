@@ -23,6 +23,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<PaymentOrderDetail> PaymentOrderDetails => Set<PaymentOrderDetail>();
     public DbSet<BankBillMinutes> BankBillMinutes => Set<BankBillMinutes>();
     public DbSet<BankBillMinutesDetail> BankBillMinutesDetails => Set<BankBillMinutesDetail>();
+    public DbSet<PaymentPDI> PaymentPDIs => Set<PaymentPDI>();
+    public DbSet<PaymentPDIDetail> PaymentPDIDetails => Set<PaymentPDIDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -101,5 +103,16 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<BankBillMinutesDetail>().Property(x => x.Status).HasConversion<int>();
         b.Entity<BankBillMinutesDetail>().HasIndex(x => x.MinutesId);
         b.Entity<BankBillMinutesDetail>().HasIndex(x => new { x.OrgId, x.VIN });
+
+        b.Entity<PaymentPDI>().HasIndex(x => new { x.OrgId, x.PmtPDINo }).IsUnique();
+        b.Entity<PaymentPDI>().HasIndex(x => new { x.OrgId, x.PmtMonth });
+        b.Entity<PaymentPDI>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<PaymentPDI>().Property(x => x.TCMSSignStatus).HasConversion<int>();
+        b.Entity<PaymentPDI>().Property(x => x.HTVSignStatus).HasConversion<int>();
+        b.Entity<PaymentPDI>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.PaymentPDIId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<PaymentPDIDetail>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<PaymentPDIDetail>().HasIndex(x => x.PaymentPDIId);
+        b.Entity<PaymentPDIDetail>().HasIndex(x => new { x.OrgId, x.VIN });
     }
 }

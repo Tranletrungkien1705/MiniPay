@@ -58,7 +58,7 @@
   <div style="display:flex; justify-content:space-between; align-items:center;">
     <div>
       <h1>MiniPay</h1>
-      <p class="muted">Cổng thanh toán điện tử (VNPay/MoMo), Đối soát sao kê, Lệnh chi chuyển tiền, Chiết khấu thanh toán, Bảo lãnh &amp; Thế chấp/Giải chấp, Phiếu thanh toán UNC &amp; Hối phiếu bàn giao xe ngân hàng (BizHTC.Payment / BizHTC.GiaiChap).</p>
+      <p class="muted">Cổng thanh toán điện tử (VNPay/MoMo), Đối soát sao kê, Lệnh chi chuyển tiền, Chiết khấu thanh toán, Bảo lãnh &amp; Thế chấp/Giải chấp, Phiếu thanh toán UNC, Hối phiếu bàn giao xe &amp; Bảng kê chi phí PDI xe (BizHTC.Payment / BizHTC.GiaiChap).</p>
     </div>
     <div>
       <span class="badge badge-info">Demo Merchant</span>
@@ -93,6 +93,7 @@
     <button class="tab-btn" onclick="showTab('mortgage')">Thế Chấp &amp; Giải Chấp (Bank Mortgage &amp; Redeem)</button>
     <button class="tab-btn" onclick="showTab('paymentOrder')">Phiếu Thanh Toán &amp; UNC (Payment Order)</button>
     <button class="tab-btn" onclick="showTab('bankBill')">Hối Phiếu &amp; Bàn Giao Xe (Bank Bill / BBBG)</button>
+    <button class="tab-btn" onclick="showTab('paymentPDI')">Chi Phí PDI Xe (PDI Payment)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -101,6 +102,7 @@
     <button class="tab-btn" onclick="showTab('newRedeem')">+ Lập Đề Nghị Giải Chấp</button>
     <button class="tab-btn" onclick="showTab('newPaymentOrder')">+ Lập Phiếu Thanh Toán</button>
     <button class="tab-btn" onclick="showTab('newBankBill')">+ Lập BBBG Hối Phiếu</button>
+    <button class="tab-btn" onclick="showTab('newPaymentPDI')">+ Lập Bảng Kê PDI</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -838,6 +840,111 @@
     </div>
   </div>
 
+  <!-- TAB: BẢNG KÊ CHI PHÍ PDI XE (PRE-DELIVERY INSPECTION PAYMENT) -->
+  <div id="tab-paymentPDI" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="margin:0;">Bảng kê thanh toán chi phí kiểm tra xe PDI (Pre-Delivery Inspection)</h3>
+        <div style="display:flex; gap:8px;">
+          <button class="secondary" onclick="loadPDIBatches()">Làm mới</button>
+          <button onclick="showTab('newPaymentPDI')">+ Lập Bảng Kê Mới</button>
+        </div>
+      </div>
+      <p class="muted" style="margin-top:0;">Quản lý bảng kê thanh toán chi phí kiểm định xe nhập kho (PDIN) và xuất kho giao xe (PDIX) theo kỳ thanh toán từ BizHTC.Payment.</p>
+
+      <div class="row" style="margin-bottom:12px; gap:8px; align-items:flex-end;">
+        <div class="col">
+          <label class="muted">Trạng Thái Bảng Kê:</label>
+          <select id="filterPDIStatus" onchange="loadPDIBatches()">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="Draft">Nháp / Chờ duyệt (Draft)</option>
+            <option value="TCMSApproved">TCMS Đã Duyệt Cấp 1 (TCMSApproved)</option>
+            <option value="HTVApproved">HTV Đã Duyệt Cấp 2 (HTVApproved)</option>
+            <option value="Paid">Đã Quyết Toán Thanh Toán (Paid)</option>
+            <option value="Rejected">Bị Từ Chối (Rejected)</option>
+            <option value="Cancelled">Đã Hủy (Cancelled)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Tháng/Kỳ Thanh Toán (YYYY-MM):</label>
+          <input type="text" id="filterPDIMonth" placeholder="Ví dụ: 2025-05" onchange="loadPDIBatches()">
+        </div>
+        <div class="col">
+          <label class="muted">Đơn Vị Kiểm Định PDI:</label>
+          <input type="text" id="filterPDIServiceUnit" placeholder="Mã đơn vị (TCMS...)" onchange="loadPDIBatches()">
+        </div>
+        <div style="margin-bottom:2px;">
+          <button class="secondary" onclick="loadPDIBatches()">Lọc</button>
+        </div>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Bảng Kê</th>
+              <th>Kỳ TT</th>
+              <th>Đơn Vị PDI</th>
+              <th>Số Xe</th>
+              <th>Phí Trước VAT</th>
+              <th>VAT (10%)</th>
+              <th>Tổng Tiền Sau VAT</th>
+              <th>Trạng Thái</th>
+              <th>Ký TCMS</th>
+              <th>Ký HTV</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="pdiTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Card Chi Tiết Bảng Kê PDI -->
+    <div class="card" id="cardPDIDetail" style="display:none; margin-top:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <h3 id="pdiDetailTitle" style="margin:0;">Chi Tiết Bảng Kê PDI</h3>
+        <button class="secondary" onclick="document.getElementById('cardPDIDetail').style.display='none'">Đóng [X]</button>
+      </div>
+
+      <div id="pdiAuditBox" style="margin-top:10px; padding:12px; background:rgba(127,127,127,.05); border-radius:6px; font-size:.9em;"></div>
+
+      <div id="pdiActionButtons" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button id="btnTCMSApprovePDI" style="display:none; background:#0284c7;">TCMS Duyệt &amp; Ký Số Cấp 1</button>
+        <button id="btnHTVApprovePDI" style="display:none; background:#16a34a;">HTV Duyệt &amp; Ký Số Cấp 2</button>
+        <button id="btnSettlePDI" style="display:none; background:#059669;">Quyết Toán Chi Trả (Paid)</button>
+        <button id="btnEditPDICosts" class="secondary">Điều Chỉnh Chi Phí PDI</button>
+        <button id="btnPrintPDIAdvice" class="secondary">Xem &amp; In Bảng Kê Quyết Toán</button>
+        <button id="btnRejectPDI" class="secondary" style="display:none; color:var(--danger);">Từ Chối</button>
+        <button id="btnCancelPDI" class="secondary" style="display:none;">Hủy Bảng Kê</button>
+      </div>
+
+      <div style="overflow-x:auto; margin-top:14px;">
+        <table>
+          <thead>
+            <tr>
+              <th>STT</th>
+              <th>Số Khung (VIN)</th>
+              <th>Mã / Tên Xe</th>
+              <th>Phiên Bản</th>
+              <th>Màu Sơn</th>
+              <th>Kho Bãi</th>
+              <th>Ngày Nhập</th>
+              <th>Ngày Xuất</th>
+              <th>Đại Lý Tiếp Nhận</th>
+              <th>Phí PDI Nhập</th>
+              <th>Phí PDI Xuất</th>
+              <th>Tổng Phí Xe</th>
+              <th>Trạng Thái</th>
+              <th>Ghi Chú Kiểm Tra</th>
+            </tr>
+          </thead>
+          <tbody id="pdiDetailTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
 
 
   <!-- TAB 3: Nạp sao kê & đối soát mới -->
@@ -1431,6 +1538,57 @@
     </div>
   </div>
 
+  <!-- TAB: Lập Bảng Kê PDI Mới -->
+  <div id="tab-newPaymentPDI" style="display:none;">
+    <div class="card">
+      <h3>Lập Bảng kê Thanh toán Chi phí Kiểm tra Xe PDI Mới</h3>
+      <p class="muted">Tập hợp danh mục xe kiểm tra kỹ thuật chất lượng PDI nhập kho (PDIN) và xuất kho giao đại lý (PDIX).</p>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Bảng Kê (để trống để tự sinh):</label>
+          <input type="text" id="inpPDINo" placeholder="Ví dụ: PDI-202505-004">
+        </div>
+        <div class="col">
+          <label class="muted">Kỳ / Tháng Thanh Toán (PmtMonth):</label>
+          <input type="text" id="inpPDIMonth" value="2025-05">
+        </div>
+        <div class="col">
+          <label class="muted">Mã Đơn Vị PDI:</label>
+          <input type="text" id="inpPDIServiceUnitCode" value="TCMS">
+        </div>
+        <div class="col">
+          <label class="muted">Tên Đơn Vị Kiểm Định PDI:</label>
+          <input type="text" id="inpPDIServiceUnitName" value="Trung tâm Quản lý Kỹ thuật &amp; Dịch vụ Xe TCMS">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Thuế Suất VAT (%):</label>
+          <input type="number" id="inpPDIVatRate" step="0.5" value="10.0">
+        </div>
+        <div class="col" style="flex:3;">
+          <label class="muted">Diễn Giải / Ghi Chú Bảng Kê (Remark):</label>
+          <input type="text" id="inpPDIRemark" value="Bảng kê chi phí PDI xe đợt thanh toán giao hàng đại lý tháng 05/2025">
+        </div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="muted">Danh sách xe kiểm định PDI (VIN, Model, Phiên bản, Màu sơn, Kho bãi, Ngày nhập, Ngày xuất, Đại lý nhận, Phí PDI) [JSON]:</label>
+          <button class="secondary" type="button" onclick="loadSamplePDIData()">Nạp Dữ Liệu Xe Mẫu</button>
+        </div>
+        <textarea id="inpPDIVehiclesJson" rows="8" style="font-family:monospace; font-size:.85em;"></textarea>
+      </div>
+
+      <div style="margin-top:16px;">
+        <button type="button" onclick="submitPaymentPDI()">Khởi Tạo Bảng Kê Thanh Toán PDI</button>
+        <span id="submitPDIMsg" style="margin-left:12px;" class="muted"></span>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Xem & In Mẫu Hối Phiếu Ngân Hàng (Bill of Exchange Advice) -->
   <div id="modalBillAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
     <div style="max-width:820px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
@@ -1442,6 +1600,53 @@
       <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
         <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('billAdviceContent').innerText); alert('Đã sao chép nội dung Hối phiếu vào clipboard!');">Sao Chép Nội Dung</button>
         <button onclick="window.print()">In Hối Phiếu</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Xem & In Bảng Kê Quyết Toán Chi Phí PDI -->
+  <div id="modalPDIAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:850px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.25em;">BẢNG KÊ QUYẾT TOÁN CHI PHÍ KIỂM TRA XE PDI</h2>
+        <button class="secondary" onclick="closePDIAdviceModal()">Đóng [X]</button>
+      </div>
+      <div id="pdiAdviceContent" style="margin-top:16px; font-size:.9em; line-height:1.6;"></div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('pdiAdviceContent').innerText); alert('Đã sao chép nội dung bảng kê PDI!');">Sao Chép Nội Dung</button>
+        <button onclick="window.print()">In Bảng Kê</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Điều Chỉnh Chi Phí PDI Xe -->
+  <div id="modalEditPDICosts" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:550px; margin:60px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h3 style="margin:0; font-size:1.15em;">Điều Chỉnh Chi Phí Kiểm Tra PDI</h3>
+        <button class="secondary" onclick="closeEditPDICostsModal()">Đóng [X]</button>
+      </div>
+      <div style="margin-top:16px;">
+        <label class="muted">Chọn xe (VIN):</label>
+        <select id="editCostVINSelect" onchange="onEditCostVINChange()"></select>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Phí PDI Nhập Kho (PDIN) [VND]:</label>
+          <input type="number" id="inpEditCostIn" step="10000">
+        </div>
+        <div class="col">
+          <label class="muted">Phí PDI Xuất Kho (PDIX) [VND]:</label>
+          <input type="number" id="inpEditCostOut" step="10000">
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <label class="muted">Ghi Chú Điều Chỉnh:</label>
+        <input type="text" id="inpEditCostRemark" placeholder="Lý do điều chỉnh chi phí PDI">
+      </div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="closeEditPDICostsModal()">Hủy Bỏ</button>
+        <button onclick="savePDICostEdit()">Lưu Cập Nhật</button>
       </div>
     </div>
   </div>
@@ -1550,6 +1755,20 @@
         <li><code>DELETE /api/bank-bills/{id}/vins/{detailId}</code> — Xóa 1 xe khỏi biên bản bàn giao</li>
         <li><code>GET /api/bank-bills/summary</code> — Báo cáo tổng hợp số liệu biên bản bàn giao hối phiếu</li>
       </ul>
+      <h3>Nghiệp Vụ Bảng Kê Thanh Toán Chi Phí Kiểm Tra Xe PDI (Pre-Delivery Inspection - BizHTC.Payment)</h3>
+      <ul>
+        <li><code>POST /api/payment-pdi</code> — Lập bảng kê thanh toán chi phí PDI mới (Job_Pmt_PaymentPDI_Create / FrmQuanLyThanhToanPDI)</li>
+        <li><code>GET /api/payment-pdi</code> — Danh sách bảng kê PDI (hỗ trợ lọc theo <code>status</code>, <code>pmtMonth</code>, <code>serviceUnitCode</code>)</li>
+        <li><code>GET /api/payment-pdi/{id}</code> — Chi tiết 1 bảng kê PDI kèm danh sách toàn bộ xe kiểm định</li>
+        <li><code>POST /api/payment-pdi/{id}/tcms-approve</code> — TCMS Phê duyệt cấp 1 &amp; Ký số điện tử (Pmt_PaymentPDI_TCMSApproveAndSign)</li>
+        <li><code>POST /api/payment-pdi/{id}/htv-approve</code> — HTV Phê duyệt cấp 2 &amp; Ký số điện tử (Pmt_PaymentPDI_HTVApproveAndSign)</li>
+        <li><code>POST /api/payment-pdi/{id}/settle</code> — Hoàn tất thanh toán &amp; Quyết toán chi phí PDI xe (Paid / Settled)</li>
+        <li><code>POST /api/payment-pdi/{id}/reject</code> — Từ chối duyệt bảng kê PDI kèm lý do (FrmQuanLyThanhToanPDI.btnDeny_Click)</li>
+        <li><code>POST /api/payment-pdi/{id}/cancel</code> — Hủy bảng kê chi phí PDI (Pmt_PaymentPDI_Cancel)</li>
+        <li><code>PUT /api/payment-pdi/{id}/details</code> — Điều chỉnh chi phí kiểm tra PDI xe hàng loạt (Pmt_PaymentPDI_UpdateMulti)</li>
+        <li><code>GET /api/payment-pdi/{id}/statement-advice</code> — Sinh dữ liệu mẫu in Bảng kê quyết toán chi phí PDI kèm số tiền bằng chữ tiếng Việt</li>
+        <li><code>GET /api/payment-pdi/summary</code> — Báo cáo tổng hợp số liệu chi phí PDI, phân rã theo kỳ thanh toán &amp; trạng thái</li>
+      </ul>
     </div>
   </div>
 
@@ -1567,6 +1786,7 @@
       document.getElementById('tab-mortgage').style.display = tabName === 'mortgage' ? 'block' : 'none';
       document.getElementById('tab-paymentOrder').style.display = tabName === 'paymentOrder' ? 'block' : 'none';
       document.getElementById('tab-bankBill').style.display = tabName === 'bankBill' ? 'block' : 'none';
+      document.getElementById('tab-paymentPDI').style.display = tabName === 'paymentPDI' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -1575,6 +1795,7 @@
       document.getElementById('tab-newRedeem').style.display = tabName === 'newRedeem' ? 'block' : 'none';
       document.getElementById('tab-newPaymentOrder').style.display = tabName === 'newPaymentOrder' ? 'block' : 'none';
       document.getElementById('tab-newBankBill').style.display = tabName === 'newBankBill' ? 'block' : 'none';
+      document.getElementById('tab-newPaymentPDI').style.display = tabName === 'newPaymentPDI' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
@@ -1586,15 +1807,17 @@
           (tabName === 'mortgage' && i === 4) ||
           (tabName === 'paymentOrder' && i === 5) ||
           (tabName === 'bankBill' && i === 6) ||
-          (tabName === 'newBatch' && i === 7) ||
-          (tabName === 'newPayout' && i === 8) ||
-          (tabName === 'newDiscount' && i === 9) ||
-          (tabName === 'newGuarantee' && i === 10) ||
-          (tabName === 'newMortgage' && i === 11) ||
-          (tabName === 'newRedeem' && i === 12) ||
-          (tabName === 'newPaymentOrder' && i === 13) ||
-          (tabName === 'newBankBill' && i === 14) ||
-          (tabName === 'apiDocs' && i === 15));
+          (tabName === 'paymentPDI' && i === 7) ||
+          (tabName === 'newBatch' && i === 8) ||
+          (tabName === 'newPayout' && i === 9) ||
+          (tabName === 'newDiscount' && i === 10) ||
+          (tabName === 'newGuarantee' && i === 11) ||
+          (tabName === 'newMortgage' && i === 12) ||
+          (tabName === 'newRedeem' && i === 13) ||
+          (tabName === 'newPaymentOrder' && i === 14) ||
+          (tabName === 'newBankBill' && i === 15) ||
+          (tabName === 'newPaymentPDI' && i === 16) ||
+          (tabName === 'apiDocs' && i === 17));
       });
 
       if (tabName === 'reconcile') loadBatches();
@@ -1604,6 +1827,7 @@
       else if (tabName === 'mortgage') { loadMortgages(); loadRedeems(); }
       else if (tabName === 'paymentOrder') loadPaymentOrders();
       else if (tabName === 'bankBill') loadBankBills();
+      else if (tabName === 'paymentPDI') loadPDIBatches();
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====
@@ -4060,10 +4284,527 @@
     initBankBillDates();
     loadSampleBankBillData();
 
+    // ===== BẢNG KÊ THANH TOÁN CHI PHÍ PDI XE (PRE-DELIVERY INSPECTION PAYMENT) =====
+    async function loadPDISummary() {
+      try {
+        const res = await fetch('/api/payment-pdi/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng bảng kê PDI';
+        document.getElementById('stat1').textContent = d.totalBatches;
+        document.getElementById('statLabel2').textContent = 'Tổng xe kiểm tra PDI';
+        document.getElementById('stat2').textContent = `${d.totalVehicles} xe`;
+        document.getElementById('statLabel3').textContent = 'Tổng chi phí PDI';
+        document.getElementById('stat3').textContent = (d.totalPDIExpense >= 1e9 ? (d.totalPDIExpense / 1e9).toFixed(2) + ' tỷ' : Number(d.totalPDIExpense).toLocaleString('vi-VN') + ' đ');
+        document.getElementById('statLabel4').textContent = 'Đã quyết toán thanh toán';
+        document.getElementById('stat4').textContent = (d.paidExpense >= 1e9 ? (d.paidExpense / 1e9).toFixed(2) + ' tỷ' : Number(d.paidExpense).toLocaleString('vi-VN') + ' đ');
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadPDIBatches() {
+      await loadPDISummary();
+      const status = document.getElementById('filterPDIStatus').value;
+      const pmtMonth = document.getElementById('filterPDIMonth').value.trim();
+      const serviceUnit = document.getElementById('filterPDIServiceUnit').value.trim();
+
+      let url = '/api/payment-pdi?';
+      if (status) url += 'status=' + encodeURIComponent(status) + '&';
+      if (pmtMonth) url += 'pmtMonth=' + encodeURIComponent(pmtMonth) + '&';
+      if (serviceUnit) url += 'serviceUnitCode=' + encodeURIComponent(serviceUnit) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('pdiTableBody');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="11" class="muted" style="text-align:center;">Chưa có bảng kê thanh toán PDI nào phù hợp.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(p => {
+          let badge = 'badge-info';
+          let stText = p.status;
+          if (p.status === 'Paid') { badge = 'badge-success'; stText = 'Đã Quyết Toán'; }
+          else if (p.status === 'HTVApproved') { badge = 'badge-success'; stText = 'HTV Đã Duyệt (Cấp 2)'; }
+          else if (p.status === 'TCMSApproved') { badge = 'badge-info'; stText = 'TCMS Đã Duyệt (Cấp 1)'; }
+          else if (p.status === 'Draft') { badge = 'muted'; stText = 'Nháp / Chờ Duyệt'; }
+          else if (p.status === 'Rejected') { badge = 'badge-danger'; stText = 'Bị Từ Chối'; }
+          else if (p.status === 'Cancelled') { badge = 'muted'; stText = 'Đã Hủy'; }
+
+          const tcmsSign = p.tcmsSignStatus === 'Signed'
+            ? `<span class="badge badge-success">✓ ${p.tcmsSignUser || 'Đã ký'}</span>`
+            : `<span class="badge badge-warning">Chờ ký</span>`;
+
+          const htvSign = p.htvSignStatus === 'Signed'
+            ? `<span class="badge badge-success">✓ ${p.htvSignUser || 'Đã ký'}</span>`
+            : `<span class="badge badge-warning">Chờ ký</span>`;
+
+          return `
+            <tr>
+              <td><strong>${p.pmtPDINo}</strong><br><small class="muted">${p.createdAt ? p.createdAt.slice(0, 10) : ''}</small></td>
+              <td><code>${p.pmtMonth}</code></td>
+              <td><strong>${p.serviceUnitCode}</strong><br><small class="muted">${p.serviceUnitName || ''}</small></td>
+              <td><span class="badge badge-info">${p.totalVehicles} xe</span></td>
+              <td>${Number(p.totalAmount).toLocaleString('vi-VN')} đ</td>
+              <td>${Number(p.amountVAT).toLocaleString('vi-VN')} đ</td>
+              <td><strong style="color:var(--primary); font-size:1.05em;">${Number(p.totalAmountAfterVAT).toLocaleString('vi-VN')} đ</strong></td>
+              <td><span class="badge ${badge}">${stText}</span></td>
+              <td>${tcmsSign}</td>
+              <td>${htvSign}</td>
+              <td>
+                <button class="secondary" onclick="viewPDIDetail(${p.id})">Chi tiết</button>
+                <button class="secondary" style="margin-left:4px;" onclick="openPDIAdviceModal(${p.id})">In</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    let activePDI = null;
+
+    async function viewPDIDetail(id) {
+      try {
+        const res = await fetch(`/api/payment-pdi/${id}`, { headers });
+        if (!res.ok) { alert('Không tìm thấy bảng kê PDI.'); return; }
+        const p = await res.json();
+        activePDI = p;
+
+        const card = document.getElementById('cardPDIDetail');
+        card.style.display = 'block';
+        document.getElementById('pdiDetailTitle').innerHTML = `Bảng Kê Chi Phí PDI: <code>${p.pmtPDINo}</code> — Kỳ <strong>${p.pmtMonth}</strong> (${p.totalVehicles} xe)`;
+
+        let auditHtml = `
+          <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+            <div><strong>Đơn vị PDI:</strong> ${p.serviceUnitName} (<code>${p.serviceUnitCode}</code>)</div>
+            <div><strong>Tổng tiền trước thuế:</strong> ${Number(p.totalAmount).toLocaleString('vi-VN')} đ (Nhập: ${Number(p.totalCostIn).toLocaleString('vi-VN')} đ | Xuất: ${Number(p.totalCostOut).toLocaleString('vi-VN')} đ)</div>
+            <div><strong>Thuế VAT (10%):</strong> ${Number(p.amountVAT).toLocaleString('vi-VN')} đ</div>
+            <div><strong>Tổng thanh toán sau VAT:</strong> <span style="color:var(--primary); font-size:1.1em; font-weight:700;">${Number(p.totalAmountAfterVAT).toLocaleString('vi-VN')} đ</span></div>
+          </div>
+          <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px; margin-top:8px; border-top:1px dashed var(--border); padding-top:6px;">
+            <div><strong>Ký số Cấp 1 (TCMS):</strong> ${p.tcmsSignStatus === 'Signed' ? `<span style="color:var(--success);">✓ Đã ký bởi ${p.tcmsSignUser} (${p.tcmsSignDTime?.slice(0, 16) || ''})</span>` : '<span style="color:var(--warning);">Chưa ký</span>'}</div>
+            <div><strong>Ký số Cấp 2 (HTV):</strong> ${p.htvSignStatus === 'Signed' ? `<span style="color:var(--success);">✓ Đã ký bởi ${p.htvSignUser} (${p.htvSignDTime?.slice(0, 16) || ''})</span>` : '<span style="color:var(--warning);">Chưa ký</span>'}</div>
+            <div><strong>Trạng thái:</strong> <span class="badge badge-info">${p.status}</span></div>
+          </div>
+        `;
+        if (p.paidAt) {
+          auditHtml += `<div style="margin-top:6px; color:var(--success);"><strong>ĐÃ THANH TOÁN:</strong> Bởi <em>${p.paidBy}</em> ngày ${p.paidAt.slice(0, 10)} | Mã UNC: <code>${p.bankTxnRef || '-'}</code></div>`;
+        }
+        if (p.rejectReason) {
+          auditHtml += `<div style="margin-top:6px; color:var(--danger);"><strong>TỪ CHỐI DUYỆT:</strong> Lý do: <em>${p.rejectReason}</em></div>`;
+        }
+        if (p.remark) auditHtml += `<div style="margin-top:4px;" class="muted">Ghi chú: ${p.remark}</div>`;
+
+        document.getElementById('pdiAuditBox').innerHTML = auditHtml;
+
+        // Nút thao tác động
+        const btnTCMS = document.getElementById('btnTCMSApprovePDI');
+        const btnHTV = document.getElementById('btnHTVApprovePDI');
+        const btnSettle = document.getElementById('btnSettlePDI');
+        const btnReject = document.getElementById('btnRejectPDI');
+        const btnCancel = document.getElementById('btnCancelPDI');
+        const btnPrint = document.getElementById('btnPrintPDIAdvice');
+        const btnEditCosts = document.getElementById('btnEditPDICosts');
+
+        btnTCMS.style.display = p.status === 'Draft' ? 'inline-block' : 'none';
+        btnHTV.style.display = p.status === 'TCMSApproved' ? 'inline-block' : 'none';
+        btnSettle.style.display = p.status === 'HTVApproved' ? 'inline-block' : 'none';
+        btnReject.style.display = (p.status === 'Draft' || p.status === 'TCMSApproved') ? 'inline-block' : 'none';
+        btnCancel.style.display = (p.status !== 'Paid' && p.status !== 'Cancelled') ? 'inline-block' : 'none';
+        btnEditCosts.style.display = (p.status !== 'Paid' && p.status !== 'Cancelled') ? 'inline-block' : 'none';
+
+        btnTCMS.onclick = () => tcmsApprovePDI(id);
+        btnHTV.onclick = () => htvApprovePDI(id);
+        btnSettle.onclick = () => settlePDI(id);
+        btnReject.onclick = () => rejectPDI(id);
+        btnCancel.onclick = () => cancelPDI(id);
+        btnPrint.onclick = () => openPDIAdviceModal(id);
+        btnEditCosts.onclick = () => openEditPDICostsModal();
+
+        const tbody = document.getElementById('pdiDetailTableBody');
+        tbody.innerHTML = (p.details || []).map((d, index) => {
+          let itemBadge = 'badge-info';
+          if (d.status === 'Approved') itemBadge = 'badge-success';
+          else if (d.status === 'Adjusted') itemBadge = 'badge-warning';
+          else if (d.status === 'Cancelled') itemBadge = 'badge-danger';
+
+          return `
+            <tr>
+              <td>${index + 1}</td>
+              <td><code>${d.vin}</code></td>
+              <td><strong>${d.modelName || d.modelCode}</strong><br><small class="muted">${d.carId || ''}</small></td>
+              <td>${d.specDescription || d.specCode || '-'}</td>
+              <td>${d.colorExtNameVN || '-'}</td>
+              <td><span class="badge badge-info">${d.storageCodeInit}</span></td>
+              <td>${d.storeDate ? d.storeDate.slice(0, 10) : '-'}</td>
+              <td>${d.deliveryOutDate ? d.deliveryOutDate.slice(0, 10) : '-'}</td>
+              <td><code>${d.dealerCode || '-'}</code></td>
+              <td>${Number(d.costInCheck).toLocaleString('vi-VN')} đ</td>
+              <td>${Number(d.costOutCheck).toLocaleString('vi-VN')} đ</td>
+              <td><strong style="color:var(--primary);">${Number(d.totalCostCheck).toLocaleString('vi-VN')} đ</strong></td>
+              <td><span class="badge ${itemBadge}">${d.status}</span></td>
+              <td class="muted" style="font-size:.85em;">${d.remark || '-'}</td>
+            </tr>
+          `;
+        }).join('');
+
+        card.scrollIntoView({ behavior: 'smooth' });
+      } catch(e) { console.error(e); }
+    }
+
+    async function tcmsApprovePDI(id) {
+      const signer = prompt('Nhập họ tên Trưởng phòng / Cán bộ kỹ thuật TCMS ký số cấp 1:', 'NguyenVanQuan_GDKyThuat_TCMS');
+      if (!signer) return;
+      try {
+        const res = await fetch(`/api/payment-pdi/${id}/tcms-approve`, {
+          method: 'POST', headers, body: JSON.stringify({ signerName: signer })
+        });
+        if (res.ok) {
+          alert('TCMS phê duyệt cấp 1 & ký số điện tử thành công!');
+          await loadPDIBatches();
+          await viewPDIDetail(id);
+        } else {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+        }
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function htvApprovePDI(id) {
+      const signer = prompt('Nhập họ tên Kế toán trưởng / Cán bộ HTV duyệt & ký số cấp 2:', 'TranThiHong_TruongPhongKT_HTV');
+      if (!signer) return;
+      try {
+        const res = await fetch(`/api/payment-pdi/${id}/htv-approve`, {
+          method: 'POST', headers, body: JSON.stringify({ signerName: signer })
+        });
+        if (res.ok) {
+          alert('HTV phê duyệt cấp 2 & ký số thành công! Bảng kê sẵn sàng giải ngân thanh toán.');
+          await loadPDIBatches();
+          await viewPDIDetail(id);
+        } else {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+        }
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function settlePDI(id) {
+      const txn = prompt('Nhập mã giao dịch chuyển khoản ngân hàng / Số chứng từ UNC:', `UNC-VCB-PDI-${Date.now().toString().slice(-6)}`);
+      if (!txn) return;
+      const payer = prompt('Họ tên Kế toán thanh toán:', 'PhamVanThanh_KeToanNganHang');
+      try {
+        const res = await fetch(`/api/payment-pdi/${id}/settle`, {
+          method: 'POST', headers, body: JSON.stringify({ bankTxnRef: txn, payerName: payer })
+        });
+        if (res.ok) {
+          alert('Đã hoàn tất thanh toán quyết toán chi phí PDI thành công!');
+          await loadPDIBatches();
+          await viewPDIDetail(id);
+        } else {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+        }
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function rejectPDI(id) {
+      const reason = prompt('Nhập lý do từ chối bảng kê chi phí PDI:', 'Số lượng xe và biên bản nghiệm thu PDI thực tế chưa khớp');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/payment-pdi/${id}/reject`, {
+          method: 'POST', headers, body: JSON.stringify({ reason: reason, rejecterName: 'KiemSoatTaiChinh' })
+        });
+        if (res.ok) {
+          alert('Đã từ chối bảng kê PDI.');
+          await loadPDIBatches();
+          await viewPDIDetail(id);
+        } else {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+        }
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function cancelPDI(id) {
+      if (!confirm('Bạn có chắc chắn muốn hủy bảng kê PDI này?')) return;
+      const reason = prompt('Nhập lý do hủy bảng kê:', 'Hủy lập lại bảng kê mới');
+      try {
+        const res = await fetch(`/api/payment-pdi/${id}/cancel`, {
+          method: 'POST', headers, body: JSON.stringify({ reason: reason })
+        });
+        if (res.ok) {
+          alert('Đã hủy bảng kê PDI.');
+          await loadPDIBatches();
+          await viewPDIDetail(id);
+        } else {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+        }
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    function openEditPDICostsModal() {
+      if (!activePDI || !activePDI.details || !activePDI.details.length) {
+        alert('Không có xe để điều chỉnh chi phí.'); return;
+      }
+      const sel = document.getElementById('editCostVINSelect');
+      sel.innerHTML = activePDI.details.map(d => `<option value="${d.vin}">${d.vin} - ${d.modelName || d.modelCode} (PDI Nhập: ${Number(d.costInCheck).toLocaleString('vi-VN')} đ, Xuất: ${Number(d.costOutCheck).toLocaleString('vi-VN')} đ)</option>`).join('');
+      onEditCostVINChange();
+      document.getElementById('modalEditPDICosts').style.display = 'block';
+    }
+
+    function closeEditPDICostsModal() {
+      document.getElementById('modalEditPDICosts').style.display = 'none';
+    }
+
+    function onEditCostVINChange() {
+      const vin = document.getElementById('editCostVINSelect').value;
+      const d = (activePDI?.details || []).find(x => x.vin === vin);
+      if (d) {
+        document.getElementById('inpEditCostIn').value = d.costInCheck;
+        document.getElementById('inpEditCostOut').value = d.costOutCheck;
+        document.getElementById('inpEditCostRemark').value = d.remark || '';
+      }
+    }
+
+    async function savePDICostEdit() {
+      if (!activePDI) return;
+      const vin = document.getElementById('editCostVINSelect').value;
+      const costIn = parseInt(document.getElementById('inpEditCostIn').value) || 0;
+      const costOut = parseInt(document.getElementById('inpEditCostOut').value) || 0;
+      const remark = document.getElementById('inpEditCostRemark').value.trim();
+
+      const items = [{
+        vin: vin,
+        costInCheck: costIn,
+        costOutCheck: costOut,
+        remark: remark || 'Điều chỉnh chi phí theo thỏa thuận'
+      }];
+
+      try {
+        const res = await fetch(`/api/payment-pdi/${activePDI.id}/details`, {
+          method: 'PUT', headers, body: JSON.stringify({ items: items })
+        });
+        if (res.ok) {
+          alert('Đã cập nhật chi phí xe thành công!');
+          closeEditPDICostsModal();
+          await loadPDIBatches();
+          await viewPDIDetail(activePDI.id);
+        } else {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+        }
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function openPDIAdviceModal(id) {
+      try {
+        const res = await fetch(`/api/payment-pdi/${id}/statement-advice`, { headers });
+        if (!res.ok) { alert('Không thể tạo mẫu in bảng kê PDI.'); return; }
+        const u = await res.json();
+
+        const vList = u.vehicles || [];
+        const vRows = vList.map((v, i) => `
+          <tr>
+            <td style="border:1px solid var(--border); padding:4px 8px; text-align:center;">${i+1}</td>
+            <td style="border:1px solid var(--border); padding:4px 8px;"><code>${v.vin}</code></td>
+            <td style="border:1px solid var(--border); padding:4px 8px;"><strong>${v.modelName || v.modelCode}</strong></td>
+            <td style="border:1px solid var(--border); padding:4px 8px;">${v.specDescription || '-'}</td>
+            <td style="border:1px solid var(--border); padding:4px 8px;">${v.storageCode}</td>
+            <td style="border:1px solid var(--border); padding:4px 8px; text-align:center;">${v.storeDate}</td>
+            <td style="border:1px solid var(--border); padding:4px 8px; text-align:center;">${v.deliveryOutDate}</td>
+            <td style="border:1px solid var(--border); padding:4px 8px; text-align:right;">${Number(v.costInCheck).toLocaleString('vi-VN')} đ</td>
+            <td style="border:1px solid var(--border); padding:4px 8px; text-align:right;">${Number(v.costOutCheck).toLocaleString('vi-VN')} đ</td>
+            <td style="border:1px solid var(--border); padding:4px 8px; text-align:right; font-weight:700;">${Number(v.totalCostCheck).toLocaleString('vi-VN')} đ</td>
+          </tr>
+        `).join('');
+
+        const content = `
+          <div style="border:1px solid var(--border); padding:18px; border-radius:6px; background:rgba(127,127,127,.04);">
+            <div style="text-align:center; margin-bottom:14px; border-bottom:2px solid var(--border); padding-bottom:10px;">
+              <div style="font-weight:700; font-size:1.05em; color:var(--text);">TẬP ĐOÀN THÀNH CÔNG — CÔNG TY CỔ PHẦN LIÊN DOANH Ô TÔ HYUNDAI THÀNH CÔNG VIỆT NAM</div>
+              <h2 style="margin:8px 0 4px; letter-spacing:1px; color:var(--primary);">BẢNG KÊ QUYẾT TOÁN CHI PHÍ KIỂM TRA XE TRƯỚC KHI XUẤT XƯỞNG (PDI)</h2>
+              <div style="font-style:italic;" class="muted">(Kèm theo Hợp đồng dịch vụ kỹ thuật kiểm định chất lượng phương tiện xe ô tô)</div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-size:.92em;">
+              <div><strong>Số Bảng Kê:</strong> <code>${u.pmtPDINo}</code></div>
+              <div><strong>Kỳ / Tháng Thanh Toán:</strong> <strong>${u.pmtMonth}</strong></div>
+              <div><strong>Ngày Lập:</strong> ${u.createdAt}</div>
+              <div><strong>Trạng Thái:</strong> <span class="badge badge-info">${u.status}</span></div>
+            </div>
+
+            <div style="background:rgba(56,189,248,.08); padding:10px 14px; border-radius:6px; margin-bottom:12px; font-size:.92em;">
+              <div><strong>Đơn Vị Thực Hiện Kiểm Định PDI:</strong> ${u.serviceUnitName} (Mã: <code>${u.serviceUnitCode}</code>)</div>
+              <div style="margin-top:4px;"><strong>Tổng Số Phương Tiện Đã PDI:</strong> <strong>${u.totalVehicles} xe</strong></div>
+              ${u.remark ? `<div style="margin-top:4px;" class="muted"><strong>Ghi chú:</strong> ${u.remark}</div>` : ''}
+            </div>
+
+            <div style="margin-bottom:14px;">
+              <strong>Bảng chi tiết chi phí kiểm tra kỹ thuật từng phương tiện:</strong>
+              <div style="overflow-x:auto; margin-top:6px;">
+                <table style="width:100%; border-collapse:collapse; font-size:.85em;">
+                  <thead>
+                    <tr style="background:rgba(127,127,127,.1);">
+                      <th style="border:1px solid var(--border); padding:4px 8px;">STT</th>
+                      <th style="border:1px solid var(--border); padding:4px 8px;">Số Khung (VIN)</th>
+                      <th style="border:1px solid var(--border); padding:4px 8px;">Model Xe</th>
+                      <th style="border:1px solid var(--border); padding:4px 8px;">Phiên Bản</th>
+                      <th style="border:1px solid var(--border); padding:4px 8px;">Kho Bãi</th>
+                      <th style="border:1px solid var(--border); padding:4px 8px;">Nhập Kho</th>
+                      <th style="border:1px solid var(--border); padding:4px 8px;">Xuất Kho</th>
+                      <th style="border:1px solid var(--border); padding:4px 8px;">PDI Nhập (PDIN)</th>
+                      <th style="border:1px solid var(--border); padding:4px 8px;">PDI Xuất (PDIX)</th>
+                      <th style="border:1px solid var(--border); padding:4px 8px;">Tổng Phí PDI</th>
+                    </tr>
+                  </thead>
+                  <tbody>${vRows}</tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style="margin-bottom:14px; padding:12px; border:1px solid var(--border); border-radius:6px; background:rgba(0,0,0,.15); font-size:.95em;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span>Tổng chi phí PDI xe nhập kho (PDIN):</span>
+                <span><strong>${Number(u.totalCostIn).toLocaleString('vi-VN')} VND</strong></span>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span>Tổng chi phí PDI xe xuất kho (PDIX):</span>
+                <span><strong>${Number(u.totalCostOut).toLocaleString('vi-VN')} VND</strong></span>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px; border-top:1px dashed var(--border); padding-top:4px;">
+                <span>Tổng giá trị dịch vụ trước thuế (Total Amount):</span>
+                <span><strong>${Number(u.totalAmount).toLocaleString('vi-VN')} VND</strong></span>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span>Thuế giá trị gia tăng GTGT (VAT ${u.vatRate}%):</span>
+                <span><strong>${Number(u.amountVAT).toLocaleString('vi-VN')} VND</strong></span>
+              </div>
+              <div style="display:flex; justify-content:space-between; font-size:1.15em; font-weight:700; color:var(--primary); border-top:1px solid var(--border); padding-top:6px; margin-top:4px;">
+                <span>TỔNG CỘNG TIỀN THANH TOÁN (TOTAL AFTER VAT):</span>
+                <span>${Number(u.totalAmountAfterVAT).toLocaleString('vi-VN')} VND</span>
+              </div>
+              <div style="margin-top:8px; font-size:.95em;">
+                <strong>Số tiền bằng chữ (Amount in words):</strong><br>
+                <em style="color:var(--text); font-size:1.02em;"><strong>${u.amountInWords}</strong></em>
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; text-align:center; margin-top:24px; padding-top:16px; border-top:1px solid var(--border);">
+              <div>
+                <strong>NGƯỜI LẬP BẢNG KÊ</strong><br><small class="muted">(Ký, ghi rõ họ tên)</small><br><br><br><br>
+                <span>Chuyên viên PDI &amp; Giám định</span>
+              </div>
+              <div>
+                <strong>ĐẠI DIỆN ĐƠN VỊ PDI (TCMS)</strong><br><small class="muted">(Xác nhận &amp; Chữ ký số Cấp 1)</small><br><br>
+                ${u.tcmsSignStatus === 'Signed' ? `<span style="color:var(--success); font-weight:700;">[ĐÃ KÝ SỐ ĐIỆN TỬ]<br>${u.tcmsSignUser}<br><small>${u.tcmsSignDTime || ''}</small></span>` : '<br><br><span><em>(Chưa ký)</em></span>'}
+              </div>
+              <div>
+                <strong>KẾ TOÁN TRƯỞNG / HTV DUYỆT</strong><br><small class="muted">(Phê duyệt thanh toán Cấp 2)</small><br><br>
+                ${u.htvSignStatus === 'Signed' ? `<span style="color:var(--success); font-weight:700;">[ĐÃ PHÊ DUYỆT &amp; KÝ SỐ]<br>${u.htvSignUser}<br><small>${u.htvSignDTime || ''}</small></span>` : '<br><br><span><em>(Chưa ký)</em></span>'}
+              </div>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('pdiAdviceContent').innerHTML = content;
+        document.getElementById('modalPDIAdvice').style.display = 'block';
+      } catch(e) { console.error(e); }
+    }
+
+    function closePDIAdviceModal() {
+      document.getElementById('modalPDIAdvice').style.display = 'none';
+    }
+
+    function loadSamplePDIData() {
+      const sample = [
+        {
+          "vin": "KMHCT81EPHU200501",
+          "carId": "CAR-NEW-0501",
+          "modelCode": "SANTAFE-CAL",
+          "modelName": "Hyundai Santa Fe 2.5T Calligraphy",
+          "specCode": "SF-2.5T-AWD",
+          "specDescription": "Bản 6 chỗ cao cấp HTRAC AWD 2025",
+          "colorExtNameVN": "Xanh Rêu Hoàng Gia",
+          "storageCodeInit": "KHO-NINHBINH",
+          "storeDate": new Date().toISOString().slice(0, 10),
+          "deliveryOutDate": new Date().toISOString().slice(0, 10),
+          "dlvMnNo": "BBVC-2025-0588",
+          "dealerCode": "DLR-HYUNDAI-THANHXUAN",
+          "costInCheck": 150000,
+          "costOutCheck": 200000,
+          "remark": "PDI hoàn thiện 100% đạt chuẩn xuất kho"
+        },
+        {
+          "vin": "KMHCT81EPHU200502",
+          "carId": "CAR-NEW-0502",
+          "modelCode": "TUCSON-TURBO",
+          "modelName": "Hyundai Tucson 1.6 T-GDi Turbo",
+          "specCode": "TUC-1.6T-PREM",
+          "specDescription": "Bản xăng Turbo Đặc biệt",
+          "colorExtNameVN": "Trắng Ánh Kim",
+          "storageCodeInit": "KHO-NINHBINH",
+          "storeDate": new Date().toISOString().slice(0, 10),
+          "deliveryOutDate": new Date().toISOString().slice(0, 10),
+          "dlvMnNo": "BBVC-2025-0589",
+          "dealerCode": "DLR-HYUNDAI-HADONG",
+          "costInCheck": 150000,
+          "costOutCheck": 200000,
+          "remark": "PDI kiểm tra các tính năng giải trí và camera 360"
+        }
+      ];
+      document.getElementById('inpPDIVehiclesJson').value = JSON.stringify(sample, null, 2);
+    }
+
+    async function submitPaymentPDI() {
+      const msg = document.getElementById('submitPDIMsg');
+      try {
+        const rawJson = document.getElementById('inpPDIVehiclesJson').value.trim();
+        const items = rawJson ? JSON.parse(rawJson) : [];
+        if (!items.length) { alert('Vui lòng nhập ít nhất 1 dòng xe kiểm định PDI.'); return; }
+
+        const payload = {
+          pmtPDINo: document.getElementById('inpPDINo').value.trim() || null,
+          pmtMonth: document.getElementById('inpPDIMonth').value.trim(),
+          serviceUnitCode: document.getElementById('inpPDIServiceUnitCode').value.trim(),
+          serviceUnitName: document.getElementById('inpPDIServiceUnitName').value.trim(),
+          vatRate: parseFloat(document.getElementById('inpPDIVatRate').value) || 10.0,
+          remark: document.getElementById('inpPDIRemark').value.trim(),
+          items: items
+        };
+
+        if (!payload.pmtMonth) { alert('Vui lòng nhập tháng/kỳ thanh toán (ví dụ: 2025-05).'); return; }
+
+        msg.textContent = 'Đang kiểm tra và khởi tạo bảng kê chi phí PDI...';
+        const res = await fetch('/api/payment-pdi', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Bảng kê: ${data.pmtPDINo} (${data.totalVehicles} xe, Tổng tiền sau VAT: ${Number(data.totalAmountAfterVAT).toLocaleString('vi-VN')} đ)`;
+        setTimeout(() => {
+          showTab('paymentPDI');
+          viewPDIDetail(data.id);
+        }, 800);
+      } catch(e) {
+        msg.textContent = 'Lỗi cú pháp JSON: ' + e.message;
+      }
+    }
+
     // Khởi tạo
     loadSampleData();
     loadSamplePayoutData();
     loadSampleDiscountData();
+    loadSamplePDIData();
     loadBatches();
   </script>
 </body>

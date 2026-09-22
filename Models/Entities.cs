@@ -55,6 +55,12 @@ public enum BankBillMinutesStatus { Draft = 0, PendingHandover = 1, Delivered = 
 
 public enum BankBillDetailStatus { Pending = 0, Delivered = 1, BankVerified = 2, Cancelled = 3 }
 
+public enum PaymentPDIStatus { Draft = 0, TCMSApproved = 1, HTVApproved = 2, Paid = 3, Rejected = 4, Cancelled = 5 }
+
+public enum PDISignStatus { Pending = 0, Signed = 1 }
+
+public enum PaymentPDIDetailStatus { Pending = 0, Approved = 1, Adjusted = 2, Cancelled = 3 }
+
 /// <summary>Ý định thanh toán (payment intent) — 1 dòng / 1 lần khởi tạo cổng.</summary>
 public sealed class PaymentIntent
 {
@@ -492,6 +498,71 @@ public sealed class BankBillMinutesDetail
     public int NumberOfDaysDeferred { get; set; } = 30;       // Thời hạn trả chậm theo hối phiếu (ngày)
     public BankBillDetailStatus Status { get; set; } = BankBillDetailStatus.Pending; // Trạng thái dòng
     public string? Note { get; set; }                         // Tình trạng chứng từ (bản gốc CO, CQ, tờ khai...)
+}
+
+/// <summary>Bảng kê thanh toán chi phí kiểm tra kỹ thuật xe PDI — tương ứng Pmt_PaymentPDI trong BizHTC.Payment / FrmQuanLyThanhToanPDI & FrmSuaThanhToanPDI.</summary>
+public sealed class PaymentPDI
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string PmtPDINo { get; set; } = "";             // Số bảng kê (PDI-202505-001)
+    public string PmtMonth { get; set; } = "";             // Kỳ / tháng thanh toán PDI (ví dụ 2025-05)
+    public string ServiceUnitCode { get; set; } = "TCMS";  // Mã đơn vị kiểm định PDI (TCMS, HTMV-PDI...)
+    public string ServiceUnitName { get; set; } = "Trung tâm Quản lý Kỹ thuật & Dịch vụ Xe TCMS"; // Tên đơn vị kiểm định
+    public int TotalVehicles { get; set; }                 // Tổng số lượng xe kiểm tra trong kỳ
+    public long TotalCostIn { get; set; }                  // Tổng chi phí PDI xe nhập kho (PDIN)
+    public long TotalCostOut { get; set; }                 // Tổng chi phí PDI xe xuất kho (PDIX)
+    public long TotalAmount { get; set; }                  // Tổng tiền trước VAT (= TotalCostIn + TotalCostOut)
+    public decimal VATRate { get; set; } = 10.0m;          // Thuế suất VAT (%)
+    public long AmountVAT { get; set; }                    // Tiền thuế VAT
+    public long TotalAmountAfterVAT { get; set; }          // Tổng tiền thanh toán sau thuế VAT
+    public PaymentPDIStatus Status { get; set; } = PaymentPDIStatus.Draft; // Trạng thái bảng kê
+    public PDISignStatus TCMSSignStatus { get; set; } = PDISignStatus.Pending; // Trạng thái ký TCMS
+    public string? TCMSSignUser { get; set; }              // Người ký số TCMS
+    public DateTime? TCMSSignDTime { get; set; }           // Thời điểm ký TCMS
+    public PDISignStatus HTVSignStatus { get; set; } = PDISignStatus.Pending;  // Trạng thái ký HTV
+    public string? HTVSignUser { get; set; }               // Người ký số HTV
+    public DateTime? HTVSignDTime { get; set; }            // Thời điểm ký HTV
+    public string? Appr1By { get; set; }                   // Người duyệt cấp 1 (TCMS)
+    public DateTime? Appr1DTime { get; set; }              // Thời điểm duyệt cấp 1
+    public string? Appr2By { get; set; }                   // Người duyệt cấp 2 (HTV)
+    public DateTime? Appr2DTime { get; set; }              // Thời điểm duyệt cấp 2
+    public string? PaidBy { get; set; }                    // Kế toán thanh toán / tất toán
+    public DateTime? PaidAt { get; set; }                  // Ngày giờ thanh toán
+    public string? BankTxnRef { get; set; }                // Mã giao dịch chi tiền ngân hàng / UNC
+    public string? RejectReason { get; set; }              // Lý do từ chối
+    public DateTime? CancelledAt { get; set; }             // Ngày giờ hủy
+    public string? FilePath { get; set; }                  // Đường dẫn biên bản / chứng từ scan có ký số
+    public string? Remark { get; set; }                    // Diễn giải / ghi chú bảng kê
+    public string? CreatedBy { get; set; }                 // Người lập bảng kê
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    public List<PaymentPDIDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết xe kiểm tra kỹ thuật trong bảng kê PDI — tương ứng Pmt_PaymentPDIDetail trong BizHTC.Payment.</summary>
+public sealed class PaymentPDIDetail
+{
+    public long Id { get; set; }
+    public long PaymentPDIId { get; set; }
+    public Guid OrgId { get; set; }
+    public string VIN { get; set; } = "";                  // Số khung xe (17 ký tự VIN)
+    public string? CarId { get; set; }                     // Mã định danh xe nội bộ
+    public string ModelCode { get; set; } = "";            // Dòng xe (SANTAFE, TUCSON, ACCENT, CRETA...)
+    public string? ModelName { get; set; }                 // Tên thương mại dòng xe
+    public string? SpecCode { get; set; }                  // Mã phiên bản
+    public string? SpecDescription { get; set; }           // Mô tả chi tiết phiên bản
+    public string? ColorExtNameVN { get; set; }            // Màu sơn ngoại thất
+    public string StorageCodeInit { get; set; } = "";      // Mã kho bãi kiểm tra xe (KHO-NINHBINH, KHO-DONGANH...)
+    public DateTime? StoreDate { get; set; }               // Ngày xe nhập kho bãi
+    public DateTime? DeliveryOutDate { get; set; }         // Ngày xe xuất kho giao đại lý
+    public string? DlvMnNo { get; set; }                   // Số biên bản xuất kho giao xe (Sto_DlvMinutes)
+    public string? DealerCode { get; set; }                // Mã đại lý nhận xe (DealerCode)
+    public long CostInCheck { get; set; }                  // Chi phí kiểm tra xe nhập kho (PDIN)
+    public long CostOutCheck { get; set; }                 // Chi phí kiểm tra xe xuất kho (PDIX)
+    public long TotalCostCheck { get; set; }               // Tổng chi phí PDI xe (= CostInCheck + CostOutCheck)
+    public PaymentPDIDetailStatus Status { get; set; } = PaymentPDIDetailStatus.Pending; // Trạng thái dòng
+    public string? Remark { get; set; }                    // Ghi chú chi tiết xe kiểm tra
 }
 
 

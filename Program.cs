@@ -34,6 +34,7 @@ builder.Services.AddScoped<PaymentGuaranteeService>();
 builder.Services.AddScoped<MortgageRedeemService>();
 builder.Services.AddScoped<PaymentOrderService>();
 builder.Services.AddScoped<BankBillService>();
+builder.Services.AddScoped<PaymentPDIService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -2529,6 +2530,340 @@ app.MapGet("/api/bank-bills/summary", async (BankBillService billService, ITenan
     return Results.Ok(summary);
 });
 
+// ===== Quản lý Bảng kê Thanh toán Chi phí Kiểm tra Xe PDI (Pre-Delivery Inspection Payment - BizHTC.Payment) =====
+
+// 1) Tạo bảng kê thanh toán chi phí PDI mới (Job_Pmt_PaymentPDI_Create / FrmQuanLyThanhToanPDI)
+app.MapPost("/api/payment-pdi", async (CreatePaymentPDIDto dto, PaymentPDIService pdiService, ITenantContext tc) =>
+{
+    if (string.IsNullOrWhiteSpace(dto.PmtMonth))
+        return Results.BadRequest(new { error = "Kỳ / tháng thanh toán (PmtMonth, ví dụ 2025-05) không được để trống." });
+    if (dto.Items == null || dto.Items.Count == 0)
+        return Results.BadRequest(new { error = "Bảng kê chi phí PDI cần ít nhất 1 dòng xe kiểm tra." });
+
+    try
+    {
+        var pdi = await pdiService.CreatePaymentPDIAsync(
+            tc.OrgId,
+            dto.PmtPDINo,
+            dto.PmtMonth,
+            dto.ServiceUnitCode,
+            dto.ServiceUnitName,
+            dto.VATRate ?? 10.0m,
+            dto.Remark,
+            "ChuyenVienKiemDinh",
+            dto.Items
+        );
+
+        return Results.Ok(new
+        {
+            pdi.Id,
+            pdi.PmtPDINo,
+            pdi.PmtMonth,
+            pdi.ServiceUnitCode,
+            pdi.ServiceUnitName,
+            pdi.TotalVehicles,
+            pdi.TotalCostIn,
+            pdi.TotalCostOut,
+            pdi.TotalAmount,
+            pdi.VATRate,
+            pdi.AmountVAT,
+            pdi.TotalAmountAfterVAT,
+            status = pdi.Status.ToString(),
+            tcmsSignStatus = pdi.TCMSSignStatus.ToString(),
+            htvSignStatus = pdi.HTVSignStatus.ToString(),
+            pdi.Remark,
+            pdi.CreatedBy,
+            pdi.CreatedAt,
+            details = pdi.Details.Select(d => new
+            {
+                d.Id,
+                d.VIN,
+                d.CarId,
+                d.ModelCode,
+                d.ModelName,
+                d.SpecCode,
+                d.SpecDescription,
+                d.ColorExtNameVN,
+                d.StorageCodeInit,
+                d.StoreDate,
+                d.DeliveryOutDate,
+                d.DlvMnNo,
+                d.DealerCode,
+                d.CostInCheck,
+                d.CostOutCheck,
+                d.TotalCostCheck,
+                status = d.Status.ToString(),
+                d.Remark
+            })
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 2) Danh sách bảng kê chi phí PDI (Pmt_PaymentPDI_Get / FrmQuanLyThanhToanPDI)
+app.MapGet("/api/payment-pdi", async (PaymentPDIService pdiService, ITenantContext tc, string? status, string? pmtMonth, string? serviceUnitCode) =>
+{
+    var list = await pdiService.GetPaymentPDIsAsync(tc.OrgId, status, pmtMonth, serviceUnitCode);
+    return Results.Ok(list.Select(p => new
+    {
+        p.Id,
+        p.PmtPDINo,
+        p.PmtMonth,
+        p.ServiceUnitCode,
+        p.ServiceUnitName,
+        p.TotalVehicles,
+        p.TotalCostIn,
+        p.TotalCostOut,
+        p.TotalAmount,
+        p.VATRate,
+        p.AmountVAT,
+        p.TotalAmountAfterVAT,
+        status = p.Status.ToString(),
+        tcmsSignStatus = p.TCMSSignStatus.ToString(),
+        p.TCMSSignUser,
+        p.TCMSSignDTime,
+        htvSignStatus = p.HTVSignStatus.ToString(),
+        p.HTVSignUser,
+        p.HTVSignDTime,
+        p.BankTxnRef,
+        p.PaidBy,
+        p.PaidAt,
+        p.Remark,
+        p.CreatedAt
+    }));
+});
+
+// 3) Chi tiết 1 bảng kê PDI kèm danh sách toàn bộ xe (FrmQuanLyThanhToanPDI.loadGridDetail)
+app.MapGet("/api/payment-pdi/{id:long}", async (long id, PaymentPDIService pdiService, ITenantContext tc) =>
+{
+    var pdi = await pdiService.GetPaymentPDIByIdAsync(id, tc.OrgId);
+    if (pdi == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê PDI #{id}." });
+
+    return Results.Ok(new
+    {
+        pdi.Id,
+        pdi.PmtPDINo,
+        pdi.PmtMonth,
+        pdi.ServiceUnitCode,
+        pdi.ServiceUnitName,
+        pdi.TotalVehicles,
+        pdi.TotalCostIn,
+        pdi.TotalCostOut,
+        pdi.TotalAmount,
+        pdi.VATRate,
+        pdi.AmountVAT,
+        pdi.TotalAmountAfterVAT,
+        status = pdi.Status.ToString(),
+        tcmsSignStatus = pdi.TCMSSignStatus.ToString(),
+        pdi.TCMSSignUser,
+        pdi.TCMSSignDTime,
+        htvSignStatus = pdi.HTVSignStatus.ToString(),
+        pdi.HTVSignUser,
+        pdi.HTVSignDTime,
+        pdi.Appr1By,
+        pdi.Appr1DTime,
+        pdi.Appr2By,
+        pdi.Appr2DTime,
+        pdi.PaidBy,
+        pdi.PaidAt,
+        pdi.BankTxnRef,
+        pdi.RejectReason,
+        pdi.CancelledAt,
+        pdi.FilePath,
+        pdi.Remark,
+        pdi.CreatedBy,
+        pdi.CreatedAt,
+        details = pdi.Details.Select(d => new
+        {
+            d.Id,
+            d.VIN,
+            d.CarId,
+            d.ModelCode,
+            d.ModelName,
+            d.SpecCode,
+            d.SpecDescription,
+            d.ColorExtNameVN,
+            d.StorageCodeInit,
+            d.StoreDate,
+            d.DeliveryOutDate,
+            d.DlvMnNo,
+            d.DealerCode,
+            d.CostInCheck,
+            d.CostOutCheck,
+            d.TotalCostCheck,
+            status = d.Status.ToString(),
+            d.Remark
+        })
+    });
+});
+
+// 4) TCMS Duyệt cấp 1 & Ký số điện tử (Pmt_PaymentPDI_TCMSApproveAndSign / FrmQuanLyThanhToanPDI.btnTCMSApprove_Click)
+app.MapPost("/api/payment-pdi/{id:long}/tcms-approve", async (long id, SignPDIDto? dto, PaymentPDIService pdiService, ITenantContext tc) =>
+{
+    try
+    {
+        var pdi = await pdiService.ApproveTCMSAsync(id, tc.OrgId, dto?.SignerName, dto?.FilePath);
+        if (pdi == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê PDI #{id}." });
+
+        return Results.Ok(new
+        {
+            pdi.Id,
+            pdi.PmtPDINo,
+            status = pdi.Status.ToString(),
+            tcmsSignStatus = pdi.TCMSSignStatus.ToString(),
+            pdi.TCMSSignUser,
+            pdi.TCMSSignDTime
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 5) HTV Duyệt cấp 2 & Ký số điện tử (Pmt_PaymentPDI_HTVApproveAndSign / FrmQuanLyThanhToanPDI.btnHTVApprove_Click)
+app.MapPost("/api/payment-pdi/{id:long}/htv-approve", async (long id, SignPDIDto? dto, PaymentPDIService pdiService, ITenantContext tc) =>
+{
+    try
+    {
+        var pdi = await pdiService.ApproveHTVAsync(id, tc.OrgId, dto?.SignerName, dto?.FilePath);
+        if (pdi == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê PDI #{id}." });
+
+        return Results.Ok(new
+        {
+            pdi.Id,
+            pdi.PmtPDINo,
+            status = pdi.Status.ToString(),
+            htvSignStatus = pdi.HTVSignStatus.ToString(),
+            pdi.HTVSignUser,
+            pdi.HTVSignDTime
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Quyết toán / Hoàn tất thanh toán chi phí PDI (Paid)
+app.MapPost("/api/payment-pdi/{id:long}/settle", async (long id, SettlePDIDto? dto, PaymentPDIService pdiService, ITenantContext tc) =>
+{
+    try
+    {
+        var pdi = await pdiService.SettlePaymentPDIAsync(id, tc.OrgId, dto?.BankTxnRef, dto?.PayerName);
+        if (pdi == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê PDI #{id}." });
+
+        return Results.Ok(new
+        {
+            pdi.Id,
+            pdi.PmtPDINo,
+            status = pdi.Status.ToString(),
+            pdi.PaidBy,
+            pdi.PaidAt,
+            pdi.BankTxnRef
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 7) Từ chối phê duyệt bảng kê PDI kèm lý do (FrmQuanLyThanhToanPDI.btnDeny_Click)
+app.MapPost("/api/payment-pdi/{id:long}/reject", async (long id, RejectPDIDto dto, PaymentPDIService pdiService, ITenantContext tc) =>
+{
+    if (string.IsNullOrWhiteSpace(dto.Reason))
+        return Results.BadRequest(new { error = "Cần cung cấp lý do từ chối (Reason)." });
+
+    try
+    {
+        var pdi = await pdiService.RejectPaymentPDIAsync(id, tc.OrgId, dto.Reason, dto.RejecterName);
+        if (pdi == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê PDI #{id}." });
+
+        return Results.Ok(new
+        {
+            pdi.Id,
+            pdi.PmtPDINo,
+            status = pdi.Status.ToString(),
+            pdi.RejectReason
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 8) Hủy bảng kê chi phí PDI (Pmt_PaymentPDI_Cancel / FrmQuanLyThanhToanPDI.btnDelete_Click)
+app.MapPost("/api/payment-pdi/{id:long}/cancel", async (long id, CancelPDIDto? dto, PaymentPDIService pdiService, ITenantContext tc) =>
+{
+    try
+    {
+        var pdi = await pdiService.CancelPaymentPDIAsync(id, tc.OrgId, dto?.Reason);
+        if (pdi == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê PDI #{id}." });
+
+        return Results.Ok(new
+        {
+            pdi.Id,
+            pdi.PmtPDINo,
+            status = pdi.Status.ToString(),
+            pdi.CancelledAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 9) Cập nhật chi phí PDI xe hàng loạt (Pmt_PaymentPDI_UpdateMulti / FrmSuaThanhToanPDI.btnSave_Click)
+app.MapPut("/api/payment-pdi/{id:long}/details", async (long id, UpdatePDIDetailsDto dto, PaymentPDIService pdiService, ITenantContext tc) =>
+{
+    if (dto.Items == null || dto.Items.Count == 0)
+        return Results.BadRequest(new { error = "Danh sách cập nhật chi phí (Items) không được để trống." });
+
+    try
+    {
+        var pdi = await pdiService.UpdateDetailsAsync(id, tc.OrgId, dto.Items);
+        if (pdi == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê PDI #{id}." });
+
+        return Results.Ok(new
+        {
+            pdi.Id,
+            pdi.PmtPDINo,
+            pdi.TotalVehicles,
+            pdi.TotalCostIn,
+            pdi.TotalCostOut,
+            pdi.TotalAmount,
+            pdi.AmountVAT,
+            pdi.TotalAmountAfterVAT,
+            status = pdi.Status.ToString()
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 10) Sinh dữ liệu mẫu in Bảng kê quyết toán PDI (PDI Statement Advice - FrmQuanLyThanhToanPDI.btnPrint_Click)
+app.MapGet("/api/payment-pdi/{id:long}/statement-advice", async (long id, PaymentPDIService pdiService, ITenantContext tc) =>
+{
+    var advice = await pdiService.GenerateStatementAdviceAsync(id, tc.OrgId);
+    if (advice == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê PDI #{id}." });
+    return Results.Ok(advice);
+});
+
+// 11) Báo cáo tổng hợp số liệu thanh toán PDI
+app.MapGet("/api/payment-pdi/summary", async (PaymentPDIService pdiService, ITenantContext tc) =>
+{
+    var summary = await pdiService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
 app.Run();
 
 record CreatePayDto(long Amount, string? OrderId, string? OrderInfo, string? BankCode);
@@ -2600,4 +2935,18 @@ record BankReceiveDto(DateTime? ReceiveDate, string? ReceivedBy, string? Note);
 record SettleBankBillDto(string? SettlerName, string? Note);
 record CancelBankBillDto(string? Reason);
 record ImportVinsDto(List<BankBillItemInputDto> Items);
+record CreatePaymentPDIDto(
+    string? PmtPDINo,
+    string? PmtMonth,
+    string? ServiceUnitCode,
+    string? ServiceUnitName,
+    decimal? VATRate,
+    string? Remark,
+    List<PaymentPDIItemInputDto>? Items
+);
+record SignPDIDto(string? SignerName, string? FilePath);
+record SettlePDIDto(string? BankTxnRef, string? PayerName);
+record RejectPDIDto(string? Reason, string? RejecterName);
+record CancelPDIDto(string? Reason);
+record UpdatePDIDetailsDto(List<UpdatePDIDetailItemDto>? Items);
 
