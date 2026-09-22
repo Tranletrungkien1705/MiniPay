@@ -27,6 +27,7 @@ builder.Services.AddScoped<ITenantContext, TenantContext>();
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<VnPayService>();
 builder.Services.AddSingleton<MomoService>();
+builder.Services.AddScoped<ReconcileService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -230,8 +231,205 @@ app.MapPost("/api/import/payments", async (List<ImportPayDto> rows, AppDbContext
     return Results.Ok(new { added, skipped, total = added + skipped });
 });
 
+// ===== Đối soát sao kê ngân hàng (Bank Statement Reconciliation) =====
+
+// 1) Tạo lô đối soát & tự động so khớp giao dịch ngân hàng
+app.MapPost("/api/reconcile/batches", async (CreateReconcileBatchDto dto, ReconcileService recService, ITenantContext tc) =>
+{
+    if (dto.Items == null || dto.Items.Count == 0)
+        return Results.BadRequest(new { error = "Cần ít nhất 1 dòng giao dịch sao kê." });
+
+    var batchCode = string.IsNullOrWhiteSpace(dto.BatchCode)
+        ? $"REC-{DateTime.Now:yyyyMMddHHmmss}-{Random.Shared.Next(100, 999)}"
+        : dto.BatchCode.Trim();
+
+    var batch = await recService.ExecuteReconcileAsync(
+        tc.OrgId,
+        batchCode,
+        dto.BankCode ?? "BANK",
+        dto.AccountNo,
+        dto.StatementDate ?? DateTime.Today,
+        dto.Items,
+        dto.Note
+    );
+
+    return Results.Ok(new
+    {
+        batch.Id,
+        batch.BatchCode,
+        batch.BankCode,
+        batch.AccountNo,
+        batch.StatementDate,
+        batch.TotalRecords,
+        batch.MatchedCount,
+        batch.MismatchedCount,
+        batch.UnmatchedCount,
+        batch.TotalAmount,
+        batch.MatchedAmount,
+        status = batch.Status.ToString(),
+        batch.CreatedAt,
+        batch.CompletedAt,
+        details = batch.Details.Select(d => new
+        {
+            d.Id,
+            d.BankTxnNo,
+            d.TxnRef,
+            d.TxnTime,
+            d.Amount,
+            d.SenderAccount,
+            d.ReceiverAccount,
+            d.Remark,
+            matchStatus = d.MatchStatus.ToString(),
+            d.PaymentIntentId,
+            d.SystemAmount,
+            d.DiscrepancyReason,
+            d.MatchedAt
+        })
+    });
+});
+
+// 2) Lấy danh sách các đợt đối soát
+app.MapGet("/api/reconcile/batches", async (AppDbContext db, ITenantContext tc, string? status, string? bankCode) =>
+{
+    var q = db.ReconcileBatches.Where(b => b.OrgId == tc.OrgId);
+    if (!string.IsNullOrWhiteSpace(bankCode))
+        q = q.Where(b => b.BankCode == bankCode);
+    if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<ReconcileStatus>(status, true, out var st))
+        q = q.Where(b => b.Status == st);
+
+    var list = await q.OrderByDescending(b => b.CreatedAt)
+        .Select(b => new
+        {
+            b.Id,
+            b.BatchCode,
+            b.BankCode,
+            b.AccountNo,
+            b.StatementDate,
+            b.TotalRecords,
+            b.MatchedCount,
+            b.MismatchedCount,
+            b.UnmatchedCount,
+            b.TotalAmount,
+            b.MatchedAmount,
+            status = b.Status.ToString(),
+            b.Note,
+            b.CreatedAt,
+            b.CompletedAt
+        })
+        .ToListAsync();
+
+    return Results.Ok(list);
+});
+
+// 3) Lấy chi tiết 1 đợt đối soát kèm các dòng giao dịch
+app.MapGet("/api/reconcile/batches/{id:long}", async (long id, AppDbContext db, ITenantContext tc) =>
+{
+    var batch = await db.ReconcileBatches
+        .Include(b => b.Details)
+        .FirstOrDefaultAsync(b => b.Id == id && b.OrgId == tc.OrgId);
+
+    if (batch == null) return Results.NotFound(new { error = $"Không tìm thấy đợt đối soát #{id}." });
+
+    return Results.Ok(new
+    {
+        batch.Id,
+        batch.BatchCode,
+        batch.BankCode,
+        batch.AccountNo,
+        batch.StatementDate,
+        batch.TotalRecords,
+        batch.MatchedCount,
+        batch.MismatchedCount,
+        batch.UnmatchedCount,
+        batch.TotalAmount,
+        batch.MatchedAmount,
+        status = batch.Status.ToString(),
+        batch.Note,
+        batch.CreatedAt,
+        batch.CompletedAt,
+        details = batch.Details.OrderBy(d => d.Id).Select(d => new
+        {
+            d.Id,
+            d.BankTxnNo,
+            d.TxnRef,
+            d.TxnTime,
+            d.Amount,
+            d.SenderAccount,
+            d.ReceiverAccount,
+            d.Remark,
+            matchStatus = d.MatchStatus.ToString(),
+            d.PaymentIntentId,
+            d.SystemAmount,
+            d.DiscrepancyReason,
+            d.MatchedAt
+        })
+    });
+});
+
+// 4) Chạy lại đối soát cho đợt cũ
+app.MapPost("/api/reconcile/batches/{id:long}/re-run", async (long id, ReconcileService recService, ITenantContext tc) =>
+{
+    var batch = await recService.ReRunBatchAsync(id, tc.OrgId);
+    if (batch == null) return Results.NotFound(new { error = $"Không tìm thấy đợt đối soát #{id}." });
+
+    return Results.Ok(new
+    {
+        batch.Id,
+        batch.BatchCode,
+        batch.TotalRecords,
+        batch.MatchedCount,
+        batch.MismatchedCount,
+        batch.UnmatchedCount,
+        batch.TotalAmount,
+        batch.MatchedAmount,
+        status = batch.Status.ToString(),
+        batch.CompletedAt
+    });
+});
+
+// 5) Báo cáo tổng hợp đối soát của merchant
+app.MapGet("/api/reconcile/summary", async (AppDbContext db, ITenantContext tc) =>
+{
+    var batches = await db.ReconcileBatches
+        .Where(b => b.OrgId == tc.OrgId)
+        .ToListAsync();
+
+    var totalBatches = batches.Count;
+    var totalRecords = batches.Sum(b => b.TotalRecords);
+    var matchedCount = batches.Sum(b => b.MatchedCount);
+    var mismatchedCount = batches.Sum(b => b.MismatchedCount);
+    var unmatchedCount = batches.Sum(b => b.UnmatchedCount);
+    var totalAmount = batches.Sum(b => b.TotalAmount);
+    var matchedAmount = batches.Sum(b => b.MatchedAmount);
+    var matchRate = totalRecords > 0 ? Math.Round((double)matchedCount * 100.0 / totalRecords, 1) : 0;
+
+    return Results.Ok(new
+    {
+        totalBatches,
+        totalRecords,
+        matchedCount,
+        mismatchedCount,
+        unmatchedCount,
+        totalAmount,
+        matchedAmount,
+        matchRatePercent = matchRate,
+        recentBatches = batches.OrderByDescending(b => b.CreatedAt).Take(5).Select(b => new
+        {
+            b.Id,
+            b.BatchCode,
+            b.BankCode,
+            b.TotalRecords,
+            b.MatchedCount,
+            b.MismatchedCount,
+            status = b.Status.ToString(),
+            b.CreatedAt
+        })
+    });
+});
+
 app.Run();
 
 record CreatePayDto(long Amount, string? OrderId, string? OrderInfo, string? BankCode);
 record RegisterOrgDto(string Name);
 record ImportPayDto(string? TxnRef, string? OrderId, long Amount, string? OrderInfo, string? BankCode, bool IsPaid, DateTime? CreatedAt);
+record CreateReconcileBatchDto(string? BatchCode, string? BankCode, string? AccountNo, DateTime? StatementDate, string? Note, List<BankStatementInputDto> Items);

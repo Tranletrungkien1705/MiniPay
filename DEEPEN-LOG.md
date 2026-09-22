@@ -1,0 +1,1 @@
+- Port nghiệp vụ Đối soát sao kê ngân hàng (Bank Statement Reconciliation) từ hệ nguồn 2010.HTC (BizHTC.Payment / TCFIntergration) vào MiniPay: entities ReconcileBatch & ReconcileDetail, ReconcileService tự động so khớp mã đơn/nội dung chuyển khoản và số tiền, minimal-API CRUD & re-run, Seeder dữ liệu mẫu và UI quản lý đối soát.

@@ -3,26 +3,383 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MiniPay</title>
+<title>MiniPay — Cổng Thanh Toán & Đối Soát Sao Kê Ngân Hàng</title>
 <style>
-  :root { color-scheme: light dark; }
-  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 20px; line-height: 1.6; }
-  code { background: rgba(127,127,127,.15); padding: 1px 5px; border-radius: 4px; }
-  h1 { margin-bottom: 4px; } .muted { opacity:.7; }
-  li { margin: 4px 0; }
+  :root {
+    --bg: #0f172a; --surface: #1e293b; --border: #334155;
+    --text: #f8fafc; --muted: #94a3b8; --primary: #38bdf8;
+    --success: #4ade80; --warning: #facc15; --danger: #f87171;
+  }
+  @media (prefers-color-scheme: light) {
+    :root {
+      --bg: #f8fafc; --surface: #ffffff; --border: #e2e8f0;
+      --text: #0f172a; --muted: #64748b; --primary: #0284c7;
+      --success: #16a34a; --warning: #d97706; --danger: #dc2626;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    max-width: 1040px; margin: 30px auto; padding: 0 20px; line-height: 1.5;
+    background: var(--bg); color: var(--text);
+  }
+  code { background: rgba(127,127,127,.18); padding: 2px 6px; border-radius: 4px; font-size: .88em; }
+  h1, h2, h3 { margin: 0 0 8px; font-weight: 600; }
+  .muted { color: var(--muted); font-size: .9em; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; margin: 20px 0; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 16px; }
+  .stat-num { font-size: 1.8em; font-weight: 700; color: var(--primary); }
+  .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: .75em; font-weight: 600; }
+  .badge-success { background: rgba(34,197,94,.18); color: var(--success); }
+  .badge-warning { background: rgba(234,179,8,.18); color: var(--warning); }
+  .badge-danger { background: rgba(239,68,68,.18); color: var(--danger); }
+  .badge-info { background: rgba(56,189,248,.18); color: var(--primary); }
+  table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: .88em; }
+  th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+  th { background: rgba(127,127,127,.06); color: var(--muted); font-weight: 600; }
+  button {
+    background: var(--primary); color: #fff; border: 0; padding: 7px 14px;
+    border-radius: 6px; cursor: pointer; font-weight: 500; font-size: .88em;
+  }
+  button:hover { opacity: .9; }
+  button.secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
+  input, select, textarea {
+    width: 100%; padding: 8px 10px; background: var(--surface); border: 1px solid var(--border);
+    border-radius: 6px; color: var(--text); margin-top: 4px; font-size: .9em;
+  }
+  .row { display: flex; gap: 12px; }
+  .col { flex: 1; }
+  .tab-header { display: flex; gap: 10px; border-bottom: 1px solid var(--border); margin: 24px 0 16px; }
+  .tab-btn { background: transparent; color: var(--muted); border-bottom: 2px solid transparent; border-radius: 0; padding: 8px 16px; }
+  .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); font-weight: 600; }
 </style>
 </head>
 <body>
-  <h1>MiniPay</h1>
-  <p class="muted">Cổng thanh toán VNPay cho fleet — ký &amp; xác thực HMAC-SHA512.</p>
-  <h3>API</h3>
-  <ul>
-    <li><code>POST /api/pay/create</code> — tạo giao dịch, trả <code>payUrl</code> (cần <code>X-Api-Key</code>)</li>
-    <li><code>GET /api/pay/ipn</code> — VNPay gọi server→server, xác thực chữ ký</li>
-    <li><code>GET /api/pay/return</code> — trình duyệt quay về, xác thực chữ ký</li>
-    <li><code>GET /api/pay/status?txnRef=</code> — tra trạng thái (cần <code>X-Api-Key</code>)</li>
-    <li><code>POST /api/orgs/register</code> — đăng ký merchant, nhận ApiKey</li>
-  </ul>
-  <p class="muted">SSO: <code>GET /api/whoami</code> (token MiniSSO). Swagger: <a href="/swagger">/swagger</a>.</p>
+  <div style="display:flex; justify-content:space-between; align-items:center;">
+    <div>
+      <h1>MiniPay</h1>
+      <p class="muted">Cổng thanh toán điện tử (VNPay/MoMo) &amp; Đối soát sao kê ngân hàng (Bank Reconciliation).</p>
+    </div>
+    <div>
+      <span class="badge badge-info">Demo Merchant</span>
+      <span style="margin-left:6px;"><code id="apiKeyDisplay">ApiKey: demo-pay</code></span>
+    </div>
+  </div>
+
+  <div class="grid" id="statsGrid">
+    <div class="card">
+      <div class="muted">Tổng đợt đối soát</div>
+      <div class="stat-num" id="statBatches">-</div>
+    </div>
+    <div class="card">
+      <div class="muted">Giao dịch đã đối soát</div>
+      <div class="stat-num" id="statRecords">-</div>
+    </div>
+    <div class="card">
+      <div class="muted">Tỷ lệ khớp</div>
+      <div class="stat-num" id="statMatchRate">-%</div>
+    </div>
+    <div class="card">
+      <div class="muted">Tiền sao kê đã khớp</div>
+      <div class="stat-num" style="color:var(--success);" id="statMatchedAmount">-</div>
+    </div>
+  </div>
+
+  <div class="tab-header">
+    <button class="tab-btn active" onclick="showTab('reconcile')">Đối Soát Sao Kê (Reconciliation)</button>
+    <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê &amp; Đối Soát Mới</button>
+    <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
+  </div>
+
+  <!-- TAB 1: Danh sách đợt đối soát -->
+  <div id="tab-reconcile">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="margin:0;">Lịch sử các đợt đối soát ngân hàng</h3>
+        <button class="secondary" onclick="loadBatches()">Làm mới</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Mã Đợt</th>
+              <th>Ngân Hàng</th>
+              <th>Kỳ Sao Kê</th>
+              <th>Tổng GD</th>
+              <th>Khớp</th>
+              <th>Lệch</th>
+              <th>Chưa Khớp</th>
+              <th>Tổng Tiền</th>
+              <th>Trạng Thái</th>
+              <th>Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="batchTableBody">
+            <tr><td colspan="10" class="muted" style="text-align:center;">Đang tải dữ liệu...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Chi tiết đợt đối soát -->
+    <div class="card" id="detailCard" style="margin-top:18px; display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div>
+          <h3 id="detailTitle" style="margin:0;">Chi tiết đối soát</h3>
+          <p class="muted" id="detailSubtitle"></p>
+        </div>
+        <div>
+          <button id="btnReRun" class="secondary" style="margin-right:6px;">Chạy Lại Đối Soát</button>
+          <button class="secondary" onclick="document.getElementById('detailCard').style.display='none'">Đóng</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Mã Bank Txn</th>
+              <th>Mã Hệ Thống</th>
+              <th>Thời Gian</th>
+              <th>Tiền Sao Kê</th>
+              <th>Tiền Hệ Thống</th>
+              <th>Nội Dung Chuyển Khoản</th>
+              <th>Kết Quả Đối Soát</th>
+              <th>Ghi Chú Sai Lệch</th>
+            </tr>
+          </thead>
+          <tbody id="detailTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 2: Nạp sao kê & đối soát mới -->
+  <div id="tab-newBatch" style="display:none;">
+    <div class="card">
+      <h3>Nạp bảng sao kê ngân hàng &amp; Chạy đối soát tức thì</h3>
+      <p class="muted">Hệ thống sẽ tự động quét đối chiếu số tiền và mã giao dịch với các đơn thanh toán trong hệ thống.</p>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Mã Đợt Đối Soát (để trống để tự sinh):</label>
+          <input type="text" id="inpBatchCode" placeholder="Ví dụ: REC-20250514-02">
+        </div>
+        <div class="col">
+          <label class="muted">Ngân Hàng:</label>
+          <select id="inpBankCode">
+            <option value="VCB">Vietcombank (VCB)</option>
+            <option value="TCB">Techcombank (TCB)</option>
+            <option value="MB">MBBank (MB)</option>
+            <option value="VIB">VIB</option>
+            <option value="VNPAY">VNPay</option>
+            <option value="MOMO">MoMo</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Số Tài Khoản Nhận:</label>
+          <input type="text" id="inpAccountNo" value="0011004123456">
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="muted">Dữ liệu các dòng sao kê (JSON):</label>
+          <button class="secondary" type="button" onclick="loadSampleData()">Nạp Dữ Liệu Mẫu Thử Nghiệm</button>
+        </div>
+        <textarea id="inpItemsJson" rows="7" style="font-family:monospace; font-size:.85em;"></textarea>
+      </div>
+
+      <div style="margin-top:16px;">
+        <button type="button" onclick="submitReconcile()">Bắt Đầu Đối Soát</button>
+        <span id="submitMsg" style="margin-left:12px;" class="muted"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: API Docs -->
+  <div id="tab-apiDocs" style="display:none;">
+    <div class="card">
+      <h3>Cổng Thanh Toán (VNPay &amp; MoMo)</h3>
+      <ul>
+        <li><code>POST /api/pay/create</code> — tạo giao dịch VNPay, trả <code>payUrl</code> (cần <code>X-Api-Key</code>)</li>
+        <li><code>GET /api/pay/ipn</code> — VNPay gọi server→server, xác thực chữ ký</li>
+        <li><code>GET /api/pay/return</code> — trình duyệt quay về từ VNPay</li>
+        <li><code>GET /api/pay/status?txnRef=</code> — tra trạng thái giao dịch (cần <code>X-Api-Key</code>)</li>
+        <li><code>POST /api/pay/momo/create</code> — tạo giao dịch MoMo, trả payUrl/deeplink (cần <code>X-Api-Key</code>)</li>
+        <li><code>POST /api/pay/momo/ipn</code> — MoMo gọi server→server xác thực IPN</li>
+      </ul>
+      <h3>Nghiệp Vụ Đối Soát Sao Kê Ngân Hàng (Bank Reconciliation)</h3>
+      <ul>
+        <li><code>POST /api/reconcile/batches</code> — Nạp sao kê &amp; tự động đối soát khớp mã đơn và số tiền</li>
+        <li><code>GET /api/reconcile/batches</code> — Danh sách các lô đối soát của merchant (hỗ trợ lọc theo <code>status</code>, <code>bankCode</code>)</li>
+        <li><code>GET /api/reconcile/batches/{id}</code> — Chi tiết kết quả đối soát từng dòng (Matched, AmountMismatch, NotFound)</li>
+        <li><code>POST /api/reconcile/batches/{id}/re-run</code> — Chạy đối soát lại khi có cập nhật giao dịch mới</li>
+        <li><code>GET /api/reconcile/summary</code> — Thống kê báo cáo tổng hợp tỷ lệ khớp, chênh lệch số tiền</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    const API_KEY = 'demo-pay';
+    const headers = { 'Content-Type': 'application/json', 'X-Api-Key': API_KEY };
+
+    function showTab(tabName) {
+      document.getElementById('tab-reconcile').style.display = tabName === 'reconcile' ? 'block' : 'none';
+      document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
+      document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
+      document.querySelectorAll('.tab-btn').forEach((b, i) => {
+        b.classList.toggle('active', (tabName === 'reconcile' && i === 0) || (tabName === 'newBatch' && i === 1) || (tabName === 'apiDocs' && i === 2));
+      });
+      if (tabName === 'reconcile') loadBatches();
+    }
+
+    async function loadSummary() {
+      try {
+        const res = await fetch('/api/reconcile/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statBatches').textContent = d.totalBatches;
+        document.getElementById('statRecords').textContent = d.totalRecords;
+        document.getElementById('statMatchRate').textContent = d.matchRatePercent + '%';
+        document.getElementById('statMatchedAmount').textContent = Number(d.matchedAmount).toLocaleString('vi-VN') + ' đ';
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadBatches() {
+      await loadSummary();
+      try {
+        const res = await fetch('/api/reconcile/batches', { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('batchTableBody');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="10" class="muted" style="text-align:center;">Chưa có đợt đối soát nào.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = list.map(b => {
+          let badge = b.status === 'Completed' ? 'badge-success' : (b.status === 'Discrepant' ? 'badge-danger' : 'badge-warning');
+          let statusText = b.status === 'Completed' ? 'Khớp hoàn toàn' : (b.status === 'Discrepant' ? 'Có sai lệch' : 'Chờ xử lý');
+          return `
+            <tr>
+              <td><strong>${b.batchCode}</strong></td>
+              <td><span class="badge badge-info">${b.bankCode}</span></td>
+              <td>${b.statementDate ? b.statementDate.slice(0,10) : '-'}</td>
+              <td>${b.totalRecords}</td>
+              <td style="color:var(--success); font-weight:600;">${b.matchedCount}</td>
+              <td style="color:var(--warning); font-weight:600;">${b.mismatchedCount}</td>
+              <td style="color:var(--danger); font-weight:600;">${b.unmatchedCount}</td>
+              <td>${Number(b.totalAmount).toLocaleString('vi-VN')} đ</td>
+              <td><span class="badge ${badge}">${statusText}</span></td>
+              <td><button class="secondary" onclick="viewDetail(${b.id})">Chi tiết</button></td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function viewDetail(id) {
+      try {
+        const res = await fetch('/api/reconcile/batches/' + id, { headers });
+        if (!res.ok) return;
+        const b = await res.json();
+        document.getElementById('detailCard').style.display = 'block';
+        document.getElementById('detailTitle').textContent = `Chi tiết đối soát: ${b.batchCode} (${b.bankCode})`;
+        document.getElementById('detailSubtitle').textContent = `Tổng dòng: ${b.totalRecords} | Khớp: ${b.matchedCount} | Lệch tiền: ${b.mismatchedCount} | Không thấy: ${b.unmatchedCount} | Tổng tiền: ${Number(b.totalAmount).toLocaleString('vi-VN')} đ`;
+
+        const btnReRun = document.getElementById('btnReRun');
+        btnReRun.onclick = async () => {
+          btnReRun.textContent = 'Đang chạy lại...';
+          await fetch(`/api/reconcile/batches/${id}/re-run`, { method: 'POST', headers });
+          btnReRun.textContent = 'Chạy Lại Đối Soát';
+          viewDetail(id);
+          loadSummary();
+        };
+
+        const tbody = document.getElementById('detailTableBody');
+        tbody.innerHTML = (b.details || []).map(d => {
+          let badge = d.matchStatus === 'Matched' ? 'badge-success' : (d.matchStatus === 'AmountMismatch' ? 'badge-warning' : 'badge-danger');
+          let label = d.matchStatus === 'Matched' ? 'Khớp Chuẩn' : (d.matchStatus === 'AmountMismatch' ? 'Lệch Tiền' : 'Không Tìm Thấy');
+          return `
+            <tr>
+              <td><code>${d.bankTxnNo}</code></td>
+              <td><code>${d.txnRef || '-'}</code></td>
+              <td>${d.txnTime ? d.txnTime.replace('T', ' ').slice(0, 19) : '-'}</td>
+              <td><strong>${Number(d.amount).toLocaleString('vi-VN')} đ</strong></td>
+              <td>${d.systemAmount ? Number(d.systemAmount).toLocaleString('vi-VN') + ' đ' : '-'}</td>
+              <td style="max-width:240px; font-size:.85em;">${d.remark}</td>
+              <td><span class="badge ${badge}">${label}</span></td>
+              <td style="font-size:.85em;" class="muted">${d.discrepancyReason || ''}</td>
+            </tr>
+          `;
+        }).join('');
+        document.getElementById('detailCard').scrollIntoView({ behavior: 'smooth' });
+      } catch(e) { console.error(e); }
+    }
+
+    function loadSampleData() {
+      const sample = [
+        {
+          "bankTxnNo": "VCB-" + Math.floor(Math.random()*90000 + 10000),
+          "txnRef": "TXN-REC-202501",
+          "amount": 1500000,
+          "remark": "CT HD001 MA GD TXN-REC-202501",
+          "senderAccount": "190200889988"
+        },
+        {
+          "bankTxnNo": "VCB-" + Math.floor(Math.random()*90000 + 10000),
+          "txnRef": "TXN-REC-202502",
+          "amount": 3100000,
+          "remark": "CT HOP DONG BH002 TXN-REC-202502 CHENH LECH",
+          "senderAccount": "045100033221"
+        },
+        {
+          "bankTxnNo": "VCB-" + Math.floor(Math.random()*90000 + 10000),
+          "txnRef": "TXN-LA-88888",
+          "amount": 800000,
+          "remark": "CHUYEN TIEN CA NHAN NGOAI LUONG",
+          "senderAccount": "007100112233"
+        }
+      ];
+      document.getElementById('inpItemsJson').value = JSON.stringify(sample, null, 2);
+    }
+
+    async function submitReconcile() {
+      const msg = document.getElementById('submitMsg');
+      try {
+        const rawJson = document.getElementById('inpItemsJson').value.trim();
+        if (!rawJson) { alert('Vui lòng nhập hoặc nạp dữ liệu dòng sao kê.'); return; }
+        const items = JSON.parse(rawJson);
+        const payload = {
+          batchCode: document.getElementById('inpBatchCode').value.trim() || null,
+          bankCode: document.getElementById('inpBankCode').value,
+          accountNo: document.getElementById('inpAccountNo').value.trim(),
+          items: items
+        };
+        msg.textContent = 'Đang xử lý đối soát...';
+        const res = await fetch('/api/reconcile/batches', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+        const data = await res.json();
+        msg.textContent = `Thành công! Lô: ${data.batchCode} (Khớp: ${data.matchedCount}, Lệch: ${data.mismatchedCount})`;
+        setTimeout(() => {
+          showTab('reconcile');
+          viewDetail(data.id);
+        }, 800);
+      } catch(e) {
+        msg.textContent = 'Lỗi cú pháp JSON: ' + e.message;
+      }
+    }
+
+    // Khởi tạo
+    loadSampleData();
+    loadBatches();
+  </script>
 </body>
 </html>
