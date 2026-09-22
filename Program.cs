@@ -30,6 +30,7 @@ builder.Services.AddSingleton<MomoService>();
 builder.Services.AddScoped<ReconcileService>();
 builder.Services.AddScoped<BankingPayoutService>();
 builder.Services.AddScoped<PaymentDiscountService>();
+builder.Services.AddScoped<PaymentGuaranteeService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -980,6 +981,390 @@ app.MapGet("/api/discount/summary", async (PaymentDiscountService discountServic
     return Results.Ok(summary);
 });
 
+// ===== Quản lý Thư Bảo Lãnh Thanh Toán Ngân Hàng (Bank Payment Guarantee - BizHTC.Payment / FrmMngGrt) =====
+
+// 1) Tạo mới Thư bảo lãnh thanh toán (Pmt_Guarantee_Save / FrmNewGrt.MODE_NEW)
+app.MapPost("/api/guarantee", async (CreateGuaranteeDto dto, PaymentGuaranteeService grtService, ITenantContext tc) =>
+{
+    if (string.IsNullOrWhiteSpace(dto.BankGuaranteeNo))
+        return Results.BadRequest(new { error = "Cần số thư bảo lãnh ngân hàng (BankGuaranteeNo)." });
+    if (string.IsNullOrWhiteSpace(dto.BankCode))
+        return Results.BadRequest(new { error = "Cần mã ngân hàng (BankCode: VCB, TCB, MBB, CTG...)." });
+    if (string.IsNullOrWhiteSpace(dto.PartnerCode))
+        return Results.BadRequest(new { error = "Cần mã đối tác / đại lý (PartnerCode)." });
+
+    try
+    {
+        var grt = await grtService.CreateGuaranteeAsync(
+            tc.OrgId,
+            dto.GuaranteeNo,
+            dto.BankGuaranteeNo,
+            dto.BankCode,
+            dto.BankName,
+            dto.PartnerCode,
+            dto.PartnerName,
+            dto.ContractNo,
+            dto.GuaranteeType ?? GuaranteeType.Payment,
+            dto.TotalAmount,
+            dto.DateOpen,
+            dto.DateExpired,
+            dto.DateEnd,
+            dto.FeePercent,
+            dto.Remark,
+            dto.Items
+        );
+
+        return Results.Ok(new
+        {
+            grt.Id,
+            grt.GuaranteeNo,
+            grt.BankGuaranteeNo,
+            grt.BankCode,
+            grt.BankName,
+            grt.PartnerCode,
+            grt.PartnerName,
+            grt.ContractNo,
+            guaranteeType = grt.GuaranteeType.ToString(),
+            grt.TotalAmount,
+            grt.UtilizedAmount,
+            grt.RemainingAmount,
+            grt.DateOpen,
+            grt.DateEnd,
+            grt.DateExpired,
+            grt.TermDays,
+            grt.FeePercent,
+            status = grt.Status.ToString(),
+            grt.Remark,
+            grt.CreatedBy,
+            grt.CreatedAt,
+            details = grt.Details.Select(d => new
+            {
+                d.Id,
+                d.ItemRefNo,
+                d.Description,
+                d.OrderAmount,
+                d.GuaranteeValue,
+                d.GuaranteePercent,
+                d.DateStart,
+                d.DateEnd,
+                status = d.Status.ToString(),
+                d.Note
+            })
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 2) Danh sách Thư bảo lãnh thanh toán (Pmt_Guarantee_Get / FrmMngGrt)
+app.MapGet("/api/guarantee", async (AppDbContext db, ITenantContext tc, string? status, string? bankCode, string? partnerCode) =>
+{
+    var q = db.Guarantees.Where(g => g.OrgId == tc.OrgId);
+    if (!string.IsNullOrWhiteSpace(bankCode))
+        q = q.Where(g => g.BankCode == bankCode.ToUpper());
+    if (!string.IsNullOrWhiteSpace(partnerCode))
+        q = q.Where(g => g.PartnerCode == partnerCode.ToUpper());
+    if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<GuaranteeStatus>(status, true, out var st))
+        q = q.Where(g => g.Status == st);
+
+    var list = await q.OrderByDescending(g => g.CreatedAt)
+        .Select(g => new
+        {
+            g.Id,
+            g.GuaranteeNo,
+            g.BankGuaranteeNo,
+            g.BankCode,
+            g.BankName,
+            g.PartnerCode,
+            g.PartnerName,
+            g.ContractNo,
+            guaranteeType = g.GuaranteeType.ToString(),
+            g.TotalAmount,
+            g.UtilizedAmount,
+            g.RemainingAmount,
+            g.DateOpen,
+            g.DateEnd,
+            g.DateExpired,
+            g.TermDays,
+            g.FeePercent,
+            g.DateRecieveGrtRoot,
+            status = g.Status.ToString(),
+            g.Remark,
+            g.RemarkReject,
+            g.ClaimedAmount,
+            g.ClaimReason,
+            g.ClaimedAt,
+            g.ClaimedBy,
+            g.CreatedBy,
+            g.CreatedAt,
+            g.ApprovedBy,
+            g.ApprovedAt,
+            g.SettledBy,
+            g.SettledAt,
+            g.CancelledAt
+        })
+        .ToListAsync();
+
+    return Results.Ok(list);
+});
+
+// 3) Chi tiết 1 Thư bảo lãnh kèm danh sách món hàng / xe / hợp đồng (Pmt_GuaranteeDetail_Get)
+app.MapGet("/api/guarantee/{id:long}", async (long id, AppDbContext db, ITenantContext tc) =>
+{
+    var grt = await db.Guarantees
+        .Include(g => g.Details)
+        .FirstOrDefaultAsync(g => g.Id == id && g.OrgId == tc.OrgId);
+
+    if (grt == null) return Results.NotFound(new { error = $"Không tìm thấy Thư bảo lãnh #{id}." });
+
+    return Results.Ok(new
+    {
+        grt.Id,
+        grt.GuaranteeNo,
+        grt.BankGuaranteeNo,
+        grt.BankCode,
+        grt.BankName,
+        grt.PartnerCode,
+        grt.PartnerName,
+        grt.ContractNo,
+        guaranteeType = grt.GuaranteeType.ToString(),
+        grt.TotalAmount,
+        grt.UtilizedAmount,
+        grt.RemainingAmount,
+        grt.DateOpen,
+        grt.DateEnd,
+        grt.DateExpired,
+        grt.TermDays,
+        grt.FeePercent,
+        grt.DateRecieveGrtRoot,
+        status = grt.Status.ToString(),
+        grt.Remark,
+        grt.RemarkReject,
+        grt.ClaimedAmount,
+        grt.ClaimReason,
+        grt.ClaimedAt,
+        grt.ClaimedBy,
+        grt.CreatedBy,
+        grt.CreatedAt,
+        grt.ApprovedBy,
+        grt.ApprovedAt,
+        grt.SettledBy,
+        grt.SettledAt,
+        grt.CancelledAt,
+        details = grt.Details.OrderBy(d => d.Id).Select(d => new
+        {
+            d.Id,
+            d.ItemRefNo,
+            d.Description,
+            d.OrderAmount,
+            d.GuaranteeValue,
+            d.GuaranteePercent,
+            d.DateStart,
+            d.DateEnd,
+            status = d.Status.ToString(),
+            d.Note
+        })
+    });
+});
+
+// 4) Phê duyệt Thư bảo lãnh (FrmNewGrt.btnApprove_Click)
+app.MapPost("/api/guarantee/{id:long}/approve", async (long id, ApproveGuaranteeDto? dto, PaymentGuaranteeService grtService, ITenantContext tc) =>
+{
+    try
+    {
+        var grt = await grtService.ApproveGuaranteeAsync(id, tc.OrgId, dto?.ApproverName);
+        if (grt == null) return Results.NotFound(new { error = $"Không tìm thấy Thư bảo lãnh #{id}." });
+
+        return Results.Ok(new
+        {
+            grt.Id,
+            grt.GuaranteeNo,
+            status = grt.Status.ToString(),
+            grt.ApprovedBy,
+            grt.ApprovedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 5) Gia hạn thời hạn Thư bảo lãnh (FrmEditGrtExpiredDate / FrmEditGrtEndDate)
+app.MapPost("/api/guarantee/{id:long}/extend", async (long id, ExtendGuaranteeDto dto, PaymentGuaranteeService grtService, ITenantContext tc) =>
+{
+    try
+    {
+        var grt = await grtService.ExtendGuaranteeAsync(id, tc.OrgId, dto.NewExpiredDate, dto.NewEndDate, dto.Remark);
+        if (grt == null) return Results.NotFound(new { error = $"Không tìm thấy Thư bảo lãnh #{id}." });
+
+        return Results.Ok(new
+        {
+            grt.Id,
+            grt.GuaranteeNo,
+            grt.DateExpired,
+            grt.DateEnd,
+            grt.TermDays,
+            status = grt.Status.ToString(),
+            grt.Remark
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Điều chỉnh hạn mức / giá trị bảo lãnh (FrmEditGrtValue)
+app.MapPost("/api/guarantee/{id:long}/adjust-value", async (long id, AdjustGuaranteeValueDto dto, PaymentGuaranteeService grtService, ITenantContext tc) =>
+{
+    try
+    {
+        var grt = await grtService.AdjustValueAsync(id, tc.OrgId, dto.NewTotalAmount, dto.Remark);
+        if (grt == null) return Results.NotFound(new { error = $"Không tìm thấy Thư bảo lãnh #{id}." });
+
+        return Results.Ok(new
+        {
+            grt.Id,
+            grt.GuaranteeNo,
+            grt.TotalAmount,
+            grt.UtilizedAmount,
+            grt.RemainingAmount,
+            status = grt.Status.ToString(),
+            grt.Remark
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 7) Cập nhật ngày nhận bản gốc Thư bảo lãnh từ ngân hàng (FrmEditDateRecieveGrtRoot)
+app.MapPost("/api/guarantee/{id:long}/receive-root", async (long id, ReceiveRootGuaranteeDto dto, PaymentGuaranteeService grtService, ITenantContext tc) =>
+{
+    try
+    {
+        var grt = await grtService.UpdateReceiveRootDateAsync(id, tc.OrgId, dto.ReceiveDate, dto.Note);
+        if (grt == null) return Results.NotFound(new { error = $"Không tìm thấy Thư bảo lãnh #{id}." });
+
+        return Results.Ok(new
+        {
+            grt.Id,
+            grt.GuaranteeNo,
+            grt.DateRecieveGrtRoot,
+            grt.Remark
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 8) Kích hoạt đòi bảo lãnh ngân hàng (Pmt_GrtClaim / FrmMngGrtClaim)
+app.MapPost("/api/guarantee/{id:long}/claim", async (long id, ClaimGuaranteeDto dto, PaymentGuaranteeService grtService, ITenantContext tc) =>
+{
+    try
+    {
+        var grt = await grtService.ClaimGuaranteeAsync(id, tc.OrgId, dto.ClaimAmount, dto.ClaimReason, dto.ClaimedBy);
+        if (grt == null) return Results.NotFound(new { error = $"Không tìm thấy Thư bảo lãnh #{id}." });
+
+        return Results.Ok(new
+        {
+            grt.Id,
+            grt.GuaranteeNo,
+            status = grt.Status.ToString(),
+            grt.ClaimedAmount,
+            grt.ClaimReason,
+            grt.ClaimedBy,
+            grt.ClaimedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 9) Hoàn tất tất toán / giải tỏa toàn bộ nghĩa vụ bảo lãnh (FrmQuanLyBBBGTheoHoiPhieu / Settle)
+app.MapPost("/api/guarantee/{id:long}/settle", async (long id, SettleGuaranteeDto? dto, PaymentGuaranteeService grtService, ITenantContext tc) =>
+{
+    try
+    {
+        var grt = await grtService.SettleGuaranteeAsync(id, tc.OrgId, dto?.SettlerName, dto?.Remark);
+        if (grt == null) return Results.NotFound(new { error = $"Không tìm thấy Thư bảo lãnh #{id}." });
+
+        return Results.Ok(new
+        {
+            grt.Id,
+            grt.GuaranteeNo,
+            status = grt.Status.ToString(),
+            grt.SettledBy,
+            grt.SettledAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 10) Từ chối phê duyệt Thư bảo lãnh (FrmNewGrt.btnReject_Click)
+app.MapPost("/api/guarantee/{id:long}/reject", async (long id, RejectGuaranteeDto dto, PaymentGuaranteeService grtService, ITenantContext tc) =>
+{
+    try
+    {
+        var grt = await grtService.RejectGuaranteeAsync(id, tc.OrgId, dto.Reason, dto.RejecterName);
+        if (grt == null) return Results.NotFound(new { error = $"Không tìm thấy Thư bảo lãnh #{id}." });
+
+        return Results.Ok(new
+        {
+            grt.Id,
+            grt.GuaranteeNo,
+            status = grt.Status.ToString(),
+            grt.RemarkReject,
+            grt.ApprovedBy,
+            grt.ApprovedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 11) Hủy Thư bảo lãnh (FrmNewGrt.btnCancelGrt_Click)
+app.MapPost("/api/guarantee/{id:long}/cancel", async (long id, CancelGuaranteeDto? dto, PaymentGuaranteeService grtService, ITenantContext tc) =>
+{
+    try
+    {
+        var grt = await grtService.CancelGuaranteeAsync(id, tc.OrgId, dto?.Reason);
+        if (grt == null) return Results.NotFound(new { error = $"Không tìm thấy Thư bảo lãnh #{id}." });
+
+        return Results.Ok(new
+        {
+            grt.Id,
+            grt.GuaranteeNo,
+            status = grt.Status.ToString(),
+            grt.CancelledAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 12) Báo cáo tổng hợp số liệu bảo lãnh ngân hàng
+app.MapGet("/api/guarantee/summary", async (PaymentGuaranteeService grtService, ITenantContext tc) =>
+{
+    var summary = await grtService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
 app.Run();
 
 record CreatePayDto(long Amount, string? OrderId, string? OrderInfo, string? BankCode);
@@ -992,3 +1377,12 @@ record CreateDiscountRequestDto(string? DiscountNo, string PartnerCode, string? 
 record SignDiscountDto(string? SignerName);
 record RejectDiscountDto(string? Reason, string? RejecterName);
 record PreviewDiscountDto(long OriginalAmount, decimal? AnnualDiscountRate, DateTime DueDate, DateTime? ActualPaymentDate);
+record CreateGuaranteeDto(string? GuaranteeNo, string BankGuaranteeNo, string BankCode, string? BankName, string PartnerCode, string? PartnerName, string? ContractNo, GuaranteeType? GuaranteeType, long? TotalAmount, DateTime? DateOpen, DateTime? DateExpired, DateTime? DateEnd, decimal? FeePercent, string? Remark, List<GuaranteeItemInputDto>? Items);
+record ApproveGuaranteeDto(string? ApproverName);
+record ExtendGuaranteeDto(DateTime NewExpiredDate, DateTime? NewEndDate, string? Remark);
+record AdjustGuaranteeValueDto(long NewTotalAmount, string? Remark);
+record ReceiveRootGuaranteeDto(DateTime ReceiveDate, string? Note);
+record ClaimGuaranteeDto(long ClaimAmount, string ClaimReason, string? ClaimedBy);
+record SettleGuaranteeDto(string? SettlerName, string? Remark);
+record RejectGuaranteeDto(string Reason, string? RejecterName);
+record CancelGuaranteeDto(string? Reason);

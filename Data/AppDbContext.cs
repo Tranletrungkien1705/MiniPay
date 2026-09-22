@@ -13,6 +13,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<BankingPayoutDetail> PayoutDetails => Set<BankingPayoutDetail>();
     public DbSet<PaymentDiscountRequest> DiscountRequests => Set<PaymentDiscountRequest>();
     public DbSet<PaymentDiscountDetail> DiscountDetails => Set<PaymentDiscountDetail>();
+    public DbSet<PaymentGuarantee> Guarantees => Set<PaymentGuarantee>();
+    public DbSet<PaymentGuaranteeDetail> GuaranteeDetails => Set<PaymentGuaranteeDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -46,5 +48,14 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<PaymentDiscountDetail>().Property(x => x.Status).HasConversion<int>();
         b.Entity<PaymentDiscountDetail>().HasIndex(x => x.RequestId);
         b.Entity<PaymentDiscountDetail>().HasIndex(x => new { x.OrgId, x.ItemRefNo });
+
+        b.Entity<PaymentGuarantee>().HasIndex(x => new { x.OrgId, x.GuaranteeNo }).IsUnique();
+        b.Entity<PaymentGuarantee>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<PaymentGuarantee>().Property(x => x.GuaranteeType).HasConversion<int>();
+        b.Entity<PaymentGuarantee>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.GuaranteeId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<PaymentGuaranteeDetail>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<PaymentGuaranteeDetail>().HasIndex(x => x.GuaranteeId);
+        b.Entity<PaymentGuaranteeDetail>().HasIndex(x => new { x.OrgId, x.ItemRefNo });
     }
 }

@@ -29,6 +29,12 @@ public enum DiscountSignStatus { Pending = 0, Signed = 1 }
 
 public enum DiscountItemStatus { Active = 0, Excluded = 1 }
 
+public enum GuaranteeStatus { Draft = 0, PendingApproval = 1, Active = 2, Claimed = 3, Settled = 4, Expired = 5, Rejected = 6, Cancelled = 7 }
+
+public enum GuaranteeType { Payment = 0, ContractPerformance = 1, DeferredPayment = 2, AdvancePayment = 3 }
+
+public enum GuaranteeDetailStatus { Active = 0, Paid = 1, Claimed = 2, Released = 3, Cancelled = 4 }
+
 /// <summary>Ý định thanh toán (payment intent) — 1 dòng / 1 lần khởi tạo cổng.</summary>
 public sealed class PaymentIntent
 {
@@ -189,5 +195,63 @@ public sealed class PaymentDiscountDetail
     public long DiscountAmount { get; set; }                 // Số tiền chiết khấu (DiscountPricePhase = Amount * Rate/100 * Days / 360)
     public long NetPayAmount { get; set; }                   // Số tiền thực trả đợt này (OriginalAmount - DiscountAmount)
     public DiscountItemStatus Status { get; set; } = DiscountItemStatus.Active; // PmtDctDtlStatus
+    public string? Note { get; set; }
+}
+
+/// <summary>Thư bảo lãnh thanh toán ngân hàng — tương ứng Pmt_Guarantee trong BizHTC.Payment / FrmMngGrt.</summary>
+public sealed class PaymentGuarantee
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string GuaranteeNo { get; set; } = "";             // Số bảo lãnh hệ thống (GRT-20250514-001)
+    public string BankGuaranteeNo { get; set; } = "";         // Số thư bảo lãnh ngân hàng cấp (BL-VCB-2025/088)
+    public string BankCode { get; set; } = "";                // Mã ngân hàng phát hành (VCB, TCB, MBB, CTG, BIDV, VPB...)
+    public string BankName { get; set; } = "";                // Tên ngân hàng
+    public string PartnerCode { get; set; } = "";             // Mã đại lý / đối tác (DealerCode)
+    public string PartnerName { get; set; } = "";             // Tên đại lý / đối tác (DealerName)
+    public string? ContractNo { get; set; }                  // Số hợp đồng mua bán / hạn mức
+    public GuaranteeType GuaranteeType { get; set; } = GuaranteeType.Payment; // Loại bảo lãnh
+    public long TotalAmount { get; set; }                     // Tổng giá trị bảo lãnh (VND)
+    public long UtilizedAmount { get; set; }                  // Giá trị bảo lãnh đã phân bổ/sử dụng (VND)
+    public long RemainingAmount { get; set; }                 // Giá trị bảo lãnh còn lại khả dụng (VND)
+    public DateTime DateOpen { get; set; } = DateTime.Today;  // Ngày mở / phát hành thư bảo lãnh
+    public DateTime DateEnd { get; set; }                     // Hạn thanh toán theo bảo lãnh
+    public DateTime DateExpired { get; set; }                 // Ngày hết hạn hiệu lực thư bảo lãnh
+    public int TermDays { get; set; }                         // Thời hạn bảo lãnh (ngày)
+    public int TermWarningDays { get; set; } = 15;            // Số ngày cảnh báo trước khi hết hạn
+    public decimal FeePercent { get; set; } = 1.2m;           // Phí phát hành bảo lãnh (%/năm)
+    public DateTime? DateRecieveGrtRoot { get; set; }         // Ngày nhận bản gốc thư bảo lãnh (DateRecieveGrtRoot trong BizHTC)
+    public GuaranteeStatus Status { get; set; } = GuaranteeStatus.PendingApproval; // Trạng thái bảo lãnh
+    public string? Remark { get; set; }                       // Diễn giải / ghi chú
+    public string? RemarkReject { get; set; }                 // Lý do từ chối nếu bị reject
+    public long? ClaimedAmount { get; set; }                  // Số tiền đã yêu cầu ngân hàng đòi bảo lãnh (VND)
+    public string? ClaimReason { get; set; }                  // Lý do kích hoạt đòi bảo lãnh (GrtClaim)
+    public DateTime? ClaimedAt { get; set; }                  // Thời điểm kích hoạt đòi bảo lãnh
+    public string? ClaimedBy { get; set; }                    // Người kích hoạt đòi bảo lãnh
+    public string? CreatedBy { get; set; }                    // Người lập
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public string? ApprovedBy { get; set; }                   // Người phê duyệt
+    public DateTime? ApprovedAt { get; set; }                 // Thời điểm phê duyệt
+    public string? SettledBy { get; set; }                    // Người ký tất toán
+    public DateTime? SettledAt { get; set; }                  // Thời điểm hoàn tất tất toán / giải tỏa
+    public DateTime? CancelledAt { get; set; }                // Thời điểm hủy
+
+    public List<PaymentGuaranteeDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết dòng đơn hàng/hạng mục trong thư bảo lãnh — tương ứng Pmt_GuaranteeDetail trong BizHTC.</summary>
+public sealed class PaymentGuaranteeDetail
+{
+    public long Id { get; set; }
+    public long GuaranteeId { get; set; }
+    public Guid OrgId { get; set; }
+    public string ItemRefNo { get; set; } = "";               // Mã đơn hàng / hợp đồng / số khung VIN xe (CarId/SoCode/Vin)
+    public string Description { get; set; } = "";             // Diễn giải hàng hóa/xe/hạng mục
+    public long OrderAmount { get; set; }                     // Giá trị đơn hàng gốc (UnitPriceActual trong BizHTC)
+    public long GuaranteeValue { get; set; }                  // Giá trị bảo lãnh phân bổ cho mục này (GrtValue)
+    public decimal GuaranteePercent { get; set; }             // Tỷ lệ % bảo lãnh so với giá trị đơn hàng (GrtPercent)
+    public DateTime DateStart { get; set; } = DateTime.Today; // Ngày bắt đầu hiệu lực bảo lãnh của món
+    public DateTime DateEnd { get; set; }                     // Hạn thanh toán của món
+    public GuaranteeDetailStatus Status { get; set; } = GuaranteeDetailStatus.Active; // Trạng thái món bảo lãnh
     public string? Note { get; set; }
 }

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MiniPay — Cổng Thanh Toán, Đối Soát Sao Kê, Lệnh Chi & Chiết Khấu Thanh Toán Sớm</title>
+<title>MiniPay — Cổng Thanh Toán, Đối Soát Sao Kê, Lệnh Chi, Chiết Khấu &amp; Bảo Lãnh Ngân Hàng</title>
 <style>
   :root {
     --bg: #0f172a; --surface: #1e293b; --border: #334155;
@@ -58,7 +58,7 @@
   <div style="display:flex; justify-content:space-between; align-items:center;">
     <div>
       <h1>MiniPay</h1>
-      <p class="muted">Cổng thanh toán điện tử (VNPay/MoMo), Đối soát sao kê ngân hàng, Lệnh chi chuyển tiền &amp; Quản lý chiết khấu thanh toán sớm (BizHTC.PaymentDiscount).</p>
+      <p class="muted">Cổng thanh toán điện tử (VNPay/MoMo), Đối soát sao kê, Lệnh chi chuyển tiền, Chiết khấu thanh toán sớm &amp; Bảo lãnh ngân hàng (BizHTC.Payment / FrmMngGrt).</p>
     </div>
     <div>
       <span class="badge badge-info">Demo Merchant</span>
@@ -89,9 +89,11 @@
     <button class="tab-btn active" onclick="showTab('reconcile')">Đối Soát Sao Kê (Reconciliation)</button>
     <button class="tab-btn" onclick="showTab('payout')">Lệnh Chi Ngân Hàng (Banking Payout)</button>
     <button class="tab-btn" onclick="showTab('discount')">Chiết Khấu Thanh Toán (Payment Discount)</button>
+    <button class="tab-btn" onclick="showTab('guarantee')">Bảo Lãnh Ngân Hàng (Bank Guarantee)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
+    <button class="tab-btn" onclick="showTab('newGuarantee')">+ Lập Thư Bảo Lãnh Mới</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -327,6 +329,99 @@
     </div>
   </div>
 
+  <!-- TAB: Quản lý Thư Bảo Lãnh Ngân Hàng (Bank Payment Guarantee - BizHTC.Payment / FrmMngGrt) -->
+  <div id="tab-guarantee" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="margin:0;">Danh mục Thư bảo lãnh thanh toán ngân hàng (Bank Payment Guarantee / Pmt_Guarantee)</h3>
+        <div style="display:flex; gap:8px;">
+          <select id="filterGrtBank" onchange="loadGuarantees()" style="width:auto; margin:0; padding:5px 10px;">
+            <option value="">Tất cả ngân hàng</option>
+            <option value="VCB">VCB (Vietcombank)</option>
+            <option value="TCB">TCB (Techcombank)</option>
+            <option value="MBB">MBB (MBBank)</option>
+            <option value="CTG">CTG (VietinBank)</option>
+            <option value="BIDV">BIDV</option>
+            <option value="VPB">VPBank</option>
+          </select>
+          <select id="filterGrtStatus" onchange="loadGuarantees()" style="width:auto; margin:0; padding:5px 10px;">
+            <option value="">Tất cả trạng thái</option>
+            <option value="Draft">Dự thảo (Draft)</option>
+            <option value="PendingApproval">Chờ Phê Duyệt (Pending)</option>
+            <option value="Active">Đang Hiệu Lực (Active)</option>
+            <option value="Claimed">Đã Đòi Bảo Lãnh (Claimed)</option>
+            <option value="Settled">Đã Tất Toán (Settled)</option>
+            <option value="Expired">Hết Hạn (Expired)</option>
+            <option value="Rejected">Bị Từ Chối (Rejected)</option>
+            <option value="Cancelled">Đã Hủy (Cancelled)</option>
+          </select>
+          <button class="secondary" onclick="loadGuarantees()">Làm mới</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Bảo Lãnh</th>
+              <th>Số Thư BL NH</th>
+              <th>Ngân Hàng</th>
+              <th>Đại Lý / Đối Tác</th>
+              <th>Loại BL</th>
+              <th>Hạn Mức BL</th>
+              <th>Đã Dùng</th>
+              <th>Còn Lại</th>
+              <th>Ngày Hết Hạn</th>
+              <th>Trạng Thái</th>
+              <th>Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="guaranteeTableBody">
+            <tr><td colspan="11" class="muted" style="text-align:center;">Đang tải dữ liệu...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Chi tiết Thư bảo lãnh -->
+    <div class="card" id="guaranteeDetailCard" style="margin-top:18px; display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div>
+          <h3 id="guaranteeDetailTitle" style="margin:0;">Chi tiết Thư bảo lãnh ngân hàng</h3>
+          <p class="muted" id="guaranteeDetailSubtitle"></p>
+        </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap;">
+          <button id="btnApproveGrt" style="background:var(--success);">Duyệt Bảo Lãnh</button>
+          <button id="btnExtendGrt" style="background:var(--primary);">Gia Hạn Hạn Mức</button>
+          <button id="btnAdjustGrt" class="secondary">Điều Chỉnh Hạn Mức</button>
+          <button id="btnReceiveRootGrt" class="secondary">Cập Nhật Ngày Nhận Gốc</button>
+          <button id="btnClaimGrt" class="secondary" style="color:var(--danger); border-color:var(--danger);">Đòi Bảo Lãnh (GrtClaim)</button>
+          <button id="btnSettleGrt" style="background:var(--success);">Tất Toán / Giải Tỏa</button>
+          <button id="btnRejectGrt" class="secondary" style="color:var(--danger); border-color:var(--danger);">Từ Chối</button>
+          <button id="btnCancelGrt" class="secondary">Hủy Thư BL</button>
+          <button class="secondary" onclick="document.getElementById('guaranteeDetailCard').style.display='none'">Đóng</button>
+        </div>
+      </div>
+      <div id="guaranteeAuditBox" style="margin-bottom:12px; font-size:.88em; padding:8px 12px; border-radius:6px; background:rgba(127,127,127,.08); display:none;"></div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Mã Tham Chiếu / VIN</th>
+              <th>Diễn Giải Hàng Hóa / Xe</th>
+              <th>Giá Trị Đơn Hàng</th>
+              <th>Giá Trị Bảo Lãnh</th>
+              <th>Tỷ Lệ BL</th>
+              <th>Hiệu Lực Từ -> Đến</th>
+              <th>Trạng Thái</th>
+              <th>Ghi Chú</th>
+            </tr>
+          </thead>
+          <tbody id="guaranteeDetailTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB 3: Nạp sao kê & đối soát mới -->
   <div id="tab-newBatch" style="display:none;">
     <div class="card">
@@ -483,6 +578,104 @@
     </div>
   </div>
 
+  <!-- TAB: Lập Thư bảo lãnh ngân hàng mới -->
+  <div id="tab-newGuarantee" style="display:none;">
+    <div class="card">
+      <h3>Lập Thư bảo lãnh thanh toán ngân hàng mới (Pmt_Guarantee_Save / FrmNewGrt)</h3>
+      <p class="muted">Khai báo thư bảo lãnh mở từ ngân hàng tài trợ để đảm bảo thanh toán các hợp đồng mua bán xe / hàng hóa đại lý.</p>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Bảo Lãnh Hệ Thống (để trống tự sinh):</label>
+          <input type="text" id="inpGrtNo" placeholder="Ví dụ: GRT-20250514-01">
+        </div>
+        <div class="col">
+          <label class="muted">Số Thư BL Ngân Hàng (*):</label>
+          <input type="text" id="inpBankGrtNo" placeholder="Ví dụ: BL-VCB-2025/168" value="BL-VCB-2025/168">
+        </div>
+        <div class="col">
+          <label class="muted">Ngân Hàng Bảo Lãnh (*):</label>
+          <select id="inpGrtBankCode">
+            <option value="VCB">Vietcombank (VCB)</option>
+            <option value="TCB">Techcombank (TCB)</option>
+            <option value="MBB">MBBank (MBB)</option>
+            <option value="CTG">VietinBank (CTG)</option>
+            <option value="BIDV">BIDV</option>
+            <option value="VPB">VPBank (VPB)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Mã Đại Lý / Đối Tác (*):</label>
+          <input type="text" id="inpGrtPartnerCode" value="DLR-HYUNDAI-ANSUONG" placeholder="Mã đại lý">
+        </div>
+        <div class="col">
+          <label class="muted">Tên Đại Lý / Đối Tác:</label>
+          <input type="text" id="inpGrtPartnerName" value="Đại lý Ô tô Hyundai An Sương" placeholder="Tên đại lý">
+        </div>
+        <div class="col">
+          <label class="muted">Số Hợp Đồng Mua Bán / Căn Cứ:</label>
+          <input type="text" id="inpGrtContractNo" value="HD-HTCV-2025-268" placeholder="Số hợp đồng">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Loại Bảo Lãnh:</label>
+          <select id="inpGrtType">
+            <option value="0">Bảo lãnh thanh toán đơn hàng (Payment)</option>
+            <option value="1">Bảo lãnh thực hiện hợp đồng (Performance)</option>
+            <option value="2">Bảo lãnh thanh toán trả chậm LC (Deferred LC)</option>
+            <option value="3">Bảo lãnh hoàn trả tiền tạm ứng (Advance)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Phí Bảo Lãnh (%/năm):</label>
+          <input type="number" id="inpGrtFeePercent" value="1.2" step="0.1" min="0" max="10">
+        </div>
+        <div class="col">
+          <label class="muted">Tổng Hạn Mức BL (để 0 sẽ tự cộng từ chi tiết):</label>
+          <input type="number" id="inpGrtTotalAmount" value="2000000000" step="10000000">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Ngày Mở BL:</label>
+          <input type="date" id="inpGrtDateOpen">
+        </div>
+        <div class="col">
+          <label class="muted">Ngày Hết Hạn BL (*):</label>
+          <input type="date" id="inpGrtDateExpired">
+        </div>
+        <div class="col">
+          <label class="muted">Hạn Thanh Toán (DateEnd):</label>
+          <input type="date" id="inpGrtDateEnd">
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <label class="muted">Diễn Giải / Ghi Chú:</label>
+        <input type="text" id="inpGrtRemark" value="Bảo lãnh mở mua lô xe Hyundai Creta & Stargazer tháng 5/2025" placeholder="Ghi chú hồ sơ">
+      </div>
+
+      <div style="margin-top:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="muted">Danh sách xe / đơn hàng thụ hưởng bảo lãnh (JSON):</label>
+          <button class="secondary" type="button" onclick="loadSampleGuaranteeData()">Nạp Dữ Liệu Xe Mẫu</button>
+        </div>
+        <textarea id="inpGuaranteeItemsJson" rows="8" style="font-family:monospace; font-size:.85em;"></textarea>
+      </div>
+
+      <div style="margin-top:16px;">
+        <button type="button" onclick="submitGuarantee()">Khởi Tạo Thư Bảo Lãnh</button>
+        <span id="submitGrtMsg" style="margin-left:12px;" class="muted"></span>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB 5: API Docs -->
   <div id="tab-apiDocs" style="display:none;">
     <div class="card">
@@ -527,6 +720,21 @@
         <li><code>POST /api/discount/calculate-preview</code> — Tính toán preview nhanh số ngày sớm và số tiền chiết khấu</li>
         <li><code>GET /api/discount/summary</code> — Báo cáo tổng hợp số liệu chiết khấu thanh toán của doanh nghiệp</li>
       </ul>
+      <h3>Nghiệp Vụ Bảo Lãnh Ngân Hàng (Bank Payment Guarantee / Pmt_Guarantee)</h3>
+      <ul>
+        <li><code>POST /api/guarantee</code> — Lập thư bảo lãnh thanh toán mới kèm danh sách xe / đơn hàng bảo lãnh</li>
+        <li><code>GET /api/guarantee</code> — Danh sách các thư bảo lãnh (lọc theo <code>status</code>, <code>bankCode</code>, <code>partnerCode</code>)</li>
+        <li><code>GET /api/guarantee/{id}</code> — Chi tiết thư bảo lãnh và danh sách các hạng mục phân bổ hạn mức</li>
+        <li><code>POST /api/guarantee/{id}/approve</code> — Phê duyệt thư bảo lãnh (chuyển sang Active hiệu lực)</li>
+        <li><code>POST /api/guarantee/{id}/extend</code> — Gia hạn thời hạn hiệu lực và hạn thanh toán của thư bảo lãnh</li>
+        <li><code>POST /api/guarantee/{id}/adjust-value</code> — Điều chỉnh tổng hạn mức bảo lãnh</li>
+        <li><code>POST /api/guarantee/{id}/receive-root</code> — Ghi nhận ngày nhận bản gốc thư bảo lãnh từ ngân hàng</li>
+        <li><code>POST /api/guarantee/{id}/claim</code> — Kích hoạt đòi bảo lãnh ngân hàng (GrtClaim khi khách hàng vi phạm thanh toán)</li>
+        <li><code>POST /api/guarantee/{id}/settle</code> — Hoàn tất tất toán / giải tỏa toàn bộ nghĩa vụ bảo lãnh</li>
+        <li><code>POST /api/guarantee/{id}/reject</code> — Từ chối thẩm định / phê duyệt thư bảo lãnh kèm lý do</li>
+        <li><code>POST /api/guarantee/{id}/cancel</code> — Hủy thư bảo lãnh</li>
+        <li><code>GET /api/guarantee/summary</code> — Báo cáo tổng hợp số liệu bảo lãnh, phân loại theo ngân hàng &amp; tình trạng</li>
+      </ul>
     </div>
   </div>
 
@@ -540,9 +748,11 @@
       document.getElementById('tab-reconcile').style.display = tabName === 'reconcile' ? 'block' : 'none';
       document.getElementById('tab-payout').style.display = tabName === 'payout' ? 'block' : 'none';
       document.getElementById('tab-discount').style.display = tabName === 'discount' ? 'block' : 'none';
+      document.getElementById('tab-guarantee').style.display = tabName === 'guarantee' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
+      document.getElementById('tab-newGuarantee').style.display = tabName === 'newGuarantee' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
@@ -550,15 +760,18 @@
           (tabName === 'reconcile' && i === 0) ||
           (tabName === 'payout' && i === 1) ||
           (tabName === 'discount' && i === 2) ||
-          (tabName === 'newBatch' && i === 3) ||
-          (tabName === 'newPayout' && i === 4) ||
-          (tabName === 'newDiscount' && i === 5) ||
-          (tabName === 'apiDocs' && i === 6));
+          (tabName === 'guarantee' && i === 3) ||
+          (tabName === 'newBatch' && i === 4) ||
+          (tabName === 'newPayout' && i === 5) ||
+          (tabName === 'newDiscount' && i === 6) ||
+          (tabName === 'newGuarantee' && i === 7) ||
+          (tabName === 'apiDocs' && i === 8));
       });
 
       if (tabName === 'reconcile') loadBatches();
       else if (tabName === 'payout') loadPayoutBatches();
       else if (tabName === 'discount') loadDiscountRequests();
+      else if (tabName === 'guarantee') loadGuarantees();
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====
@@ -1240,6 +1453,367 @@
         msg.textContent = 'Lỗi cú pháp JSON: ' + e.message;
       }
     }
+
+    // ===== TAB 4: BẢO LÃNH THANH TOÁN NGÂN HÀNG (BANK GUARANTEE) =====
+    async function loadGuaranteeSummary() {
+      try {
+        const res = await fetch('/api/guarantee/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng thư bảo lãnh';
+        document.getElementById('stat1').textContent = d.totalGuarantees;
+        document.getElementById('statLabel2').textContent = 'Đang hiệu lực (Active)';
+        document.getElementById('stat2').textContent = d.activeCount;
+        document.getElementById('statLabel3').textContent = 'Sắp hết hạn (<= 15 ngày)';
+        document.getElementById('stat3').textContent = d.expiringSoonCount;
+        document.getElementById('statLabel4').textContent = 'Tổng hạn mức bảo lãnh';
+        document.getElementById('stat4').textContent = (d.totalAmount >= 1e9 ? (d.totalAmount / 1e9).toFixed(2) + ' tỷ đ' : Number(d.totalAmount).toLocaleString('vi-VN') + ' đ');
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadGuarantees() {
+      await loadGuaranteeSummary();
+      const bank = document.getElementById('filterGrtBank').value;
+      const status = document.getElementById('filterGrtStatus').value;
+      let url = '/api/guarantee?';
+      if (bank) url += 'bankCode=' + encodeURIComponent(bank) + '&';
+      if (status) url += 'status=' + encodeURIComponent(status) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('guaranteeTableBody');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="11" class="muted" style="text-align:center;">Chưa có thư bảo lãnh nào phù hợp.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(g => {
+          let badge = 'badge-warning';
+          let stText = 'Chờ Duyệt';
+          if (g.status === 'Active') { badge = 'badge-success'; stText = 'Đang Hiệu Lực'; }
+          else if (g.status === 'Claimed') { badge = 'badge-danger'; stText = 'Đã Đòi Bảo Lãnh'; }
+          else if (g.status === 'Settled') { badge = 'badge-info'; stText = 'Đã Tất Toán'; }
+          else if (g.status === 'Expired') { badge = 'badge-danger'; stText = 'Hết Hạn'; }
+          else if (g.status === 'Rejected') { badge = 'badge-danger'; stText = 'Bị Từ Chối'; }
+          else if (g.status === 'Cancelled') { badge = 'badge-warning'; stText = 'Đã Hủy'; }
+
+          let typeText = 'Thanh toán';
+          if (g.guaranteeType === 'ContractPerformance') typeText = 'Hợp đồng';
+          else if (g.guaranteeType === 'DeferredPayment') typeText = 'Trả chậm LC';
+          else if (g.guaranteeType === 'AdvancePayment') typeText = 'Tạm ứng';
+
+          return `
+            <tr>
+              <td><strong>${g.guaranteeNo}</strong></td>
+              <td><code>${g.bankGuaranteeNo}</code></td>
+              <td><span class="badge badge-info">${g.bankCode}</span></td>
+              <td><strong>${g.partnerName}</strong></td>
+              <td><small class="muted">${typeText}</small></td>
+              <td style="color:var(--primary); font-weight:700;">${Number(g.totalAmount).toLocaleString('vi-VN')} đ</td>
+              <td>${Number(g.utilizedAmount).toLocaleString('vi-VN')} đ</td>
+              <td style="color:var(--success);">${Number(g.remainingAmount).toLocaleString('vi-VN')} đ</td>
+              <td>${g.dateExpired ? g.dateExpired.slice(0,10) : '-'}</td>
+              <td><span class="badge ${badge}">${stText}</span></td>
+              <td>
+                <button class="secondary" style="padding:4px 8px; font-size:.82em;" onclick="viewGuaranteeDetail(${g.id})">Xem Chi Tiết</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function viewGuaranteeDetail(id) {
+      try {
+        const res = await fetch(`/api/guarantee/${id}`, { headers });
+        if (!res.ok) return;
+        const g = await res.json();
+
+        const card = document.getElementById('guaranteeDetailCard');
+        card.style.display = 'block';
+
+        let badge = 'badge-warning';
+        let stText = 'Chờ Duyệt';
+        if (g.status === 'Active') { badge = 'badge-success'; stText = 'Đang Hiệu Lực'; }
+        else if (g.status === 'Claimed') { badge = 'badge-danger'; stText = 'Đã Đòi Bảo Lãnh'; }
+        else if (g.status === 'Settled') { badge = 'badge-info'; stText = 'Đã Tất Toán'; }
+        else if (g.status === 'Expired') { badge = 'badge-danger'; stText = 'Hết Hạn'; }
+        else if (g.status === 'Rejected') { badge = 'badge-danger'; stText = 'Bị Từ Chối'; }
+        else if (g.status === 'Cancelled') { badge = 'badge-warning'; stText = 'Đã Hủy'; }
+
+        document.getElementById('guaranteeDetailTitle').innerHTML = `
+          Thư Bảo Lãnh <strong>${g.guaranteeNo}</strong> — Số BL NH: <code>${g.bankGuaranteeNo}</code>
+          <span class="badge ${badge}" style="margin-left:8px;">${stText}</span>
+        `;
+        document.getElementById('guaranteeDetailSubtitle').innerHTML = `
+          Ngân hàng: <strong>${g.bankName} (${g.bankCode})</strong> | Đối tác: <strong>${g.partnerName} (${g.partnerCode})</strong> |
+          Hợp đồng: <code>${g.contractNo || 'Không'}</code> | Tổng hạn mức: <strong style="color:var(--primary);">${Number(g.totalAmount).toLocaleString('vi-VN')} đ</strong> |
+          Đã dùng: <strong>${Number(g.utilizedAmount).toLocaleString('vi-VN')} đ</strong> | Còn lại: <strong style="color:var(--success);">${Number(g.remainingAmount).toLocaleString('vi-VN')} đ</strong> |
+          Thời hạn: <strong>${g.termDays} ngày</strong> (Từ ${g.dateOpen ? g.dateOpen.slice(0,10) : '-'} đến ${g.dateExpired ? g.dateExpired.slice(0,10) : '-'})
+        `;
+
+        // Audit & Notice Box
+        let auditHtml = `<div><strong>Thông tin kiểm soát hồ sơ:</strong> Ngày mở: ${g.dateOpen ? g.dateOpen.slice(0,10) : '-'} | Hạn thanh toán: ${g.dateEnd ? g.dateEnd.slice(0,10) : '-'} | Phí bảo lãnh: ${g.feePercent}%/năm | Ngày nhận bản gốc BL: <strong>${g.dateRecieveGrtRoot ? g.dateRecieveGrtRoot.slice(0,10) : '<span style="color:var(--warning);">Chưa nhận bản gốc</span>'}</strong></div>`;
+        if (g.approvedBy) auditHtml += `<div style="margin-top:4px;">Người duyệt: <strong>${g.approvedBy}</strong> (${g.approvedAt ? g.approvedAt.slice(0,19).replace('T', ' ') : '-'})</div>`;
+        if (g.status === 'Claimed') {
+          auditHtml += `<div style="margin-top:4px; color:var(--danger);"><strong>CẢNH BÁO ĐÒI BẢO LÃNH:</strong> Số tiền yêu cầu trích nợ: <strong>${Number(g.claimedAmount).toLocaleString('vi-VN')} đ</strong> | Lý do: <em>${g.claimReason || '-'}</em> | Người kích hoạt: ${g.claimedBy} (${g.claimedAt ? g.claimedAt.slice(0,19).replace('T', ' ') : '-'})</div>`;
+        }
+        if (g.status === 'Settled') {
+          auditHtml += `<div style="margin-top:4px; color:var(--success);"><strong>ĐÃ TẤT TOÁN HOÀN TẤT:</strong> Toàn bộ đơn hàng đã thanh toán đủ hoặc giải tỏa tài sản bảo lãnh. Người tất toán: <strong>${g.settledBy}</strong> (${g.settledAt ? g.settledAt.slice(0,19).replace('T', ' ') : '-'})</div>`;
+        }
+        if (g.status === 'Rejected') {
+          auditHtml += `<div style="margin-top:4px; color:var(--danger);"><strong>TỪ CHỐI THẨM ĐỊNH:</strong> Lý do: <em>${g.remarkReject || '-'}</em></div>`;
+        }
+        if (g.remark) auditHtml += `<div style="margin-top:4px; color:var(--muted);">Ghi chú: ${g.remark}</div>`;
+
+        const auditBox = document.getElementById('guaranteeAuditBox');
+        auditBox.style.display = 'block';
+        auditBox.innerHTML = auditHtml;
+
+        // Button visibility
+        const btnApprove = document.getElementById('btnApproveGrt');
+        const btnExtend = document.getElementById('btnExtendGrt');
+        const btnAdjust = document.getElementById('btnAdjustGrt');
+        const btnReceiveRoot = document.getElementById('btnReceiveRootGrt');
+        const btnClaim = document.getElementById('btnClaimGrt');
+        const btnSettle = document.getElementById('btnSettleGrt');
+        const btnReject = document.getElementById('btnRejectGrt');
+        const btnCancel = document.getElementById('btnCancelGrt');
+
+        btnApprove.style.display = (g.status === 'PendingApproval' || g.status === 'Draft') ? 'inline-block' : 'none';
+        btnExtend.style.display = (g.status === 'Active' || g.status === 'PendingApproval') ? 'inline-block' : 'none';
+        btnAdjust.style.display = (g.status === 'Active' || g.status === 'PendingApproval') ? 'inline-block' : 'none';
+        btnReceiveRoot.style.display = (!g.dateRecieveGrtRoot && g.status !== 'Cancelled') ? 'inline-block' : 'none';
+        btnClaim.style.display = (g.status === 'Active') ? 'inline-block' : 'none';
+        btnSettle.style.display = (g.status === 'Active' || g.status === 'Claimed') ? 'inline-block' : 'none';
+        btnReject.style.display = (g.status === 'PendingApproval' || g.status === 'Draft') ? 'inline-block' : 'none';
+        btnCancel.style.display = (g.status !== 'Settled' && g.status !== 'Cancelled') ? 'inline-block' : 'none';
+
+        // Bind Action Handlers
+        btnApprove.onclick = async () => {
+          const approver = prompt('Nhập họ tên / chức danh người phê duyệt Thư bảo lãnh:', 'GiamDocTaiChinh_HTC');
+          if (!approver) return;
+          const resp = await fetch(`/api/guarantee/${id}/approve`, {
+            method: 'POST', headers, body: JSON.stringify({ approverName: approver })
+          });
+          if (resp.ok) { viewGuaranteeDetail(id); loadGuarantees(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        btnExtend.onclick = async () => {
+          const curExp = g.dateExpired ? g.dateExpired.slice(0, 10) : '';
+          const newExp = prompt('Nhập ngày hết hạn gia hạn mới (YYYY-MM-DD):', curExp);
+          if (!newExp) return;
+          const remark = prompt('Lý do / Căn cứ gia hạn (Phụ lục thư bảo lãnh số...):', 'Gia hạn theo phụ lục thư bảo lãnh của ngân hàng');
+          const resp = await fetch(`/api/guarantee/${id}/extend`, {
+            method: 'POST', headers, body: JSON.stringify({ newExpiredDate: newExp, newEndDate: newExp, remark: remark })
+          });
+          if (resp.ok) { viewGuaranteeDetail(id); loadGuarantees(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        btnAdjust.onclick = async () => {
+          const newAmtStr = prompt(`Nhập tổng hạn mức bảo lãnh mới (VND - tối thiểu ${Number(g.utilizedAmount).toLocaleString('vi-VN')} đ):`, g.totalAmount);
+          if (!newAmtStr) return;
+          const newAmt = parseInt(newAmtStr);
+          if (isNaN(newAmt) || newAmt <= 0) { alert('Số tiền không hợp lệ.'); return; }
+          const remark = prompt('Lý do điều chỉnh hạn mức:', 'Điều chỉnh tăng/giảm hạn mức theo thỏa thuận cấp tín dụng');
+          const resp = await fetch(`/api/guarantee/${id}/adjust-value`, {
+            method: 'POST', headers, body: JSON.stringify({ newTotalAmount: newAmt, remark: remark })
+          });
+          if (resp.ok) { viewGuaranteeDetail(id); loadGuarantees(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        btnReceiveRoot.onclick = async () => {
+          const today = new Date().toISOString().slice(0, 10);
+          const rDate = prompt('Nhập ngày nhận bản gốc thư bảo lãnh (YYYY-MM-DD):', today);
+          if (!rDate) return;
+          const note = prompt('Ghi chú lưu trữ hồ sơ gốc (vị trí tủ hồ sơ / biên bản bàn giao):', 'Đã lưu kho văn thư gốc bảo lãnh');
+          const resp = await fetch(`/api/guarantee/${id}/receive-root`, {
+            method: 'POST', headers, body: JSON.stringify({ receiveDate: rDate, note: note })
+          });
+          if (resp.ok) { viewGuaranteeDetail(id); loadGuarantees(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        btnClaim.onclick = async () => {
+          const claimAmtStr = prompt(`KÍCH HOẠT ĐÒI BẢO LÃNH NGÂN HÀNG (GrtClaim)!\nNhập số tiền yêu cầu ngân hàng thanh toán (tối đa ${Number(g.totalAmount).toLocaleString('vi-VN')} đ):`, g.utilizedAmount || g.totalAmount);
+          if (!claimAmtStr) return;
+          const claimAmt = parseInt(claimAmtStr);
+          if (isNaN(claimAmt) || claimAmt <= 0) { alert('Số tiền không hợp lệ.'); return; }
+          const reason = prompt('Nhập lý do đòi bảo lãnh (vi phạm nghĩa vụ thanh toán / quá hạn):', 'Đại lý quá hạn thanh toán theo hợp đồng, HTC kích hoạt đòi ngân hàng bảo lãnh');
+          if (!reason) return;
+          const claimer = prompt('Người kích hoạt đòi bảo lãnh (Phòng Quản trị Rủi ro):', 'GiamDocQuanTriRuiRo_HTC');
+          const resp = await fetch(`/api/guarantee/${id}/claim`, {
+            method: 'POST', headers, body: JSON.stringify({ claimAmount: claimAmt, claimReason: reason, claimedBy: claimer })
+          });
+          if (resp.ok) { viewGuaranteeDetail(id); loadGuarantees(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        btnSettle.onclick = async () => {
+          const settler = prompt('Ký xác nhận hoàn tất tất toán & giải tỏa toàn bộ nghĩa vụ bảo lãnh:', 'KeToanTruong_HTC');
+          if (!settler) return;
+          const remark = prompt('Ghi chú tất toán giải tỏa bảo lãnh:', 'Đại lý đã thanh toán đủ 100% tiền mua hàng, HTC phát hành biên bản giải tỏa');
+          const resp = await fetch(`/api/guarantee/${id}/settle`, {
+            method: 'POST', headers, body: JSON.stringify({ settlerName: settler, remark: remark })
+          });
+          if (resp.ok) { viewGuaranteeDetail(id); loadGuarantees(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        btnReject.onclick = async () => {
+          const reason = prompt('Nhập lý do từ chối thư bảo lãnh:', 'Thư bảo lãnh sai thông tin mẫu ngân hàng hoặc hạn mức không đủ điều kiện.');
+          if (!reason) return;
+          const resp = await fetch(`/api/guarantee/${id}/reject`, {
+            method: 'POST', headers, body: JSON.stringify({ reason })
+          });
+          if (resp.ok) { viewGuaranteeDetail(id); loadGuarantees(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        btnCancel.onclick = async () => {
+          if (!confirm(`Xác nhận hủy Thư bảo lãnh ${g.guaranteeNo}?`)) return;
+          const reason = prompt('Lý do hủy thư bảo lãnh:', 'Hợp đồng thương mại không triển khai');
+          const resp = await fetch(`/api/guarantee/${id}/cancel`, {
+            method: 'POST', headers, body: JSON.stringify({ reason })
+          });
+          if (resp.ok) { viewGuaranteeDetail(id); loadGuarantees(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        // Table of items
+        const tbody = document.getElementById('guaranteeDetailTableBody');
+        tbody.innerHTML = (g.details || []).map(d => {
+          let itemBadge = 'badge-success';
+          let itemSt = 'Đang bảo lãnh';
+          if (d.status === 'Claimed') { itemBadge = 'badge-danger'; itemSt = 'Đã đòi BL'; }
+          else if (d.status === 'Released' || d.status === 'Paid') { itemBadge = 'badge-info'; itemSt = 'Đã giải tỏa'; }
+          else if (d.status === 'Cancelled') { itemBadge = 'badge-warning'; itemSt = 'Đã hủy'; }
+
+          return `
+            <tr>
+              <td><code>${d.itemRefNo}</code></td>
+              <td>${d.description}</td>
+              <td>${Number(d.orderAmount).toLocaleString('vi-VN')} đ</td>
+              <td style="color:var(--primary); font-weight:700;">${Number(d.guaranteeValue).toLocaleString('vi-VN')} đ</td>
+              <td><span class="badge badge-info">${d.guaranteePercent}%</span></td>
+              <td>${d.dateStart ? d.dateStart.slice(0,10) : '-'} &rarr; ${d.dateEnd ? d.dateEnd.slice(0,10) : '-'}</td>
+              <td><span class="badge ${itemBadge}">${itemSt}</span></td>
+              <td class="muted" style="font-size:.85em;">${d.note || '-'}</td>
+            </tr>
+          `;
+        }).join('');
+
+        card.scrollIntoView({ behavior: 'smooth' });
+      } catch(e) { console.error(e); }
+    }
+
+    function loadSampleGuaranteeData() {
+      const today = new Date();
+      const formatDate = (d) => d.toISOString().slice(0, 10);
+      const end1 = new Date(today.getTime() + 60 * 86400000);
+      const end2 = new Date(today.getTime() + 75 * 86400000);
+
+      const sample = [
+        {
+          "itemRefNo": "VIN-CRETA-2025-01",
+          "description": "Xe Hyundai Creta 1.5 Cao cấp (Màu Đỏ/Đen)",
+          "orderAmount": 699000000,
+          "guaranteeValue": 650000000,
+          "dateStart": formatDate(today),
+          "dateEnd": formatDate(end1),
+          "note": "Hợp đồng lô xe số 01/2025"
+        },
+        {
+          "itemRefNo": "VIN-STARGAZER-2025-02",
+          "description": "Xe Hyundai Stargazer X Cao cấp 7 chỗ (Màu Trắng)",
+          "orderAmount": 650000000,
+          "guaranteeValue": 600000000,
+          "dateStart": formatDate(today),
+          "dateEnd": formatDate(end1),
+          "note": "Hợp đồng lô xe số 01/2025"
+        },
+        {
+          "itemRefNo": "VIN-SANTAFE-2025-03",
+          "description": "Xe Hyundai Santa Fe Calligraphy 2.5 Turbo (Màu Đen)",
+          "orderAmount": 1365000000,
+          "guaranteeValue": 750000000,
+          "dateStart": formatDate(today),
+          "dateEnd": formatDate(end2),
+          "note": "Bảo lãnh phần trả chậm 750 triệu"
+        }
+      ];
+      document.getElementById('inpGuaranteeItemsJson').value = JSON.stringify(sample, null, 2);
+    }
+
+    async function submitGuarantee() {
+      const msg = document.getElementById('submitGrtMsg');
+      try {
+        const rawJson = document.getElementById('inpGuaranteeItemsJson').value.trim();
+        const items = rawJson ? JSON.parse(rawJson) : [];
+        const payload = {
+          guaranteeNo: document.getElementById('inpGrtNo').value.trim() || null,
+          bankGuaranteeNo: document.getElementById('inpBankGrtNo').value.trim(),
+          bankCode: document.getElementById('inpGrtBankCode').value.trim(),
+          bankName: null,
+          partnerCode: document.getElementById('inpGrtPartnerCode').value.trim(),
+          partnerName: document.getElementById('inpGrtPartnerName').value.trim(),
+          contractNo: document.getElementById('inpGrtContractNo').value.trim() || null,
+          guaranteeType: parseInt(document.getElementById('inpGrtType').value) || 0,
+          totalAmount: parseInt(document.getElementById('inpGrtTotalAmount').value) || null,
+          dateOpen: document.getElementById('inpGrtDateOpen').value || null,
+          dateExpired: document.getElementById('inpGrtDateExpired').value || null,
+          dateEnd: document.getElementById('inpGrtDateEnd').value || null,
+          feePercent: parseFloat(document.getElementById('inpGrtFeePercent').value) || 1.2,
+          remark: document.getElementById('inpGrtRemark').value.trim(),
+          items: items
+        };
+
+        if (!payload.bankGuaranteeNo) { alert('Vui lòng nhập Số thư bảo lãnh ngân hàng.'); return; }
+        if (!payload.partnerCode) { alert('Vui lòng nhập Mã đối tác / đại lý.'); return; }
+
+        msg.textContent = 'Đang khởi tạo thư bảo lãnh...';
+        const res = await fetch('/api/guarantee', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Thư BL: ${data.guaranteeNo} (Tổng hạn mức: ${Number(data.totalAmount).toLocaleString('vi-VN')} đ)`;
+        setTimeout(() => {
+          showTab('guarantee');
+          viewGuaranteeDetail(data.id);
+        }, 800);
+      } catch(e) {
+        msg.textContent = 'Lỗi cú pháp JSON: ' + e.message;
+      }
+    }
+
+    // Khởi tạo ngày mặc định cho form tạo bảo lãnh
+    const initGrtDates = () => {
+      const today = new Date();
+      const formatDate = (d) => d.toISOString().slice(0, 10);
+      const expDate = new Date(today.getTime() + 90 * 86400000);
+      const elOpen = document.getElementById('inpGrtDateOpen');
+      const elExp = document.getElementById('inpGrtDateExpired');
+      const elEnd = document.getElementById('inpGrtDateEnd');
+      if (elOpen) elOpen.value = formatDate(today);
+      if (elExp) elExp.value = formatDate(expDate);
+      if (elEnd) elEnd.value = formatDate(expDate);
+    };
+    initGrtDates();
+    loadSampleGuaranteeData();
 
     // Khởi tạo
     loadSampleData();
