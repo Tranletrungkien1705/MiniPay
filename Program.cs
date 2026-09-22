@@ -40,6 +40,7 @@ builder.Services.AddScoped<TransportInsPaymentService>();
 builder.Services.AddScoped<PaymentStorageService>();
 builder.Services.AddScoped<GuaranteeExtensionService>();
 builder.Services.AddScoped<BankGuaranteeClaimService>();
+builder.Services.AddScoped<PaymentAVNService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -4542,6 +4543,267 @@ app.MapDelete("/api/guarantee-claims/{id:long}", async (long id, BankGuaranteeCl
     }
 });
 
+// ===== Quản Lý Bảng Kê Thanh Toán Thiết Bị AVN Trên Xe Ô Tô (Pmt_PaymentAVN / FrmQuanLyThanhToanAVN) =====
+
+// 1) Lấy danh sách bảng kê thanh toán AVN
+app.MapGet("/api/payment-avn", async (
+    string? pmtMonth,
+    string? status,
+    string? supplierCode,
+    string? vin,
+    PaymentAVNService avnService,
+    ITenantContext tc) =>
+{
+    var list = await avnService.GetListAsync(tc.OrgId, pmtMonth, status, supplierCode, vin);
+    return Results.Ok(list.Select(p => new
+    {
+        p.Id,
+        p.PaymentAVNNo,
+        p.PmtMonth,
+        p.SupplierCode,
+        p.SupplierName,
+        p.TotalVehicles,
+        p.TotalAmount,
+        p.VATRate,
+        p.AmountVAT,
+        p.TotalAmountAfterVAT,
+        status = p.Status.ToString(),
+        tcmsSignStatus = p.TCMSSignStatus.ToString(),
+        p.TCMSSignUser,
+        p.TCMSSignDTime,
+        htvSignStatus = p.HTVSignStatus.ToString(),
+        p.HTVSignUser,
+        p.HTVSignDTime,
+        p.Appr1By,
+        p.Appr1DTime,
+        p.Appr2By,
+        p.Appr2DTime,
+        p.SettledBy,
+        p.SettledAt,
+        p.BankTxnRef,
+        p.RejectReason,
+        p.CancelledAt,
+        p.FilePath,
+        p.Remark,
+        p.CreatedBy,
+        p.CreatedAt
+    }));
+});
+
+// 2) Lấy chi tiết 1 bảng kê kèm danh sách xe
+app.MapGet("/api/payment-avn/{id:long}", async (long id, PaymentAVNService avnService, ITenantContext tc) =>
+{
+    var payment = await avnService.GetByIdAsync(id, tc.OrgId);
+    if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê AVN #{id}." });
+    return Results.Ok(payment);
+});
+
+// 3) Lập bảng kê thanh toán AVN mới
+app.MapPost("/api/payment-avn", async (CreatePaymentAVNDto dto, PaymentAVNService avnService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await avnService.CreatePaymentAsync(
+            tc.OrgId,
+            dto.PaymentAVNNo,
+            dto.PmtMonth,
+            dto.SupplierCode,
+            dto.SupplierName,
+            dto.VATRate,
+            dto.Remark,
+            dto.CreatedBy,
+            dto.Items
+        );
+        return Results.Ok(payment);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 4) Duyệt thẩm định cấp 1 TCMS (A1)
+app.MapPost("/api/payment-avn/{id:long}/tcms-approve", async (long id, ApprovePaymentAVNDto? dto, PaymentAVNService avnService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await avnService.TCMSApproveAsync(id, tc.OrgId, dto?.ApproverName);
+        if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+        return Results.Ok(payment);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 5) Duyệt thẩm định cấp 2 HTV (A2)
+app.MapPost("/api/payment-avn/{id:long}/htv-approve", async (long id, ApprovePaymentAVNDto? dto, PaymentAVNService avnService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await avnService.HTVApproveAsync(id, tc.OrgId, dto?.ApproverName);
+        if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+        return Results.Ok(payment);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Ký số điện tử CA TCMS
+app.MapPost("/api/payment-avn/{id:long}/tcms-sign", async (long id, SignPaymentAVNDto? dto, PaymentAVNService avnService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await avnService.TCMSSignCAAsync(id, tc.OrgId, dto?.SignerName, dto?.FilePath);
+        if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+        return Results.Ok(payment);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 7) Ký số điện tử CA HTV hoàn tất (Signed)
+app.MapPost("/api/payment-avn/{id:long}/htv-sign", async (long id, SignPaymentAVNDto? dto, PaymentAVNService avnService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await avnService.HTVSignCAAsync(id, tc.OrgId, dto?.SignerName, dto?.FilePath);
+        if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+        return Results.Ok(payment);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 8) Kế toán quyết toán chi trả chuyển khoản UNC ngân hàng (Settled)
+app.MapPost("/api/payment-avn/{id:long}/settle", async (long id, SettlePaymentAVNDto? dto, PaymentAVNService avnService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await avnService.SettlePaymentAsync(id, tc.OrgId, dto?.BankTxnRef, dto?.SettledBy);
+        if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+        return Results.Ok(payment);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 9) Từ chối bảng kê
+app.MapPost("/api/payment-avn/{id:long}/reject", async (long id, RejectPaymentAVNDto dto, PaymentAVNService avnService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await avnService.RejectPaymentAsync(id, tc.OrgId, dto.Reason, dto.RejecterName);
+        if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+        return Results.Ok(payment);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 10) Hủy bảng kê
+app.MapPost("/api/payment-avn/{id:long}/cancel", async (long id, CancelPaymentAVNDto? dto, PaymentAVNService avnService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await avnService.CancelPaymentAsync(id, tc.OrgId, dto?.Reason);
+        if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+        return Results.Ok(payment);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 11) Bổ sung xe vào bảng kê nháp
+app.MapPost("/api/payment-avn/{id:long}/vehicles", async (long id, ImportPaymentAVNVehiclesDto dto, PaymentAVNService avnService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await avnService.AddVehiclesAsync(id, tc.OrgId, dto.Items);
+        return Results.Ok(payment);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 12) Xóa xe khỏi bảng kê nháp
+app.MapDelete("/api/payment-avn/{id:long}/vehicles/{detailId:long}", async (long id, long detailId, PaymentAVNService avnService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await avnService.RemoveVehicleAsync(id, detailId, tc.OrgId);
+        return Results.Ok(payment);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 13) Xóa toàn bộ bảng kê nháp
+app.MapDelete("/api/payment-avn/{id:long}", async (long id, PaymentAVNService avnService, ITenantContext tc) =>
+{
+    try
+    {
+        await avnService.DeleteDraftAsync(id, tc.OrgId);
+        return Results.Ok(new { message = $"Đã xóa bảng kê AVN #{id} thành công." });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 14) Sinh dữ liệu mẫu in Bảng kê quyết toán AVN (CR_PAYMENT_AVN Advice)
+app.MapGet("/api/payment-avn/{id:long}/advice", async (long id, PaymentAVNService avnService, ITenantContext tc) =>
+{
+    var advice = await avnService.GenerateAdviceAsync(id, tc.OrgId);
+    if (advice == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+    return Results.Ok(advice);
+});
+
+// 15) Thống kê tổng hợp dashboard
+app.MapGet("/api/payment-avn/summary", async (PaymentAVNService avnService, ITenantContext tc) =>
+{
+    var summary = await avnService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
+// 16) Bảng giá tham chiếu AVN theo model xe
+app.MapGet("/api/payment-avn/prices", () =>
+{
+    var prices = PaymentAVNService.DefaultAVNPrices.Select(kv => new
+    {
+        modelCode = kv.Key,
+        avnCode = kv.Value.AvnCode,
+        unitPrice = kv.Value.Price
+    });
+    return Results.Ok(prices);
+});
+
 app.Run();
 
 record CreatePayDto(long Amount, string? OrderId, string? OrderInfo, string? BankCode);
@@ -4725,4 +4987,21 @@ record SettleClaimDto(long? SettledAmount, string? BankTxnRef, string? SettlerNa
 record BankRejectClaimDto(string Reason, string? RejectedBy);
 record CancelClaimDto(string? CancelReason, string? CancelledBy);
 record AddClaimVehicleDto(GuaranteeClaimItemInputDto Vehicle);
+
+record CreatePaymentAVNDto(
+    string? PaymentAVNNo,
+    string PmtMonth,
+    string? SupplierCode,
+    string? SupplierName,
+    decimal? VATRate,
+    string? Remark,
+    string? CreatedBy,
+    List<PaymentAVNItemInputDto> Items
+);
+record ApprovePaymentAVNDto(string? ApproverName);
+record SignPaymentAVNDto(string? SignerName, string? FilePath);
+record SettlePaymentAVNDto(string? BankTxnRef, string? SettledBy);
+record RejectPaymentAVNDto(string Reason, string? RejecterName);
+record CancelPaymentAVNDto(string? Reason);
+record ImportPaymentAVNVehiclesDto(List<PaymentAVNItemInputDto> Items);
 

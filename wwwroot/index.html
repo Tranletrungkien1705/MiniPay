@@ -99,6 +99,7 @@
     <button class="tab-btn" onclick="showTab('paymentStorage')">Chi Phí Lưu Kho Xe (Storage Payment)</button>
     <button class="tab-btn" onclick="showTab('guaranteeExt')">Gia Hạn Bảo Lãnh (Guarantee Extension Dispatch)</button>
     <button class="tab-btn" onclick="showTab('guaranteeClaim')">Đòi Bảo Lãnh (Bank Guarantee Claim / CVĐBL)</button>
+    <button class="tab-btn" onclick="showTab('paymentAVN')">Bảng Kê AVN Xe (AVN Payment)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -113,6 +114,7 @@
     <button class="tab-btn" onclick="showTab('newPaymentStorage')">+ Lập Bảng Kê Lưu Kho</button>
     <button class="tab-btn" onclick="showTab('newGuaranteeExt')">+ Lập Công Văn Gia Hạn</button>
     <button class="tab-btn" onclick="showTab('newGuaranteeClaim')">+ Lập Công Văn Đòi BL</button>
+    <button class="tab-btn" onclick="showTab('newPaymentAVN')">+ Lập Bảng Kê AVN</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -1618,6 +1620,198 @@
     </div>
   </div>
 
+  <!-- TAB: Quản lý Bảng kê Thanh toán Thiết bị AVN trên Xe Ô tô (PaymentAVN / FrmQuanLyThanhToanAVN) -->
+  <div id="tab-paymentAVN" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div>
+          <h3 style="margin:0;">Bảng Kê Thanh Toán Thiết Bị AVN Trên Xe Ô Tô</h3>
+          <p class="muted" style="margin:2px 0 0;">Quy trình đối soát, phê duyệt 2 cấp (TCMS - HTV) và ký số điện tử CA thanh toán màn hình giải trí &amp; định vị dẫn đường (Pmt_PaymentAVN / CR_PAYMENT_AVN).</p>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="secondary" onclick="loadPaymentAVNs()">Làm mới</button>
+          <button onclick="showTab('newPaymentAVN')">+ Lập Bảng Kê Mới</button>
+        </div>
+      </div>
+
+      <!-- Bộ lọc tìm kiếm -->
+      <div class="row" style="margin-bottom:14px; background:rgba(127,127,127,.05); padding:10px; border-radius:6px; align-items:flex-end;">
+        <div class="col">
+          <label class="muted">Kỳ / Tháng Thanh Toán (PmtMonth):</label>
+          <input type="text" id="filterAvnMonth" placeholder="Ví dụ: 2025-05 hoặc 2025-04" onchange="loadPaymentAVNs()">
+        </div>
+        <div class="col">
+          <label class="muted">Trạng Thái Bảng Kê:</label>
+          <select id="filterAvnStatus" onchange="loadPaymentAVNs()">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="Draft">Mới tạo (Draft)</option>
+            <option value="TCMSApproved">TCMS Đã duyệt cấp 1 (A1)</option>
+            <option value="HTVApproved">HTV Đã duyệt cấp 2 (A2)</option>
+            <option value="Signed">Đã ký số CA hoàn tất (Signed)</option>
+            <option value="Settled">Đã quyết toán chuyển tiền (Settled)</option>
+            <option value="Rejected">Bị từ chối duyệt (Rejected)</option>
+            <option value="Cancelled">Đã hủy bảng kê (Cancelled)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Nhà Cung Cấp Linh Kiện:</label>
+          <select id="filterAvnSupplier" onchange="loadPaymentAVNs()">
+            <option value="">-- Tất cả nhà cung cấp --</option>
+            <option value="MOBIS-VN">Mobis Auto Parts Việt Nam</option>
+            <option value="MOTREX-VN">Motrex Electronics Việt Nam</option>
+            <option value="VIETTEL-AVN">Viettel Business Solutions</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Tìm VIN / Số Bảng Kê:</label>
+          <input type="text" id="filterAvnVin" placeholder="Nhập số khung VIN hoặc AVN-..." onkeyup="if(event.key==='Enter') loadPaymentAVNs()">
+        </div>
+        <div style="flex:0 0 auto;">
+          <button class="secondary" onclick="loadPaymentAVNs()">Lọc Dữ Liệu</button>
+        </div>
+      </div>
+
+      <!-- Bảng danh sách bảng kê AVN -->
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Bảng Kê</th>
+              <th>Kỳ TT</th>
+              <th>Nhà Cung Cấp</th>
+              <th>Số Lượng Xe</th>
+              <th>Tổng Tiền Trước VAT</th>
+              <th>Thuế VAT</th>
+              <th>Tổng Thanh Toán (Sau VAT)</th>
+              <th>Trạng Thái</th>
+              <th>Ký Số CA</th>
+              <th>Mã Bút Toán UNC</th>
+              <th>Ngày Tạo</th>
+              <th>Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="paymentAvnTableBody">
+            <tr><td colspan="12" class="muted" style="text-align:center;">Đang tải danh sách bảng kê AVN...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Card Chi Tiết 1 Bảng Kê AVN -->
+    <div class="card" id="cardPaymentAvnDetail" style="margin-top:18px; display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:14px;">
+        <div>
+          <h3 id="dtlAvnTitle" style="margin:0; font-size:1.25em;">Chi Tiết Bảng Kê Thanh Toán AVN</h3>
+          <p class="muted" id="dtlAvnSubtitle" style="margin:4px 0 0;"></p>
+        </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+          <button id="btnAvnApprove1" onclick="tcmsApproveAVN(currentAvnDetailId)" style="display:none;">1️⃣ TCMS Duyệt (A1)</button>
+          <button id="btnAvnApprove2" onclick="htvApproveAVN(currentAvnDetailId)" style="display:none;">2️⃣ HTV Duyệt (A2)</button>
+          <button id="btnAvnTCMSSign" class="secondary" onclick="tcmsSignAVN(currentAvnDetailId)" style="display:none;">✍️ Ký Số TCMS</button>
+          <button id="btnAvnHTVSign" onclick="htvSignAVN(currentAvnDetailId)" style="display:none;">✍️ Ký Số HTV (Signed)</button>
+          <button id="btnAvnSettle" style="background:var(--success); color:#fff; display:none;" onclick="settleAVN(currentAvnDetailId)">💰 Quyết Toán UNC</button>
+          <button id="btnAvnReject" class="secondary" style="color:var(--danger); display:none;" onclick="rejectAVN(currentAvnDetailId)">❌ Từ Chối</button>
+          <button id="btnAvnCancel" class="secondary" onclick="cancelAVN(currentAvnDetailId)" style="display:none;">🚫 Hủy Bảng Kê</button>
+          <button id="btnAvnAddVehicle" class="secondary" onclick="openAddAVNVehiclesModal(currentAvnDetailId)" style="display:none;">+ Thêm Xe</button>
+          <button class="secondary" onclick="openPaymentAVNAdviceModal(currentAvnDetailId)">📄 In Bảng Kê (CR_PAYMENT_AVN)</button>
+          <button id="btnAvnDeleteDraft" class="secondary" style="color:var(--danger); display:none;" onclick="deleteDraftAVN(currentAvnDetailId)">🗑️ Xóa Nháp</button>
+          <button class="secondary" onclick="document.getElementById('cardPaymentAvnDetail').style.display='none'">Đóng</button>
+        </div>
+      </div>
+
+      <!-- Thông tin tổng quan bảng kê -->
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <div class="muted">Số Bảng Kê:</div>
+          <div id="dtlAvnNo" style="font-size:1.1em; font-weight:700; color:var(--primary);">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">Kỳ / Tháng TT:</div>
+          <div id="dtlAvnMonth" style="font-weight:600;">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">Nhà Cung Cấp:</div>
+          <div id="dtlAvnSupplier" style="font-weight:600;">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">Số Lượng Xe:</div>
+          <div id="dtlAvnTotalVehicles" style="font-weight:700;">-</div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <div class="muted">Tổng Tiền Trước VAT:</div>
+          <div id="dtlAvnTotalAmount" style="font-weight:600;">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">Thuế VAT (10%):</div>
+          <div id="dtlAvnAmountVAT" style="font-weight:600;">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">Tổng Thanh Toán Sau VAT:</div>
+          <div id="dtlAvnTotalAmountAfterVAT" style="font-size:1.15em; font-weight:700; color:var(--success);">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">Trạng Thái:</div>
+          <div id="dtlAvnStatus">-</div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px; background:rgba(127,127,127,.05); padding:8px 12px; border-radius:6px; font-size:.88em;">
+        <div class="col">
+          <div class="muted">TCMS Duyệt (A1):</div>
+          <div id="dtlAvnAppr1">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">HTV Duyệt (A2):</div>
+          <div id="dtlAvnAppr2">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">TCMS Ký Số CA:</div>
+          <div id="dtlAvnTCMSSign">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">HTV Ký Số CA:</div>
+          <div id="dtlAvnHTVSign">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">Quyết Toán UNC:</div>
+          <div id="dtlAvnSettled">-</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px; font-size:.88em;">
+        <span class="muted">Ghi chú / Diễn giải:</span>
+        <span id="dtlAvnRemark" style="margin-left:6px; font-style:italic;">-</span>
+      </div>
+
+      <!-- Danh sách xe ô tô trong bảng kê -->
+      <h4 style="margin:14px 0 8px;">Danh Sách Xe Ô Tô Gắn Thiết Bị AVN</h4>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Số Khung (VIN)</th>
+              <th>Dòng Xe</th>
+              <th>Phiên Bản</th>
+              <th>Màu Xe</th>
+              <th>Mã Thiết Bị AVN</th>
+              <th>Số Serial Hộp/Màn Hình</th>
+              <th>Đơn Giá AVN (VND)</th>
+              <th>Ngày Lắp AVN</th>
+              <th>Ngày Nhập Kho</th>
+              <th>Trạng Thái Dòng</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="dtlAvnVehiclesTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div id="tab-newBatch" style="display:none;">
     <div class="card">
       <h3>Nạp bảng sao kê ngân hàng &amp; Chạy đối soát tức thì</h3>
@@ -2590,6 +2784,55 @@
     </div>
   </div>
 
+  <!-- TAB: Lập Bảng Kê Thanh Toán Thiết Bị AVN Mới (FrmTaoThanhToanAVN) -->
+  <div id="tab-newPaymentAVN" style="display:none;">
+    <div class="card">
+      <h3>Lập Bảng Kê Thanh Toán Chi Phí Thiết Bị AVN Mới (Pmt_PaymentAVN_Save)</h3>
+      <p class="muted">Khởi tạo bảng kê đối soát thanh toán linh kiện màn hình giải trí và định vị dẫn đường AVN cho lô xe xuất xưởng nhà máy Hyundai theo chuẩn BizHTC.Payment.</p>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Bảng Kê (để trống tự sinh):</label>
+          <input type="text" id="inpNewAvnNo" placeholder="Ví dụ: AVN-202505-008">
+        </div>
+        <div class="col">
+          <label class="muted">Kỳ / Tháng Thanh Toán (PmtMonth) (*):</label>
+          <input type="text" id="inpNewAvnMonth" value="2025-05" placeholder="YYYY-MM (ví dụ 2025-05)">
+        </div>
+        <div class="col">
+          <label class="muted">Nhà Cung Cấp Linh Kiện (*):</label>
+          <select id="inpNewAvnSupplier" onchange="onNewAvnSupplierChange()">
+            <option value="MOBIS-VN">Công ty TNHH Mobis Auto Parts Việt Nam (MOBIS-VN)</option>
+            <option value="MOTREX-VN">Công ty TNHH Điện tử Motrex Việt Nam (MOTREX-VN)</option>
+            <option value="VIETTEL-AVN">Tổng Công ty Giải pháp Doanh nghiệp Viettel (VIETTEL-AVN)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Thuế Suất VAT (%):</label>
+          <input type="number" id="inpNewAvnVATRate" value="10" step="0.5" min="0" max="20">
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <label class="muted">Ghi Chú / Diễn Giải Bảng Kê:</label>
+        <input type="text" id="inpNewAvnRemark" value="Bảng kê quyết toán màn hình AVN dẫn đường tích hợp bản đồ Việt Nam cho lô xe hoàn thiện">
+      </div>
+
+      <div style="margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="muted">Danh sách xe ô tô lắp đặt thiết bị AVN [JSON]:</label>
+          <button class="secondary" type="button" onclick="loadSampleAVNData()">Nạp Dữ Liệu Xe Mẫu</button>
+        </div>
+        <textarea id="inpNewAvnVehiclesJson" rows="8" style="font-family:monospace; font-size:.85em;"></textarea>
+      </div>
+
+      <div style="margin-top:16px;">
+        <button type="button" onclick="submitCreatePaymentAVN()">Khởi Tạo Bảng Kê Thanh Toán AVN</button>
+        <span id="submitNewAvnMsg" style="margin-left:12px;" class="muted"></span>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Xem & In Mẫu Bảng Kê Quyết Toán Vận Tải & Bảo Hiểm Xe (Transport Statement Advice) -->
   <div id="modalTransportInsAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
     <div style="max-width:920px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
@@ -2921,6 +3164,88 @@
     </div>
   </div>
 
+  <!-- Modal Xem & In Mẫu Bảng Kê Quyết Toán Thiết Bị AVN (CR_PAYMENT_AVN Advice) -->
+  <div id="modalPaymentAVNAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:920px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.25em;">BẢNG KÊ QUYẾT TOÁN CHI PHÍ THIẾT BỊ AVN XE Ô TÔ (CR_PAYMENT_AVN)</h2>
+        <button class="secondary" onclick="closePaymentAVNAdviceModal()">Đóng [X]</button>
+      </div>
+      <div id="paymentAvnAdviceContent" style="margin-top:16px; font-size:.9em; line-height:1.6;"></div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('paymentAvnAdviceContent').innerText); alert('Đã sao chép nội dung Bảng kê AVN vào clipboard!');">Sao Chép Nội Dung</button>
+        <button onclick="window.print()">In Bảng Kê Quyết Toán</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Bổ Sung Xe Vào Bảng Kê AVN Nháp (FrmTaoThanhToanAVN_AddCar) -->
+  <div id="modalAddAVNVehicles" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:650px; margin:50px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <h3 style="margin:0;">Thêm Xe Ô Tô Vào Bảng Kê AVN</h3>
+        <button class="secondary" onclick="closeAddAVNVehiclesModal()">Đóng [X]</button>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Khung Xe (VIN) (*):</label>
+          <input type="text" id="inpAddAvnVin" placeholder="17 ký tự VIN">
+        </div>
+        <div class="col">
+          <label class="muted">Số Máy (EngineNo):</label>
+          <input type="text" id="inpAddAvnEngineNo" placeholder="Số máy xe">
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Dòng Xe (ModelCode):</label>
+          <select id="inpAddAvnModel" onchange="onAddAvnModelChange()">
+            <option value="SANTAFE">Hyundai Santa Fe (SANTAFE)</option>
+            <option value="SANTAFE-CAL">Hyundai Santa Fe Calligraphy (SANTAFE-CAL)</option>
+            <option value="TUCSON">Hyundai Tucson (TUCSON)</option>
+            <option value="TUCSON-TURBO">Hyundai Tucson Turbo (TUCSON-TURBO)</option>
+            <option value="CRETA">Hyundai Creta (CRETA)</option>
+            <option value="CRETA-PRE">Hyundai Creta Premium (CRETA-PRE)</option>
+            <option value="ACCENT">Hyundai Accent (ACCENT)</option>
+            <option value="ACCENT-1.5AT">Hyundai Accent 1.5 AT (ACCENT-1.5AT)</option>
+            <option value="ELANTRA">Hyundai Elantra (ELANTRA)</option>
+            <option value="ELANTRA-NLINE">Hyundai Elantra N Line (ELANTRA-NLINE)</option>
+            <option value="STARGAZER">Hyundai Stargazer (STARGAZER)</option>
+            <option value="PALISADE">Hyundai Palisade (PALISADE)</option>
+            <option value="CUSTIN">Hyundai Custin (CUSTIN)</option>
+            <option value="IONIQ-5">Hyundai IONIQ 5 (IONIQ-5)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Màu Sơn Ngoại Thất:</label>
+          <input type="text" id="inpAddAvnColor" value="Trắng Ngọc Trai">
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Mã Thiết Bị AVN:</label>
+          <input type="text" id="inpAddAvnCode" value="AVN-STF-GEN5-PREM">
+        </div>
+        <div class="col">
+          <label class="muted">Số Serial Hộp/Màn Hình:</label>
+          <input type="text" id="inpAddAvnSerialNo" placeholder="Để trống tự sinh">
+        </div>
+        <div class="col">
+          <label class="muted">Đơn Giá AVN (VND):</label>
+          <input type="number" id="inpAddAvnUnitPrice" value="12500000" step="500000">
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <label class="muted">Ghi Chú Dòng Xe:</label>
+        <input type="text" id="inpAddAvnRemark" value="Đã kiểm tra kết nối định vị vệ tinh GPS hoàn tất">
+      </div>
+      <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="closeAddAVNVehiclesModal()">Hủy</button>
+        <button onclick="submitAddAVNVehicle()">Thêm Xe Vào Bảng Kê</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB 5: API Docs -->
   <div id="tab-apiDocs" style="display:none;">
     <div class="card">
@@ -3126,6 +3451,25 @@
         <li><code>GET /api/guarantee-claims/{id}/advice</code> — Sinh dữ liệu mẫu in Công văn Đòi Tiền Bảo Lãnh CR_ClaimPM Advice kèm đọc số tiền bằng chữ tiếng Việt chuẩn quy chuẩn ngân hàng</li>
         <li><code>GET /api/guarantee-claims/summary</code> — Báo cáo tổng hợp dashboard số liệu nợ đòi bảo lãnh, đã thu hồi và đang đòi nợ</li>
       </ul>
+      <h3>Nghiệp Vụ Bảng Kê Thanh Toán Thiết Bị AVN Trên Xe Ô Tô (Vehicle Audio-Visual Navigation Payment - BizHTC.Payment / FrmQuanLyThanhToanAVN / CR_PAYMENT_AVN)</h3>
+      <ul>
+        <li><code>POST /api/payment-avn</code> — Lập bảng kê thanh toán chi phí thiết bị AVN mới (Pmt_PaymentAVN_Save)</li>
+        <li><code>GET /api/payment-avn</code> — Danh sách bảng kê thanh toán AVN (Pmt_PaymentAVN_Get, lọc theo <code>pmtMonth</code>, <code>status</code>, <code>supplierCode</code>, <code>vin</code>)</li>
+        <li><code>GET /api/payment-avn/{id}</code> — Chi tiết 1 bảng kê kèm danh mục xe gắn AVN, đơn giá và số serial (FrmQuanLyThanhToanAVN)</li>
+        <li><code>POST /api/payment-avn/{id}/tcms-approve</code> — TCMS Duyệt thẩm định cấp 1 sơ bộ A1 (Pmt_PaymentAVN_Approve1)</li>
+        <li><code>POST /api/payment-avn/{id}/htv-approve</code> — HTV Ban Kế toán / Phụ tùng duyệt thẩm định cấp 2 A2 (Pmt_PaymentAVN_Approve2)</li>
+        <li><code>POST /api/payment-avn/{id}/tcms-sign</code> — Ký số điện tử CA đại diện TCMS (Pmt_PaymentAVN_TCMSApproveAndSign)</li>
+        <li><code>POST /api/payment-avn/{id}/htv-sign</code> — Ký số điện tử CA đại diện HTV hoàn tất bảng kê (Pmt_PaymentAVN_HTVApproveAndSign -> Signed)</li>
+        <li><code>POST /api/payment-avn/{id}/settle</code> — Kế toán lập UNC ngân hàng quyết toán chuyển tiền thanh toán cho nhà cung cấp linh kiện (Settled)</li>
+        <li><code>POST /api/payment-avn/{id}/reject</code> — Từ chối duyệt bảng kê thanh toán (Pmt_PaymentAVN_Cancel)</li>
+        <li><code>POST /api/payment-avn/{id}/cancel</code> — Hủy bảng kê thanh toán AVN</li>
+        <li><code>POST /api/payment-avn/{id}/vehicles</code> — Bổ sung xe vào bảng kê nháp (FrmTaoThanhToanAVN_AddCar)</li>
+        <li><code>DELETE /api/payment-avn/{id}/vehicles/{detailId}</code> — Xóa 1 xe khỏi bảng kê nháp</li>
+        <li><code>DELETE /api/payment-avn/{id}</code> — Xóa toàn bộ bản ghi bảng kê nháp chưa ký số</li>
+        <li><code>GET /api/payment-avn/{id}/advice</code> — Sinh dữ liệu mẫu in Bảng kê quyết toán CR_PAYMENT_AVN Advice kèm đọc số tiền bằng chữ tiếng Việt</li>
+        <li><code>GET /api/payment-avn/summary</code> — Báo cáo tổng hợp số liệu bảng kê, số xe lắp đặt và tổng kinh phí AVN</li>
+        <li><code>GET /api/payment-avn/prices</code> — Bảng giá thiết bị AVN tham chiếu theo từng dòng xe (Mst_UnitPriceAVN / FrmMst_AVNPrice)</li>
+      </ul>
     </div>
   </div>
 
@@ -3149,6 +3493,7 @@
       document.getElementById('tab-paymentStorage').style.display = tabName === 'paymentStorage' ? 'block' : 'none';
       document.getElementById('tab-guaranteeExt').style.display = tabName === 'guaranteeExt' ? 'block' : 'none';
       document.getElementById('tab-guaranteeClaim').style.display = tabName === 'guaranteeClaim' ? 'block' : 'none';
+      document.getElementById('tab-paymentAVN').style.display = tabName === 'paymentAVN' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -3163,6 +3508,7 @@
       document.getElementById('tab-newPaymentStorage').style.display = tabName === 'newPaymentStorage' ? 'block' : 'none';
       document.getElementById('tab-newGuaranteeExt').style.display = tabName === 'newGuaranteeExt' ? 'block' : 'none';
       document.getElementById('tab-newGuaranteeClaim').style.display = tabName === 'newGuaranteeClaim' ? 'block' : 'none';
+      document.getElementById('tab-newPaymentAVN').style.display = tabName === 'newPaymentAVN' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
@@ -3180,21 +3526,23 @@
           (tabName === 'paymentStorage' && i === 10) ||
           (tabName === 'guaranteeExt' && i === 11) ||
           (tabName === 'guaranteeClaim' && i === 12) ||
-          (tabName === 'newBatch' && i === 13) ||
-          (tabName === 'newPayout' && i === 14) ||
-          (tabName === 'newDiscount' && i === 15) ||
-          (tabName === 'newGuarantee' && i === 16) ||
-          (tabName === 'newMortgage' && i === 17) ||
-          (tabName === 'newRedeem' && i === 18) ||
-          (tabName === 'newPaymentOrder' && i === 19) ||
-          (tabName === 'newBankBill' && i === 20) ||
-          (tabName === 'newPaymentPDI' && i === 21) ||
-          (tabName === 'newPenaltyDelay' && i === 22) ||
-          (tabName === 'newTransportIns' && i === 23) ||
-          (tabName === 'newPaymentStorage' && i === 24) ||
-          (tabName === 'newGuaranteeExt' && i === 25) ||
-          (tabName === 'newGuaranteeClaim' && i === 26) ||
-          (tabName === 'apiDocs' && i === 27));
+          (tabName === 'paymentAVN' && i === 13) ||
+          (tabName === 'newBatch' && i === 14) ||
+          (tabName === 'newPayout' && i === 15) ||
+          (tabName === 'newDiscount' && i === 16) ||
+          (tabName === 'newGuarantee' && i === 17) ||
+          (tabName === 'newMortgage' && i === 18) ||
+          (tabName === 'newRedeem' && i === 19) ||
+          (tabName === 'newPaymentOrder' && i === 20) ||
+          (tabName === 'newBankBill' && i === 21) ||
+          (tabName === 'newPaymentPDI' && i === 22) ||
+          (tabName === 'newPenaltyDelay' && i === 23) ||
+          (tabName === 'newTransportIns' && i === 24) ||
+          (tabName === 'newPaymentStorage' && i === 25) ||
+          (tabName === 'newGuaranteeExt' && i === 26) ||
+          (tabName === 'newGuaranteeClaim' && i === 27) ||
+          (tabName === 'newPaymentAVN' && i === 28) ||
+          (tabName === 'apiDocs' && i === 29));
       });
 
       if (tabName === 'reconcile') loadBatches();
@@ -3210,6 +3558,7 @@
       else if (tabName === 'paymentStorage') loadStorageRecords();
       else if (tabName === 'guaranteeExt') { loadGuaranteeExtList(); loadGuaranteeExtSummary(); }
       else if (tabName === 'guaranteeClaim') { loadGuaranteeClaims(); loadGuaranteeClaimSummary(); }
+      else if (tabName === 'paymentAVN') { loadPaymentAVNs(); loadPaymentAVNSummary(); }
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====
@@ -9278,6 +9627,568 @@
       }
     }
 
+    // ===== TAB: BẢNG KÊ THANH TOÁN THIẾT BỊ AVN XE Ô TÔ (PAYMENT AVN) =====
+    let currentAvnDetailId = null;
+
+    async function loadPaymentAVNSummary() {
+      try {
+        const res = await fetch('/api/payment-avn/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng bảng kê AVN';
+        document.getElementById('stat1').textContent = `${d.totalStatements} (Đã ký: ${d.signedCount + d.settledCount})`;
+        document.getElementById('statLabel2').textContent = 'Tổng xe lắp đặt AVN';
+        document.getElementById('stat2').textContent = `${d.totalVehiclesInstalled} xe`;
+        document.getElementById('statLabel3').textContent = 'Tổng kinh phí AVN trước thuế';
+        document.getElementById('stat3').textContent = (d.totalAmountBeforeVAT >= 1e9 ? (d.totalAmountBeforeVAT / 1e9).toFixed(2) + ' tỷ đ' : Number(d.totalAmountBeforeVAT).toLocaleString('vi-VN') + ' đ');
+        document.getElementById('statLabel4').textContent = 'Đã quyết toán chi trả UNC';
+        document.getElementById('stat4').textContent = (d.totalSettledAmount >= 1e9 ? (d.totalSettledAmount / 1e9).toFixed(2) + ' tỷ đ' : Number(d.totalSettledAmount).toLocaleString('vi-VN') + ' đ');
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadPaymentAVNs() {
+      await loadPaymentAVNSummary();
+      const pmtMonth = document.getElementById('filterAvnMonth').value.trim();
+      const status = document.getElementById('filterAvnStatus').value;
+      const supplier = document.getElementById('filterAvnSupplier').value;
+      const vin = document.getElementById('filterAvnVin').value.trim();
+
+      let url = '/api/payment-avn?';
+      if (pmtMonth) url += 'pmtMonth=' + encodeURIComponent(pmtMonth) + '&';
+      if (status) url += 'status=' + encodeURIComponent(status) + '&';
+      if (supplier) url += 'supplierCode=' + encodeURIComponent(supplier) + '&';
+      if (vin) url += 'vin=' + encodeURIComponent(vin) + '&';
+
+      const tbody = document.getElementById('paymentAvnTableBody');
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) throw new Error(res.statusText);
+        const list = await res.json();
+
+        if (!list || list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="12" class="muted" style="text-align:center;">Không tìm thấy bảng kê thanh toán AVN nào.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(p => {
+          let badge = 'badge-info';
+          let stText = p.status;
+          if (p.status === 'Draft') { badge = 'badge-warning'; stText = 'Mới tạo (Draft)'; }
+          else if (p.status === 'TCMSApproved') { badge = 'badge-info'; stText = 'TCMS Duyệt A1'; }
+          else if (p.status === 'HTVApproved') { badge = 'badge-info'; stText = 'HTV Duyệt A2'; }
+          else if (p.status === 'Signed') { badge = 'badge-success'; stText = 'Đã Ký CA (Signed)'; }
+          else if (p.status === 'Settled') { badge = 'badge-success'; stText = 'Đã Chi Trả (Settled)'; }
+          else if (p.status === 'Rejected') { badge = 'badge-danger'; stText = 'Từ Chối'; }
+          else if (p.status === 'Cancelled') { badge = 'badge-danger'; stText = 'Đã Hủy'; }
+
+          let signBadge = '<span class="badge badge-warning">P (Chưa ký)</span>';
+          if (p.tcmsSignStatus === 'Signed' && p.htvSignStatus === 'Signed') {
+            signBadge = '<span class="badge badge-success">A (TCMS &amp; HTV)</span>';
+          } else if (p.tcmsSignStatus === 'Signed') {
+            signBadge = '<span class="badge badge-info">A (TCMS Ký)</span>';
+          }
+
+          return `
+            <tr>
+              <td><strong>${p.paymentAVNNo}</strong></td>
+              <td><span class="badge badge-info">${p.pmtMonth}</span></td>
+              <td><strong>${p.supplierCode}</strong><br><small class="muted">${p.supplierName}</small></td>
+              <td style="text-align:center; font-weight:700;">${p.totalVehicles}</td>
+              <td style="text-align:right;">${Number(p.totalAmount).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right;">${Number(p.amountVAT).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; font-weight:700; color:var(--success);">${Number(p.totalAmountAfterVAT).toLocaleString('vi-VN')} đ</td>
+              <td><span class="badge ${badge}">${stText}</span></td>
+              <td>${signBadge}</td>
+              <td><code>${p.bankTxnRef || '-'}</code></td>
+              <td><small>${new Date(p.createdAt).toLocaleDateString('vi-VN')}</small></td>
+              <td>
+                <button class="secondary" style="padding:4px 8px; font-size:.82em;" onclick="viewPaymentAVNDetail(${p.id})">Chi Tiết</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="12" class="muted" style="text-align:center; color:var(--danger);">Lỗi tải danh sách: ${e.message}</td></tr>`;
+      }
+    }
+
+    async function viewPaymentAVNDetail(id) {
+      currentAvnDetailId = id;
+      const card = document.getElementById('cardPaymentAvnDetail');
+      card.style.display = 'block';
+
+      try {
+        const res = await fetch(`/api/payment-avn/${id}`, { headers });
+        if (!res.ok) throw new Error(res.statusText);
+        const p = await res.json();
+
+        document.getElementById('dtlAvnTitle').textContent = `Chi Tiết Bảng Kê Thanh Toán AVN #${p.paymentAVNNo}`;
+        document.getElementById('dtlAvnSubtitle').textContent = `Mã hồ sơ: #${p.id} | Kỳ thanh toán: ${p.pmtMonth} | Ngày lập: ${new Date(p.createdAt).toLocaleDateString('vi-VN')} | Người lập: ${p.createdBy || 'Chuyên viên linh kiện'}`;
+
+        document.getElementById('dtlAvnNo').textContent = p.paymentAVNNo;
+        document.getElementById('dtlAvnMonth').textContent = p.pmtMonth;
+        document.getElementById('dtlAvnSupplier').textContent = `${p.supplierCode} - ${p.supplierName}`;
+        document.getElementById('dtlAvnTotalVehicles').textContent = `${p.totalVehicles} xe`;
+
+        document.getElementById('dtlAvnTotalAmount').textContent = `${Number(p.totalAmount).toLocaleString('vi-VN')} đ`;
+        document.getElementById('dtlAvnAmountVAT').textContent = `${Number(p.amountVAT).toLocaleString('vi-VN')} đ (10%)`;
+        document.getElementById('dtlAvnTotalAmountAfterVAT').textContent = `${Number(p.totalAmountAfterVAT).toLocaleString('vi-VN')} đ`;
+
+        let badge = 'badge-info';
+        if (p.status === 'Draft') badge = 'badge-warning';
+        else if (p.status === 'Signed' || p.status === 'Settled') badge = 'badge-success';
+        else if (p.status === 'Rejected' || p.status === 'Cancelled') badge = 'badge-danger';
+        document.getElementById('dtlAvnStatus').innerHTML = `<span class="badge ${badge}">${p.status}</span>`;
+
+        document.getElementById('dtlAvnAppr1').textContent = p.appr1By ? `${p.appr1By} (${new Date(p.appr1DTime).toLocaleDateString('vi-VN')})` : 'Chưa duyệt';
+        document.getElementById('dtlAvnAppr2').textContent = p.appr2By ? `${p.appr2By} (${new Date(p.appr2DTime).toLocaleDateString('vi-VN')})` : 'Chưa duyệt';
+        document.getElementById('dtlAvnTCMSSign').textContent = p.tcmsSignStatus === 'Signed' ? `Đã ký bởi ${p.tcmsSignUser}` : 'Chưa ký';
+        document.getElementById('dtlAvnHTVSign').textContent = p.htvSignStatus === 'Signed' ? `Đã ký bởi ${p.htvSignUser}` : 'Chưa ký';
+        document.getElementById('dtlAvnSettled').textContent = p.settledBy ? `${p.settledBy} - UNC: ${p.bankTxnRef || 'N/A'}` : 'Chưa quyết toán';
+
+        document.getElementById('dtlAvnRemark').textContent = p.remark || 'Không có ghi chú';
+
+        // Điều khiển các nút hành động
+        document.getElementById('btnAvnApprove1').style.display = (p.status === 'Draft') ? 'inline-block' : 'none';
+        document.getElementById('btnAvnApprove2').style.display = (p.status === 'TCMSApproved') ? 'inline-block' : 'none';
+        document.getElementById('btnAvnTCMSSign').style.display = (p.status === 'HTVApproved' && p.tcmsSignStatus === 'Pending') ? 'inline-block' : 'none';
+        document.getElementById('btnAvnHTVSign').style.display = (p.status === 'HTVApproved' && p.tcmsSignStatus === 'Signed' && p.htvSignStatus === 'Pending') ? 'inline-block' : 'none';
+        document.getElementById('btnAvnSettle').style.display = (p.status === 'Signed') ? 'inline-block' : 'none';
+        document.getElementById('btnAvnReject').style.display = (p.status === 'Draft') ? 'inline-block' : 'none';
+        document.getElementById('btnAvnCancel').style.display = (p.status !== 'Settled' && p.status !== 'Cancelled') ? 'inline-block' : 'none';
+        document.getElementById('btnAvnAddVehicle').style.display = (p.status === 'Draft') ? 'inline-block' : 'none';
+        document.getElementById('btnAvnDeleteDraft').style.display = (p.status === 'Draft' || p.status === 'Cancelled') ? 'inline-block' : 'none';
+
+        // Danh sách xe chi tiết
+        const tbody = document.getElementById('dtlAvnVehiclesTableBody');
+        tbody.innerHTML = (p.details || []).map((d, idx) => {
+          let rowBadge = 'badge-info';
+          if (d.status === 'Approved') rowBadge = 'badge-success';
+          else if (d.status === 'Cancelled') rowBadge = 'badge-danger';
+
+          let delBtn = (p.status === 'Draft')
+            ? `<button class="secondary" style="color:var(--danger); padding:2px 6px; font-size:.8em;" onclick="removeAVNVehicle(${p.id}, ${d.id})">✕ Bỏ Xe</button>`
+            : '-';
+
+          return `
+            <tr>
+              <td>${idx + 1}</td>
+              <td><strong>${d.vin}</strong></td>
+              <td><strong>${d.modelCode}</strong><br><small class="muted">${d.modelName || ''}</small></td>
+              <td>${d.specDescription || d.specCode || '-'}</td>
+              <td>${d.colorName || '-'}</td>
+              <td><code>${d.avnCode}</code></td>
+              <td><strong>${d.serialNo}</strong></td>
+              <td style="text-align:right; font-weight:700; color:var(--primary);">${Number(d.unitPriceAVN).toLocaleString('vi-VN')} đ</td>
+              <td>${d.avnDate ? d.avnDate.slice(0, 10) : '-'}</td>
+              <td>${d.inStorageDate ? d.inStorageDate.slice(0, 10) : '-'}</td>
+              <td><span class="badge ${rowBadge}">${d.status}</span></td>
+              <td style="text-align:center;">${delBtn}</td>
+            </tr>
+          `;
+        }).join('');
+
+        card.scrollIntoView({ behavior: 'smooth' });
+      } catch(e) {
+        alert('Lỗi tải chi tiết bảng kê AVN: ' + e.message);
+      }
+    }
+
+    async function tcmsApproveAVN(id) {
+      const approver = prompt('Xác nhận TCMS Thẩm định duyệt cấp 1 (A1). Tên người duyệt:', 'NguyenVanQuan_GDKyThuat_TCMS');
+      if (!approver) return;
+      try {
+        const res = await fetch(`/api/payment-avn/${id}/tcms-approve`, {
+          method: 'POST', headers, body: JSON.stringify({ approverName: approver })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert(`Bảng kê #${id} đã được TCMS duyệt cấp 1 thành công!`);
+        viewPaymentAVNDetail(id);
+        loadPaymentAVNs();
+      } catch(e) { console.error(e); }
+    }
+
+    async function htvApproveAVN(id) {
+      const approver = prompt('Xác nhận HTV Duyệt thẩm định cấp 2 (A2). Tên người duyệt:', 'TranThiHong_TruongPhongKT_HTV');
+      if (!approver) return;
+      try {
+        const res = await fetch(`/api/payment-avn/${id}/htv-approve`, {
+          method: 'POST', headers, body: JSON.stringify({ approverName: approver })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert(`Bảng kê #${id} đã được HTV duyệt cấp 2 thành công! Chuyển sang bước ký số.`);
+        viewPaymentAVNDetail(id);
+        loadPaymentAVNs();
+      } catch(e) { console.error(e); }
+    }
+
+    async function tcmsSignAVN(id) {
+      const signer = prompt('Ký số điện tử CA đại diện Trung tâm TCMS. Tên người ký:', 'DaiDienTCMS_Kysodientu');
+      if (!signer) return;
+      try {
+        const res = await fetch(`/api/payment-avn/${id}/tcms-sign`, {
+          method: 'POST', headers, body: JSON.stringify({ signerName: signer })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert(`TCMS đã ký số điện tử CA bảng kê #${id} thành công!`);
+        viewPaymentAVNDetail(id);
+        loadPaymentAVNs();
+      } catch(e) { console.error(e); }
+    }
+
+    async function htvSignAVN(id) {
+      const signer = prompt('Ký số điện tử CA đại diện HTC / HTV phê duyệt hoàn tất. Tên người ký:', 'TongGiamDoc_HTV_Kysodientu');
+      if (!signer) return;
+      try {
+        const res = await fetch(`/api/payment-avn/${id}/htv-sign`, {
+          method: 'POST', headers, body: JSON.stringify({ signerName: signer })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert(`HTV đã ký số điện tử CA hoàn tất bảng kê #${id}! Trạng thái chuyển thành Signed (F).`);
+        viewPaymentAVNDetail(id);
+        loadPaymentAVNs();
+      } catch(e) { console.error(e); }
+    }
+
+    async function settleAVN(id) {
+      const ref = prompt('Nhập số chứng từ giao dịch UNC chi tiền ngân hàng (BankTxnRef):', `UNC-VCB-AVN-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-` + Math.floor(1000 + Math.random() * 9000));
+      if (!ref) return;
+
+      try {
+        const res = await fetch(`/api/payment-avn/${id}/settle`, {
+          method: 'POST', headers, body: JSON.stringify({ bankTxnRef: ref, settledBy: 'PhamVanThanh_KeToanThanhToan' })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Quyết toán thanh toán chuyển tiền ngân hàng thành công!');
+        viewPaymentAVNDetail(id);
+        loadPaymentAVNs();
+      } catch(e) { console.error(e); }
+    }
+
+    async function rejectAVN(id) {
+      const reason = prompt('Nhập lý do từ chối duyệt bảng kê AVN:');
+      if (!reason) return;
+
+      try {
+        const res = await fetch(`/api/payment-avn/${id}/reject`, {
+          method: 'POST', headers, body: JSON.stringify({ reason: reason, rejecterName: 'KiemSoatTaiChinh' })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã từ chối bảng kê.');
+        viewPaymentAVNDetail(id);
+        loadPaymentAVNs();
+      } catch(e) { console.error(e); }
+    }
+
+    async function cancelAVN(id) {
+      if (!confirm('Xác nhận hủy bảng kê thanh toán AVN này?')) return;
+      try {
+        const res = await fetch(`/api/payment-avn/${id}/cancel`, {
+          method: 'POST', headers, body: JSON.stringify({ reason: 'Hủy theo yêu cầu của đơn vị quản lý phụ tùng' })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã hủy bảng kê.');
+        viewPaymentAVNDetail(id);
+        loadPaymentAVNs();
+      } catch(e) { console.error(e); }
+    }
+
+    async function deleteDraftAVN(id) {
+      if (!confirm(`Xác nhận xóa vĩnh viễn bảng kê nháp #${id}?`)) return;
+      try {
+        const res = await fetch(`/api/payment-avn/${id}`, { method: 'DELETE', headers });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã xóa bảng kê nháp thành công!');
+        document.getElementById('cardPaymentAvnDetail').style.display = 'none';
+        loadPaymentAVNs();
+      } catch(e) { console.error(e); }
+    }
+
+    async function openPaymentAVNAdviceModal(id) {
+      try {
+        const res = await fetch(`/api/payment-avn/${id}/advice`, { headers });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        const adv = await res.json();
+
+        const content = document.getElementById('paymentAvnAdviceContent');
+        content.innerHTML = `
+          <div style="text-align:center; margin-bottom:16px;">
+            <h3 style="margin:0; text-transform:uppercase;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h3>
+            <p style="margin:2px 0;">Độc lập - Tự do - Hạnh phúc</p>
+            <p style="margin:8px 0 0; font-size:1.15em; font-weight:700; color:var(--primary);">BẢNG KÊ THANH TOÁN CHI PHÍ THIẾT BỊ AVN TRÊN XE Ô TÔ</p>
+            <p style="margin:2px 0;"><em>(Kỳ thanh toán: Tháng ${adv.pmtMonthFormatted} — Mẫu CR_PAYMENT_AVN)</em></p>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+            <div>
+              <div><strong>Số Bảng Kê:</strong> <code>${adv.paymentAVNNo}</code></div>
+              <div><strong>Đơn Vị Cung Cấp:</strong> ${adv.supplierName}</div>
+              <div><strong>Trạng Thái Bảng Kê:</strong> <span class="badge badge-info">${adv.statusText}</span></div>
+            </div>
+            <div style="text-align:right;">
+              <div><strong>Ngày In Bảng Kê:</strong> ${adv.printDate}</div>
+              <div><strong>Tổng Số Xe Lắp Đặt:</strong> <span style="font-size:1.2em; font-weight:700;">${adv.totalVehicles} xe</span></div>
+              <div><strong>Mã Bút Toán UNC:</strong> <code>${adv.bankTxnRef || 'Chưa chi trả'}</code></div>
+            </div>
+          </div>
+
+          <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:.86em;">
+            <thead>
+              <tr style="background:rgba(127,127,127,.1);">
+                <th style="border:1px solid var(--border); padding:6px; text-align:center;">STT</th>
+                <th style="border:1px solid var(--border); padding:6px;">Số Khung (VIN)</th>
+                <th style="border:1px solid var(--border); padding:6px;">Dòng Xe</th>
+                <th style="border:1px solid var(--border); padding:6px;">Phiên Bản</th>
+                <th style="border:1px solid var(--border); padding:6px;">Mã AVN</th>
+                <th style="border:1px solid var(--border); padding:6px;">Số Serial AVN</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:right;">Đơn Giá AVN (VND)</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:center;">Ngày Lắp</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:center;">Ngày Nhập Kho</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(adv.items || []).map(it => `
+                <tr>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:center;">${it.no}</td>
+                  <td style="border:1px solid var(--border); padding:6px;"><code>${it.vin}</code></td>
+                  <td style="border:1px solid var(--border); padding:6px;"><b>${it.modelCode}</b><br><small class="muted">${it.modelName}</small></td>
+                  <td style="border:1px solid var(--border); padding:6px;">${it.specDescription || it.specCode}</td>
+                  <td style="border:1px solid var(--border); padding:6px;"><code>${it.avnCode}</code></td>
+                  <td style="border:1px solid var(--border); padding:6px;">${it.serialNo}</td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:right; font-weight:700;">${Number(it.unitPriceAVN).toLocaleString('vi-VN')} đ</td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:center;">${it.avnDate}</td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:center;">${it.inStorageDate}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+            <tfoot>
+              <tr style="background:rgba(127,127,127,.05); font-weight:700;">
+                <td colspan="6" style="border:1px solid var(--border); padding:8px; text-align:right;">Tổng chi phí trước thuế VAT:</td>
+                <td style="border:1px solid var(--border); padding:8px; text-align:right; color:var(--primary); font-size:1.05em;">${Number(adv.totalAmount).toLocaleString('vi-VN')} đ</td>
+                <td colspan="2" style="border:1px solid var(--border);"></td>
+              </tr>
+              <tr style="background:rgba(127,127,127,.05); font-weight:700;">
+                <td colspan="6" style="border:1px solid var(--border); padding:8px; text-align:right;">Thuế GTGT (${adv.vatRate}%):</td>
+                <td style="border:1px solid var(--border); padding:8px; text-align:right; color:var(--warning);">${Number(adv.amountVAT).toLocaleString('vi-VN')} đ</td>
+                <td colspan="2" style="border:1px solid var(--border);"></td>
+              </tr>
+              <tr style="background:rgba(127,127,127,.1); font-weight:700;">
+                <td colspan="6" style="border:1px solid var(--border); padding:8px; text-align:right;">TỔNG THANH TOÁN (SAU THUẾ):</td>
+                <td style="border:1px solid var(--border); padding:8px; text-align:right; color:var(--success); font-size:1.15em;">${Number(adv.totalAmountAfterVAT).toLocaleString('vi-VN')} đ</td>
+                <td colspan="2" style="border:1px solid var(--border);"></td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <div style="margin-top:14px; padding:10px; background:rgba(127,127,127,.06); border-radius:6px;">
+            <strong>Số tiền bằng chữ:</strong> <em>${adv.amountInWords}</em>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; margin-top:30px; text-align:center;">
+            <div style="width:30%;">
+              <strong>ĐƠN VỊ LẮP RÁP TCMS</strong><br>
+              <small class="muted">(Ký, ghi rõ họ tên &amp; Đóng dấu)</small><br><br><br>
+              <div style="font-weight:600; color:var(--primary);">${adv.tcmsSignInfo}</div>
+            </div>
+            <div style="width:30%;">
+              <strong>PHÒNG KẾ TOÁN HTV</strong><br>
+              <small class="muted">(Kiểm tra, đối chiếu)</small><br><br><br>
+              <div style="font-weight:600;">Đã thẩm định duyệt</div>
+            </div>
+            <div style="width:30%;">
+              <strong>ĐẠI DIỆN PHÁP LUẬT HTV</strong><br>
+              <small class="muted">(Ký duyệt &amp; Ký số CA)</small><br><br><br>
+              <div style="font-weight:600; color:var(--success);">${adv.htvSignInfo}</div>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('modalPaymentAVNAdvice').style.display = 'block';
+      } catch(e) {
+        alert('Lỗi: ' + e.message);
+      }
+    }
+
+    function closePaymentAVNAdviceModal() {
+      document.getElementById('modalPaymentAVNAdvice').style.display = 'none';
+    }
+
+    let addCarForPaymentAvnId = null;
+
+    function openAddAVNVehiclesModal(id) {
+      addCarForPaymentAvnId = id;
+      document.getElementById('modalAddAVNVehicles').style.display = 'block';
+      document.getElementById('inpAddAvnVin').value = 'KMHCT81EPHU9' + Math.floor(100000 + Math.random() * 900000);
+      document.getElementById('inpAddAvnEngineNo').value = 'ENG-' + Math.floor(100000 + Math.random() * 900000);
+      document.getElementById('inpAddAvnSerialNo').value = 'AVN-SN-' + Math.floor(100000 + Math.random() * 900000);
+      onAddAvnModelChange();
+    }
+
+    function closeAddAVNVehiclesModal() {
+      document.getElementById('modalAddAVNVehicles').style.display = 'none';
+    }
+
+    function onAddAvnModelChange() {
+      const model = document.getElementById('inpAddAvnModel').value;
+      const codeInp = document.getElementById('inpAddAvnCode');
+      const priceInp = document.getElementById('inpAddAvnUnitPrice');
+
+      const prices = {
+        'SANTAFE': { code: 'AVN-STF-GEN5-PREM', price: 12500000 },
+        'SANTAFE-CAL': { code: 'AVN-STF-CAL-12.3IN', price: 14000000 },
+        'TUCSON': { code: 'AVN-TUC-GEN5-1025', price: 11000000 },
+        'TUCSON-TURBO': { code: 'AVN-TUC-TURBO-1025', price: 11500000 },
+        'CRETA': { code: 'AVN-CRT-1025-NAV', price: 9500000 },
+        'CRETA-PRE': { code: 'AVN-CRT-PREM-1025', price: 9800000 },
+        'ACCENT': { code: 'AVN-ACC-GEN5-8IN', price: 8500000 },
+        'ACCENT-1.5AT': { code: 'AVN-ACC-PREM-8IN', price: 8900000 },
+        'ELANTRA': { code: 'AVN-ELN-1025-WIDESCREEN', price: 9800000 },
+        'ELANTRA-NLINE': { code: 'AVN-ELN-NLINE-SPORT', price: 10500000 },
+        'STARGAZER': { code: 'AVN-SGZ-1025-NAV', price: 8800000 },
+        'PALISADE': { code: 'AVN-PAL-DUAL-12.3IN', price: 16500000 },
+        'CUSTIN': { code: 'AVN-CST-PORTRAIT-104', price: 14000000 },
+        'IONIQ-5': { code: 'AVN-IQ5-EV-DUAL-12.3', price: 18000000 }
+      };
+
+      if (prices[model]) {
+        codeInp.value = prices[model].code;
+        priceInp.value = prices[model].price;
+      }
+    }
+
+    async function submitAddAVNVehicle() {
+      const vin = document.getElementById('inpAddAvnVin').value.trim();
+      if (!vin) { alert('Vui lòng nhập số khung xe VIN.'); return; }
+
+      const item = {
+        vin: vin,
+        engineNo: document.getElementById('inpAddAvnEngineNo').value.trim(),
+        modelCode: document.getElementById('inpAddAvnModel').value,
+        colorName: document.getElementById('inpAddAvnColor').value.trim(),
+        avnCode: document.getElementById('inpAddAvnCode').value.trim(),
+        serialNo: document.getElementById('inpAddAvnSerialNo').value.trim(),
+        unitPriceAVN: parseInt(document.getElementById('inpAddAvnUnitPrice').value) || 10000000,
+        remark: document.getElementById('inpAddAvnRemark').value.trim()
+      };
+
+      try {
+        const res = await fetch(`/api/payment-avn/${addCarForPaymentAvnId}/vehicles`, {
+          method: 'POST', headers, body: JSON.stringify({ items: [item] })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã bổ sung xe vào bảng kê AVN thành công!');
+        closeAddAVNVehiclesModal();
+        loadPaymentAVNs();
+        viewPaymentAVNDetail(addCarForPaymentAvnId);
+      } catch(e) { console.error(e); }
+    }
+
+    async function removeAVNVehicle(paymentId, detailId) {
+      if (!confirm(`Xác nhận xóa dòng xe #${detailId} khỏi bảng kê?`)) return;
+      try {
+        const res = await fetch(`/api/payment-avn/${paymentId}/vehicles/${detailId}`, {
+          method: 'DELETE', headers
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã xóa dòng xe khỏi bảng kê!');
+        loadPaymentAVNs();
+        viewPaymentAVNDetail(paymentId);
+      } catch(e) { console.error(e); }
+    }
+
+    function onNewAvnSupplierChange() {
+      // Tự động gợi ý
+    }
+
+    function loadSampleAVNData() {
+      const sample = [
+        {
+          "vin": "KMHCT81EPHU950001",
+          "engineNo": "G4KP-102001",
+          "modelCode": "SANTAFE-CAL",
+          "modelName": "Hyundai Santa Fe Calligraphy 2.5T",
+          "specCode": "SF-2.5T-CAL6",
+          "specDescription": "Bản 6 chỗ ngồi động cơ Turbo 2.5L dẫn động HTRAC",
+          "colorName": "Trắng Ngọc Trai",
+          "avnCode": "AVN-STF-CAL-12.3IN",
+          "serialNo": "AVN-SN-STF-102001",
+          "unitPriceAVN": 14000000,
+          "remark": "Màn hình kép 12.3 inch hoàn tất kiểm tra phần mềm ccNC"
+        },
+        {
+          "vin": "KMHCT81EPHU950002",
+          "engineNo": "G4FJ-203002",
+          "modelCode": "TUCSON-TURBO",
+          "modelName": "Hyundai Tucson 1.6 T-GDi",
+          "specCode": "TUC-1.6T-PREM",
+          "specDescription": "Bản 1.6 Turbo HTRAC âm thanh cao cấp",
+          "colorName": "Đen Ánh Kim",
+          "avnCode": "AVN-TUC-TURBO-1025",
+          "serialNo": "AVN-SN-TUC-203002",
+          "unitPriceAVN": 11500000,
+          "remark": "Đã cập nhật bản đồ định vị Việt Nam mới nhất"
+        },
+        {
+          "vin": "KMHCT81EPHU950003",
+          "engineNo": "G4FL-304003",
+          "modelCode": "CRETA-PRE",
+          "modelName": "Hyundai Creta 1.5 Cao Cấp",
+          "specCode": "CRT-1.5L-PREM",
+          "specDescription": "Bản cao cấp màn hình 10.25 inch 8 loa Bose",
+          "colorName": "Đỏ Mận",
+          "avnCode": "AVN-CRT-PREM-1025",
+          "serialNo": "AVN-SN-CRT-304003",
+          "unitPriceAVN": 9800000,
+          "remark": "Âm thanh Bose và camera lùi hiển thị sắc nét"
+        }
+      ];
+
+      const el = document.getElementById('inpNewAvnVehiclesJson');
+      if (el) el.value = JSON.stringify(sample, null, 2);
+    }
+
+    async function submitCreatePaymentAVN() {
+      const msg = document.getElementById('submitNewAvnMsg');
+      try {
+        const rawJson = document.getElementById('inpNewAvnVehiclesJson').value.trim();
+        if (!rawJson) { alert('Vui lòng nhập danh sách xe hoặc nhấn Nạp Dữ Liệu Xe Mẫu.'); return; }
+        const items = JSON.parse(rawJson);
+
+        const payload = {
+          paymentAVNNo: document.getElementById('inpNewAvnNo').value.trim() || null,
+          pmtMonth: document.getElementById('inpNewAvnMonth').value.trim(),
+          supplierCode: document.getElementById('inpNewAvnSupplier').value,
+          supplierName: document.getElementById('inpNewAvnSupplier').options[document.getElementById('inpNewAvnSupplier').selectedIndex].text,
+          vatRate: parseFloat(document.getElementById('inpNewAvnVATRate').value) || 10.0,
+          remark: document.getElementById('inpNewAvnRemark').value.trim(),
+          createdBy: 'ChuyenVienLinhKienAVN',
+          items: items
+        };
+
+        if (!payload.pmtMonth) { alert('Vui lòng nhập kỳ thanh toán (PmtMonth, ví dụ: 2025-05).'); return; }
+
+        msg.textContent = 'Đang khởi tạo bảng kê AVN...';
+        const res = await fetch('/api/payment-avn', {
+          method: 'POST', headers, body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Bảng kê: ${data.paymentAVNNo} (Tổng thanh toán sau VAT: ${Number(data.totalAmountAfterVAT).toLocaleString('vi-VN')} đ)`;
+        setTimeout(() => {
+          showTab('paymentAVN');
+          viewPaymentAVNDetail(data.id);
+        }, 800);
+      } catch(e) {
+        msg.textContent = 'Lỗi cú pháp JSON: ' + e.message;
+      }
+    }
+
     // Khởi tạo
     loadSampleData();
     loadSamplePayoutData();
@@ -9288,6 +10199,7 @@
     loadSampleStorageData();
     loadSampleGuaranteeExtData();
     loadSampleGuaranteeClaimData();
+    loadSampleAVNData();
     loadBatches();
   </script>
 </body>

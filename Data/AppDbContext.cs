@@ -35,6 +35,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<GuaranteeExtensionDetail> GuaranteeExtensionDetails => Set<GuaranteeExtensionDetail>();
     public DbSet<BankGuaranteeClaim> GuaranteeClaims => Set<BankGuaranteeClaim>();
     public DbSet<BankGuaranteeClaimDetail> GuaranteeClaimDetails => Set<BankGuaranteeClaimDetail>();
+    public DbSet<PaymentAVN> PaymentAVNs => Set<PaymentAVN>();
+    public DbSet<PaymentAVNDetail> PaymentAVNDetails => Set<PaymentAVNDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -176,5 +178,16 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<BankGuaranteeClaimDetail>().Property(x => x.Status).HasConversion<int>();
         b.Entity<BankGuaranteeClaimDetail>().HasIndex(x => x.ClaimId);
         b.Entity<BankGuaranteeClaimDetail>().HasIndex(x => new { x.OrgId, x.VIN });
+
+        b.Entity<PaymentAVN>().HasIndex(x => new { x.OrgId, x.PaymentAVNNo }).IsUnique();
+        b.Entity<PaymentAVN>().HasIndex(x => new { x.OrgId, x.PmtMonth });
+        b.Entity<PaymentAVN>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<PaymentAVN>().Property(x => x.TCMSSignStatus).HasConversion<int>();
+        b.Entity<PaymentAVN>().Property(x => x.HTVSignStatus).HasConversion<int>();
+        b.Entity<PaymentAVN>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.PaymentAVNId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<PaymentAVNDetail>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<PaymentAVNDetail>().HasIndex(x => x.PaymentAVNId);
+        b.Entity<PaymentAVNDetail>().HasIndex(x => new { x.OrgId, x.VIN });
     }
 }

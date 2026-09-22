@@ -91,6 +91,12 @@ public enum ClaimSignCAStatus { Pending = 0, Signed = 1 }
 
 public enum GuaranteeClaimDetailStatus { Pending = 0, Claimed = 1, Settled = 2, BankRejected = 3, Cancelled = 4 }
 
+public enum PaymentAVNStatus { Draft = 0, TCMSApproved = 1, HTVApproved = 2, Signed = 3, Settled = 4, Rejected = 5, Cancelled = 6 }
+
+public enum AVNSignCAStatus { Pending = 0, Signed = 1 }
+
+public enum PaymentAVNDetailStatus { Pending = 0, Approved = 1, Adjusted = 2, Cancelled = 3 }
+
 /// <summary>Ý định thanh toán (payment intent) — 1 dòng / 1 lần khởi tạo cổng.</summary>
 public sealed class PaymentIntent
 {
@@ -945,6 +951,135 @@ public sealed class BankGuaranteeClaimDetail
     public double GrtPercent { get; set; } = 100.0;                  // Tỷ lệ % bảo lãnh xe
     public GuaranteeClaimDetailStatus Status { get; set; } = GuaranteeClaimDetailStatus.Pending; // Trạng thái xe đòi nợ
     public string? Remark { get; set; }                              // Ghi chú chi tiết dòng xe
+}
+
+/// <summary>Bảng kê thanh toán chi phí thiết bị âm thanh giải trí & định vị dẫn đường AVN xe ô tô — tương ứng Pmt_PaymentAVN trong BizHTC.Payment / FrmQuanLyThanhToanAVN &amp; FrmTaoThanhToanAVN.</summary>
+public sealed class PaymentAVN
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string PaymentAVNNo { get; set; } = "";             // Số bảng kê thanh toán AVN (ví dụ: AVN-202505-001)
+    public string PmtMonth { get; set; } = "";                 // Kỳ / tháng thanh toán AVN (ví dụ: 2025-05)
+    public string SupplierCode { get; set; } = "MOBIS-VN";     // Mã đơn vị cung cấp linh kiện / lắp ráp AVN (MOBIS-VN, MOTREX-VN, VIETTEL-AVN...)
+    public string SupplierName { get; set; } = "Công ty TNHH Mobis Auto Parts Việt Nam"; // Tên nhà cung cấp / đối tác AVN
+    public int TotalVehicles { get; set; }                     // Tổng số lượng xe gắn thiết bị AVN trong kỳ
+    public long TotalAmount { get; set; }                      // Tổng chi phí AVN trước thuế VAT (= Σ UnitPriceAVN)
+    public decimal VATRate { get; set; } = 10.0m;              // Thuế suất VAT (%)
+    public long AmountVAT { get; set; }                        // Tiền thuế VAT (= TotalAmount * VATRate / 100)
+    public long TotalAmountAfterVAT { get; set; }              // Tổng giá trị thanh toán sau thuế VAT (= TotalAmount + AmountVAT)
+    public PaymentAVNStatus Status { get; set; } = PaymentAVNStatus.Draft; // Trạng thái bảng kê
+    public AVNSignCAStatus TCMSSignStatus { get; set; } = AVNSignCAStatus.Pending; // Trạng thái ký TCMS (P: Chưa ký, A: Đã ký)
+    public string? TCMSSignUser { get; set; }                  // Người ký số TCMS
+    public DateTime? TCMSSignDTime { get; set; }               // Thời điểm ký số TCMS
+    public AVNSignCAStatus HTVSignStatus { get; set; } = AVNSignCAStatus.Pending;  // Trạng thái ký HTV (P: Chưa ký, A: Đã ký)
+    public string? HTVSignUser { get; set; }                   // Người ký số HTV
+    public DateTime? HTVSignDTime { get; set; }                // Thời điểm ký số HTV
+    public string? Appr1By { get; set; }                       // Người duyệt cấp 1 (TCMS Thẩm định duyệt sơ bộ A1)
+    public DateTime? Appr1DTime { get; set; }                  // Thời điểm duyệt cấp 1
+    public string? Appr2By { get; set; }                       // Người duyệt cấp 2 (HTV Ban Kế toán/Phụ tùng duyệt A2)
+    public DateTime? Appr2DTime { get; set; }                  // Thời điểm duyệt cấp 2
+    public string? SettledBy { get; set; }                     // Kế toán thanh toán qua UNC ngân hàng
+    public DateTime? SettledAt { get; set; }                   // Thời điểm quyết toán chi trả
+    public string? BankTxnRef { get; set; }                    // Mã bút toán / UNC ngân hàng chuyển tiền
+    public string? RejectReason { get; set; }                  // Lý do từ chối bảng kê
+    public DateTime? CancelledAt { get; set; }                 // Thời điểm hủy bảng kê
+    public string? FilePath { get; set; }                      // Đường dẫn / mã chứng từ file ký số CA (CR_PAYMENT_AVN.pdf)
+    public string? Remark { get; set; }                        // Ghi chú / diễn giải bảng kê
+    public string? CreatedBy { get; set; }                     // Người lập bảng kê
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    public List<PaymentAVNDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết dòng xe tính phí thiết bị AVN — tương ứng Pmt_PaymentAVNDetail trong BizHTC.Payment.</summary>
+public sealed class PaymentAVNDetail
+{
+    public long Id { get; set; }
+    public long PaymentAVNId { get; set; }
+    public Guid OrgId { get; set; }
+    public string PaymentAVNNo { get; set; } = "";             // Số bảng kê thanh toán AVN
+    public string VIN { get; set; } = "";                      // Số khung xe (17 ký tự VIN)
+    public string? EngineNo { get; set; }                      // Số máy xe
+    public string ModelCode { get; set; } = "";                // Mã model xe (SANTAFE, TUCSON, CRETA, ACCENT, ELANTRA...)
+    public string? ModelName { get; set; }                     // Tên thương mại dòng xe
+    public string? SpecCode { get; set; }                      // Mã phiên bản đặc tả kỹ thuật
+    public string? SpecDescription { get; set; }               // Diễn giải phiên bản xe
+    public string? ColorName { get; set; }                     // Màu sơn ngoại thất
+    public string AVNCode { get; set; } = "";                  // Mã chủng loại thiết bị AVN (AVN-SANTAFE-GEN5, AVN-TUCSON-1025...)
+    public string SerialNo { get; set; } = "";                 // Số serial thiết bị AVN dập trên vỏ/màn hình
+    public long UnitPriceAVN { get; set; }                     // Đơn giá thiết bị AVN (VND) tra theo danh mục Mst_UnitPriceAVN
+    public DateTime? AVNDate { get; set; }                     // Ngày lắp ráp / kích hoạt hệ thống AVN
+    public DateTime? InStorageDate { get; set; }               // Ngày xe hoàn thiện nhập kho lưu bãi nhà máy
+    public PaymentAVNDetailStatus Status { get; set; } = PaymentAVNDetailStatus.Pending; // Trạng thái dòng
+    public string? Remark { get; set; }                        // Ghi chú chi tiết dòng xe
+}
+
+public sealed class PaymentAVNItemInputDto
+{
+    public string VIN { get; set; } = "";
+    public string? EngineNo { get; set; }
+    public string ModelCode { get; set; } = "";
+    public string? ModelName { get; set; }
+    public string? SpecCode { get; set; }
+    public string? SpecDescription { get; set; }
+    public string? ColorName { get; set; }
+    public string AVNCode { get; set; } = "";
+    public string SerialNo { get; set; } = "";
+    public long? UnitPriceAVN { get; set; }
+    public DateTime? AVNDate { get; set; }
+    public DateTime? InStorageDate { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class PaymentAVNAdviceDto
+{
+    public string PaymentAVNNo { get; set; } = "";
+    public string PmtMonth { get; set; } = "";
+    public string PmtMonthFormatted { get; set; } = "";
+    public string PrintDate { get; set; } = "";
+    public string SupplierName { get; set; } = "";
+    public int TotalVehicles { get; set; }
+    public long TotalAmount { get; set; }
+    public decimal VATRate { get; set; }
+    public long AmountVAT { get; set; }
+    public long TotalAmountAfterVAT { get; set; }
+    public string AmountInWords { get; set; } = "";
+    public string StatusText { get; set; } = "";
+    public string TCMSSignInfo { get; set; } = "";
+    public string HTVSignInfo { get; set; } = "";
+    public string? BankTxnRef { get; set; }
+    public List<PaymentAVNDetailAdviceDto> Items { get; set; } = [];
+}
+
+public sealed class PaymentAVNDetailAdviceDto
+{
+    public int No { get; set; }
+    public string VIN { get; set; } = "";
+    public string ModelCode { get; set; } = "";
+    public string ModelName { get; set; } = "";
+    public string SpecCode { get; set; } = "";
+    public string SpecDescription { get; set; } = "";
+    public string EngineNo { get; set; } = "";
+    public string AVNCode { get; set; } = "";
+    public string SerialNo { get; set; } = "";
+    public long UnitPriceAVN { get; set; }
+    public string? AVNDate { get; set; }
+    public string? InStorageDate { get; set; }
+    public string Status { get; set; } = "";
+}
+
+public sealed class PaymentAVNSummaryDto
+{
+    public int TotalStatements { get; set; }
+    public int DraftCount { get; set; }
+    public int ApprovedCount { get; set; }
+    public int SignedCount { get; set; }
+    public int SettledCount { get; set; }
+    public int CancelledCount { get; set; }
+    public int TotalVehiclesInstalled { get; set; }
+    public long TotalAmountBeforeVAT { get; set; }
+    public long TotalVATAmount { get; set; }
+    public long TotalSettledAmount { get; set; }
 }
 
 
