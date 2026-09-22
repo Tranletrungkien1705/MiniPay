@@ -32,6 +32,7 @@ builder.Services.AddScoped<BankingPayoutService>();
 builder.Services.AddScoped<PaymentDiscountService>();
 builder.Services.AddScoped<PaymentGuaranteeService>();
 builder.Services.AddScoped<MortgageRedeemService>();
+builder.Services.AddScoped<PaymentOrderService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -1844,6 +1845,362 @@ app.MapGet("/api/mortgage/summary", async (MortgageRedeemService mgService, ITen
     return Results.Ok(summary);
 });
 
+// ===== Quản lý Phiếu thanh toán & Ủy nhiệm chi ngân hàng (Payment Order & Bank UNC Settlement - BizHTC.Payment) =====
+
+// 1) Tạo mới phiếu thanh toán & lập chứng từ UNC (Pmt_Payment_Save / FrmNewPM)
+app.MapPost("/api/payment-orders", async (CreatePaymentOrderDto dto, PaymentOrderService pmtService, ITenantContext tc) =>
+{
+    if (string.IsNullOrWhiteSpace(dto.PartnerCode))
+        return Results.BadRequest(new { error = "Mã đối tác / đại lý (PartnerCode / DealerCode) không được để trống." });
+    if (string.IsNullOrWhiteSpace(dto.BankAccountSend))
+        return Results.BadRequest(new { error = "Số tài khoản trích nợ (BankAccountSend) không được để trống." });
+    if (string.IsNullOrWhiteSpace(dto.BankCodeSend))
+        return Results.BadRequest(new { error = "Ngân hàng trích nợ (BankCodeSend) không được để trống." });
+    if (string.IsNullOrWhiteSpace(dto.BankAccountReceive))
+        return Results.BadRequest(new { error = "Số tài khoản thụ hưởng (BankAccountReceive) không được để trống." });
+    if (string.IsNullOrWhiteSpace(dto.BankCodeReceive))
+        return Results.BadRequest(new { error = "Ngân hàng thụ hưởng (BankCodeReceive) không được để trống." });
+    if (dto.Items == null || dto.Items.Count == 0)
+        return Results.BadRequest(new { error = "Phiếu thanh toán cần ít nhất 1 dòng xe / đơn hàng (ListPMDetail)." });
+
+    try
+    {
+        var order = await pmtService.CreatePaymentOrderAsync(
+            tc.OrgId,
+            dto.PaymentNo,
+            dto.PaymentType ?? PaymentOrderType.UNC,
+            dto.BankPaymentNo,
+            dto.PaymentEndDate,
+            dto.PartnerCode,
+            dto.PartnerName,
+            dto.BankCodeSend,
+            dto.BankNameSend,
+            dto.BankAccountSend,
+            dto.BankCodeReceive,
+            dto.BankNameReceive,
+            dto.BankAccountReceive,
+            dto.Funds ?? PaymentFundType.OwnCapital,
+            dto.BankLending,
+            dto.InterestRate,
+            dto.LoanPeriodMonths,
+            dto.AccountingRecordNo,
+            dto.Remark,
+            "KeToanThanhToan",
+            dto.Items
+        );
+
+        return Results.Ok(new
+        {
+            order.Id,
+            order.PaymentNo,
+            paymentType = order.PaymentType.ToString(),
+            order.BankPaymentNo,
+            order.PaymentEndDate,
+            order.PartnerCode,
+            order.PartnerName,
+            order.BankCodeSend,
+            order.BankNameSend,
+            order.BankAccountSend,
+            order.BankCodeReceive,
+            order.BankNameReceive,
+            order.BankAccountReceive,
+            funds = order.Funds.ToString(),
+            order.BankLending,
+            order.InterestRate,
+            order.LoanPeriodMonths,
+            order.AccountingRecordNo,
+            order.TotalAmount,
+            order.TotalAccumAmount,
+            status = order.Status.ToString(),
+            order.Remark,
+            order.CreatedBy,
+            order.CreatedAt,
+            details = order.Details.Select(d => new
+            {
+                d.Id,
+                d.ItemRefNo,
+                d.Description,
+                d.ModelCode,
+                d.UnitPriceActual,
+                d.AmountAccum,
+                d.PercentAccum,
+                d.Amount,
+                d.PercentCurrent,
+                d.AmountTotal,
+                d.PercentTotal,
+                d.GuaranteeNo,
+                d.BankGrtNo,
+                status = d.Status.ToString(),
+                d.Note
+            })
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 2) Danh sách phiếu thanh toán (Pmt_Payment_Get / FrmMngPM)
+app.MapGet("/api/payment-orders", async (AppDbContext db, ITenantContext tc, string? status, string? paymentType, string? bankCode, string? partnerCode) =>
+{
+    var q = db.PaymentOrders.Where(p => p.OrgId == tc.OrgId);
+    if (!string.IsNullOrWhiteSpace(bankCode))
+        q = q.Where(p => p.BankCodeSend == bankCode.ToUpper() || p.BankCodeReceive == bankCode.ToUpper());
+    if (!string.IsNullOrWhiteSpace(partnerCode))
+        q = q.Where(p => p.PartnerCode == partnerCode.ToUpper());
+    if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<PaymentOrderStatus>(status, true, out var st))
+        q = q.Where(p => p.Status == st);
+    if (!string.IsNullOrWhiteSpace(paymentType) && Enum.TryParse<PaymentOrderType>(paymentType, true, out var pt))
+        q = q.Where(p => p.PaymentType == pt);
+
+    var list = await q.OrderByDescending(p => p.CreatedAt)
+        .Select(p => new
+        {
+            p.Id,
+            p.PaymentNo,
+            paymentType = p.PaymentType.ToString(),
+            p.BankPaymentNo,
+            p.PaymentEndDate,
+            p.PartnerCode,
+            p.PartnerName,
+            p.BankCodeSend,
+            p.BankNameSend,
+            p.BankAccountSend,
+            p.BankCodeReceive,
+            p.BankNameReceive,
+            p.BankAccountReceive,
+            funds = p.Funds.ToString(),
+            p.BankLending,
+            p.InterestRate,
+            p.LoanPeriodMonths,
+            p.AccountingRecordNo,
+            p.TotalAmount,
+            p.TotalAccumAmount,
+            status = p.Status.ToString(),
+            p.Remark,
+            p.RejectReason,
+            p.CreatedBy,
+            p.CreatedAt,
+            p.ApprovedBy,
+            p.ApprovedAt,
+            p.FinishedBy,
+            p.FinishedAt,
+            p.CancelledAt
+        })
+        .ToListAsync();
+
+    return Results.Ok(list);
+});
+
+// 3) Chi tiết 1 phiếu thanh toán kèm danh sách xe / đơn hàng (Pmt_PaymentDetail_Get / FrmMngPM.LoadPMDetail)
+app.MapGet("/api/payment-orders/{id:long}", async (long id, AppDbContext db, ITenantContext tc) =>
+{
+    var order = await db.PaymentOrders
+        .Include(p => p.Details)
+        .FirstOrDefaultAsync(p => p.Id == id && p.OrgId == tc.OrgId);
+
+    if (order == null) return Results.NotFound(new { error = $"Không tìm thấy phiếu thanh toán #{id}." });
+
+    return Results.Ok(new
+    {
+        order.Id,
+        order.PaymentNo,
+        paymentType = order.PaymentType.ToString(),
+        order.BankPaymentNo,
+        order.PaymentEndDate,
+        order.PartnerCode,
+        order.PartnerName,
+        order.BankCodeSend,
+        order.BankNameSend,
+        order.BankAccountSend,
+        order.BankCodeReceive,
+        order.BankNameReceive,
+        order.BankAccountReceive,
+        funds = order.Funds.ToString(),
+        order.BankLending,
+        order.InterestRate,
+        order.LoanPeriodMonths,
+        order.AccountingRecordNo,
+        order.TotalAmount,
+        order.TotalAccumAmount,
+        status = order.Status.ToString(),
+        order.Remark,
+        order.RejectReason,
+        order.CreatedBy,
+        order.CreatedAt,
+        order.ApprovedBy,
+        order.ApprovedAt,
+        order.FinishedBy,
+        order.FinishedAt,
+        order.CancelledAt,
+        details = order.Details.OrderBy(d => d.Id).Select(d => new
+        {
+            d.Id,
+            d.ItemRefNo,
+            d.Description,
+            d.ModelCode,
+            d.UnitPriceActual,
+            d.AmountAccum,
+            d.PercentAccum,
+            d.Amount,
+            d.PercentCurrent,
+            d.AmountTotal,
+            d.PercentTotal,
+            d.GuaranteeNo,
+            d.BankGrtNo,
+            status = d.Status.ToString(),
+            d.Note
+        })
+    });
+});
+
+// 4) Phê duyệt phiếu thanh toán (FrmMngPM.btnApprove_Click / FrmNewPM.MODE_APPROVE_PM)
+app.MapPost("/api/payment-orders/{id:long}/approve", async (long id, ApprovePaymentOrderDto? dto, PaymentOrderService pmtService, ITenantContext tc) =>
+{
+    try
+    {
+        var order = await pmtService.ApprovePaymentOrderAsync(id, tc.OrgId, dto?.ApproverName);
+        if (order == null) return Results.NotFound(new { error = $"Không tìm thấy phiếu thanh toán #{id}." });
+
+        return Results.Ok(new
+        {
+            order.Id,
+            order.PaymentNo,
+            status = order.Status.ToString(),
+            order.ApprovedBy,
+            order.ApprovedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 5) Xác nhận hoàn tất thanh toán & hạn thanh toán thực tế (FrmMngPM.btnConfirmEndDate_Click)
+app.MapPost("/api/payment-orders/{id:long}/finish", async (long id, FinishPaymentOrderDto? dto, PaymentOrderService pmtService, ITenantContext tc) =>
+{
+    try
+    {
+        var order = await pmtService.ConfirmFinishPaymentOrderAsync(
+            id, tc.OrgId, dto?.PaymentEndDate, dto?.FinisherName, dto?.BankPaymentNo);
+        if (order == null) return Results.NotFound(new { error = $"Không tìm thấy phiếu thanh toán #{id}." });
+
+        return Results.Ok(new
+        {
+            order.Id,
+            order.PaymentNo,
+            status = order.Status.ToString(),
+            order.PaymentEndDate,
+            order.BankPaymentNo,
+            order.FinishedBy,
+            order.FinishedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Quay lui trạng thái phiếu thanh toán từ Finished về Approved (FrmMngPM.btnRevertConfirmed_Click)
+app.MapPost("/api/payment-orders/{id:long}/revert", async (long id, PaymentOrderService pmtService, ITenantContext tc) =>
+{
+    try
+    {
+        var order = await pmtService.RevertPaymentOrderAsync(id, tc.OrgId);
+        if (order == null) return Results.NotFound(new { error = $"Không tìm thấy phiếu thanh toán #{id}." });
+
+        return Results.Ok(new
+        {
+            order.Id,
+            order.PaymentNo,
+            status = order.Status.ToString()
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 7) Từ chối phê duyệt phiếu thanh toán (FrmMngPM.btnDealerReject_Click)
+app.MapPost("/api/payment-orders/{id:long}/reject", async (long id, RejectPaymentOrderDto dto, PaymentOrderService pmtService, ITenantContext tc) =>
+{
+    try
+    {
+        var order = await pmtService.RejectPaymentOrderAsync(id, tc.OrgId, dto.Reason, dto.RejecterName);
+        if (order == null) return Results.NotFound(new { error = $"Không tìm thấy phiếu thanh toán #{id}." });
+
+        return Results.Ok(new
+        {
+            order.Id,
+            order.PaymentNo,
+            status = order.Status.ToString(),
+            order.RejectReason,
+            order.ApprovedBy,
+            order.ApprovedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 8) Hủy phiếu thanh toán (FrmMngPM.btnCancel_Click)
+app.MapPost("/api/payment-orders/{id:long}/cancel", async (long id, CancelPaymentOrderDto? dto, PaymentOrderService pmtService, ITenantContext tc) =>
+{
+    try
+    {
+        var order = await pmtService.CancelPaymentOrderAsync(id, tc.OrgId, dto?.Reason);
+        if (order == null) return Results.NotFound(new { error = $"Không tìm thấy phiếu thanh toán #{id}." });
+
+        return Results.Ok(new
+        {
+            order.Id,
+            order.PaymentNo,
+            status = order.Status.ToString(),
+            order.CancelledAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 9) Sinh nội dung mẫu Ủy nhiệm chi ngân hàng (Pmt_Payment_GetUNCContent_New20221111 / btnInUNC_Click)
+app.MapGet("/api/payment-orders/{id:long}/unc-content", async (long id, PaymentOrderService pmtService, ITenantContext tc) =>
+{
+    var advice = await pmtService.GenerateUNCContentAsync(id, tc.OrgId);
+    if (advice == null) return Results.NotFound(new { error = $"Không tìm thấy phiếu thanh toán #{id}." });
+    return Results.Ok(advice);
+});
+
+// 10) Cập nhật nhanh lãi suất và kỳ hạn vay theo lô (Pmt_Payment_UpdateInterestRate_LoanPeriod / FrmUpdate_Pmt_Payment)
+app.MapPost("/api/payment-orders/update-rates", async (UpdatePaymentRatesDto dto, PaymentOrderService pmtService, ITenantContext tc) =>
+{
+    try
+    {
+        var updatedCount = await pmtService.UpdateInterestRateLoanPeriodAsync(
+            tc.OrgId, dto.PaymentIds, dto.InterestRate, dto.LoanPeriodMonths);
+        return Results.Ok(new { updatedCount, dto.InterestRate, dto.LoanPeriodMonths });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 11) Báo cáo tổng hợp số liệu thanh toán (Payment Order Summary)
+app.MapGet("/api/payment-orders/summary", async (PaymentOrderService pmtService, ITenantContext tc) =>
+{
+    var summary = await pmtService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
 app.Run();
 
 record CreatePayDto(long Amount, string? OrderId, string? OrderInfo, string? BankCode);
@@ -1873,3 +2230,29 @@ record CreateRedeemDto(string? ReqDMNo, string BankCode, string? BankName, strin
 record ApproveRedeemDto(string? ApproverName);
 record RejectRedeemDto(string Reason, string? RejecterName);
 record CancelRedeemDto(string? Reason);
+record CreatePaymentOrderDto(
+    string? PaymentNo,
+    PaymentOrderType? PaymentType,
+    string? BankPaymentNo,
+    DateTime? PaymentEndDate,
+    string PartnerCode,
+    string? PartnerName,
+    string BankCodeSend,
+    string? BankNameSend,
+    string BankAccountSend,
+    string BankCodeReceive,
+    string? BankNameReceive,
+    string BankAccountReceive,
+    PaymentFundType? Funds,
+    string? BankLending,
+    decimal? InterestRate,
+    int? LoanPeriodMonths,
+    string? AccountingRecordNo,
+    string? Remark,
+    List<PaymentOrderItemInputDto> Items
+);
+record ApprovePaymentOrderDto(string? ApproverName);
+record FinishPaymentOrderDto(DateTime? PaymentEndDate, string? BankPaymentNo, string? FinisherName);
+record RejectPaymentOrderDto(string Reason, string? RejecterName);
+record CancelPaymentOrderDto(string? Reason);
+record UpdatePaymentRatesDto(List<long> PaymentIds, decimal InterestRate, int LoanPeriodMonths);

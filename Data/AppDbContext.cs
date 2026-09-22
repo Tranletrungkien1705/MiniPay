@@ -19,6 +19,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<MortgageDetail> MortgageDetails => Set<MortgageDetail>();
     public DbSet<RedeemRequest> RedeemRequests => Set<RedeemRequest>();
     public DbSet<RedeemDetail> RedeemDetails => Set<RedeemDetail>();
+    public DbSet<PaymentOrder> PaymentOrders => Set<PaymentOrder>();
+    public DbSet<PaymentOrderDetail> PaymentOrderDetails => Set<PaymentOrderDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -79,5 +81,15 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<RedeemDetail>().Property(x => x.Status).HasConversion<int>();
         b.Entity<RedeemDetail>().HasIndex(x => x.RedeemRequestId);
         b.Entity<RedeemDetail>().HasIndex(x => new { x.OrgId, x.ItemRefNo });
+
+        b.Entity<PaymentOrder>().HasIndex(x => new { x.OrgId, x.PaymentNo }).IsUnique();
+        b.Entity<PaymentOrder>().Property(x => x.PaymentType).HasConversion<int>();
+        b.Entity<PaymentOrder>().Property(x => x.Funds).HasConversion<int>();
+        b.Entity<PaymentOrder>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<PaymentOrder>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.PaymentOrderId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<PaymentOrderDetail>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<PaymentOrderDetail>().HasIndex(x => x.PaymentOrderId);
+        b.Entity<PaymentOrderDetail>().HasIndex(x => new { x.OrgId, x.ItemRefNo });
     }
 }

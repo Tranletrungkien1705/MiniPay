@@ -43,6 +43,14 @@ public enum RedeemStatus { Draft = 0, PendingApproval = 1, Approved = 2, Complet
 
 public enum RedeemDetailStatus { Pending = 0, Approved = 1, Cancelled = 2 }
 
+public enum PaymentOrderType { Deposit = 0, OrderPayment = 1, UNC = 2, GuaranteePayment = 3, Cash = 4, Offset = 5 }
+
+public enum PaymentFundType { OwnCapital = 0, BankLoan = 1, CreditLine = 2 }
+
+public enum PaymentOrderStatus { Draft = 0, PendingApproval = 1, Approved = 2, Finished = 3, Rejected = 4, Cancelled = 5 }
+
+public enum PaymentOrderDetailStatus { Pending = 0, Approved = 1, Finished = 2, Cancelled = 3 }
+
 /// <summary>Ý định thanh toán (payment intent) — 1 dòng / 1 lần khởi tạo cổng.</summary>
 public sealed class PaymentIntent
 {
@@ -365,3 +373,64 @@ public sealed class RedeemDetail
     public DateTime? ApprovedAt { get; set; }             // Thời điểm duyệt giải chấp
     public string? Note { get; set; }
 }
+
+/// <summary>Phiếu thanh toán & Ủy nhiệm chi ngân hàng — tương ứng Pmt_Payment trong BizHTC.Payment / FrmMngPM & FrmNewPM.</summary>
+public sealed class PaymentOrder
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string PaymentNo { get; set; } = "";          // Số phiếu thanh toán (PM-20250514-001)
+    public PaymentOrderType PaymentType { get; set; } = PaymentOrderType.UNC; // Loại thanh toán (Deposit, OrderPayment, UNC...)
+    public string? BankPaymentNo { get; set; }           // Số chứng từ ngân hàng / Số UNC (UNC-VCB-8812)
+    public DateTime PaymentEndDate { get; set; } = DateTime.Today.AddDays(30); // Hạn thanh toán
+    public string PartnerCode { get; set; } = "";        // Mã đại lý / đối tác nộp/chuyển tiền (DealerCode)
+    public string PartnerName { get; set; } = "";        // Tên đại lý / đối tác
+    public string BankCodeSend { get; set; } = "";       // Ngân hàng chuyển / trích nợ (VCB, CTG, MBB, TCB...)
+    public string? BankNameSend { get; set; }            // Tên ngân hàng chuyển
+    public string BankAccountSend { get; set; } = "";    // Số tài khoản trích nợ
+    public string BankCodeReceive { get; set; } = "";    // Ngân hàng thụ hưởng
+    public string? BankNameReceive { get; set; }         // Tên ngân hàng thụ hưởng
+    public string BankAccountReceive { get; set; } = ""; // Số tài khoản thụ hưởng
+    public PaymentFundType Funds { get; set; } = PaymentFundType.OwnCapital; // Nguồn tiền: Vốn tự có, Vay ngân hàng, Hạn mức bảo lãnh
+    public string? BankLending { get; set; }             // Ngân hàng cho vay (khi Funds = BankLoan)
+    public decimal InterestRate { get; set; }            // Lãi suất vay (%/năm)
+    public int LoanPeriodMonths { get; set; }            // Kỳ hạn vay (tháng)
+    public string? AccountingRecordNo { get; set; }      // Số chứng từ kế toán ghi sổ
+    public long TotalAmount { get; set; }                // Tổng tiền thanh toán đợt này (VND)
+    public long TotalAccumAmount { get; set; }           // Tổng tiền tích lũy sau đợt này (VND)
+    public PaymentOrderStatus Status { get; set; } = PaymentOrderStatus.PendingApproval; // Trạng thái phiếu
+    public string Remark { get; set; } = "";             // Diễn giải / Gợi ý nội dung UNC
+    public string? RejectReason { get; set; }            // Lý do từ chối
+    public string? CreatedBy { get; set; }               // Người lập phiếu
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public string? ApprovedBy { get; set; }              // Kế toán trưởng phê duyệt
+    public DateTime? ApprovedAt { get; set; }            // Thời điểm duyệt
+    public string? FinishedBy { get; set; }              // Người xác nhận hoàn tất / ghi sổ UNC
+    public DateTime? FinishedAt { get; set; }            // Thời điểm hoàn tất
+    public DateTime? CancelledAt { get; set; }           // Thời điểm hủy
+
+    public List<PaymentOrderDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết dòng thanh toán theo đơn / xe / hợp đồng — tương ứng Pmt_PaymentDetail trong BizHTC.Payment.</summary>
+public sealed class PaymentOrderDetail
+{
+    public long Id { get; set; }
+    public long PaymentOrderId { get; set; }
+    public Guid OrgId { get; set; }
+    public string ItemRefNo { get; set; } = "";          // Số khung VIN xe / Mã đơn / Hợp đồng (CarVIN / ItemRefNo)
+    public string Description { get; set; } = "";        // Tên hàng hóa / mô tả xe / đơn hàng
+    public string? ModelCode { get; set; }               // Dòng xe / Model
+    public long UnitPriceActual { get; set; }            // Đơn giá thực tế xe / đơn hàng (VND)
+    public long AmountAccum { get; set; }                // Tích lũy đã thanh toán trước đó (VND)
+    public decimal PercentAccum { get; set; }            // % đã thanh toán trước đó
+    public long Amount { get; set; }                     // Số tiền thanh toán đợt này (VND)
+    public decimal PercentCurrent { get; set; }          // % thanh toán đợt này
+    public long AmountTotal { get; set; }                // Tổng lũy kế sau đợt này (= Amount + AmountAccum)
+    public decimal PercentTotal { get; set; }            // Tổng % lũy kế sau đợt này (= PercentCurrent + PercentAccum)
+    public string? GuaranteeNo { get; set; }             // Số bảo lãnh hệ thống áp dụng
+    public string? BankGrtNo { get; set; }               // Số thư bảo lãnh ngân hàng cấp
+    public PaymentOrderDetailStatus Status { get; set; } = PaymentOrderDetailStatus.Pending; // Trạng thái dòng
+    public string? Note { get; set; }
+}
+

@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MiniPay — Cổng Thanh Toán, Đối Soát Sao Kê, Lệnh Chi, Chiết Khấu &amp; Bảo Lãnh Ngân Hàng</title>
+<title>MiniPay — Cổng Thanh Toán, Đối Soát Sao Kê, Lệnh Chi, Chiết Khấu, Bảo Lãnh, Thế Chấp &amp; Phiếu Thanh Toán UNC</title>
 <style>
   :root {
     --bg: #0f172a; --surface: #1e293b; --border: #334155;
@@ -91,12 +91,14 @@
     <button class="tab-btn" onclick="showTab('discount')">Chiết Khấu Thanh Toán (Payment Discount)</button>
     <button class="tab-btn" onclick="showTab('guarantee')">Bảo Lãnh Ngân Hàng (Bank Guarantee)</button>
     <button class="tab-btn" onclick="showTab('mortgage')">Thế Chấp &amp; Giải Chấp (Bank Mortgage &amp; Redeem)</button>
+    <button class="tab-btn" onclick="showTab('paymentOrder')">Phiếu Thanh Toán &amp; UNC (Payment Order)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
     <button class="tab-btn" onclick="showTab('newGuarantee')">+ Lập Thư Bảo Lãnh Mới</button>
     <button class="tab-btn" onclick="showTab('newMortgage')">+ Lập Đề Nghị Thế Chấp</button>
     <button class="tab-btn" onclick="showTab('newRedeem')">+ Lập Đề Nghị Giải Chấp</button>
+    <button class="tab-btn" onclick="showTab('newPaymentOrder')">+ Lập Phiếu Thanh Toán</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -606,6 +608,126 @@
     </div>
   </div>
 
+  <!-- TAB: Danh sách Phiếu Thanh Toán & UNC -->
+  <div id="tab-paymentOrder" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+        <h3 style="margin:0;">Quản lý Phiếu Thanh Toán &amp; Ủy Nhiệm Chi (Pmt_Payment / FrmMngPM)</h3>
+        <div style="display:flex; gap:8px;">
+          <button class="secondary" onclick="loadPaymentOrders()">Làm mới</button>
+          <button onclick="showTab('newPaymentOrder')">+ Lập Phiếu Thanh Toán</button>
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Trạng Thái Phiếu:</label>
+          <select id="filterPaymentStatus" onchange="loadPaymentOrders()">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="PendingApproval">Chờ Phê Duyệt (PendingApproval)</option>
+            <option value="Approved">Đã Phê Duyệt (Approved)</option>
+            <option value="Finished">Đã Hoàn Tất (Finished)</option>
+            <option value="Rejected">Từ Chối (Rejected)</option>
+            <option value="Cancelled">Đã Hủy (Cancelled)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Hình Thức Thanh Toán:</label>
+          <select id="filterPaymentType" onchange="loadPaymentOrders()">
+            <option value="">-- Tất cả hình thức --</option>
+            <option value="UNC">Ủy Nhiệm Chi (UNC)</option>
+            <option value="Deposit">Nộp Tiền Cọc (Deposit)</option>
+            <option value="OrderPayment">Thanh Toán Tiền Xe/Đơn (OrderPayment)</option>
+            <option value="GuaranteePayment">Bảo Lãnh Ngân Hàng (GuaranteePayment)</option>
+            <option value="Cash">Tiền Mặt (Cash)</option>
+            <option value="Offset">Bù Trừ Công Nợ (Offset)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Ngân Hàng Trích Nợ / Thụ Hưởng:</label>
+          <select id="filterPaymentBank" onchange="loadPaymentOrders()">
+            <option value="">-- Tất cả ngân hàng --</option>
+            <option value="VCB">Vietcombank (VCB)</option>
+            <option value="CTG">VietinBank (CTG)</option>
+            <option value="MBB">MBBank (MBB)</option>
+            <option value="TCB">Techcombank (TCB)</option>
+            <option value="VPB">VPBank (VPB)</option>
+            <option value="ACB">ACB</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Mã Đại Lý / Đối Tác:</label>
+          <input type="text" id="filterPaymentPartner" placeholder="Ví dụ: DLR-HYUNDAI..." onkeyup="if(event.key==='Enter')loadPaymentOrders()">
+        </div>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Phiếu TT</th>
+              <th>Loại TT</th>
+              <th>Đại Lý / Đối Tác</th>
+              <th>TK Trích Nợ</th>
+              <th>TK Thụ Hưởng</th>
+              <th>Nguồn Tiền</th>
+              <th>Tổng Tiền TT</th>
+              <th>Tổng Lũy Kế</th>
+              <th>Hạn TT</th>
+              <th>Trạng Thái</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="paymentOrderTableBody">
+            <tr><td colspan="11" class="muted" style="text-align:center;">Đang tải danh sách phiếu thanh toán...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Chi tiết 1 phiếu thanh toán -->
+    <div class="card" id="paymentOrderDetailCard" style="display:none; margin-top:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 id="paymentOrderDetailTitle" style="margin:0;">Chi Tiết Phiếu Thanh Toán</h3>
+        <button class="secondary" onclick="document.getElementById('paymentOrderDetailCard').style.display='none'">Đóng</button>
+      </div>
+      <p class="muted" id="paymentOrderDetailSubtitle" style="margin-top:4px;"></p>
+
+      <div id="paymentOrderAuditBox" style="background:rgba(127,127,127,.08); padding:10px; border-radius:6px; margin:10px 0; font-size:.88em; display:none;"></div>
+
+      <div style="margin:12px 0; display:flex; gap:8px; flex-wrap:wrap;">
+        <button id="btnApprovePaymentOrder" style="display:none; background:var(--primary);">Phê Duyệt Phiếu (Approve)</button>
+        <button id="btnFinishPaymentOrder" style="display:none; background:var(--success);">Xác Nhận Hoàn Tất UNC &amp; Hạn TT (Finish)</button>
+        <button id="btnRevertPaymentOrder" style="display:none; background:var(--warning); color:#000;">Quay Lui Về Đã Duyệt (Revert)</button>
+        <button id="btnViewUNCAdvice" style="background:#6366f1;">Xem &amp; In Mẫu UNC Ngân Hàng</button>
+        <button id="btnRejectPaymentOrder" style="display:none; background:var(--danger);">Từ Chối Duyệt (Reject)</button>
+        <button id="btnCancelPaymentOrder" class="secondary" style="display:none; color:var(--danger); border-color:var(--danger);">Hủy Phiếu (Cancel)</button>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Mã Xe / Số Khung (VIN)</th>
+              <th>Mô Tả Hàng Hóa / Xe</th>
+              <th>Model</th>
+              <th>Đơn Giá Thực Tế</th>
+              <th>Tích Lũy Trước</th>
+              <th>TT Đợt Này</th>
+              <th>Lũy Kế Sau Đợt Này</th>
+              <th>Số Bảo Lãnh</th>
+              <th>Trạng Thái</th>
+              <th>Ghi Chú</th>
+            </tr>
+          </thead>
+          <tbody id="paymentOrderDetailTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+
   <!-- TAB 3: Nạp sao kê & đối soát mới -->
   <div id="tab-newBatch" style="display:none;">
     <div class="card">
@@ -999,6 +1121,141 @@
     </div>
   </div>
 
+  <!-- TAB: Lập Phiếu Thanh Toán & Chứng Từ UNC Mới -->
+  <div id="tab-newPaymentOrder" style="display:none;">
+    <div class="card">
+      <h3>Lập Phiếu Thanh Toán &amp; Chứng Từ UNC Ngân Hàng (FrmNewPM)</h3>
+      <p class="muted">Tạo phiếu thanh toán tiền xe / đơn hàng / nộp cọc / bảo lãnh, kiểm tra tự động tích lũy không vượt quá đơn giá.</p>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Phiếu Thanh Toán (để trống để tự sinh):</label>
+          <input type="text" id="inpPaymentNo" placeholder="Ví dụ: PM-20250514-001">
+        </div>
+        <div class="col">
+          <label class="muted">Loại Thanh Toán:</label>
+          <select id="inpPaymentType">
+            <option value="2">Ủy Nhiệm Chi (UNC)</option>
+            <option value="0">Nộp Tiền Cọc (Deposit)</option>
+            <option value="1">Thanh Toán Tiền Xe/Hàng (OrderPayment)</option>
+            <option value="3">Bảo Lãnh Ngân Hàng (GuaranteePayment)</option>
+            <option value="4">Tiền Mặt (Cash)</option>
+            <option value="5">Bù Trừ Công Nợ (Offset)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Số Chứng Từ Ngân Hàng / UNC:</label>
+          <input type="text" id="inpBankPaymentNo" placeholder="Ví dụ: UNC-VCB-8899">
+        </div>
+        <div class="col">
+          <label class="muted">Hạn Thanh Toán:</label>
+          <input type="date" id="inpPaymentEndDate">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Mã Đại Lý / Đối Tác:</label>
+          <input type="text" id="inpPaymentPartnerCode" value="DLR-HYUNDAI-THANHXUAN">
+        </div>
+        <div class="col">
+          <label class="muted">Tên Đại Lý / Đối Tác:</label>
+          <input type="text" id="inpPaymentPartnerName" value="Đại lý Ô tô Hyundai Thanh Xuân">
+        </div>
+        <div class="col">
+          <label class="muted">Số Chứng Từ Kế Toán:</label>
+          <input type="text" id="inpAccountingRecordNo" placeholder="Ví dụ: PKT-202505-0199">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Ngân Hàng Trích Nợ (Gửi):</label>
+          <select id="inpBankCodeSend">
+            <option value="VCB">Vietcombank (VCB)</option>
+            <option value="CTG">VietinBank (CTG)</option>
+            <option value="MBB">MBBank (MBB)</option>
+            <option value="TCB">Techcombank (TCB)</option>
+            <option value="VPB">VPBank (VPB)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Số Tài Khoản Trích Nợ:</label>
+          <input type="text" id="inpBankAccountSend" value="0011009876543">
+        </div>
+        <div class="col">
+          <label class="muted">Ngân Hàng Thụ Hưởng (Nhận):</label>
+          <select id="inpBankCodeReceive">
+            <option value="CTG">VietinBank (CTG)</option>
+            <option value="VCB">Vietcombank (VCB)</option>
+            <option value="TCB">Techcombank (TCB)</option>
+            <option value="MBB">MBBank (MBB)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Số Tài Khoản Thụ Hưởng:</label>
+          <input type="text" id="inpBankAccountReceive" value="118000234567">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Nguồn Tiền (Funds):</label>
+          <select id="inpPaymentFunds" onchange="togglePaymentFundsFields()">
+            <option value="0">Vốn Tự Có / Tiền Mặt (OwnCapital)</option>
+            <option value="1">Vay Vốn Ngân Hàng (BankLoan)</option>
+            <option value="2">Hạn Mức Tín Dụng / Bảo Lãnh (CreditLine)</option>
+          </select>
+        </div>
+        <div class="col" id="colBankLending" style="display:none;">
+          <label class="muted">Ngân Hàng Cho Vay:</label>
+          <input type="text" id="inpBankLending" placeholder="VCB / TCB / CTG...">
+        </div>
+        <div class="col" id="colInterestRate" style="display:none;">
+          <label class="muted">Lãi Suất Vay (%/năm):</label>
+          <input type="number" id="inpPaymentInterestRate" step="0.1" value="7.5">
+        </div>
+        <div class="col" id="colLoanPeriod" style="display:none;">
+          <label class="muted">Kỳ Hạn Vay (tháng):</label>
+          <input type="number" id="inpPaymentLoanPeriod" value="6">
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <label class="muted">Diễn Giải / Nội Dung Chuyển Khoản (Remark):</label>
+        <input type="text" id="inpPaymentRemark" value="Thanh toán tiền mua xe ô tô Hyundai theo đơn hàng">
+      </div>
+
+      <div style="margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="muted">Danh sách xe / đơn hàng thanh toán (JSON):</label>
+          <button class="secondary" type="button" onclick="loadSamplePaymentOrderData()">Nạp Dữ Liệu Xe Mẫu</button>
+        </div>
+        <textarea id="inpPaymentItemsJson" rows="8" style="font-family:monospace; font-size:.85em;"></textarea>
+      </div>
+
+      <div style="margin-top:16px;">
+        <button type="button" onclick="submitPaymentOrder()">Lập Phiếu Thanh Toán &amp; Kiểm Tra Tích Lũy</button>
+        <span id="submitPaymentOrderMsg" style="margin-left:12px;" class="muted"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Xem & In Mẫu Ủy Nhiệm Chi Ngân Hàng (UNC Advice) -->
+  <div id="modalUNCAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:760px; margin:40px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.25em;">LỆNH CHUYỂN TIỀN / ỦY NHIỆM CHI (PAYMENT ORDER)</h2>
+        <button class="secondary" onclick="closeUNCAdviceModal()">Đóng [X]</button>
+      </div>
+      <div id="uncAdviceContent" style="margin-top:16px; font-size:.9em; line-height:1.6;"></div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('uncAdviceContent').innerText); alert('Đã sao chép nội dung UNC vào clipboard!');">Sao Chép Nội Dung</button>
+        <button onclick="window.print()">In Giấy UNC</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB 5: API Docs -->
   <div id="tab-apiDocs" style="display:none;">
     <div class="card">
@@ -1075,6 +1332,20 @@
         <li><code>GET /api/mortgage/active-items?bankCode=</code> — Lấy danh sách tài sản đang ở trạng thái thế chấp sẵn sàng để lập đề nghị giải chấp</li>
         <li><code>GET /api/mortgage/summary</code> — Báo cáo tổng hợp số liệu thế chấp, giải chấp, dư nợ vay phân bổ theo từng ngân hàng</li>
       </ul>
+      <h3>Nghiệp Vụ Phiếu Thanh Toán &amp; Ủy Nhiệm Chi (Payment Order &amp; Bank UNC Settlement - BizHTC.Payment)</h3>
+      <ul>
+        <li><code>POST /api/payment-orders</code> — Tạo mới phiếu thanh toán &amp; lập chứng từ UNC (Pmt_Payment_Save / FrmNewPM)</li>
+        <li><code>GET /api/payment-orders</code> — Danh sách phiếu thanh toán (hỗ trợ lọc theo <code>status</code>, <code>paymentType</code>, <code>bankCode</code>, <code>partnerCode</code>)</li>
+        <li><code>GET /api/payment-orders/{id}</code> — Chi tiết 1 phiếu thanh toán kèm danh sách dòng xe / đơn hàng và tích lũy thanh toán</li>
+        <li><code>POST /api/payment-orders/{id}/approve</code> — Kế toán trưởng phê duyệt phiếu thanh toán (FrmMngPM.btnApprove_Click)</li>
+        <li><code>POST /api/payment-orders/{id}/finish</code> — Xác nhận hoàn tất thanh toán &amp; hạn thanh toán thực tế (FrmMngPM.btnConfirmEndDate_Click)</li>
+        <li><code>POST /api/payment-orders/{id}/revert</code> — Quay lui trạng thái phiếu thanh toán từ Finished về Approved (FrmMngPM.btnRevertConfirmed_Click)</li>
+        <li><code>POST /api/payment-orders/{id}/reject</code> — Từ chối phê duyệt phiếu thanh toán kèm lý do thẩm định (FrmMngPM.btnDealerReject_Click)</li>
+        <li><code>POST /api/payment-orders/{id}/cancel</code> — Hủy phiếu thanh toán (FrmMngPM.btnCancel_Click)</li>
+        <li><code>GET /api/payment-orders/{id}/unc-content</code> — Sinh nội dung mẫu Ủy nhiệm chi ngân hàng chuẩn (Pmt_Payment_GetUNCContent)</li>
+        <li><code>POST /api/payment-orders/update-rates</code> — Cập nhật nhanh lãi suất vay &amp; kỳ hạn vay theo lô (FrmUpdate_Pmt_Payment)</li>
+        <li><code>GET /api/payment-orders/summary</code> — Báo cáo tổng hợp số liệu thanh toán, phân rã theo hình thức &amp; nguồn vốn</li>
+      </ul>
     </div>
   </div>
 
@@ -1090,12 +1361,14 @@
       document.getElementById('tab-discount').style.display = tabName === 'discount' ? 'block' : 'none';
       document.getElementById('tab-guarantee').style.display = tabName === 'guarantee' ? 'block' : 'none';
       document.getElementById('tab-mortgage').style.display = tabName === 'mortgage' ? 'block' : 'none';
+      document.getElementById('tab-paymentOrder').style.display = tabName === 'paymentOrder' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
       document.getElementById('tab-newGuarantee').style.display = tabName === 'newGuarantee' ? 'block' : 'none';
       document.getElementById('tab-newMortgage').style.display = tabName === 'newMortgage' ? 'block' : 'none';
       document.getElementById('tab-newRedeem').style.display = tabName === 'newRedeem' ? 'block' : 'none';
+      document.getElementById('tab-newPaymentOrder').style.display = tabName === 'newPaymentOrder' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
@@ -1105,13 +1378,15 @@
           (tabName === 'discount' && i === 2) ||
           (tabName === 'guarantee' && i === 3) ||
           (tabName === 'mortgage' && i === 4) ||
-          (tabName === 'newBatch' && i === 5) ||
-          (tabName === 'newPayout' && i === 6) ||
-          (tabName === 'newDiscount' && i === 7) ||
-          (tabName === 'newGuarantee' && i === 8) ||
-          (tabName === 'newMortgage' && i === 9) ||
-          (tabName === 'newRedeem' && i === 10) ||
-          (tabName === 'apiDocs' && i === 11));
+          (tabName === 'paymentOrder' && i === 5) ||
+          (tabName === 'newBatch' && i === 6) ||
+          (tabName === 'newPayout' && i === 7) ||
+          (tabName === 'newDiscount' && i === 8) ||
+          (tabName === 'newGuarantee' && i === 9) ||
+          (tabName === 'newMortgage' && i === 10) ||
+          (tabName === 'newRedeem' && i === 11) ||
+          (tabName === 'newPaymentOrder' && i === 12) ||
+          (tabName === 'apiDocs' && i === 13));
       });
 
       if (tabName === 'reconcile') loadBatches();
@@ -1119,6 +1394,7 @@
       else if (tabName === 'discount') loadDiscountRequests();
       else if (tabName === 'guarantee') loadGuarantees();
       else if (tabName === 'mortgage') { loadMortgages(); loadRedeems(); }
+      else if (tabName === 'paymentOrder') loadPaymentOrders();
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====
@@ -2670,6 +2946,391 @@
     initMortgageDates();
     loadSampleMortgageData();
     loadSampleRedeemData();
+
+    // ===== TAB: PHIẾU THANH TOÁN & ỦY NHIỆM CHI (PAYMENT ORDER & BANK UNC) =====
+    function togglePaymentFundsFields() {
+      const val = document.getElementById('inpPaymentFunds').value;
+      const isLoan = val === '1' || val === '2';
+      document.getElementById('colBankLending').style.display = isLoan ? 'block' : 'none';
+      document.getElementById('colInterestRate').style.display = isLoan ? 'block' : 'none';
+      document.getElementById('colLoanPeriod').style.display = isLoan ? 'block' : 'none';
+    }
+
+    async function loadPaymentOrderSummary() {
+      try {
+        const res = await fetch('/api/payment-orders/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng phiếu thanh toán';
+        document.getElementById('stat1').textContent = d.totalOrders;
+        document.getElementById('statLabel2').textContent = 'Tổng tiền thanh toán';
+        document.getElementById('stat2').textContent = (d.totalPaymentAmount >= 1e9 ? (d.totalPaymentAmount / 1e9).toFixed(2) + ' tỷ' : Number(d.totalPaymentAmount).toLocaleString('vi-VN') + ' đ');
+        document.getElementById('statLabel3').textContent = 'Phiếu hoàn tất / ghi sổ';
+        document.getElementById('stat3').textContent = `${d.finishedCount} / ${d.totalOrders}`;
+        document.getElementById('statLabel4').textContent = 'Tiền hoàn tất thanh toán';
+        document.getElementById('stat4').textContent = (d.finishedAmount >= 1e9 ? (d.finishedAmount / 1e9).toFixed(2) + ' tỷ' : Number(d.finishedAmount).toLocaleString('vi-VN') + ' đ');
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadPaymentOrders() {
+      await loadPaymentOrderSummary();
+      const status = document.getElementById('filterPaymentStatus').value;
+      const pmtType = document.getElementById('filterPaymentType').value;
+      const bank = document.getElementById('filterPaymentBank').value;
+      const partner = document.getElementById('filterPaymentPartner').value.trim();
+
+      let url = '/api/payment-orders?';
+      if (status) url += 'status=' + encodeURIComponent(status) + '&';
+      if (pmtType) url += 'paymentType=' + encodeURIComponent(pmtType) + '&';
+      if (bank) url += 'bankCode=' + encodeURIComponent(bank) + '&';
+      if (partner) url += 'partnerCode=' + encodeURIComponent(partner) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('paymentOrderTableBody');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="11" class="muted" style="text-align:center;">Chưa có phiếu thanh toán nào phù hợp.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(p => {
+          let badge = 'badge-info';
+          let stText = p.status;
+          if (p.status === 'Finished') { badge = 'badge-success'; stText = 'Đã Hoàn Tất'; }
+          else if (p.status === 'Approved') { badge = 'badge-info'; stText = 'Đã Duyệt'; }
+          else if (p.status === 'PendingApproval') { badge = 'badge-warning'; stText = 'Chờ Duyệt'; }
+          else if (p.status === 'Draft') { badge = 'muted'; stText = 'Nháp'; }
+          else if (p.status === 'Rejected') { badge = 'badge-danger'; stText = 'Từ Chối'; }
+          else if (p.status === 'Cancelled') { badge = 'muted'; stText = 'Đã Hủy'; }
+
+          let typeText = p.paymentType;
+          if (p.paymentType === 'UNC') typeText = 'Ủy nhiệm chi';
+          else if (p.paymentType === 'Deposit') typeText = 'Nộp tiền cọc';
+          else if (p.paymentType === 'OrderPayment') typeText = 'TT Tiền xe/hàng';
+          else if (p.paymentType === 'GuaranteePayment') typeText = 'Bảo lãnh NH';
+          else if (p.paymentType === 'Cash') typeText = 'Tiền mặt';
+          else if (p.paymentType === 'Offset') typeText = 'Bù trừ công nợ';
+
+          let fundsText = p.funds === 'BankLoan' ? `Vay ${p.bankLending || 'NH'}` : (p.funds === 'CreditLine' ? 'Hạn mức BL' : 'Vốn tự có');
+
+          return `
+            <tr>
+              <td><strong>${p.paymentNo}</strong><br><small class="muted">${p.bankPaymentNo || ''}</small></td>
+              <td><span class="badge badge-info">${typeText}</span></td>
+              <td>${p.partnerName}<br><code class="muted">${p.partnerCode}</code></td>
+              <td><strong>${p.bankCodeSend}</strong><br><small class="muted">${p.bankAccountSend}</small></td>
+              <td><strong>${p.bankCodeReceive}</strong><br><small class="muted">${p.bankAccountReceive}</small></td>
+              <td><small>${fundsText}</small></td>
+              <td><strong style="color:var(--primary);">${Number(p.totalAmount).toLocaleString('vi-VN')} đ</strong></td>
+              <td><small class="muted">${Number(p.totalAccumAmount).toLocaleString('vi-VN')} đ</small></td>
+              <td>${p.paymentEndDate ? p.paymentEndDate.slice(0, 10) : '-'}</td>
+              <td><span class="badge ${badge}">${stText}</span></td>
+              <td style="white-space:nowrap;">
+                <button class="secondary" style="padding:3px 8px; font-size:.8em;" onclick="viewPaymentOrderDetail(${p.id})">Chi tiết</button>
+                <button class="secondary" style="padding:3px 8px; font-size:.8em; margin-left:4px;" onclick="viewUNCAdvice(${p.id})">Mẫu UNC</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function viewPaymentOrderDetail(id) {
+      try {
+        const res = await fetch(`/api/payment-orders/${id}`, { headers });
+        if (!res.ok) return;
+        const p = await res.json();
+        const card = document.getElementById('paymentOrderDetailCard');
+        card.style.display = 'block';
+
+        let badge = 'badge-info';
+        let stText = p.status;
+        if (p.status === 'Finished') { badge = 'badge-success'; stText = 'Đã Hoàn Tất Ghi Sổ'; }
+        else if (p.status === 'Approved') { badge = 'badge-info'; stText = 'Đã Phê Duyệt'; }
+        else if (p.status === 'PendingApproval') { badge = 'badge-warning'; stText = 'Chờ Duyệt'; }
+        else if (p.status === 'Draft') { badge = 'muted'; stText = 'Bản Nháp'; }
+        else if (p.status === 'Rejected') { badge = 'badge-danger'; stText = 'Từ Chối'; }
+        else if (p.status === 'Cancelled') { badge = 'muted'; stText = 'Đã Hủy'; }
+
+        document.getElementById('paymentOrderDetailTitle').innerHTML = `
+          Phiếu Thanh Toán <strong>${p.paymentNo}</strong>
+          <span class="badge ${badge}" style="margin-left:8px;">${stText}</span>
+        `;
+
+        document.getElementById('paymentOrderDetailSubtitle').innerHTML = `
+          Hình thức: <strong>${p.paymentType}</strong> | Đại lý: <strong>${p.partnerName} (${p.partnerCode})</strong> |
+          TK Trích Nợ: <strong>${p.bankCodeSend} - ${p.bankAccountSend}</strong> (${p.bankNameSend || ''}) |
+          TK Nhận: <strong>${p.bankCodeReceive} - ${p.bankAccountReceive}</strong> (${p.bankNameReceive || ''}) |
+          Nguồn vốn: <strong>${p.funds}</strong> ${p.bankLending ? `(Vay ${p.bankLending}, LS: ${p.interestRate}%, Kỳ hạn: ${p.loanPeriodMonths} th)` : ''} |
+          Tổng TT đợt này: <strong style="color:var(--primary); font-size:1.1em;">${Number(p.totalAmount).toLocaleString('vi-VN')} đ</strong> |
+          Lũy kế sau đợt này: <strong>${Number(p.totalAccumAmount).toLocaleString('vi-VN')} đ</strong> |
+          Hạn TT: <strong>${p.paymentEndDate ? p.paymentEndDate.slice(0, 10) : '-'}</strong> |
+          Số UNC: <code>${p.bankPaymentNo || 'Chưa cấp'}</code> | Số CT Kế toán: <code>${p.accountingRecordNo || 'Chưa ghi'}</code>
+        `;
+
+        let auditHtml = `<div><strong>Thông tin kiểm soát chứng từ:</strong> Người lập: ${p.createdBy || 'Accountant'} (${p.createdAt ? p.createdAt.slice(0, 19).replace('T', ' ') : '-'})</div>`;
+        if (p.approvedBy) auditHtml += `<div style="margin-top:4px;">Người duyệt kế toán: <strong>${p.approvedBy}</strong> (${p.approvedAt ? p.approvedAt.slice(0, 19).replace('T', ' ') : '-'})</div>`;
+        if (p.finishedBy) auditHtml += `<div style="margin-top:4px; color:var(--success);">Người xác nhận hoàn tất UNC: <strong>${p.finishedBy}</strong> (${p.finishedAt ? p.finishedAt.slice(0, 19).replace('T', ' ') : '-'})</div>`;
+        if (p.status === 'Rejected') auditHtml += `<div style="margin-top:4px; color:var(--danger);"><strong>TỪ CHỐI DUYỆT:</strong> Lý do: <em>${p.rejectReason || '-'}</em></div>`;
+        if (p.remark) auditHtml += `<div style="margin-top:4px; color:var(--muted);">Nội dung thanh toán: ${p.remark}</div>`;
+
+        const auditBox = document.getElementById('paymentOrderAuditBox');
+        auditBox.style.display = 'block';
+        auditBox.innerHTML = auditHtml;
+
+        const btnApprove = document.getElementById('btnApprovePaymentOrder');
+        const btnFinish = document.getElementById('btnFinishPaymentOrder');
+        const btnRevert = document.getElementById('btnRevertPaymentOrder');
+        const btnReject = document.getElementById('btnRejectPaymentOrder');
+        const btnCancel = document.getElementById('btnCancelPaymentOrder');
+        const btnUNC = document.getElementById('btnViewUNCAdvice');
+
+        btnApprove.style.display = (p.status === 'PendingApproval' || p.status === 'Draft') ? 'inline-block' : 'none';
+        btnFinish.style.display = (p.status === 'Approved') ? 'inline-block' : 'none';
+        btnRevert.style.display = (p.status === 'Finished') ? 'inline-block' : 'none';
+        btnReject.style.display = (p.status === 'PendingApproval' || p.status === 'Draft') ? 'inline-block' : 'none';
+        btnCancel.style.display = (p.status !== 'Finished' && p.status !== 'Cancelled') ? 'inline-block' : 'none';
+
+        btnApprove.onclick = async () => {
+          const approver = prompt('Kế toán trưởng phê duyệt phiếu thanh toán:', 'TruongPhongKeToan_HTC');
+          if (!approver) return;
+          const resp = await fetch(`/api/payment-orders/${id}/approve`, {
+            method: 'POST', headers, body: JSON.stringify({ approverName: approver })
+          });
+          if (resp.ok) { viewPaymentOrderDetail(id); loadPaymentOrders(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        btnFinish.onclick = async () => {
+          const uncNo = prompt('Nhập Số chứng từ UNC ngân hàng xác nhận:', p.bankPaymentNo || `UNC-${p.bankCodeSend}-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-01`);
+          if (uncNo === null) return;
+          const endDate = prompt('Xác nhận hạn thanh toán (YYYY-MM-DD):', p.paymentEndDate ? p.paymentEndDate.slice(0, 10) : new Date().toISOString().slice(0, 10));
+          const finisher = prompt('Kế toán viên xác nhận hoàn tất:', 'KeToanNganHang');
+          const resp = await fetch(`/api/payment-orders/${id}/finish`, {
+            method: 'POST', headers, body: JSON.stringify({ bankPaymentNo: uncNo, paymentEndDate: endDate, finisherName: finisher })
+          });
+          if (resp.ok) { viewPaymentOrderDetail(id); loadPaymentOrders(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        btnRevert.onclick = async () => {
+          if (!confirm(`Quay lui trạng thái phiếu thanh toán ${p.paymentNo} về Đã duyệt (Approved) để chỉnh sửa chứng từ kế toán?`)) return;
+          const resp = await fetch(`/api/payment-orders/${id}/revert`, { method: 'POST', headers });
+          if (resp.ok) { viewPaymentOrderDetail(id); loadPaymentOrders(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        btnReject.onclick = async () => {
+          const reason = prompt('Nhập lý do từ chối phiếu thanh toán:', 'Sai thông tin số tài khoản hoặc chứng từ chưa hợp lệ.');
+          if (!reason) return;
+          const rejecter = prompt('Cán bộ từ chối:', 'TruongPhongKeToan');
+          const resp = await fetch(`/api/payment-orders/${id}/reject`, {
+            method: 'POST', headers, body: JSON.stringify({ reason, rejecterName: rejecter })
+          });
+          if (resp.ok) { viewPaymentOrderDetail(id); loadPaymentOrders(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        btnCancel.onclick = async () => {
+          if (!confirm(`Xác nhận hủy phiếu thanh toán ${p.paymentNo}?`)) return;
+          const reason = prompt('Lý do hủy phiếu:', 'Đại lý hủy giao dịch mua xe');
+          const resp = await fetch(`/api/payment-orders/${id}/cancel`, {
+            method: 'POST', headers, body: JSON.stringify({ reason })
+          });
+          if (resp.ok) { viewPaymentOrderDetail(id); loadPaymentOrders(); }
+          else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+        };
+
+        btnUNC.onclick = () => viewUNCAdvice(id);
+
+        const tbody = document.getElementById('paymentOrderDetailTableBody');
+        tbody.innerHTML = (p.details || []).map((d, idx) => {
+          let itemBadge = d.status === 'Finished' ? 'badge-success' : (d.status === 'Approved' ? 'badge-info' : 'badge-warning');
+          return `
+            <tr>
+              <td>${idx + 1}</td>
+              <td><strong>${d.itemRefNo}</strong></td>
+              <td>${d.description}</td>
+              <td><code>${d.modelCode || '-'}</code></td>
+              <td>${Number(d.unitPriceActual).toLocaleString('vi-VN')} đ</td>
+              <td>${Number(d.amountAccum).toLocaleString('vi-VN')} đ<br><small class="muted">(${d.percentAccum}%)</small></td>
+              <td><strong style="color:var(--primary);">${Number(d.amount).toLocaleString('vi-VN')} đ</strong><br><small class="muted">(${d.percentCurrent}%)</small></td>
+              <td><strong>${Number(d.amountTotal).toLocaleString('vi-VN')} đ</strong><br><small class="muted">(${d.percentTotal}%)</small></td>
+              <td>${d.guaranteeNo ? `<span class="badge badge-info">${d.guaranteeNo}</span>` : '-'}</td>
+              <td><span class="badge ${itemBadge}">${d.status}</span></td>
+              <td><small class="muted">${d.note || '-'}</small></td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function viewUNCAdvice(id) {
+      try {
+        const res = await fetch(`/api/payment-orders/${id}/unc-content`, { headers });
+        if (!res.ok) { alert('Không thể lấy mẫu UNC.'); return; }
+        const u = await res.json();
+
+        const content = `
+          <div style="border:1px solid var(--border); padding:16px; border-radius:6px; background:rgba(127,127,127,.04);">
+            <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+              <div><strong>Số chứng từ:</strong> <code>${u.bankPaymentNo}</code></div>
+              <div><strong>Số phiếu TT:</strong> <code>${u.orderNo}</code></div>
+              <div><strong>Ngày lập UNC:</strong> ${u.generatedAt ? u.generatedAt.slice(0, 10) : '-'}</div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:14px; border-top:1px dashed var(--border); border-bottom:1px dashed var(--border); padding:12px 0;">
+              <div>
+                <h4 style="margin:0 0 6px; color:var(--primary);">A. ĐƠN VỊ TRÍCH NỢ (BÊN CHUYỂN TIỀN)</h4>
+                <div><strong>Đơn vị trả tiền:</strong> ${u.senderUnit}</div>
+                <div><strong>Số tài khoản:</strong> <code>${u.senderAccount}</code></div>
+                <div><strong>Tại ngân hàng:</strong> ${u.senderBank}</div>
+              </div>
+              <div>
+                <h4 style="margin:0 0 6px; color:var(--success);">B. ĐƠN VỊ THỤ HƯỞNG (BÊN NHẬN TIỀN)</h4>
+                <div><strong>Đơn vị thụ hưởng:</strong> ${u.beneficiaryUnit}</div>
+                <div><strong>Số tài khoản:</strong> <code>${u.beneficiaryAccount}</code></div>
+                <div><strong>Tại ngân hàng:</strong> ${u.beneficiaryBank}</div>
+              </div>
+            </div>
+
+            <div style="margin-bottom:12px;">
+              <div><strong>Số tiền bằng số:</strong> <span style="font-size:1.3em; font-weight:700; color:var(--primary);">${Number(u.amountNumber).toLocaleString('vi-VN')} VND</span></div>
+              <div style="margin-top:4px;"><strong>Số tiền bằng chữ:</strong> <em><strong style="color:var(--text);">${u.amountWords}</strong></em></div>
+            </div>
+
+            <div style="margin-bottom:12px; background:rgba(56,189,248,.08); padding:10px; border-radius:6px;">
+              <strong>Nội dung thanh toán:</strong>
+              <div style="margin-top:4px; font-family:monospace;">${u.transferRemark}</div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; margin-bottom:16px; font-size:.85em; color:var(--muted);">
+              <div>Hình thức: <strong>${u.paymentType}</strong> | Nguồn vốn: <strong>${u.funds}</strong> ${u.bankLending ? `(Vay: ${u.bankLending})` : ''}</div>
+              <div>Chứng từ ghi sổ: <code>${u.accountingRecordNo || 'N/A'}</code> | Trạng thái: <strong>${u.status}</strong></div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; text-align:center; margin-top:24px; padding-top:12px; border-top:1px solid var(--border);">
+              <div>
+                <strong>KẾ TOÁN TRƯỞNG</strong><br><small class="muted">(Ký, họ tên)</small><br><br><br>
+                <span><em>Đã kiểm tra chứng từ</em></span>
+              </div>
+              <div>
+                <strong>CHỦ TÀI KHOẢN / GIÁM ĐỐC</strong><br><small class="muted">(Ký, đóng dấu)</small><br><br><br>
+                <span><em>Đã phê duyệt chuyển tiền</em></span>
+              </div>
+              <div>
+                <strong>NGÂN HÀNG TRÍCH NỢ</strong><br><small class="muted">(Giao dịch viên, Kiểm soát viên)</small><br><br><br>
+                <span><em>Đã hạch toán ghi nợ</em></span>
+              </div>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('uncAdviceContent').innerHTML = content;
+        document.getElementById('modalUNCAdvice').style.display = 'block';
+      } catch(e) { console.error(e); }
+    }
+
+    function closeUNCAdviceModal() {
+      document.getElementById('modalUNCAdvice').style.display = 'none';
+    }
+
+    function loadSamplePaymentOrderData() {
+      const sample = [
+        {
+          "itemRefNo": "VIN-SANTAFE-2025-09",
+          "description": "Xe Hyundai Santa Fe Calligraphy 2.5T AWD 2025",
+          "modelCode": "SANTAFE-CAL",
+          "unitPriceActual": 1369000000,
+          "amountAccum": 273800000,
+          "amount": 1095200000,
+          "guaranteeNo": null,
+          "bankGrtNo": null,
+          "note": "Thanh toán nốt 80% giá trị xe để làm thủ tục đăng ký biển số"
+        },
+        {
+          "itemRefNo": "VIN-TUCSON-2025-10",
+          "description": "Xe Hyundai Tucson 1.6T Turbo HTRAC 2025",
+          "modelCode": "TUCSON-TURBO",
+          "unitPriceActual": 959000000,
+          "amountAccum": 191800000,
+          "amount": 767200000,
+          "guaranteeNo": null,
+          "bankGrtNo": null,
+          "note": "Thanh toán nốt 80% giá trị xe"
+        }
+      ];
+      document.getElementById('inpPaymentItemsJson').value = JSON.stringify(sample, null, 2);
+    }
+
+    async function submitPaymentOrder() {
+      const msg = document.getElementById('submitPaymentOrderMsg');
+      try {
+        const rawJson = document.getElementById('inpPaymentItemsJson').value.trim();
+        const items = rawJson ? JSON.parse(rawJson) : [];
+        if (!items.length) { alert('Vui lòng nhập ít nhất 1 dòng xe/đơn hàng thanh toán.'); return; }
+
+        const fundsVal = parseInt(document.getElementById('inpPaymentFunds').value) || 0;
+        const payload = {
+          paymentNo: document.getElementById('inpPaymentNo').value.trim() || null,
+          paymentType: parseInt(document.getElementById('inpPaymentType').value) || 2,
+          bankPaymentNo: document.getElementById('inpBankPaymentNo').value.trim() || null,
+          paymentEndDate: document.getElementById('inpPaymentEndDate').value || null,
+          partnerCode: document.getElementById('inpPaymentPartnerCode').value.trim(),
+          partnerName: document.getElementById('inpPaymentPartnerName').value.trim(),
+          bankCodeSend: document.getElementById('inpBankCodeSend').value.trim(),
+          bankNameSend: null,
+          bankAccountSend: document.getElementById('inpBankAccountSend').value.trim(),
+          bankCodeReceive: document.getElementById('inpBankCodeReceive').value.trim(),
+          bankNameReceive: null,
+          bankAccountReceive: document.getElementById('inpBankAccountReceive').value.trim(),
+          funds: fundsVal,
+          bankLending: fundsVal === 1 ? document.getElementById('inpBankLending').value.trim() : null,
+          interestRate: fundsVal === 1 ? parseFloat(document.getElementById('inpPaymentInterestRate').value) : null,
+          loanPeriodMonths: fundsVal === 1 ? parseInt(document.getElementById('inpPaymentLoanPeriod').value) : null,
+          accountingRecordNo: document.getElementById('inpAccountingRecordNo').value.trim() || null,
+          remark: document.getElementById('inpPaymentRemark').value.trim(),
+          items: items
+        };
+
+        if (!payload.partnerCode) { alert('Vui lòng nhập mã đối tác/đại lý.'); return; }
+        if (!payload.bankAccountSend) { alert('Vui lòng nhập số tài khoản trích nợ.'); return; }
+        if (!payload.bankAccountReceive) { alert('Vui lòng nhập số tài khoản thụ hưởng.'); return; }
+
+        msg.textContent = 'Đang kiểm tra và khởi tạo phiếu thanh toán...';
+        const res = await fetch('/api/payment-orders', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Phiếu: ${data.paymentNo} (Tổng tiền: ${Number(data.totalAmount).toLocaleString('vi-VN')} đ)`;
+        setTimeout(() => {
+          showTab('paymentOrder');
+          viewPaymentOrderDetail(data.id);
+        }, 800);
+      } catch(e) {
+        msg.textContent = 'Lỗi cú pháp JSON: ' + e.message;
+      }
+    }
+
+    const initPaymentOrderDates = () => {
+      const today = new Date();
+      const endD = new Date(today.getTime() + 30 * 86400000);
+      const elEnd = document.getElementById('inpPaymentEndDate');
+      if (elEnd) elEnd.value = endD.toISOString().slice(0, 10);
+    };
+    initPaymentOrderDates();
+    loadSamplePaymentOrderData();
 
     // Khởi tạo
     loadSampleData();
