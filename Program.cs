@@ -35,6 +35,7 @@ builder.Services.AddScoped<MortgageRedeemService>();
 builder.Services.AddScoped<PaymentOrderService>();
 builder.Services.AddScoped<BankBillService>();
 builder.Services.AddScoped<PaymentPDIService>();
+builder.Services.AddScoped<LatePaymentPenaltyService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -2864,6 +2865,410 @@ app.MapGet("/api/payment-pdi/summary", async (PaymentPDIService pdiService, ITen
     return Results.Ok(summary);
 });
 
+// ===== Quản lý & Tính Phạt Chậm Thanh Toán Đơn Hàng / Hợp Đồng Xe (Late Payment Delay Penalty Settlement - BizHTC.Report / BizHTC.Payment / FrmRptPenaltyPmtDelay & FrmUpdatePenaltyPmtDelayReal) =====
+
+// 1) Lập hồ sơ tính phạt chậm thanh toán mới
+app.MapPost("/api/penalty-delay", async (CreateLatePaymentPenaltyDto dto, LatePaymentPenaltyService penaltyService, ITenantContext tc) =>
+{
+    if (string.IsNullOrWhiteSpace(dto.SOCode))
+        return Results.BadRequest(new { error = "Số đơn hàng (SOCode) không được để trống." });
+    if (string.IsNullOrWhiteSpace(dto.DealerCode))
+        return Results.BadRequest(new { error = "Mã đại lý (DealerCode) không được để trống." });
+    if (dto.Items == null || dto.Items.Count == 0)
+        return Results.BadRequest(new { error = "Cần ít nhất 1 dòng xe kiểm tra nghĩa vụ thanh toán." });
+
+    try
+    {
+        var penalty = await penaltyService.CreatePenaltyRecordAsync(
+            tc.OrgId,
+            dto.PenaltyRecordNo,
+            dto.SOCode,
+            dto.DealerCode,
+            dto.DealerName,
+            dto.ContractNo,
+            dto.SOApprovedDate,
+            dto.PenaltyRateAnnual,
+            dto.Remark,
+            dto.CreatedBy,
+            dto.Items
+        );
+
+        return Results.Ok(new
+        {
+            penalty.Id,
+            penalty.PenaltyRecordNo,
+            penalty.SOCode,
+            penalty.DealerCode,
+            penalty.DealerName,
+            penalty.ContractNo,
+            penalty.TotalApprovedQuantity,
+            penalty.TotalUnitPriceActual,
+            penalty.TotalDatePenalty,
+            penalty.PenaltyRateAnnual,
+            penalty.AmountPenaltySystem,
+            penalty.PenalizeActual,
+            penalty.WaivedAmount,
+            status = penalty.Status.ToString(),
+            penalty.CreatedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 2) Danh sách hồ sơ phạt chậm thanh toán (kèm bộ lọc đa chiều)
+app.MapGet("/api/penalty-delay", async (AppDbContext db, ITenantContext tc, string? status, string? dealerCode, string? soCode) =>
+{
+    var q = db.LatePaymentPenalties.Where(p => p.OrgId == tc.OrgId);
+    if (!string.IsNullOrWhiteSpace(dealerCode))
+        q = q.Where(p => p.DealerCode == dealerCode.ToUpper());
+    if (!string.IsNullOrWhiteSpace(soCode))
+        q = q.Where(p => p.SOCode.Contains(soCode.ToUpper()));
+    if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<LatePaymentPenaltyStatus>(status, true, out var st))
+        q = q.Where(p => p.Status == st);
+
+    var list = await q.OrderByDescending(p => p.CreatedAt)
+        .Select(p => new
+        {
+            p.Id,
+            p.PenaltyRecordNo,
+            p.SOCode,
+            p.DealerCode,
+            p.DealerName,
+            p.ContractNo,
+            p.SOApprovedDate,
+            p.TotalApprovedQuantity,
+            p.TotalUnitPriceActual,
+            p.MaxDelayDaysDeposit,
+            p.MaxDelayDaysGrtOpen,
+            p.MaxDelayDaysGrtPay,
+            p.MaxDelayDays60Pmt,
+            p.MaxDelayDaysRemain,
+            p.TotalDatePenalty,
+            p.PenaltyRateAnnual,
+            p.AmountPenaltySystem,
+            p.PenalizeActual,
+            p.WaivedAmount,
+            status = p.Status.ToString(),
+            p.AdjustmentReason,
+            p.PaymentProofRef,
+            p.CreatedBy,
+            p.CreatedAt,
+            p.ReviewedBy,
+            p.ReviewedAt,
+            p.ApprovedBy,
+            p.ApprovedAt,
+            p.SettledBy,
+            p.SettledAt,
+            p.CancelledAt
+        })
+        .ToListAsync();
+
+    return Results.Ok(list);
+});
+
+// 3) Chi tiết 1 hồ sơ phạt kèm danh sách xe & các mốc tiến độ thanh toán
+app.MapGet("/api/penalty-delay/{id:long}", async (long id, AppDbContext db, ITenantContext tc) =>
+{
+    var penalty = await db.LatePaymentPenalties
+        .Include(p => p.Details)
+        .FirstOrDefaultAsync(p => p.Id == id && p.OrgId == tc.OrgId);
+
+    if (penalty == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ phạt #{id}." });
+
+    return Results.Ok(new
+    {
+        penalty.Id,
+        penalty.PenaltyRecordNo,
+        penalty.SOCode,
+        penalty.DealerCode,
+        penalty.DealerName,
+        penalty.ContractNo,
+        penalty.SOApprovedDate,
+        penalty.TotalApprovedQuantity,
+        penalty.TotalUnitPriceActual,
+        penalty.MaxDelayDaysDeposit,
+        penalty.MaxDelayDaysGrtOpen,
+        penalty.MaxDelayDaysGrtPay,
+        penalty.MaxDelayDays60Pmt,
+        penalty.MaxDelayDaysRemain,
+        penalty.TotalDatePenalty,
+        penalty.PenaltyRateAnnual,
+        penalty.AmountPenaltySystem,
+        penalty.PenalizeActual,
+        penalty.WaivedAmount,
+        status = penalty.Status.ToString(),
+        penalty.Remark,
+        penalty.AdjustmentReason,
+        penalty.PaymentProofRef,
+        penalty.CreatedBy,
+        penalty.CreatedAt,
+        penalty.ReviewedBy,
+        penalty.ReviewedAt,
+        penalty.ApprovedBy,
+        penalty.ApprovedAt,
+        penalty.SettledBy,
+        penalty.SettledAt,
+        penalty.CancelledAt,
+        details = penalty.Details.OrderBy(d => d.Id).Select(d => new
+        {
+            d.Id,
+            d.CarId,
+            d.VIN,
+            d.ModelCode,
+            d.ModelName,
+            d.ColorName,
+            d.UnitPriceActual,
+            d.DepositDueDate,
+            d.ActualDepositDate,
+            d.GrtDueDate,
+            d.ActualGrtDate,
+            d.GrtPayDueDate,
+            d.ActualGrtPayDate,
+            d.Payment60DueDate,
+            d.Actual60PayDate,
+            d.PaymentRemainDueDate,
+            d.ActualRemainPayDate,
+            d.DelayDaysDeposit,
+            d.DelayDaysGrtOpen,
+            d.DelayDaysGrtPay,
+            d.DelayDays60Pmt,
+            d.DelayDaysRemain,
+            d.MaxDelayDays,
+            d.ItemPenaltyAmount,
+            d.ActualItemPenalty,
+            status = d.Status.ToString(),
+            d.Note
+        })
+    });
+});
+
+// 4) Tự động tái tính toán số ngày và tiền phạt hệ thống (Rpt_PenaltyPmtDelay)
+app.MapPost("/api/penalty-delay/{id:long}/calculate", async (long id, LatePaymentPenaltyService penaltyService, ITenantContext tc) =>
+{
+    try
+    {
+        var penalty = await penaltyService.CalculatePenaltyAsync(id, tc.OrgId);
+        if (penalty == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ phạt #{id}." });
+
+        return Results.Ok(new
+        {
+            penalty.Id,
+            penalty.PenaltyRecordNo,
+            penalty.TotalDatePenalty,
+            penalty.AmountPenaltySystem,
+            penalty.PenalizeActual,
+            penalty.WaivedAmount,
+            status = penalty.Status.ToString(),
+            penalty.CalculatedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 5) Thẩm định tài chính đề xuất mức phạt thực tế & miễn giảm (FrmUpdatePenaltyPmtDelayReal / Review)
+app.MapPost("/api/penalty-delay/{id:long}/review", async (long id, ReviewPenaltyDto dto, LatePaymentPenaltyService penaltyService, ITenantContext tc) =>
+{
+    try
+    {
+        var penalty = await penaltyService.ReviewPenaltyAsync(
+            id, tc.OrgId, dto.ProposedPenalizeActual, dto.AdjustmentReason, dto.ReviewerName);
+        if (penalty == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ phạt #{id}." });
+
+        return Results.Ok(new
+        {
+            penalty.Id,
+            penalty.PenaltyRecordNo,
+            penalty.AmountPenaltySystem,
+            penalty.PenalizeActual,
+            penalty.WaivedAmount,
+            status = penalty.Status.ToString(),
+            penalty.AdjustmentReason,
+            penalty.ReviewedBy,
+            penalty.ReviewedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Ban Giám đốc phê duyệt chốt mức phạt thực tế (Ord_SalesOrder_UpdatePenalizeActual / Approve)
+app.MapPost("/api/penalty-delay/{id:long}/approve", async (long id, ApprovePenaltyDto? dto, LatePaymentPenaltyService penaltyService, ITenantContext tc) =>
+{
+    try
+    {
+        var penalty = await penaltyService.ApprovePenaltyAsync(id, tc.OrgId, dto?.ApproverName);
+        if (penalty == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ phạt #{id}." });
+
+        return Results.Ok(new
+        {
+            penalty.Id,
+            penalty.PenaltyRecordNo,
+            penalty.PenalizeActual,
+            status = penalty.Status.ToString(),
+            penalty.ApprovedBy,
+            penalty.ApprovedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 7) Quyết toán thu nộp phạt hoặc cấn trừ công nợ bán xe (Settled)
+app.MapPost("/api/penalty-delay/{id:long}/settle", async (long id, SettlePenaltyDto? dto, LatePaymentPenaltyService penaltyService, ITenantContext tc) =>
+{
+    try
+    {
+        var penalty = await penaltyService.SettlePenaltyAsync(
+            id, tc.OrgId, dto?.PaymentProofRef, dto?.SettlerName);
+        if (penalty == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ phạt #{id}." });
+
+        return Results.Ok(new
+        {
+            penalty.Id,
+            penalty.PenaltyRecordNo,
+            penalty.PenalizeActual,
+            status = penalty.Status.ToString(),
+            penalty.PaymentProofRef,
+            penalty.SettledBy,
+            penalty.SettledAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 8) Miễn phạt 100% khi có phê duyệt bất khả kháng (Waived)
+app.MapPost("/api/penalty-delay/{id:long}/waive", async (long id, WaivePenaltyDto? dto, LatePaymentPenaltyService penaltyService, ITenantContext tc) =>
+{
+    try
+    {
+        var penalty = await penaltyService.WaivePenaltyAsync(id, tc.OrgId, dto?.WaiveReason, dto?.ApproverName);
+        if (penalty == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ phạt #{id}." });
+
+        return Results.Ok(new
+        {
+            penalty.Id,
+            penalty.PenaltyRecordNo,
+            penalty.PenalizeActual,
+            penalty.WaivedAmount,
+            status = penalty.Status.ToString(),
+            penalty.AdjustmentReason,
+            penalty.ApprovedBy,
+            penalty.ApprovedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 9) Hủy hồ sơ tính phạt (Cancelled)
+app.MapPost("/api/penalty-delay/{id:long}/cancel", async (long id, CancelPenaltyDto? dto, LatePaymentPenaltyService penaltyService, ITenantContext tc) =>
+{
+    try
+    {
+        var penalty = await penaltyService.CancelPenaltyAsync(id, tc.OrgId, dto?.Reason);
+        if (penalty == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ phạt #{id}." });
+
+        return Results.Ok(new
+        {
+            penalty.Id,
+            penalty.PenaltyRecordNo,
+            status = penalty.Status.ToString(),
+            penalty.CancelledAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 10) Cập nhật số tiền phạt chốt thực tế hàng loạt (FrmUpdatePenaltyPmtDelayReal.btnSave_Click)
+app.MapPut("/api/penalty-delay/update-actual-multi", async (UpdateActualPenaltyMultiDto dto, LatePaymentPenaltyService penaltyService, ITenantContext tc) =>
+{
+    if (dto.Items == null || dto.Items.Count == 0)
+        return Results.BadRequest(new { error = "Danh sách cập nhật phạt thực tế không được để trống." });
+
+    try
+    {
+        var list = await penaltyService.UpdatePenalizeActualMultiAsync(tc.OrgId, dto.Items, dto.UpdatedBy);
+        return Results.Ok(new
+        {
+            updatedCount = list.Count,
+            items = list.Select(p => new
+            {
+                p.Id,
+                p.PenaltyRecordNo,
+                p.AmountPenaltySystem,
+                p.PenalizeActual,
+                p.WaivedAmount,
+                status = p.Status.ToString()
+            })
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 11) Bổ sung danh sách xe vào hồ sơ phạt hiện có
+app.MapPost("/api/penalty-delay/{id:long}/import-vehicles", async (long id, ImportPenaltyVehiclesDto dto, LatePaymentPenaltyService penaltyService, ITenantContext tc) =>
+{
+    if (dto.Items == null || dto.Items.Count == 0)
+        return Results.BadRequest(new { error = "Danh sách xe bổ sung không được để trống." });
+
+    try
+    {
+        var penalty = await penaltyService.ImportVehiclesAsync(id, tc.OrgId, dto.Items);
+        if (penalty == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ phạt #{id}." });
+
+        return Results.Ok(new
+        {
+            penalty.Id,
+            penalty.PenaltyRecordNo,
+            penalty.TotalApprovedQuantity,
+            penalty.TotalUnitPriceActual,
+            penalty.TotalDatePenalty,
+            penalty.AmountPenaltySystem,
+            status = penalty.Status.ToString()
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 12) Sinh dữ liệu mẫu in Thông báo tính & quyết toán phạt chậm thanh toán xe (Penalty Settlement Advice)
+app.MapGet("/api/penalty-delay/{id:long}/penalty-advice", async (long id, LatePaymentPenaltyService penaltyService, ITenantContext tc) =>
+{
+    var advice = await penaltyService.GeneratePenaltyAdviceAsync(id, tc.OrgId);
+    if (advice == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ phạt #{id}." });
+    return Results.Ok(advice);
+});
+
+// 13) Báo cáo dashboard tổng hợp số liệu tính phạt TTC
+app.MapGet("/api/penalty-delay/summary", async (LatePaymentPenaltyService penaltyService, ITenantContext tc) =>
+{
+    var summary = await penaltyService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
 app.Run();
 
 record CreatePayDto(long Amount, string? OrderId, string? OrderInfo, string? BankCode);
@@ -2949,4 +3354,23 @@ record SettlePDIDto(string? BankTxnRef, string? PayerName);
 record RejectPDIDto(string? Reason, string? RejecterName);
 record CancelPDIDto(string? Reason);
 record UpdatePDIDetailsDto(List<UpdatePDIDetailItemDto>? Items);
+record CreateLatePaymentPenaltyDto(
+    string? PenaltyRecordNo,
+    string? SOCode,
+    string? DealerCode,
+    string? DealerName,
+    string? ContractNo,
+    DateTime? SOApprovedDate,
+    decimal? PenaltyRateAnnual,
+    string? Remark,
+    string? CreatedBy,
+    List<PenaltyItemInputDto>? Items
+);
+record ReviewPenaltyDto(long ProposedPenalizeActual, string? AdjustmentReason, string? ReviewerName);
+record ApprovePenaltyDto(string? ApproverName);
+record SettlePenaltyDto(string? PaymentProofRef, string? SettlerName);
+record WaivePenaltyDto(string? WaiveReason, string? ApproverName);
+record CancelPenaltyDto(string? Reason);
+record UpdateActualPenaltyMultiDto(List<UpdateActualPenaltyItemDto>? Items, string? UpdatedBy);
+record ImportPenaltyVehiclesDto(List<PenaltyItemInputDto>? Items);
 

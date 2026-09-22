@@ -432,6 +432,79 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_PaymentPDIs_OrgId_PmtMonth"" ON ""PaymentPDIs"" (""OrgId"", ""PmtMonth"");
                 CREATE INDEX IF NOT EXISTS ""IX_PaymentPDIDetails_PaymentPDIId"" ON ""PaymentPDIDetails"" (""PaymentPDIId"");
                 CREATE INDEX IF NOT EXISTS ""IX_PaymentPDIDetails_OrgId_VIN"" ON ""PaymentPDIDetails"" (""OrgId"", ""VIN"");
+
+                CREATE TABLE IF NOT EXISTS ""LatePaymentPenalties"" (
+                    ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_LatePaymentPenalties"" PRIMARY KEY AUTOINCREMENT,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""PenaltyRecordNo"" TEXT NOT NULL,
+                    ""SOCode"" TEXT NOT NULL,
+                    ""DealerCode"" TEXT NOT NULL,
+                    ""DealerName"" TEXT NULL,
+                    ""ContractNo"" TEXT NULL,
+                    ""SOApprovedDate"" TEXT NULL,
+                    ""TotalApprovedQuantity"" INTEGER NOT NULL,
+                    ""TotalUnitPriceActual"" INTEGER NOT NULL,
+                    ""MaxDelayDaysDeposit"" INTEGER NOT NULL,
+                    ""MaxDelayDaysGrtOpen"" INTEGER NOT NULL,
+                    ""MaxDelayDaysGrtPay"" INTEGER NOT NULL,
+                    ""MaxDelayDays60Pmt"" INTEGER NOT NULL,
+                    ""MaxDelayDaysRemain"" INTEGER NOT NULL,
+                    ""TotalDatePenalty"" INTEGER NOT NULL,
+                    ""PenaltyRateAnnual"" TEXT NOT NULL,
+                    ""AmountPenaltySystem"" INTEGER NOT NULL,
+                    ""PenalizeActual"" INTEGER NOT NULL,
+                    ""WaivedAmount"" INTEGER NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""Remark"" TEXT NULL,
+                    ""AdjustmentReason"" TEXT NULL,
+                    ""PaymentProofRef"" TEXT NULL,
+                    ""CreatedBy"" TEXT NULL,
+                    ""CreatedAt"" TEXT NOT NULL,
+                    ""CalculatedAt"" TEXT NULL,
+                    ""ReviewedBy"" TEXT NULL,
+                    ""ReviewedAt"" TEXT NULL,
+                    ""ApprovedBy"" TEXT NULL,
+                    ""ApprovedAt"" TEXT NULL,
+                    ""SettledBy"" TEXT NULL,
+                    ""SettledAt"" TEXT NULL,
+                    ""CancelledAt"" TEXT NULL
+                );
+                CREATE TABLE IF NOT EXISTS ""LatePaymentPenaltyDetails"" (
+                    ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_LatePaymentPenaltyDetails"" PRIMARY KEY AUTOINCREMENT,
+                    ""PenaltyId"" INTEGER NOT NULL,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""CarId"" TEXT NULL,
+                    ""VIN"" TEXT NOT NULL,
+                    ""ModelCode"" TEXT NOT NULL,
+                    ""ModelName"" TEXT NULL,
+                    ""ColorName"" TEXT NULL,
+                    ""UnitPriceActual"" INTEGER NOT NULL,
+                    ""DepositDueDate"" TEXT NULL,
+                    ""ActualDepositDate"" TEXT NULL,
+                    ""GrtDueDate"" TEXT NULL,
+                    ""ActualGrtDate"" TEXT NULL,
+                    ""GrtPayDueDate"" TEXT NULL,
+                    ""ActualGrtPayDate"" TEXT NULL,
+                    ""Payment60DueDate"" TEXT NULL,
+                    ""Actual60PayDate"" TEXT NULL,
+                    ""PaymentRemainDueDate"" TEXT NULL,
+                    ""ActualRemainPayDate"" TEXT NULL,
+                    ""DelayDaysDeposit"" INTEGER NOT NULL,
+                    ""DelayDaysGrtOpen"" INTEGER NOT NULL,
+                    ""DelayDaysGrtPay"" INTEGER NOT NULL,
+                    ""DelayDays60Pmt"" INTEGER NOT NULL,
+                    ""DelayDaysRemain"" INTEGER NOT NULL,
+                    ""MaxDelayDays"" INTEGER NOT NULL,
+                    ""ItemPenaltyAmount"" INTEGER NOT NULL,
+                    ""ActualItemPenalty"" INTEGER NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""Note"" TEXT NULL,
+                    CONSTRAINT ""FK_LatePaymentPenaltyDetails_LatePaymentPenalties_PenaltyId"" FOREIGN KEY (""PenaltyId"") REFERENCES ""LatePaymentPenalties"" (""Id"") ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_LatePaymentPenalties_OrgId_PenaltyRecordNo"" ON ""LatePaymentPenalties"" (""OrgId"", ""PenaltyRecordNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_LatePaymentPenalties_OrgId_SOCode"" ON ""LatePaymentPenalties"" (""OrgId"", ""SOCode"");
+                CREATE INDEX IF NOT EXISTS ""IX_LatePaymentPenaltyDetails_PenaltyId"" ON ""LatePaymentPenaltyDetails"" (""PenaltyId"");
+                CREATE INDEX IF NOT EXISTS ""IX_LatePaymentPenaltyDetails_OrgId_VIN"" ON ""LatePaymentPenaltyDetails"" (""OrgId"", ""VIN"");
             ");
         }
         else if (db.Database.IsNpgsql())
@@ -848,6 +921,78 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_PaymentPDIs_OrgId_PmtMonth"" ON ""PaymentPDIs"" (""OrgId"", ""PmtMonth"");
                 CREATE INDEX IF NOT EXISTS ""IX_PaymentPDIDetails_PaymentPDIId"" ON ""PaymentPDIDetails"" (""PaymentPDIId"");
                 CREATE INDEX IF NOT EXISTS ""IX_PaymentPDIDetails_OrgId_VIN"" ON ""PaymentPDIDetails"" (""OrgId"", ""VIN"");
+
+                CREATE TABLE IF NOT EXISTS ""LatePaymentPenalties"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""OrgId"" uuid NOT NULL,
+                    ""PenaltyRecordNo"" text NOT NULL,
+                    ""SOCode"" text NOT NULL,
+                    ""DealerCode"" text NOT NULL,
+                    ""DealerName"" text NULL,
+                    ""ContractNo"" text NULL,
+                    ""SOApprovedDate"" timestamp without time zone NULL,
+                    ""TotalApprovedQuantity"" integer NOT NULL,
+                    ""TotalUnitPriceActual"" bigint NOT NULL,
+                    ""MaxDelayDaysDeposit"" integer NOT NULL,
+                    ""MaxDelayDaysGrtOpen"" integer NOT NULL,
+                    ""MaxDelayDaysGrtPay"" integer NOT NULL,
+                    ""MaxDelayDays60Pmt"" integer NOT NULL,
+                    ""MaxDelayDaysRemain"" integer NOT NULL,
+                    ""TotalDatePenalty"" integer NOT NULL,
+                    ""PenaltyRateAnnual"" numeric NOT NULL,
+                    ""AmountPenaltySystem"" bigint NOT NULL,
+                    ""PenalizeActual"" bigint NOT NULL,
+                    ""WaivedAmount"" bigint NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""Remark"" text NULL,
+                    ""AdjustmentReason"" text NULL,
+                    ""PaymentProofRef"" text NULL,
+                    ""CreatedBy"" text NULL,
+                    ""CreatedAt"" timestamp without time zone NOT NULL,
+                    ""CalculatedAt"" timestamp without time zone NULL,
+                    ""ReviewedBy"" text NULL,
+                    ""ReviewedAt"" timestamp without time zone NULL,
+                    ""ApprovedBy"" text NULL,
+                    ""ApprovedAt"" timestamp without time zone NULL,
+                    ""SettledBy"" text NULL,
+                    ""SettledAt"" timestamp without time zone NULL,
+                    ""CancelledAt"" timestamp without time zone NULL
+                );
+                CREATE TABLE IF NOT EXISTS ""LatePaymentPenaltyDetails"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""PenaltyId"" bigint NOT NULL REFERENCES ""LatePaymentPenalties"" (""Id"") ON DELETE CASCADE,
+                    ""OrgId"" uuid NOT NULL,
+                    ""CarId"" text NULL,
+                    ""VIN"" text NOT NULL,
+                    ""ModelCode"" text NOT NULL,
+                    ""ModelName"" text NULL,
+                    ""ColorName"" text NULL,
+                    ""UnitPriceActual"" bigint NOT NULL,
+                    ""DepositDueDate"" timestamp without time zone NULL,
+                    ""ActualDepositDate"" timestamp without time zone NULL,
+                    ""GrtDueDate"" timestamp without time zone NULL,
+                    ""ActualGrtDate"" timestamp without time zone NULL,
+                    ""GrtPayDueDate"" timestamp without time zone NULL,
+                    ""ActualGrtPayDate"" timestamp without time zone NULL,
+                    ""Payment60DueDate"" timestamp without time zone NULL,
+                    ""Actual60PayDate"" timestamp without time zone NULL,
+                    ""PaymentRemainDueDate"" timestamp without time zone NULL,
+                    ""ActualRemainPayDate"" timestamp without time zone NULL,
+                    ""DelayDaysDeposit"" integer NOT NULL,
+                    ""DelayDaysGrtOpen"" integer NOT NULL,
+                    ""DelayDaysGrtPay"" integer NOT NULL,
+                    ""DelayDays60Pmt"" integer NOT NULL,
+                    ""DelayDaysRemain"" integer NOT NULL,
+                    ""MaxDelayDays"" integer NOT NULL,
+                    ""ItemPenaltyAmount"" bigint NOT NULL,
+                    ""ActualItemPenalty"" bigint NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""Note"" text NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_LatePaymentPenalties_OrgId_PenaltyRecordNo"" ON ""LatePaymentPenalties"" (""OrgId"", ""PenaltyRecordNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_LatePaymentPenalties_OrgId_SOCode"" ON ""LatePaymentPenalties"" (""OrgId"", ""SOCode"");
+                CREATE INDEX IF NOT EXISTS ""IX_LatePaymentPenaltyDetails_PenaltyId"" ON ""LatePaymentPenaltyDetails"" (""PenaltyId"");
+                CREATE INDEX IF NOT EXISTS ""IX_LatePaymentPenaltyDetails_OrgId_VIN"" ON ""LatePaymentPenaltyDetails"" (""OrgId"", ""VIN"");
             ");
         }
 
@@ -2746,6 +2891,417 @@ public static class Seeder
                     TotalCostCheck = 350_000,
                     Status = PaymentPDIDetailStatus.Pending,
                     Remark = "PDI kiểm tra động cơ tăng áp 1.0L, hộp số tự động 7DCT mượt mà"
+                }
+            );
+            await db.SaveChangesAsync();
+        }
+
+        // ===== 10. Seed Dữ liệu mẫu Hồ sơ Quản lý & Tính phạt Chậm thanh toán Xe (Late Payment Delay Penalty) =====
+        if (!await db.LatePaymentPenalties.AnyAsync())
+        {
+            // 1. Hồ sơ phạt ĐÃ QUYẾT TOÁN THU PHẠT (Settled) - Đại lý Hyundai Hà Đông
+            var pen1 = new LatePaymentPenalty
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PenaltyRecordNo = "PEN-202504-001",
+                SOCode = "SO-2025-04-HD01",
+                DealerCode = "DLR-HYUNDAI-HADONG",
+                DealerName = "Hyundai Hà Đông (Ủy quyền phân phối)",
+                ContractNo = "HD-2025-0418-HTC",
+                SOApprovedDate = DateTime.Today.AddDays(-65),
+                TotalApprovedQuantity = 3,
+                TotalUnitPriceActual = 3_250_000_000,
+                MaxDelayDaysDeposit = 4,
+                MaxDelayDaysGrtOpen = 7,
+                MaxDelayDaysGrtPay = 12,
+                MaxDelayDays60Pmt = 5,
+                MaxDelayDaysRemain = 8,
+                TotalDatePenalty = 12,
+                PenaltyRateAnnual = 12.0m,
+                AmountPenaltySystem = 12_821_918,
+                PenalizeActual = 10_000_000,
+                WaivedAmount = 2_821_918,
+                Status = LatePaymentPenaltyStatus.Settled,
+                Remark = "Lô 3 xe SantaFe và Tucson giao đợt 1 tháng 04/2025",
+                AdjustmentReason = "Miễn giảm 2.821.918 đ do đại lý đối soát bù trừ tài khoản bảo lãnh ngân hàng VPBank",
+                PaymentProofRef = "UNC-VCB-7749102",
+                CreatedBy = "VuThiThu_KeToanCongNo",
+                CreatedAt = DateTime.Now.AddDays(-30),
+                CalculatedAt = DateTime.Now.AddDays(-29),
+                ReviewedBy = "NguyenThiMai_KTT",
+                ReviewedAt = DateTime.Now.AddDays(-28),
+                ApprovedBy = "LeHoangNam_GDTaiChinh_HTC",
+                ApprovedAt = DateTime.Now.AddDays(-26),
+                SettledBy = "TranMinhAnh_ThuQuy",
+                SettledAt = DateTime.Now.AddDays(-25)
+            };
+            db.LatePaymentPenalties.Add(pen1);
+            await db.SaveChangesAsync();
+
+            db.LatePaymentPenaltyDetails.AddRange(
+                new LatePaymentPenaltyDetail
+                {
+                    PenaltyId = pen1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    CarId = "CAR-SAN-2025-01",
+                    VIN = "KMHCT81EPHU300101",
+                    ModelCode = "SANTAFE-CAL",
+                    ModelName = "Hyundai SantaFe Calligraphy 2.5 AWD",
+                    ColorName = "Đen Huyền Bí",
+                    UnitPriceActual = 1_369_000_000,
+                    DepositDueDate = DateTime.Today.AddDays(-60),
+                    ActualDepositDate = DateTime.Today.AddDays(-56),
+                    GrtDueDate = DateTime.Today.AddDays(-53),
+                    ActualGrtDate = DateTime.Today.AddDays(-46),
+                    GrtPayDueDate = DateTime.Today.AddDays(-38),
+                    ActualGrtPayDate = DateTime.Today.AddDays(-26),
+                    Payment60DueDate = DateTime.Today.AddDays(-45),
+                    Actual60PayDate = DateTime.Today.AddDays(-40),
+                    PaymentRemainDueDate = DateTime.Today.AddDays(-30),
+                    ActualRemainPayDate = DateTime.Today.AddDays(-22),
+                    DelayDaysDeposit = 4,
+                    DelayDaysGrtOpen = 7,
+                    DelayDaysGrtPay = 12,
+                    DelayDays60Pmt = 5,
+                    DelayDaysRemain = 8,
+                    MaxDelayDays = 12,
+                    ItemPenaltyAmount = 5_401_644,
+                    ActualItemPenalty = 4_212_000,
+                    Status = LatePaymentPenaltyDetailStatus.Settled,
+                    Note = "Trễ mốc thanh toán bảo lãnh 12 ngày do ngân hàng chuyển lệnh muộn"
+                },
+                new LatePaymentPenaltyDetail
+                {
+                    PenaltyId = pen1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    CarId = "CAR-SAN-2025-02",
+                    VIN = "KMHCT81EPHU300102",
+                    ModelCode = "SANTAFE-PRE",
+                    ModelName = "Hyundai SantaFe Cao cấp 2.5 H-Trac",
+                    ColorName = "Trắng Tinh Khôi",
+                    UnitPriceActual = 1_269_000_000,
+                    DepositDueDate = DateTime.Today.AddDays(-60),
+                    ActualDepositDate = DateTime.Today.AddDays(-57),
+                    GrtDueDate = DateTime.Today.AddDays(-53),
+                    ActualGrtDate = DateTime.Today.AddDays(-48),
+                    GrtPayDueDate = DateTime.Today.AddDays(-38),
+                    ActualGrtPayDate = DateTime.Today.AddDays(-28),
+                    Payment60DueDate = DateTime.Today.AddDays(-45),
+                    Actual60PayDate = DateTime.Today.AddDays(-42),
+                    PaymentRemainDueDate = DateTime.Today.AddDays(-30),
+                    ActualRemainPayDate = DateTime.Today.AddDays(-25),
+                    DelayDaysDeposit = 3,
+                    DelayDaysGrtOpen = 5,
+                    DelayDaysGrtPay = 10,
+                    DelayDays60Pmt = 3,
+                    DelayDaysRemain = 5,
+                    MaxDelayDays = 10,
+                    ItemPenaltyAmount = 4_172_055,
+                    ActualItemPenalty = 3_254_000,
+                    Status = LatePaymentPenaltyDetailStatus.Settled,
+                    Note = "Trễ hạn bảo lãnh ngân hàng 10 ngày"
+                },
+                new LatePaymentPenaltyDetail
+                {
+                    PenaltyId = pen1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    CarId = "CAR-TUC-2025-01",
+                    VIN = "KMHCT81EPHU300103",
+                    ModelCode = "TUCSON-TURBO",
+                    ModelName = "Hyundai Tucson 1.6T HTRAC Turbo",
+                    ColorName = "Đỏ Mận",
+                    UnitPriceActual = 612_000_000,
+                    DepositDueDate = DateTime.Today.AddDays(-60),
+                    ActualDepositDate = DateTime.Today.AddDays(-59),
+                    GrtDueDate = DateTime.Today.AddDays(-53),
+                    ActualGrtDate = DateTime.Today.AddDays(-50),
+                    GrtPayDueDate = DateTime.Today.AddDays(-38),
+                    ActualGrtPayDate = DateTime.Today.AddDays(-22),
+                    Payment60DueDate = DateTime.Today.AddDays(-45),
+                    Actual60PayDate = DateTime.Today.AddDays(-44),
+                    PaymentRemainDueDate = DateTime.Today.AddDays(-30),
+                    ActualRemainPayDate = DateTime.Today.AddDays(-24),
+                    DelayDaysDeposit = 1,
+                    DelayDaysGrtOpen = 3,
+                    DelayDaysGrtPay = 16,
+                    DelayDays60Pmt = 1,
+                    DelayDaysRemain = 6,
+                    MaxDelayDays = 16,
+                    ItemPenaltyAmount = 3_248_219,
+                    ActualItemPenalty = 2_534_000,
+                    Status = LatePaymentPenaltyDetailStatus.Settled,
+                    Note = "Thanh toán dứt điểm khi nhận hồ sơ gốc"
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // 2. Hồ sơ phạt ĐÃ PHÊ DUYỆT CHỐT PHẠT (Approved) - Đại lý Hyundai Sài Gòn
+            var pen2 = new LatePaymentPenalty
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PenaltyRecordNo = "PEN-202505-001",
+                SOCode = "SO-2025-05-SG02",
+                DealerCode = "DLR-HYUNDAI-SAIGON",
+                DealerName = "Hyundai Sài Gòn 1S (Đại lý Miền Nam)",
+                ContractNo = "HD-2025-0502-HTC",
+                SOApprovedDate = DateTime.Today.AddDays(-40),
+                TotalApprovedQuantity = 2,
+                TotalUnitPriceActual = 2_138_000_000,
+                MaxDelayDaysDeposit = 5,
+                MaxDelayDaysGrtOpen = 9,
+                MaxDelayDaysGrtPay = 15,
+                MaxDelayDays60Pmt = 6,
+                MaxDelayDaysRemain = 11,
+                TotalDatePenalty = 15,
+                PenaltyRateAnnual = 12.0m,
+                AmountPenaltySystem = 10_543_562,
+                PenalizeActual = 8_500_000,
+                WaivedAmount = 2_043_562,
+                Status = LatePaymentPenaltyStatus.Approved,
+                Remark = "Đơn xe giao khu vực phía Nam lô đầu tháng 05/2025",
+                AdjustmentReason = "Giảm 2.043.562 đ do thời gian vận chuyển tàu hỏa Bắc - Nam bị chậm tiến độ giao nhận",
+                PaymentProofRef = null,
+                CreatedBy = "VuThiThu_KeToanCongNo",
+                CreatedAt = DateTime.Now.AddDays(-14),
+                CalculatedAt = DateTime.Now.AddDays(-13),
+                ReviewedBy = "NguyenThiMai_KTT",
+                ReviewedAt = DateTime.Now.AddDays(-10),
+                ApprovedBy = "LeHoangNam_GDTaiChinh_HTC",
+                ApprovedAt = DateTime.Now.AddDays(-5)
+            };
+            db.LatePaymentPenalties.Add(pen2);
+            await db.SaveChangesAsync();
+
+            db.LatePaymentPenaltyDetails.AddRange(
+                new LatePaymentPenaltyDetail
+                {
+                    PenaltyId = pen2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    CarId = "CAR-CUS-2025-01",
+                    VIN = "KMHCT81EPHU300201",
+                    ModelCode = "CUSTIN-2.0T",
+                    ModelName = "Hyundai Custin 2.0L Turbo Cao Cấp",
+                    ColorName = "Bạc Ánh Kim",
+                    UnitPriceActual = 1_079_000_000,
+                    DepositDueDate = DateTime.Today.AddDays(-38),
+                    ActualDepositDate = DateTime.Today.AddDays(-33),
+                    GrtDueDate = DateTime.Today.AddDays(-30),
+                    ActualGrtDate = DateTime.Today.AddDays(-21),
+                    GrtPayDueDate = DateTime.Today.AddDays(-20),
+                    ActualGrtPayDate = DateTime.Today.AddDays(-5),
+                    Payment60DueDate = DateTime.Today.AddDays(-25),
+                    Actual60PayDate = DateTime.Today.AddDays(-19),
+                    PaymentRemainDueDate = DateTime.Today.AddDays(-15),
+                    ActualRemainPayDate = DateTime.Today.AddDays(-4),
+                    DelayDaysDeposit = 5,
+                    DelayDaysGrtOpen = 9,
+                    DelayDaysGrtPay = 15,
+                    DelayDays60Pmt = 6,
+                    DelayDaysRemain = 11,
+                    MaxDelayDays = 15,
+                    ItemPenaltyAmount = 5_321_096,
+                    ActualItemPenalty = 4_290_000,
+                    Status = LatePaymentPenaltyDetailStatus.Approved,
+                    Note = "Chậm thanh toán bảo lãnh tại MBBank"
+                },
+                new LatePaymentPenaltyDetail
+                {
+                    PenaltyId = pen2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    CarId = "CAR-SAN-2025-03",
+                    VIN = "KMHCT81EPHU300202",
+                    ModelCode = "SANTAFE-EXT",
+                    ModelName = "Hyundai SantaFe Tiêu chuẩn 2.5L",
+                    ColorName = "Đen",
+                    UnitPriceActual = 1_059_000_000,
+                    DepositDueDate = DateTime.Today.AddDays(-38),
+                    ActualDepositDate = DateTime.Today.AddDays(-35),
+                    GrtDueDate = DateTime.Today.AddDays(-30),
+                    ActualGrtDate = DateTime.Today.AddDays(-24),
+                    GrtPayDueDate = DateTime.Today.AddDays(-20),
+                    ActualGrtPayDate = DateTime.Today.AddDays(-5),
+                    Payment60DueDate = DateTime.Today.AddDays(-25),
+                    Actual60PayDate = DateTime.Today.AddDays(-20),
+                    PaymentRemainDueDate = DateTime.Today.AddDays(-15),
+                    ActualRemainPayDate = DateTime.Today.AddDays(-7),
+                    DelayDaysDeposit = 3,
+                    DelayDaysGrtOpen = 6,
+                    DelayDaysGrtPay = 15,
+                    DelayDays60Pmt = 5,
+                    DelayDaysRemain = 8,
+                    MaxDelayDays = 15,
+                    ItemPenaltyAmount = 5_222_466,
+                    ActualItemPenalty = 4_210_000,
+                    Status = LatePaymentPenaltyDetailStatus.Approved,
+                    Note = "Ban Giám đốc đã ký duyệt chốt số tiền phạt"
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // 3. Hồ sơ phạt ĐANG THẨM ĐỊNH (Reviewed) - Đại lý Hyundai Đông Anh
+            var pen3 = new LatePaymentPenalty
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PenaltyRecordNo = "PEN-202505-002",
+                SOCode = "SO-2025-05-DA03",
+                DealerCode = "DLR-HYUNDAI-DONGANH",
+                DealerName = "Hyundai Đông Anh (Chi nhánh miền Bắc)",
+                ContractNo = "HD-2025-0511-HTC",
+                SOApprovedDate = DateTime.Today.AddDays(-25),
+                TotalApprovedQuantity = 2,
+                TotalUnitPriceActual = 1_538_000_000,
+                MaxDelayDaysDeposit = 3,
+                MaxDelayDaysGrtOpen = 5,
+                MaxDelayDaysGrtPay = 8,
+                MaxDelayDays60Pmt = 4,
+                MaxDelayDaysRemain = 6,
+                TotalDatePenalty = 8,
+                PenaltyRateAnnual = 12.0m,
+                AmountPenaltySystem = 4_045_151,
+                PenalizeActual = 3_500_000,
+                WaivedAmount = 545_151,
+                Status = LatePaymentPenaltyStatus.Reviewed,
+                Remark = "Đơn xe Creta và Accent đợt giữa tháng 05",
+                AdjustmentReason = "Kế toán thẩm định đề xuất mức phạt 3.500.000 đ theo đề xuất giải trình của đại lý",
+                PaymentProofRef = null,
+                CreatedBy = "VuThiThu_KeToanCongNo",
+                CreatedAt = DateTime.Now.AddDays(-7),
+                CalculatedAt = DateTime.Now.AddDays(-6),
+                ReviewedBy = "NguyenThiMai_KTT",
+                ReviewedAt = DateTime.Now.AddDays(-3)
+            };
+            db.LatePaymentPenalties.Add(pen3);
+            await db.SaveChangesAsync();
+
+            db.LatePaymentPenaltyDetails.AddRange(
+                new LatePaymentPenaltyDetail
+                {
+                    PenaltyId = pen3.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    CarId = "CAR-CRT-2025-01",
+                    VIN = "KMHCT81EPHU300301",
+                    ModelCode = "CRETA-CAO-CAP",
+                    ModelName = "Hyundai Creta 1.5 Cao Cấp",
+                    ColorName = "Đỏ Mận",
+                    UnitPriceActual = 740_000_000,
+                    DepositDueDate = DateTime.Today.AddDays(-22),
+                    ActualDepositDate = DateTime.Today.AddDays(-19),
+                    GrtDueDate = DateTime.Today.AddDays(-17),
+                    ActualGrtDate = DateTime.Today.AddDays(-12),
+                    GrtPayDueDate = DateTime.Today.AddDays(-10),
+                    ActualGrtPayDate = DateTime.Today.AddDays(-2),
+                    Payment60DueDate = DateTime.Today.AddDays(-15),
+                    Actual60PayDate = DateTime.Today.AddDays(-11),
+                    PaymentRemainDueDate = DateTime.Today.AddDays(-8),
+                    ActualRemainPayDate = DateTime.Today.AddDays(-2),
+                    DelayDaysDeposit = 3,
+                    DelayDaysGrtOpen = 5,
+                    DelayDaysGrtPay = 8,
+                    DelayDays60Pmt = 4,
+                    DelayDaysRemain = 6,
+                    MaxDelayDays = 8,
+                    ItemPenaltyAmount = 1_946_301,
+                    ActualItemPenalty = 1_684_000,
+                    Status = LatePaymentPenaltyDetailStatus.Calculated,
+                    Note = "Chậm tiến độ thanh toán tiền bảo lãnh 8 ngày"
+                },
+                new LatePaymentPenaltyDetail
+                {
+                    PenaltyId = pen3.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    CarId = "CAR-ACC-2025-01",
+                    VIN = "KMHCT81EPHU300302",
+                    ModelCode = "ACCENT-AT-DACBIET",
+                    ModelName = "Hyundai Accent 1.5 AT Đặc Biệt",
+                    ColorName = "Trắng",
+                    UnitPriceActual = 798_000_000,
+                    DepositDueDate = DateTime.Today.AddDays(-22),
+                    ActualDepositDate = DateTime.Today.AddDays(-20),
+                    GrtDueDate = DateTime.Today.AddDays(-17),
+                    ActualGrtDate = DateTime.Today.AddDays(-13),
+                    GrtPayDueDate = DateTime.Today.AddDays(-10),
+                    ActualGrtPayDate = DateTime.Today.AddDays(-2),
+                    Payment60DueDate = DateTime.Today.AddDays(-15),
+                    Actual60PayDate = DateTime.Today.AddDays(-12),
+                    PaymentRemainDueDate = DateTime.Today.AddDays(-8),
+                    ActualRemainPayDate = DateTime.Today.AddDays(-3),
+                    DelayDaysDeposit = 2,
+                    DelayDaysGrtOpen = 4,
+                    DelayDaysGrtPay = 8,
+                    DelayDays60Pmt = 3,
+                    DelayDaysRemain = 5,
+                    MaxDelayDays = 8,
+                    ItemPenaltyAmount = 2_098_850,
+                    ActualItemPenalty = 1_816_000,
+                    Status = LatePaymentPenaltyDetailStatus.Calculated,
+                    Note = "Chờ Giám đốc Tài chính phê duyệt mức phạt cuối"
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // 4. Hồ sơ phạt VỪA TÍNH TỰ ĐỘNG (Calculated) - Đại lý Hyundai An Khánh
+            var pen4 = new LatePaymentPenalty
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PenaltyRecordNo = "PEN-202505-003",
+                SOCode = "SO-2025-05-AK04",
+                DealerCode = "DLR-HYUNDAI-ANKHANH",
+                DealerName = "Hyundai An Khánh (Đại lý 3S)",
+                ContractNo = "HD-2025-0518-HTC",
+                SOApprovedDate = DateTime.Today.AddDays(-15),
+                TotalApprovedQuantity = 1,
+                TotalUnitPriceActual = 569_000_000,
+                MaxDelayDaysDeposit = 2,
+                MaxDelayDaysGrtOpen = 3,
+                MaxDelayDaysGrtPay = 5,
+                MaxDelayDays60Pmt = 2,
+                MaxDelayDaysRemain = 4,
+                TotalDatePenalty = 5,
+                PenaltyRateAnnual = 12.0m,
+                AmountPenaltySystem = 935_342,
+                PenalizeActual = 935_342,
+                WaivedAmount = 0,
+                Status = LatePaymentPenaltyStatus.Calculated,
+                Remark = "Đơn bổ sung xe Accent số tự động cho đại lý An Khánh",
+                AdjustmentReason = null,
+                CreatedBy = "VuThiThu_KeToanCongNo",
+                CreatedAt = DateTime.Now.AddDays(-2),
+                CalculatedAt = DateTime.Now.AddDays(-1)
+            };
+            db.LatePaymentPenalties.Add(pen4);
+            await db.SaveChangesAsync();
+
+            db.LatePaymentPenaltyDetails.Add(
+                new LatePaymentPenaltyDetail
+                {
+                    PenaltyId = pen4.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    CarId = "CAR-ACC-2025-02",
+                    VIN = "KMHCT81EPHU300401",
+                    ModelCode = "ACCENT-AT-TIEUCHUAN",
+                    ModelName = "Hyundai Accent 1.5 AT Tiêu Chuẩn",
+                    ColorName = "Bạc",
+                    UnitPriceActual = 569_000_000,
+                    DepositDueDate = DateTime.Today.AddDays(-12),
+                    ActualDepositDate = DateTime.Today.AddDays(-10),
+                    GrtDueDate = DateTime.Today.AddDays(-9),
+                    ActualGrtDate = DateTime.Today.AddDays(-6),
+                    GrtPayDueDate = DateTime.Today.AddDays(-5),
+                    ActualGrtPayDate = DateTime.Today,
+                    Payment60DueDate = DateTime.Today.AddDays(-7),
+                    Actual60PayDate = DateTime.Today.AddDays(-5),
+                    PaymentRemainDueDate = DateTime.Today.AddDays(-4),
+                    ActualRemainPayDate = DateTime.Today,
+                    DelayDaysDeposit = 2,
+                    DelayDaysGrtOpen = 3,
+                    DelayDaysGrtPay = 5,
+                    DelayDays60Pmt = 2,
+                    DelayDaysRemain = 4,
+                    MaxDelayDays = 5,
+                    ItemPenaltyAmount = 935_342,
+                    ActualItemPenalty = 935_342,
+                    Status = LatePaymentPenaltyDetailStatus.Calculated,
+                    Note = "Hồ sơ mới tính toán, đang chuẩn bị chuyển thẩm định"
                 }
             );
             await db.SaveChangesAsync();

@@ -58,7 +58,7 @@
   <div style="display:flex; justify-content:space-between; align-items:center;">
     <div>
       <h1>MiniPay</h1>
-      <p class="muted">Cổng thanh toán điện tử (VNPay/MoMo), Đối soát sao kê, Lệnh chi chuyển tiền, Chiết khấu thanh toán, Bảo lãnh &amp; Thế chấp/Giải chấp, Phiếu thanh toán UNC, Hối phiếu bàn giao xe &amp; Bảng kê chi phí PDI xe (BizHTC.Payment / BizHTC.GiaiChap).</p>
+      <p class="muted">Cổng thanh toán điện tử (VNPay/MoMo), Đối soát sao kê, Lệnh chi chuyển tiền, Chiết khấu thanh toán, Bảo lãnh &amp; Thế chấp/Giải chấp, Phiếu thanh toán UNC, Hối phiếu bàn giao xe, Bảng kê chi phí PDI xe &amp; Phạt chậm thanh toán đơn hàng xe (BizHTC.Payment / BizHTC.Report / BizHTC.GiaiChap).</p>
     </div>
     <div>
       <span class="badge badge-info">Demo Merchant</span>
@@ -94,6 +94,7 @@
     <button class="tab-btn" onclick="showTab('paymentOrder')">Phiếu Thanh Toán &amp; UNC (Payment Order)</button>
     <button class="tab-btn" onclick="showTab('bankBill')">Hối Phiếu &amp; Bàn Giao Xe (Bank Bill / BBBG)</button>
     <button class="tab-btn" onclick="showTab('paymentPDI')">Chi Phí PDI Xe (PDI Payment)</button>
+    <button class="tab-btn" onclick="showTab('penaltyDelay')">Phạt Chậm TT (TTC Penalty)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -103,6 +104,7 @@
     <button class="tab-btn" onclick="showTab('newPaymentOrder')">+ Lập Phiếu Thanh Toán</button>
     <button class="tab-btn" onclick="showTab('newBankBill')">+ Lập BBBG Hối Phiếu</button>
     <button class="tab-btn" onclick="showTab('newPaymentPDI')">+ Lập Bảng Kê PDI</button>
+    <button class="tab-btn" onclick="showTab('newPenaltyDelay')">+ Lập Hồ Sơ Phạt TTC</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -945,9 +947,118 @@
     </div>
   </div>
 
+  <!-- TAB: QUẢN LÝ & TÍNH PHẠT CHẬM THANH TOÁN ĐƠN HÀNG XE (LATE PAYMENT DELAY PENALTY) -->
+  <div id="tab-penaltyDelay" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="margin:0;">Quản lý &amp; Tính Phạt Chậm Thanh Toán Đơn Hàng Mua Xe (Penalty Delay Settlement)</h3>
+        <div style="display:flex; gap:8px;">
+          <button class="secondary" onclick="loadPenaltyRecords()">Làm mới</button>
+          <button onclick="showTab('newPenaltyDelay')">+ Lập Hồ Sơ Phạt Mới</button>
+        </div>
+      </div>
+      <p class="muted" style="margin-top:0;">Tự động tính số ngày quá hạn của 5 mốc cam kết thanh toán xe (Cọc, Mở BL, Thanh toán BL, Đợt 60%, Đợt 40% còn lại), thẩm định miễn giảm và chốt số tiền phạt thực tế theo BizHTC.Report / BizHTC.Payment.</p>
 
+      <div class="row" style="margin-bottom:12px; gap:8px; align-items:flex-end;">
+        <div class="col">
+          <label class="muted">Trạng Thái Hồ Sơ:</label>
+          <select id="filterPenaltyStatus" onchange="loadPenaltyRecords()">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="Draft">Nháp (Draft)</option>
+            <option value="Calculated">Đã Tính Tự Động (Calculated)</option>
+            <option value="Reviewed">Đã Thẩm Định Mức Phạt (Reviewed)</option>
+            <option value="Approved">BGD Đã Duyệt Chốt Phạt (Approved)</option>
+            <option value="Settled">Đã Quyết Toán Thu Phạt (Settled)</option>
+            <option value="Waived">Đã Miễn Phạt 100% (Waived)</option>
+            <option value="Cancelled">Đã Hủy (Cancelled)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Mã Đại Lý (DealerCode):</label>
+          <input type="text" id="filterPenaltyDealer" placeholder="Ví dụ: DLR-HYUNDAI-HADONG" onchange="loadPenaltyRecords()">
+        </div>
+        <div class="col">
+          <label class="muted">Mã Đơn Hàng (SOCode):</label>
+          <input type="text" id="filterPenaltySO" placeholder="Ví dụ: SO-2025" onchange="loadPenaltyRecords()">
+        </div>
+        <div style="margin-bottom:2px;">
+          <button class="secondary" onclick="loadPenaltyRecords()">Lọc</button>
+        </div>
+      </div>
 
-  <!-- TAB 3: Nạp sao kê & đối soát mới -->
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Hồ Sơ</th>
+              <th>Mã SO &amp; HĐ</th>
+              <th>Đại Lý Mua Xe</th>
+              <th>Số Xe</th>
+              <th>Tổng Giá Trị Đơn</th>
+              <th>Trễ Cọc</th>
+              <th>Trễ Mở BL</th>
+              <th>Trễ TT BL</th>
+              <th>Trễ 60%</th>
+              <th>Trễ 40%</th>
+              <th>Ngày Phạt</th>
+              <th>Phạt Hệ Thống</th>
+              <th>Phạt Chốt Thu</th>
+              <th>Miễn Giảm</th>
+              <th>Trạng Thái</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="penaltyTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Card Chi Tiết Hồ Sơ Phạt Chậm Thanh Toán -->
+    <div class="card" id="cardPenaltyDetail" style="display:none; margin-top:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <h3 id="penaltyDetailTitle" style="margin:0;">Chi Tiết Hồ Sơ Tính Phạt</h3>
+        <button class="secondary" onclick="document.getElementById('cardPenaltyDetail').style.display='none'">Đóng [X]</button>
+      </div>
+
+      <div id="penaltyDetailSubtitle" style="margin-top:8px; font-size:.92em; line-height:1.5;"></div>
+      <div id="penaltyAuditBox" style="margin-top:10px; padding:12px; background:rgba(127,127,127,.05); border-radius:6px; font-size:.9em;"></div>
+
+      <div id="penaltyActionButtons" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap;">
+        <button id="btnCalcPenalty" style="background:#0284c7;">Tự Động Tính Toán Lại</button>
+        <button id="btnReviewPenalty" style="background:#d97706;">Thẩm Định Mức Phạt Thực Tế</button>
+        <button id="btnApprovePenalty" style="background:#16a34a;">BGD Phê Duyệt Chốt Phạt</button>
+        <button id="btnSettlePenalty" style="background:#059669;">Quyết Toán Thu Phạt (Settled)</button>
+        <button id="btnWaivePenalty" class="secondary" style="color:var(--primary); border-color:var(--primary);">Miễn Phạt 100%</button>
+        <button id="btnPrintPenaltyAdvice" class="secondary">Xem &amp; In Thông Báo Phạt TTC</button>
+        <button id="btnCancelPenalty" class="secondary" style="color:var(--danger);">Hủy Hồ Sơ</button>
+      </div>
+
+      <div style="overflow-x:auto; margin-top:14px;">
+        <table>
+          <thead>
+            <tr>
+              <th>STT</th>
+              <th>Số Khung (VIN)</th>
+              <th>Dòng Xe</th>
+              <th>Màu Sơn</th>
+              <th>Đơn Giá Xe</th>
+              <th>Trễ Cọc</th>
+              <th>Trễ Mở BL</th>
+              <th>Trễ TT BL</th>
+              <th>Trễ 60%</th>
+              <th>Trễ 40%</th>
+              <th>Trễ Max</th>
+              <th>Phạt Tính Toán</th>
+              <th>Phạt Thực Tế</th>
+              <th>Trạng Thái</th>
+              <th>Ghi Chú</th>
+            </tr>
+          </thead>
+          <tbody id="penaltyDetailTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
   <div id="tab-newBatch" style="display:none;">
     <div class="card">
       <h3>Nạp bảng sao kê ngân hàng &amp; Chạy đối soát tức thì</h3>
@@ -1589,6 +1700,65 @@
     </div>
   </div>
 
+  <!-- TAB: Lập Hồ Sơ Phạt Chậm Thanh Toán Mới -->
+  <div id="tab-newPenaltyDelay" style="display:none;">
+    <div class="card">
+      <h3>Lập Hồ Sơ Tính Phạt Chậm Thanh Toán Đơn Hàng Mua Xe</h3>
+      <p class="muted">Tự động tính số ngày trễ của 5 mốc cam kết thanh toán xe theo quy tắc nghiệp vụ BizHTC.Report / BizHTC.Payment.</p>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Hồ Sơ Tính Phạt (để trống để tự sinh):</label>
+          <input type="text" id="inpPenaltyRecordNo" placeholder="Ví dụ: PEN-202505-004">
+        </div>
+        <div class="col">
+          <label class="muted">Số Đơn Hàng (SOCode):</label>
+          <input type="text" id="inpPenaltySOCode" value="SO-2025-05-HD05">
+        </div>
+        <div class="col">
+          <label class="muted">Mã Đại Lý (DealerCode):</label>
+          <input type="text" id="inpPenaltyDealerCode" value="DLR-HYUNDAI-HADONG">
+        </div>
+        <div class="col">
+          <label class="muted">Tên Đại Lý:</label>
+          <input type="text" id="inpPenaltyDealerName" value="Hyundai Hà Đông (Ủy quyền phân phối)">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Hợp Đồng Bán Xe:</label>
+          <input type="text" id="inpPenaltyContractNo" value="HD-2025-0520-HTC">
+        </div>
+        <div class="col">
+          <label class="muted">Ngày Duyệt Đơn Hàng (SO Approved Date):</label>
+          <input type="date" id="inpPenaltySOApprovedDate">
+        </div>
+        <div class="col">
+          <label class="muted">Lãi Suất Phạt (%/năm theo Mst_Discount):</label>
+          <input type="number" id="inpPenaltyRate" step="0.5" value="12.0">
+        </div>
+        <div class="col" style="flex:2;">
+          <label class="muted">Diễn Giải / Ghi Chú Hồ Sơ (Remark):</label>
+          <input type="text" id="inpPenaltyRemark" value="Đơn xe giao đợt cuối tháng 05/2025">
+        </div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="muted">Danh sách xe &amp; các mốc tiến độ thanh toán (VIN, Model, Đơn giá, Cọc, Mở BL, TT BL, 60%, 100%) [JSON]:</label>
+          <button class="secondary" type="button" onclick="loadSamplePenaltyData()">Nạp Dữ Liệu Xe Mẫu</button>
+        </div>
+        <textarea id="inpPenaltyVehiclesJson" rows="8" style="font-family:monospace; font-size:.85em;"></textarea>
+      </div>
+
+      <div style="margin-top:16px;">
+        <button type="button" onclick="submitPenaltyDelay()">Khởi Tạo &amp; Tự Động Tính Phạt</button>
+        <span id="submitPenaltyMsg" style="margin-left:12px;" class="muted"></span>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Xem & In Mẫu Hối Phiếu Ngân Hàng (Bill of Exchange Advice) -->
   <div id="modalBillAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
     <div style="max-width:820px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
@@ -1647,6 +1817,21 @@
       <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
         <button class="secondary" onclick="closeEditPDICostsModal()">Hủy Bỏ</button>
         <button onclick="savePDICostEdit()">Lưu Cập Nhật</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Xem & In Thông Báo Phạt Chậm Thanh Toán TTC (Penalty Settlement Advice) -->
+  <div id="modalPenaltyAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:860px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.25em;">THÔNG BÁO PHẠT CHẬM THANH TOÁN TIỀN MUA XE (TTC)</h2>
+        <button class="secondary" onclick="closePenaltyAdviceModal()">Đóng [X]</button>
+      </div>
+      <div id="penaltyAdviceContent" style="margin-top:16px; font-size:.9em; line-height:1.6;"></div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('penaltyAdviceContent').innerText); alert('Đã sao chép nội dung Thông báo phạt vào clipboard!');">Sao Chép Nội Dung</button>
+        <button onclick="window.print()">In Thông Báo Phạt</button>
       </div>
     </div>
   </div>
@@ -1769,6 +1954,22 @@
         <li><code>GET /api/payment-pdi/{id}/statement-advice</code> — Sinh dữ liệu mẫu in Bảng kê quyết toán chi phí PDI kèm số tiền bằng chữ tiếng Việt</li>
         <li><code>GET /api/payment-pdi/summary</code> — Báo cáo tổng hợp số liệu chi phí PDI, phân rã theo kỳ thanh toán &amp; trạng thái</li>
       </ul>
+      <h3>Nghiệp Vụ Quản Lý &amp; Tính Phạt Chậm Thanh Toán Đơn Hàng Xe (Late Payment Delay Penalty - BizHTC.Report / BizHTC.Payment)</h3>
+      <ul>
+        <li><code>POST /api/penalty-delay</code> — Lập hồ sơ tính phạt chậm thanh toán xe mới (FrmRptPenaltyPmtDelay)</li>
+        <li><code>GET /api/penalty-delay</code> — Danh sách hồ sơ tính phạt (hỗ trợ lọc theo <code>status</code>, <code>dealerCode</code>, <code>soCode</code>)</li>
+        <li><code>GET /api/penalty-delay/{id}</code> — Chi tiết hồ sơ tính phạt kèm 5 mốc cam kết thanh toán từng xe</li>
+        <li><code>POST /api/penalty-delay/{id}/calculate</code> — Tự động tính toán số ngày trễ của các mốc và tiền phạt hệ thống (Rpt_PenaltyPmtDelay)</li>
+        <li><code>POST /api/penalty-delay/{id}/review</code> — Kế toán thẩm định đề xuất mức phạt thực tế &amp; miễn giảm (FrmUpdatePenaltyPmtDelayReal / Review)</li>
+        <li><code>POST /api/penalty-delay/{id}/approve</code> — Ban Giám đốc phê duyệt chốt mức phạt thực tế (Ord_SalesOrder_UpdatePenalizeActual)</li>
+        <li><code>POST /api/penalty-delay/{id}/settle</code> — Hoàn tất thu nộp tiền phạt hoặc cấn trừ công nợ bán xe (Settled)</li>
+        <li><code>POST /api/penalty-delay/{id}/waive</code> — Miễn phạt 100% khi có phê duyệt bất khả kháng (Waived)</li>
+        <li><code>POST /api/penalty-delay/{id}/cancel</code> — Hủy hồ sơ tính phạt (Cancelled)</li>
+        <li><code>PUT /api/penalty-delay/update-actual-multi</code> — Cập nhật mức phạt chốt thực tế hàng loạt (FrmUpdatePenaltyPmtDelayReal)</li>
+        <li><code>POST /api/penalty-delay/{id}/import-vehicles</code> — Bổ sung danh sách xe vào hồ sơ phạt hiện có</li>
+        <li><code>GET /api/penalty-delay/{id}/penalty-advice</code> — Sinh dữ liệu mẫu in Thông báo tính &amp; quyết toán phạt TTC kèm số tiền bằng chữ tiếng Việt</li>
+        <li><code>GET /api/penalty-delay/summary</code> — Báo cáo tổng hợp số liệu tính phạt, phân rã theo tỷ lệ thu hồi và trạng thái</li>
+      </ul>
     </div>
   </div>
 
@@ -1787,6 +1988,7 @@
       document.getElementById('tab-paymentOrder').style.display = tabName === 'paymentOrder' ? 'block' : 'none';
       document.getElementById('tab-bankBill').style.display = tabName === 'bankBill' ? 'block' : 'none';
       document.getElementById('tab-paymentPDI').style.display = tabName === 'paymentPDI' ? 'block' : 'none';
+      document.getElementById('tab-penaltyDelay').style.display = tabName === 'penaltyDelay' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -1796,6 +1998,7 @@
       document.getElementById('tab-newPaymentOrder').style.display = tabName === 'newPaymentOrder' ? 'block' : 'none';
       document.getElementById('tab-newBankBill').style.display = tabName === 'newBankBill' ? 'block' : 'none';
       document.getElementById('tab-newPaymentPDI').style.display = tabName === 'newPaymentPDI' ? 'block' : 'none';
+      document.getElementById('tab-newPenaltyDelay').style.display = tabName === 'newPenaltyDelay' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
@@ -1808,16 +2011,18 @@
           (tabName === 'paymentOrder' && i === 5) ||
           (tabName === 'bankBill' && i === 6) ||
           (tabName === 'paymentPDI' && i === 7) ||
-          (tabName === 'newBatch' && i === 8) ||
-          (tabName === 'newPayout' && i === 9) ||
-          (tabName === 'newDiscount' && i === 10) ||
-          (tabName === 'newGuarantee' && i === 11) ||
-          (tabName === 'newMortgage' && i === 12) ||
-          (tabName === 'newRedeem' && i === 13) ||
-          (tabName === 'newPaymentOrder' && i === 14) ||
-          (tabName === 'newBankBill' && i === 15) ||
-          (tabName === 'newPaymentPDI' && i === 16) ||
-          (tabName === 'apiDocs' && i === 17));
+          (tabName === 'penaltyDelay' && i === 8) ||
+          (tabName === 'newBatch' && i === 9) ||
+          (tabName === 'newPayout' && i === 10) ||
+          (tabName === 'newDiscount' && i === 11) ||
+          (tabName === 'newGuarantee' && i === 12) ||
+          (tabName === 'newMortgage' && i === 13) ||
+          (tabName === 'newRedeem' && i === 14) ||
+          (tabName === 'newPaymentOrder' && i === 15) ||
+          (tabName === 'newBankBill' && i === 16) ||
+          (tabName === 'newPaymentPDI' && i === 17) ||
+          (tabName === 'newPenaltyDelay' && i === 18) ||
+          (tabName === 'apiDocs' && i === 19));
       });
 
       if (tabName === 'reconcile') loadBatches();
@@ -1828,6 +2033,7 @@
       else if (tabName === 'paymentOrder') loadPaymentOrders();
       else if (tabName === 'bankBill') loadBankBills();
       else if (tabName === 'paymentPDI') loadPDIBatches();
+      else if (tabName === 'penaltyDelay') loadPenaltyRecords();
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====
@@ -4800,11 +5006,464 @@
       }
     }
 
+    // ===== PHẠT CHẬM THANH TOÁN ĐƠN HÀNG XE (LATE PAYMENT DELAY PENALTY) =====
+    async function loadPenaltySummary() {
+      try {
+        const res = await fetch('/api/penalty-delay/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng hồ sơ phạt TTC';
+        document.getElementById('stat1').textContent = `${d.totalRecords} hồ sơ`;
+        document.getElementById('statLabel2').textContent = 'Tổng phạt hệ thống tính';
+        document.getElementById('stat2').textContent = Number(d.totalPenaltySystem).toLocaleString('vi-VN') + ' đ';
+        document.getElementById('statLabel3').textContent = 'Phạt chốt thực tế';
+        document.getElementById('stat3').textContent = Number(d.totalPenalizeActual).toLocaleString('vi-VN') + ' đ';
+        document.getElementById('statLabel4').textContent = 'Đã quyết toán thu hồi';
+        document.getElementById('stat4').textContent = Number(d.totalSettledAmount).toLocaleString('vi-VN') + ' đ';
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadPenaltyRecords() {
+      await loadPenaltySummary();
+      const status = document.getElementById('filterPenaltyStatus').value;
+      const dealer = document.getElementById('filterPenaltyDealer').value.trim();
+      const so = document.getElementById('filterPenaltySO').value.trim();
+
+      let url = '/api/penalty-delay?';
+      if (status) url += 'status=' + encodeURIComponent(status) + '&';
+      if (dealer) url += 'dealerCode=' + encodeURIComponent(dealer) + '&';
+      if (so) url += 'soCode=' + encodeURIComponent(so) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('penaltyTableBody');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="16" class="muted" style="text-align:center;">Chưa có hồ sơ phạt chậm thanh toán nào phù hợp.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(p => {
+          let badge = 'badge-info';
+          let stText = p.status;
+          if (p.status === 'Settled') { badge = 'badge-success'; stText = 'Đã Quyết Toán'; }
+          else if (p.status === 'Approved') { badge = 'badge-success'; stText = 'BGD Đã Duyệt Chốt'; }
+          else if (p.status === 'Reviewed') { badge = 'badge-warning'; stText = 'Đang Thẩm Định'; }
+          else if (p.status === 'Calculated') { badge = 'badge-info'; stText = 'Đã Tính Tự Động'; }
+          else if (p.status === 'Draft') { badge = 'muted'; stText = 'Nháp'; }
+          else if (p.status === 'Waived') { badge = 'badge-info'; stText = 'Miễn Phạt 100%'; }
+          else if (p.status === 'Cancelled') { badge = 'muted'; stText = 'Đã Hủy'; }
+
+          return `
+            <tr>
+              <td><strong>${p.penaltyRecordNo}</strong><br><small class="muted">${p.createdAt ? p.createdAt.slice(0, 10) : ''}</small></td>
+              <td><code>${p.soCode}</code><br><small class="muted">${p.contractNo || '-'}</small></td>
+              <td><strong>${p.dealerCode}</strong><br><small class="muted">${p.dealerName || ''}</small></td>
+              <td><span class="badge badge-info">${p.totalApprovedQuantity} xe</span></td>
+              <td>${Number(p.totalUnitPriceActual).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:center; color:${p.maxDelayDaysDeposit > 0 ? 'var(--danger)' : 'var(--muted)'};">${p.maxDelayDaysDeposit}d</td>
+              <td style="text-align:center; color:${p.maxDelayDaysGrtOpen > 0 ? 'var(--danger)' : 'var(--muted)'};">${p.maxDelayDaysGrtOpen}d</td>
+              <td style="text-align:center; color:${p.maxDelayDaysGrtPay > 0 ? 'var(--danger)' : 'var(--muted)'}; font-weight:700;">${p.maxDelayDaysGrtPay}d</td>
+              <td style="text-align:center; color:${p.maxDelayDays60Pmt > 0 ? 'var(--danger)' : 'var(--muted)'};">${p.maxDelayDays60Pmt}d</td>
+              <td style="text-align:center; color:${p.maxDelayDaysRemain > 0 ? 'var(--danger)' : 'var(--muted)'};">${p.maxDelayDaysRemain}d</td>
+              <td style="text-align:center; font-weight:700; color:var(--danger);">${p.totalDatePenalty} ngày</td>
+              <td style="text-align:right;">${Number(p.amountPenaltySystem).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; font-weight:700; color:var(--primary);">${Number(p.penalizeActual).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; color:var(--success);">${Number(p.waivedAmount).toLocaleString('vi-VN')} đ</td>
+              <td><span class="badge ${badge}">${stText}</span></td>
+              <td>
+                <button class="secondary" onclick="viewPenaltyDetail(${p.id})">Chi tiết</button>
+                <button class="secondary" style="margin-left:4px;" onclick="openPenaltyAdviceModal(${p.id})">In</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    let activePenalty = null;
+
+    async function viewPenaltyDetail(id) {
+      try {
+        const res = await fetch(`/api/penalty-delay/${id}`, { headers });
+        if (!res.ok) { alert('Không tìm thấy hồ sơ phạt.'); return; }
+        const p = await res.json();
+        activePenalty = p;
+
+        const card = document.getElementById('cardPenaltyDetail');
+        card.style.display = 'block';
+
+        let badge = 'badge-info';
+        if (p.status === 'Settled') badge = 'badge-success';
+        else if (p.status === 'Approved') badge = 'badge-success';
+        else if (p.status === 'Reviewed') badge = 'badge-warning';
+
+        document.getElementById('penaltyDetailTitle').innerHTML = `
+          Hồ Sơ Tính Phạt: <code>${p.penaltyRecordNo}</code> — Đơn Hàng <strong>${p.soCode}</strong>
+          <span class="badge ${badge}" style="margin-left:8px;">${p.status}</span>
+        `;
+
+        document.getElementById('penaltyDetailSubtitle').innerHTML = `
+          Đại lý: <strong>${p.dealerName || p.dealerCode}</strong> (<code>${p.dealerCode}</code>) |
+          HĐ Bán Xe: <strong>${p.contractNo || '-'}</strong> |
+          Ngày duyệt SO: <strong>${p.soApprovedDate ? p.soApprovedDate.slice(0, 10) : '-'}</strong> |
+          Tổng giá trị xe: <strong style="color:var(--primary);">${Number(p.totalUnitPriceActual).toLocaleString('vi-VN')} đ</strong> (${p.totalApprovedQuantity} xe) |
+          Lãi suất phạt: <strong>${p.penaltyRateAnnual}%/năm</strong>
+        `;
+
+        let auditHtml = `
+          <div style="display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+            <div><strong>Phạt hệ thống tính (TTC):</strong> <span style="font-weight:700; color:var(--danger);">${Number(p.amountPenaltySystem).toLocaleString('vi-VN')} đ</span> (Trễ max: <strong>${p.totalDatePenalty} ngày</strong>)</div>
+            <div><strong>Mức phạt chốt thực tế:</strong> <span style="font-weight:700; color:var(--primary); font-size:1.05em;">${Number(p.penalizeActual).toLocaleString('vi-VN')} đ</span></div>
+            <div><strong>Số tiền miễn giảm:</strong> <span style="font-weight:700; color:var(--success);">${Number(p.waivedAmount).toLocaleString('vi-VN')} đ</span></div>
+          </div>
+          <div style="margin-top:8px; border-top:1px dashed var(--border); padding-top:6px; display:flex; justify-content:space-between; flex-wrap:wrap; gap:12px;">
+            <div><strong>Người lập:</strong> ${p.createdBy || 'KeToan'} (${p.createdAt ? p.createdAt.slice(0, 16).replace('T', ' ') : ''})</div>
+            <div><strong>Kế toán thẩm định:</strong> ${p.reviewedBy ? `${p.reviewedBy} (${p.reviewedAt ? p.reviewedAt.slice(0, 16).replace('T', ' ') : ''})` : '<em>(Chưa thẩm định)</em>'}</div>
+            <div><strong>Ban Giám đốc duyệt:</strong> ${p.approvedBy ? `${p.approvedBy} (${p.approvedAt ? p.approvedAt.slice(0, 16).replace('T', ' ') : ''})` : '<em>(Chưa duyệt)</em>'}</div>
+            <div><strong>Quyết toán / Thu nộp:</strong> ${p.settledBy ? `${p.settledBy} (Mã: <code>${p.paymentProofRef || ''}</code>)` : '<em>(Chưa quyết toán)</em>'}</div>
+          </div>
+          ${p.adjustmentReason ? `<div style="margin-top:6px; font-style:italic; color:var(--warning);"><strong>Lý do điều chỉnh / giải trình:</strong> ${p.adjustmentReason}</div>` : ''}
+          ${p.remark ? `<div style="margin-top:4px;" class="muted"><strong>Ghi chú:</strong> ${p.remark}</div>` : ''}
+        `;
+        document.getElementById('penaltyAuditBox').innerHTML = auditHtml;
+
+        const btnCalc = document.getElementById('btnCalcPenalty');
+        const btnRev = document.getElementById('btnReviewPenalty');
+        const btnApp = document.getElementById('btnApprovePenalty');
+        const btnSet = document.getElementById('btnSettlePenalty');
+        const btnWai = document.getElementById('btnWaivePenalty');
+        const btnPrn = document.getElementById('btnPrintPenaltyAdvice');
+        const btnCan = document.getElementById('btnCancelPenalty');
+
+        btnCalc.style.display = (p.status !== 'Settled' && p.status !== 'Cancelled') ? 'inline-block' : 'none';
+        btnRev.style.display = (p.status === 'Draft' || p.status === 'Calculated' || p.status === 'Reviewed') ? 'inline-block' : 'none';
+        btnApp.style.display = (p.status === 'Calculated' || p.status === 'Reviewed') ? 'inline-block' : 'none';
+        btnSet.style.display = (p.status === 'Approved' || p.status === 'Reviewed') ? 'inline-block' : 'none';
+        btnWai.style.display = (p.status !== 'Settled' && p.status !== 'Cancelled' && p.status !== 'Waived') ? 'inline-block' : 'none';
+        btnCan.style.display = (p.status !== 'Settled' && p.status !== 'Cancelled') ? 'inline-block' : 'none';
+
+        btnCalc.onclick = async () => {
+          const res = await fetch(`/api/penalty-delay/${id}/calculate`, { method: 'POST', headers });
+          if (res.ok) { viewPenaltyDetail(id); loadPenaltyRecords(); }
+          else { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); }
+        };
+
+        btnRev.onclick = async () => {
+          const inputAmt = prompt(`Hệ thống tính tiền phạt: ${Number(p.amountPenaltySystem).toLocaleString('vi-VN')} đ.\nNhập số tiền phạt thực tế đề xuất (PenalizeActual):`, p.penalizeActual);
+          if (inputAmt === null) return;
+          const proposed = parseInt(inputAmt);
+          if (isNaN(proposed) || proposed < 0) { alert('Số tiền không hợp lệ.'); return; }
+          const reason = prompt('Nhập lý do điều chỉnh / giải trình miễn giảm phạt:', p.adjustmentReason || 'Đại lý giải trình do thủ tục giải ngân ngân hàng chậm tiến độ');
+          const reviewer = prompt('Tên cán bộ thẩm định:', 'NguyenThiMai_KTT');
+
+          const res = await fetch(`/api/penalty-delay/${id}/review`, {
+            method: 'POST', headers,
+            body: JSON.stringify({ proposedPenalizeActual: proposed, adjustmentReason: reason, reviewerName: reviewer })
+          });
+          if (res.ok) { viewPenaltyDetail(id); loadPenaltyRecords(); }
+          else { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); }
+        };
+
+        btnApp.onclick = async () => {
+          if (!confirm(`Xác nhận Ban Giám đốc phê duyệt chốt mức phạt ${Number(p.penalizeActual).toLocaleString('vi-VN')} đ cho đơn ${p.soCode}?`)) return;
+          const approver = prompt('Họ tên người phê duyệt:', 'LeHoangNam_GDTaiChinh_HTC');
+          const res = await fetch(`/api/penalty-delay/${id}/approve`, {
+            method: 'POST', headers, body: JSON.stringify({ approverName: approver })
+          });
+          if (res.ok) { viewPenaltyDetail(id); loadPenaltyRecords(); }
+          else { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); }
+        };
+
+        btnSet.onclick = async () => {
+          const proof = prompt('Nhập số chứng từ / UNC nộp tiền phạt hoặc phiếu cấn trừ công nợ:', 'UNC-VCB-' + Math.floor(Math.random()*900000 + 100000));
+          if (!proof) return;
+          const settler = prompt('Cán bộ quyết toán:', 'TranMinhAnh_ThuQuy');
+          const res = await fetch(`/api/penalty-delay/${id}/settle`, {
+            method: 'POST', headers, body: JSON.stringify({ paymentProofRef: proof, settlerName: settler })
+          });
+          if (res.ok) { viewPenaltyDetail(id); loadPenaltyRecords(); }
+          else { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); }
+        };
+
+        btnWai.onclick = async () => {
+          const reason = prompt('Nhập lý do miễn phạt 100%:', 'Sự kiện bất khả kháng do thiên tai hoặc chính sách đặc biệt được Ban Lãnh đạo chấp thuận');
+          if (!reason) return;
+          const approver = prompt('Họ tên lãnh đạo phê duyệt miễn phạt:', 'TongGiamDoc_HTC');
+          const res = await fetch(`/api/penalty-delay/${id}/waive`, {
+            method: 'POST', headers, body: JSON.stringify({ waiveReason: reason, approverName: approver })
+          });
+          if (res.ok) { viewPenaltyDetail(id); loadPenaltyRecords(); }
+          else { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); }
+        };
+
+        btnCan.onclick = async () => {
+          const reason = prompt('Nhập lý do hủy hồ sơ phạt:', 'Hủy do nhập sai đơn hàng');
+          if (!reason) return;
+          const res = await fetch(`/api/penalty-delay/${id}/cancel`, {
+            method: 'POST', headers, body: JSON.stringify({ reason })
+          });
+          if (res.ok) { viewPenaltyDetail(id); loadPenaltyRecords(); }
+          else { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); }
+        };
+
+        btnPrintPenaltyAdvice.onclick = () => openPenaltyAdviceModal(id);
+
+        const dTable = document.getElementById('penaltyDetailTableBody');
+        const vList = p.details || [];
+        dTable.innerHTML = vList.map((d, i) => `
+          <tr>
+            <td>${i+1}</td>
+            <td><code>${d.vin}</code></td>
+            <td><strong>${d.modelName || d.modelCode}</strong></td>
+            <td>${d.colorName || '-'}</td>
+            <td>${Number(d.unitPriceActual).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:center; color:${d.delayDaysDeposit > 0 ? 'var(--danger)' : 'var(--muted)'};">${d.delayDaysDeposit}d</td>
+            <td style="text-align:center; color:${d.delayDaysGrtOpen > 0 ? 'var(--danger)' : 'var(--muted)'};">${d.delayDaysGrtOpen}d</td>
+            <td style="text-align:center; color:${d.delayDaysGrtPay > 0 ? 'var(--danger)' : 'var(--muted)'}; font-weight:700;">${d.delayDaysGrtPay}d</td>
+            <td style="text-align:center; color:${d.delayDays60Pmt > 0 ? 'var(--danger)' : 'var(--muted)'};">${d.delayDays60Pmt}d</td>
+            <td style="text-align:center; color:${d.delayDaysRemain > 0 ? 'var(--danger)' : 'var(--muted)'};">${d.delayDaysRemain}d</td>
+            <td style="text-align:center; font-weight:700; color:var(--danger);">${d.maxDelayDays}d</td>
+            <td style="text-align:right;">${Number(d.itemPenaltyAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; font-weight:700; color:var(--primary);">${Number(d.actualItemPenalty).toLocaleString('vi-VN')} đ</td>
+            <td><span class="badge badge-info">${d.status}</span></td>
+            <td style="font-size:.85em;" class="muted">${d.note || '-'}</td>
+          </tr>
+        `).join('');
+
+        card.scrollIntoView({ behavior: 'smooth' });
+      } catch(e) { console.error(e); }
+    }
+
+    async function openPenaltyAdviceModal(id) {
+      try {
+        const res = await fetch(`/api/penalty-delay/${id}/penalty-advice`, { headers });
+        if (!res.ok) { alert('Không thể tạo thông báo phạt.'); return; }
+        const u = await res.json();
+
+        const vList = u.vehicles || [];
+        const vRows = vList.map((v, i) => `
+          <tr>
+            <td style="border:1px solid var(--border); padding:4px 8px; text-align:center;">${i+1}</td>
+            <td style="border:1px solid var(--border); padding:4px 8px;"><code>${v.vin}</code></td>
+            <td style="border:1px solid var(--border); padding:4px 8px;"><strong>${v.modelName || v.modelCode}</strong></td>
+            <td style="border:1px solid var(--border); padding:4px 8px; text-align:right;">${Number(v.unitPriceActual).toLocaleString('vi-VN')} đ</td>
+            <td style="border:1px solid var(--border); padding:4px 8px; text-align:center;">${v.delayDaysDeposit}d</td>
+            <td style="border:1px solid var(--border); padding:4px 8px; text-align:center;">${v.delayDaysGrtOpen}d</td>
+            <td style="border:1px solid var(--border); padding:4px 8px; text-align:center; font-weight:700;">${v.delayDaysGrtPay}d</td>
+            <td style="border:1px solid var(--border); padding:4px 8px; text-align:center;">${v.delayDays60Pmt}d</td>
+            <td style="border:1px solid var(--border); padding:4px 8px; text-align:center;">${v.delayDaysRemain}d</td>
+            <td style="border:1px solid var(--border); padding:4px 8px; text-align:center; font-weight:700; color:var(--danger);">${v.maxDelayDays} ngày</td>
+            <td style="border:1px solid var(--border); padding:4px 8px; text-align:right;">${Number(v.itemPenaltyAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="border:1px solid var(--border); padding:4px 8px; text-align:right; font-weight:700; color:var(--primary);">${Number(v.actualItemPenalty).toLocaleString('vi-VN')} đ</td>
+          </tr>
+        `).join('');
+
+        const content = `
+          <div style="border:1px solid var(--border); padding:18px; border-radius:6px; background:rgba(127,127,127,.04);">
+            <div style="text-align:center; margin-bottom:14px; border-bottom:2px solid var(--border); padding-bottom:10px;">
+              <div style="font-weight:700; font-size:1.05em; color:var(--text);">TẬP ĐOÀN THÀNH CÔNG — CÔNG TY CỔ PHẦN LIÊN DOANH Ô TÔ HYUNDAI THÀNH CÔNG VIỆT NAM</div>
+              <h2 style="margin:8px 0 4px; letter-spacing:1px; color:var(--primary);">THÔNG BÁO TÍNH VÀ QUYẾT TOÁN PHẠT CHẬM THANH TOÁN (TTC)</h2>
+              <div style="font-style:italic;" class="muted">(Căn cứ Hợp đồng mua bán buôn xe ô tô và Chính sách chiết khấu - phạt vi phạm nghĩa vụ thanh toán Mst_Discount)</div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-size:.92em;">
+              <div><strong>Số Hồ Sơ Phạt:</strong> <code>${u.penaltyRecordNo}</code></div>
+              <div><strong>Đơn Hàng (SO):</strong> <strong>${u.soCode}</strong></div>
+              <div><strong>Hợp Đồng:</strong> <strong>${u.contractNo}</strong></div>
+              <div><strong>Ngày Duyệt SO:</strong> ${u.soApprovedDate}</div>
+            </div>
+
+            <div style="background:rgba(217,119,6,.08); padding:10px 14px; border-radius:6px; margin-bottom:12px; font-size:.92em;">
+              <div><strong>Bên Mua (Đại Lý):</strong> <strong>${u.dealerName}</strong> (Mã đại lý: <code>${u.dealerCode}</code>)</div>
+              <div style="margin-top:4px;"><strong>Tổng Giá Trị Đơn Hàng:</strong> ${Number(u.totalOrderAmount).toLocaleString('vi-VN')} VND (${u.totalQuantity} xe)</div>
+              <div style="margin-top:4px;"><strong>Lãi Suất Phạt Áp Dụng:</strong> <strong>${u.penaltyRateAnnual}%/năm</strong> (Số ngày phạt tính lớn nhất: <strong>${u.totalDatePenalty} ngày</strong>)</div>
+              <div style="margin-top:4px;"><strong>Giải Trình &amp; Lý Do Miễn Giảm:</strong> <em>${u.adjustmentReason}</em></div>
+            </div>
+
+            <div style="margin-bottom:14px;">
+              <strong>Bảng kê chi tiết quá hạn của 5 mốc tiến độ thanh toán cho từng phương tiện:</strong>
+              <div style="overflow-x:auto; margin-top:6px;">
+                <table style="width:100%; border-collapse:collapse; font-size:.84em;">
+                  <thead>
+                    <tr style="background:rgba(127,127,127,.1);">
+                      <th style="border:1px solid var(--border); padding:4px 6px;">STT</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Số Khung (VIN)</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Model Xe</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Đơn Giá Xe</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Trễ Cọc</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Trễ Mở BL</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Trễ TT BL</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Trễ 60%</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Trễ 40%</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Trễ Max</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Phạt Hệ Thống</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Phạt Chốt Thu</th>
+                    </tr>
+                  </thead>
+                  <tbody>${vRows}</tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style="margin-bottom:14px; padding:12px; border:1px solid var(--border); border-radius:6px; background:rgba(0,0,0,.15); font-size:.95em;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span>Tổng tiền phạt theo tính toán tự động của hệ thống (TTC):</span>
+                <span><strong>${Number(u.amountPenaltySystem).toLocaleString('vi-VN')} VND</strong></span>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span>Số tiền phạt được Ban Lãnh đạo xem xét miễn giảm (Waived):</span>
+                <span style="color:var(--success);"><strong>- ${Number(u.waivedAmount).toLocaleString('vi-VN')} VND</strong></span>
+              </div>
+              <div style="display:flex; justify-content:space-between; font-size:1.15em; font-weight:700; color:var(--primary); border-top:1px solid var(--border); padding-top:6px; margin-top:4px;">
+                <span>TỔNG SỐ TIỀN PHẠT CHẬM THANH TOÁN PHẢI THU (PENALIZE ACTUAL):</span>
+                <span>${Number(u.penalizeActual).toLocaleString('vi-VN')} VND</span>
+              </div>
+              <div style="margin-top:8px; font-size:.95em;">
+                <strong>Số tiền phạt bằng chữ (In words):</strong><br>
+                <em style="color:var(--text); font-size:1.02em;"><strong>${u.penalizeActualInWords}</strong></em>
+              </div>
+              ${u.paymentProofRef ? `<div style="margin-top:6px; color:var(--success);"><strong>Chứng từ quyết toán / UNC thu phạt:</strong> <code>${u.paymentProofRef}</code></div>` : ''}
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; text-align:center; margin-top:24px; padding-top:16px; border-top:1px solid var(--border);">
+              <div>
+                <strong>CHUYÊN VIÊN KẾ TOÁN CÔNG NỢ</strong><br><small class="muted">(Lập bảng tính phạt)</small><br><br>
+                <span>${u.createdBy}<br><small>${u.createdAt}</small></span>
+              </div>
+              <div>
+                <strong>KẾ TOÁN TRƯỞNG THẨM ĐỊNH</strong><br><small class="muted">(Đề xuất miễn giảm &amp; chốt mức phạt)</small><br><br>
+                <span>${u.reviewedBy}<br><small>${u.reviewedAt || ''}</small></span>
+              </div>
+              <div>
+                <strong>BAN GIÁM ĐỐC TÀI CHÍNH DUYỆT</strong><br><small class="muted">(Phê duyệt quyết toán mức phạt)</small><br><br>
+                <span>${u.approvedBy}<br><small>${u.approvedAt || ''}</small></span>
+              </div>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('penaltyAdviceContent').innerHTML = content;
+        document.getElementById('modalPenaltyAdvice').style.display = 'block';
+      } catch(e) { console.error(e); }
+    }
+
+    function closePenaltyAdviceModal() {
+      document.getElementById('modalPenaltyAdvice').style.display = 'none';
+    }
+
+    function loadSamplePenaltyData() {
+      const today = new Date();
+      const fmt = (daysOffset) => {
+        const d = new Date(today.getTime() + daysOffset * 86400000);
+        return d.toISOString().slice(0, 10);
+      };
+
+      const sample = [
+        {
+          "vin": "KMHCT81EPHU300501",
+          "carId": "CAR-SAN-0501",
+          "modelCode": "SANTAFE-CAL",
+          "modelName": "Hyundai SantaFe 2.5 AWD Calligraphy",
+          "colorName": "Đen Lịch Lãm",
+          "unitPriceActual": 1369000000,
+          "depositDueDate": fmt(-35),
+          "actualDepositDate": fmt(-31), // trễ 4 ngày
+          "grtDueDate": fmt(-28),
+          "actualGrtDate": fmt(-21), // trễ 7 ngày
+          "grtPayDueDate": fmt(-18),
+          "actualGrtPayDate": fmt(-6), // trễ 12 ngày
+          "payment60DueDate": fmt(-22),
+          "actual60PayDate": fmt(-18), // trễ 4 ngày
+          "paymentRemainDueDate": fmt(-14),
+          "actualRemainPayDate": fmt(-7), // trễ 7 ngày
+          "note": "Trễ thanh toán bảo lãnh 12 ngày do ngân hàng duyệt chậm"
+        },
+        {
+          "vin": "KMHCT81EPHU300502",
+          "carId": "CAR-TUC-0502",
+          "modelCode": "TUCSON-TURBO",
+          "modelName": "Hyundai Tucson 1.6T HTRAC",
+          "colorName": "Trắng Tinh Khôi",
+          "unitPriceActual": 959000000,
+          "depositDueDate": fmt(-35),
+          "actualDepositDate": fmt(-33), // trễ 2 ngày
+          "grtDueDate": fmt(-28),
+          "actualGrtDate": fmt(-23), // trễ 5 ngày
+          "grtPayDueDate": fmt(-18),
+          "actualGrtPayDate": fmt(-8), // trễ 10 ngày
+          "payment60DueDate": fmt(-22),
+          "actual60PayDate": fmt(-19), // trễ 3 ngày
+          "paymentRemainDueDate": fmt(-14),
+          "actualRemainPayDate": fmt(-8), // trễ 6 ngày
+          "note": "Trễ hạn thanh toán bảo lãnh 10 ngày"
+        }
+      ];
+      document.getElementById('inpPenaltyVehiclesJson').value = JSON.stringify(sample, null, 2);
+    }
+
+    async function submitPenaltyDelay() {
+      const msg = document.getElementById('submitPenaltyMsg');
+      try {
+        const rawJson = document.getElementById('inpPenaltyVehiclesJson').value.trim();
+        const items = rawJson ? JSON.parse(rawJson) : [];
+        if (!items.length) { alert('Vui lòng nhập ít nhất 1 dòng xe kiểm tra nghĩa vụ thanh toán.'); return; }
+
+        const payload = {
+          penaltyRecordNo: document.getElementById('inpPenaltyRecordNo').value.trim() || null,
+          soCode: document.getElementById('inpPenaltySOCode').value.trim(),
+          dealerCode: document.getElementById('inpPenaltyDealerCode').value.trim(),
+          dealerName: document.getElementById('inpPenaltyDealerName').value.trim(),
+          contractNo: document.getElementById('inpPenaltyContractNo').value.trim() || null,
+          soApprovedDate: document.getElementById('inpPenaltySOApprovedDate').value || null,
+          penaltyRateAnnual: parseFloat(document.getElementById('inpPenaltyRate').value) || 12.0,
+          remark: document.getElementById('inpPenaltyRemark').value.trim(),
+          items: items
+        };
+
+        if (!payload.soCode) { alert('Vui lòng nhập số đơn hàng (SOCode).'); return; }
+        if (!payload.dealerCode) { alert('Vui lòng nhập mã đại lý.'); return; }
+
+        msg.textContent = 'Đang kiểm tra và khởi tạo hồ sơ tính phạt...';
+        const res = await fetch('/api/penalty-delay', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Hồ sơ: ${data.penaltyRecordNo} (Tổng phạt hệ thống: ${Number(data.amountPenaltySystem).toLocaleString('vi-VN')} đ)`;
+        setTimeout(() => {
+          showTab('penaltyDelay');
+          viewPenaltyDetail(data.id);
+        }, 800);
+      } catch(e) {
+        msg.textContent = 'Lỗi cú pháp JSON: ' + e.message;
+      }
+    }
+
+    const initPenaltyDates = () => {
+      const today = new Date();
+      const pastD = new Date(today.getTime() - 40 * 86400000);
+      const elSO = document.getElementById('inpPenaltySOApprovedDate');
+      if (elSO) elSO.value = pastD.toISOString().slice(0, 10);
+    };
+    initPenaltyDates();
+    loadSamplePenaltyData();
+
     // Khởi tạo
     loadSampleData();
     loadSamplePayoutData();
     loadSampleDiscountData();
     loadSamplePDIData();
+    loadSamplePenaltyData();
     loadBatches();
   </script>
 </body>

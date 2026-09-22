@@ -61,6 +61,10 @@ public enum PDISignStatus { Pending = 0, Signed = 1 }
 
 public enum PaymentPDIDetailStatus { Pending = 0, Approved = 1, Adjusted = 2, Cancelled = 3 }
 
+public enum LatePaymentPenaltyStatus { Draft = 0, Calculated = 1, Reviewed = 2, Approved = 3, Settled = 4, Waived = 5, Cancelled = 6 }
+
+public enum LatePaymentPenaltyDetailStatus { Pending = 0, Calculated = 1, Approved = 2, Settled = 3, Cancelled = 4 }
+
 /// <summary>Ý định thanh toán (payment intent) — 1 dòng / 1 lần khởi tạo cổng.</summary>
 public sealed class PaymentIntent
 {
@@ -563,6 +567,81 @@ public sealed class PaymentPDIDetail
     public long TotalCostCheck { get; set; }               // Tổng chi phí PDI xe (= CostInCheck + CostOutCheck)
     public PaymentPDIDetailStatus Status { get; set; } = PaymentPDIDetailStatus.Pending; // Trạng thái dòng
     public string? Remark { get; set; }                    // Ghi chú chi tiết xe kiểm tra
+}
+
+/// <summary>Hồ sơ tính và phạt chậm thanh toán đơn hàng/hợp đồng xe — tương ứng TblRptPenaltyPmtDelay trong BizHTC.Report / BizHTC.Payment / FrmRptPenaltyPmtDelay &amp; FrmUpdatePenaltyPmtDelayReal.</summary>
+public sealed class LatePaymentPenalty
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string PenaltyRecordNo { get; set; } = "";     // Số hồ sơ tính phạt (PEN-202505-001)
+    public string SOCode { get; set; } = "";              // Số đơn hàng xe (Ord_SalesOrder.SOCode)
+    public string DealerCode { get; set; } = "";          // Mã đại lý (Mst_Dealer.DealerCode)
+    public string? DealerName { get; set; }               // Tên đại lý
+    public string? ContractNo { get; set; }               // Số hợp đồng bán buôn xe
+    public DateTime? SOApprovedDate { get; set; }         // Ngày duyệt đơn hàng SO (ApprovedDate2)
+    public int TotalApprovedQuantity { get; set; }        // Tổng số lượng xe được duyệt trong đơn
+    public long TotalUnitPriceActual { get; set; }        // Tổng giá trị đơn hàng thực tế (VND)
+    public int MaxDelayDaysDeposit { get; set; }          // Số ngày chậm nộp cọc (Max_QtyDateDelayPmtCoc)
+    public int MaxDelayDaysGrtOpen { get; set; }          // Số ngày chậm mở bảo lãnh (Max_QtyDateDelayOpenGrm)
+    public int MaxDelayDaysGrtPay { get; set; }           // Số ngày chậm thanh toán bảo lãnh (Max_QtyDateDelayPmtGrm)
+    public int MaxDelayDays60Pmt { get; set; }            // Số ngày chậm thanh toán 60% (Max_QtyDateDelay60Pmt)
+    public int MaxDelayDaysRemain { get; set; }           // Số ngày chậm thanh toán 40% còn lại (Max_QtyDelay40PmtRemain)
+    public int TotalDatePenalty { get; set; }             // Tổng số ngày tính phạt = Max(...)
+    public decimal PenaltyRateAnnual { get; set; } = 12.0m; // Lãi suất phạt (%/năm theo Mst_Discount)
+    public long AmountPenaltySystem { get; set; }         // Số tiền phạt hệ thống tính toán (AmountPenaltyTTC)
+    public long PenalizeActual { get; set; }              // Số tiền phạt chốt thực tế (Ord_SalesOrder.PenalizeActual)
+    public long WaivedAmount { get; set; }                // Số tiền phạt được miễn giảm
+    public LatePaymentPenaltyStatus Status { get; set; } = LatePaymentPenaltyStatus.Draft;
+    public string? Remark { get; set; }                   // Diễn giải / ghi chú
+    public string? AdjustmentReason { get; set; }         // Lý do điều chỉnh / giải trình miễn giảm phạt
+    public string? PaymentProofRef { get; set; }          // Mã tham chiếu giao dịch thu phạt / UNC / cấn trừ
+    public string? CreatedBy { get; set; }                // Người lập hồ sơ
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime? CalculatedAt { get; set; }           // Ngày giờ tính toán phạt
+    public string? ReviewedBy { get; set; }               // Kế toán thẩm định mức phạt
+    public DateTime? ReviewedAt { get; set; }             // Ngày giờ thẩm định
+    public string? ApprovedBy { get; set; }               // Ban Giám đốc phê duyệt chốt phạt
+    public DateTime? ApprovedAt { get; set; }             // Ngày giờ duyệt chốt phạt
+    public string? SettledBy { get; set; }                // Người quyết toán thu tiền phạt / cấn trừ
+    public DateTime? SettledAt { get; set; }              // Ngày giờ quyết toán
+    public DateTime? CancelledAt { get; set; }            // Ngày giờ hủy
+
+    public List<LatePaymentPenaltyDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết xe và mốc thanh toán trong hồ sơ phạt chậm thanh toán — tương ứng #tbl_Summary / Pmt_PaymentDetailAccum trong BizHTC.Report.</summary>
+public sealed class LatePaymentPenaltyDetail
+{
+    public long Id { get; set; }
+    public long PenaltyId { get; set; }
+    public Guid OrgId { get; set; }
+    public string? CarId { get; set; }                    // Mã xe nội bộ
+    public string VIN { get; set; } = "";                 // Số khung xe (17 ký tự VIN)
+    public string ModelCode { get; set; } = "";           // Dòng xe (SANTAFE, TUCSON, CRETA, ACCENT...)
+    public string? ModelName { get; set; }                // Tên thương mại dòng xe
+    public string? ColorName { get; set; }                // Tên màu xe
+    public long UnitPriceActual { get; set; }             // Đơn giá thực tế xe (VND)
+    public DateTime? DepositDueDate { get; set; }         // Hạn cam kết nộp cọc (DepositDutyEndDate)
+    public DateTime? ActualDepositDate { get; set; }      // Ngày nộp cọc thực tế
+    public DateTime? GrtDueDate { get; set; }             // Hạn phát hành bảo lãnh (GrtEndDate)
+    public DateTime? ActualGrtDate { get; set; }          // Ngày mở bảo lãnh thực tế (DateOpen)
+    public DateTime? GrtPayDueDate { get; set; }          // Hạn thanh toán bảo lãnh (GrtDateEnd)
+    public DateTime? ActualGrtPayDate { get; set; }       // Ngày thực tế thanh toán bảo lãnh
+    public DateTime? Payment60DueDate { get; set; }       // Hạn cam kết thanh toán 60%
+    public DateTime? Actual60PayDate { get; set; }        // Ngày thực tế thanh toán 60%
+    public DateTime? PaymentRemainDueDate { get; set; }   // Hạn cam kết thanh toán 100% (40% còn lại)
+    public DateTime? ActualRemainPayDate { get; set; }    // Ngày thực tế thanh toán 100%
+    public int DelayDaysDeposit { get; set; }             // Số ngày chậm cọc
+    public int DelayDaysGrtOpen { get; set; }             // Số ngày chậm mở bảo lãnh
+    public int DelayDaysGrtPay { get; set; }              // Số ngày chậm thanh toán bảo lãnh
+    public int DelayDays60Pmt { get; set; }               // Số ngày chậm 60%
+    public int DelayDaysRemain { get; set; }              // Số ngày chậm 40% còn lại
+    public int MaxDelayDays { get; set; }                 // Số ngày trễ lớn nhất của xe = Max(...)
+    public long ItemPenaltyAmount { get; set; }           // Tiền phạt xe theo hệ thống tính
+    public long ActualItemPenalty { get; set; }           // Tiền phạt xe chốt thực tế
+    public LatePaymentPenaltyDetailStatus Status { get; set; } = LatePaymentPenaltyDetailStatus.Pending;
+    public string? Note { get; set; }                     // Ghi chú chi tiết dòng xe
 }
 
 

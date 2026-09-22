@@ -25,6 +25,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<BankBillMinutesDetail> BankBillMinutesDetails => Set<BankBillMinutesDetail>();
     public DbSet<PaymentPDI> PaymentPDIs => Set<PaymentPDI>();
     public DbSet<PaymentPDIDetail> PaymentPDIDetails => Set<PaymentPDIDetail>();
+    public DbSet<LatePaymentPenalty> LatePaymentPenalties => Set<LatePaymentPenalty>();
+    public DbSet<LatePaymentPenaltyDetail> LatePaymentPenaltyDetails => Set<LatePaymentPenaltyDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -114,5 +116,14 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<PaymentPDIDetail>().Property(x => x.Status).HasConversion<int>();
         b.Entity<PaymentPDIDetail>().HasIndex(x => x.PaymentPDIId);
         b.Entity<PaymentPDIDetail>().HasIndex(x => new { x.OrgId, x.VIN });
+
+        b.Entity<LatePaymentPenalty>().HasIndex(x => new { x.OrgId, x.PenaltyRecordNo }).IsUnique();
+        b.Entity<LatePaymentPenalty>().HasIndex(x => new { x.OrgId, x.SOCode });
+        b.Entity<LatePaymentPenalty>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<LatePaymentPenalty>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.PenaltyId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<LatePaymentPenaltyDetail>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<LatePaymentPenaltyDetail>().HasIndex(x => x.PenaltyId);
+        b.Entity<LatePaymentPenaltyDetail>().HasIndex(x => new { x.OrgId, x.VIN });
     }
 }
