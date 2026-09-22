@@ -28,6 +28,7 @@ builder.Services.AddHttpClient();
 builder.Services.AddSingleton<VnPayService>();
 builder.Services.AddSingleton<MomoService>();
 builder.Services.AddScoped<ReconcileService>();
+builder.Services.AddScoped<BankingPayoutService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -427,9 +428,273 @@ app.MapGet("/api/reconcile/summary", async (AppDbContext db, ITenantContext tc) 
     });
 });
 
+// ===== Lệnh chi chuyển tiền ngân hàng tự động (Banking Payout / Bulk Payment) =====
+
+// 1) Tạo lô lệnh chi chuyển khoản ngân hàng (RQ_BankingTransactions_Save)
+app.MapPost("/api/payout/batches", async (CreatePayoutBatchDto dto, BankingPayoutService payoutService, ITenantContext tc) =>
+{
+    if (dto.Items == null || dto.Items.Count == 0)
+        return Results.BadRequest(new { error = "Cần ít nhất 1 dòng người nhận chuyển khoản." });
+    if (string.IsNullOrWhiteSpace(dto.BankCode))
+        return Results.BadRequest(new { error = "Cần chỉ định mã ngân hàng trích nợ (BankCode: CTG, MBB, VCB, TCB...)." });
+    if (string.IsNullOrWhiteSpace(dto.SourceAccount))
+        return Results.BadRequest(new { error = "Cần số tài khoản trích nợ (SourceAccount)." });
+
+    try
+    {
+        var batch = await payoutService.CreateBatchAsync(
+            tc.OrgId,
+            dto.BatchNo,
+            dto.BankCode,
+            dto.SourceAccount,
+            dto.SourceAccountName,
+            dto.BizResNumber,
+            dto.Remark,
+            dto.Items
+        );
+
+        return Results.Ok(new
+        {
+            batch.Id,
+            batch.BatchNo,
+            batch.BankCode,
+            batch.SourceAccount,
+            batch.SourceAccountName,
+            batch.BizResNumber,
+            batch.Remark,
+            batch.TotalTrans,
+            batch.TotalAmount,
+            status = batch.Status.ToString(),
+            batch.CreatedAt,
+            details = batch.Details.Select(d => new
+            {
+                d.Id,
+                d.TransNo,
+                transType = d.TransType.ToString(),
+                disbursementType = d.DisbursementType.ToString(),
+                d.RefNo,
+                d.ReceivingUnit,
+                d.BankAccountReceive,
+                d.BankNameReceive,
+                d.ProvinceName,
+                d.TransferAmount,
+                d.TransferRemark,
+                status = d.Status.ToString()
+            })
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 2) Lấy danh sách các lô lệnh chi (RQ_BankingTransactions_Get)
+app.MapGet("/api/payout/batches", async (AppDbContext db, ITenantContext tc, string? status, string? bankCode) =>
+{
+    var q = db.PayoutBatches.Where(b => b.OrgId == tc.OrgId);
+    if (!string.IsNullOrWhiteSpace(bankCode))
+        q = q.Where(b => b.BankCode == bankCode.ToUpper());
+    if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<PayoutStatus>(status, true, out var st))
+        q = q.Where(b => b.Status == st);
+
+    var list = await q.OrderByDescending(b => b.CreatedAt)
+        .Select(b => new
+        {
+            b.Id,
+            b.BatchNo,
+            b.BankCode,
+            b.SourceAccount,
+            b.SourceAccountName,
+            b.BizResNumber,
+            b.Remark,
+            b.TotalTrans,
+            b.SuccessTrans,
+            b.FailedTrans,
+            b.TotalAmount,
+            b.SuccessAmount,
+            status = b.Status.ToString(),
+            b.BankStatusCode,
+            b.RefBankCode,
+            b.BankRemark,
+            b.CreatedBy,
+            b.CreatedAt,
+            b.ApprovedBy,
+            b.ApprovedAt,
+            b.CompletedAt,
+            b.CancelledAt
+        })
+        .ToListAsync();
+
+    return Results.Ok(list);
+});
+
+// 3) Lấy chi tiết 1 lô lệnh chi kèm danh sách món chuyển tiền (RQ_BankingTransactions_GetDetail)
+app.MapGet("/api/payout/batches/{id:long}", async (long id, AppDbContext db, ITenantContext tc) =>
+{
+    var batch = await db.PayoutBatches
+        .Include(b => b.Details)
+        .FirstOrDefaultAsync(b => b.Id == id && b.OrgId == tc.OrgId);
+
+    if (batch == null) return Results.NotFound(new { error = $"Không tìm thấy lô lệnh chi #{id}." });
+
+    return Results.Ok(new
+    {
+        batch.Id,
+        batch.BatchNo,
+        batch.BankCode,
+        batch.SourceAccount,
+        batch.SourceAccountName,
+        batch.BizResNumber,
+        batch.Remark,
+        batch.TotalTrans,
+        batch.SuccessTrans,
+        batch.FailedTrans,
+        batch.TotalAmount,
+        batch.SuccessAmount,
+        status = batch.Status.ToString(),
+        batch.BankStatusCode,
+        batch.RefBankCode,
+        batch.BankRemark,
+        batch.CreatedBy,
+        batch.CreatedAt,
+        batch.ApprovedBy,
+        batch.ApprovedAt,
+        batch.RejectReason,
+        batch.CompletedAt,
+        batch.CancelledAt,
+        details = batch.Details.OrderBy(d => d.Id).Select(d => new
+        {
+            d.Id,
+            d.TransNo,
+            transType = d.TransType.ToString(),
+            disbursementType = d.DisbursementType.ToString(),
+            d.RefNo,
+            d.ReceivingUnit,
+            d.BankAccountReceive,
+            d.BankNameReceive,
+            d.ProvinceName,
+            d.TransferAmount,
+            d.TransferRemark,
+            status = d.Status.ToString(),
+            d.BankTxnRef,
+            d.ErrorMessage,
+            d.ExecutedAt
+        })
+    });
+});
+
+// 4) Phê duyệt lô lệnh chi (RQ_BankingTransactions_Approve)
+app.MapPost("/api/payout/batches/{id:long}/approve", async (long id, BankingPayoutService payoutService, ITenantContext tc) =>
+{
+    try
+    {
+        var batch = await payoutService.ApproveBatchAsync(id, tc.OrgId, "AccountingManager");
+        if (batch == null) return Results.NotFound(new { error = $"Không tìm thấy lô lệnh chi #{id}." });
+
+        return Results.Ok(new
+        {
+            batch.Id,
+            batch.BatchNo,
+            status = batch.Status.ToString(),
+            batch.ApprovedBy,
+            batch.ApprovedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 5) Từ chối phê duyệt lô lệnh chi
+app.MapPost("/api/payout/batches/{id:long}/reject", async (long id, RejectPayoutDto? dto, BankingPayoutService payoutService, ITenantContext tc) =>
+{
+    try
+    {
+        var batch = await payoutService.RejectBatchAsync(id, tc.OrgId, dto?.Reason, "AccountingManager");
+        if (batch == null) return Results.NotFound(new { error = $"Không tìm thấy lô lệnh chi #{id}." });
+
+        return Results.Ok(new
+        {
+            batch.Id,
+            batch.BatchNo,
+            status = batch.Status.ToString(),
+            batch.RejectReason,
+            batch.CancelledAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Hủy lô lệnh chi khi chưa đẩy ngân hàng (RQ_BankingTransactions_Cancel)
+app.MapPost("/api/payout/batches/{id:long}/cancel", async (long id, BankingPayoutService payoutService, ITenantContext tc) =>
+{
+    try
+    {
+        var batch = await payoutService.CancelBatchAsync(id, tc.OrgId);
+        if (batch == null) return Results.NotFound(new { error = $"Không tìm thấy lô lệnh chi #{id}." });
+
+        return Results.Ok(new
+        {
+            batch.Id,
+            batch.BatchNo,
+            status = batch.Status.ToString(),
+            batch.CancelledAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 7) Đẩy lệnh chi sang cổng ngân hàng điện tử (RQ_BankingTransactions_PushBank / MBBank_MakeBulkPayment_v2_1)
+app.MapPost("/api/payout/batches/{id:long}/push-bank", async (long id, BankingPayoutService payoutService, ITenantContext tc) =>
+{
+    try
+    {
+        var batch = await payoutService.PushToBankAsync(id, tc.OrgId);
+        if (batch == null) return Results.NotFound(new { error = $"Không tìm thấy lô lệnh chi #{id}." });
+
+        return Results.Ok(new
+        {
+            batch.Id,
+            batch.BatchNo,
+            batch.BankCode,
+            status = batch.Status.ToString(),
+            batch.BankStatusCode,
+            batch.RefBankCode,
+            batch.BankRemark,
+            batch.TotalTrans,
+            batch.SuccessTrans,
+            batch.FailedTrans,
+            batch.TotalAmount,
+            batch.SuccessAmount,
+            batch.CompletedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 8) Báo cáo tổng hợp số liệu Payout
+app.MapGet("/api/payout/summary", async (BankingPayoutService payoutService, ITenantContext tc) =>
+{
+    var summary = await payoutService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
 app.Run();
 
 record CreatePayDto(long Amount, string? OrderId, string? OrderInfo, string? BankCode);
 record RegisterOrgDto(string Name);
 record ImportPayDto(string? TxnRef, string? OrderId, long Amount, string? OrderInfo, string? BankCode, bool IsPaid, DateTime? CreatedAt);
 record CreateReconcileBatchDto(string? BatchCode, string? BankCode, string? AccountNo, DateTime? StatementDate, string? Note, List<BankStatementInputDto> Items);
+record CreatePayoutBatchDto(string? BatchNo, string BankCode, string SourceAccount, string? SourceAccountName, string? BizResNumber, string? Remark, List<PayoutItemInputDto> Items);
+record RejectPayoutDto(string? Reason);

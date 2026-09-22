@@ -9,6 +9,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<PaymentIntent> Payments => Set<PaymentIntent>();
     public DbSet<ReconcileBatch> ReconcileBatches => Set<ReconcileBatch>();
     public DbSet<ReconcileDetail> ReconcileDetails => Set<ReconcileDetail>();
+    public DbSet<BankingPayoutBatch> PayoutBatches => Set<BankingPayoutBatch>();
+    public DbSet<BankingPayoutDetail> PayoutDetails => Set<BankingPayoutDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -22,5 +24,15 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<ReconcileDetail>().Property(x => x.MatchStatus).HasConversion<int>();
         b.Entity<ReconcileDetail>().HasIndex(x => x.BatchId);
         b.Entity<ReconcileDetail>().HasIndex(x => new { x.OrgId, x.TxnRef });
+
+        b.Entity<BankingPayoutBatch>().HasIndex(x => new { x.OrgId, x.BatchNo }).IsUnique();
+        b.Entity<BankingPayoutBatch>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<BankingPayoutBatch>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.BatchId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<BankingPayoutDetail>().Property(x => x.TransType).HasConversion<int>();
+        b.Entity<BankingPayoutDetail>().Property(x => x.DisbursementType).HasConversion<int>();
+        b.Entity<BankingPayoutDetail>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<BankingPayoutDetail>().HasIndex(x => x.BatchId);
+        b.Entity<BankingPayoutDetail>().HasIndex(x => new { x.OrgId, x.TransNo });
     }
 }

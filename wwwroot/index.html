@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MiniPay — Cổng Thanh Toán & Đối Soát Sao Kê Ngân Hàng</title>
+<title>MiniPay — Cổng Thanh Toán, Đối Soát Sao Kê & Lệnh Chi Ngân Hàng</title>
 <style>
   :root {
     --bg: #0f172a; --surface: #1e293b; --border: #334155;
@@ -58,7 +58,7 @@
   <div style="display:flex; justify-content:space-between; align-items:center;">
     <div>
       <h1>MiniPay</h1>
-      <p class="muted">Cổng thanh toán điện tử (VNPay/MoMo) &amp; Đối soát sao kê ngân hàng (Bank Reconciliation).</p>
+      <p class="muted">Cổng thanh toán điện tử (VNPay/MoMo), Đối soát sao kê ngân hàng &amp; Lệnh chi chuyển tiền tự động (Banking Payout).</p>
     </div>
     <div>
       <span class="badge badge-info">Demo Merchant</span>
@@ -68,26 +68,28 @@
 
   <div class="grid" id="statsGrid">
     <div class="card">
-      <div class="muted">Tổng đợt đối soát</div>
-      <div class="stat-num" id="statBatches">-</div>
+      <div class="muted" id="statLabel1">Tổng đợt đối soát</div>
+      <div class="stat-num" id="stat1">-</div>
     </div>
     <div class="card">
-      <div class="muted">Giao dịch đã đối soát</div>
-      <div class="stat-num" id="statRecords">-</div>
+      <div class="muted" id="statLabel2">Giao dịch đã đối soát</div>
+      <div class="stat-num" id="stat2">-</div>
     </div>
     <div class="card">
-      <div class="muted">Tỷ lệ khớp</div>
-      <div class="stat-num" id="statMatchRate">-%</div>
+      <div class="muted" id="statLabel3">Tỷ lệ khớp</div>
+      <div class="stat-num" id="stat3">-%</div>
     </div>
     <div class="card">
-      <div class="muted">Tiền sao kê đã khớp</div>
-      <div class="stat-num" style="color:var(--success);" id="statMatchedAmount">-</div>
+      <div class="muted" id="statLabel4">Tiền sao kê đã khớp</div>
+      <div class="stat-num" style="color:var(--success);" id="stat4">-</div>
     </div>
   </div>
 
   <div class="tab-header">
     <button class="tab-btn active" onclick="showTab('reconcile')">Đối Soát Sao Kê (Reconciliation)</button>
-    <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê &amp; Đối Soát Mới</button>
+    <button class="tab-btn" onclick="showTab('payout')">Lệnh Chi Ngân Hàng (Banking Payout)</button>
+    <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
+    <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -153,7 +155,93 @@
     </div>
   </div>
 
-  <!-- TAB 2: Nạp sao kê & đối soát mới -->
+  <!-- TAB 2: Lệnh chi chuyển tiền ngân hàng (Payout) -->
+  <div id="tab-payout" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="margin:0;">Lịch sử các lô lệnh chi chuyển tiền (Banking Payout / RQ_BankingTransactions)</h3>
+        <div style="display:flex; gap:8px;">
+          <select id="filterPayoutBank" onchange="loadPayoutBatches()" style="width:auto; margin:0; padding:5px 10px;">
+            <option value="">Tất cả ngân hàng</option>
+            <option value="CTG">CTG (VietinBank)</option>
+            <option value="MBB">MBB (MBBank)</option>
+            <option value="VCB">VCB (Vietcombank)</option>
+            <option value="TCB">TCB (Techcombank)</option>
+            <option value="VPB">VPBank</option>
+          </select>
+          <select id="filterPayoutStatus" onchange="loadPayoutBatches()" style="width:auto; margin:0; padding:5px 10px;">
+            <option value="">Tất cả trạng thái</option>
+            <option value="PendingApproval">Chờ Duyệt (Pending)</option>
+            <option value="Approved">Đã Duyệt (Approved)</option>
+            <option value="Completed">Hoàn Tất (Completed)</option>
+            <option value="Rejected">Bị Từ Chối (Rejected)</option>
+            <option value="Cancelled">Đã Hủy (Cancelled)</option>
+          </select>
+          <button class="secondary" onclick="loadPayoutBatches()">Làm mới</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Mã Lệnh Chi</th>
+              <th>Ngân Hàng Trích Nợ</th>
+              <th>TK Nguồn</th>
+              <th>Chứng Từ Gốc</th>
+              <th>Tổng Món</th>
+              <th>Thành Công</th>
+              <th>Tổng Tiền Chi</th>
+              <th>Trạng Thái</th>
+              <th>Mã Cổng Bank</th>
+              <th>Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="payoutTableBody">
+            <tr><td colspan="10" class="muted" style="text-align:center;">Đang tải dữ liệu...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Chi tiết lô lệnh chi -->
+    <div class="card" id="payoutDetailCard" style="margin-top:18px; display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+        <div>
+          <h3 id="payoutDetailTitle" style="margin:0;">Chi tiết lô lệnh chi</h3>
+          <p class="muted" id="payoutDetailSubtitle"></p>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button id="btnApprovePayout" style="background:var(--success);">Phê Duyệt Lệnh</button>
+          <button id="btnPushBank" style="background:var(--primary);">Đẩy Cổng Ngân Hàng</button>
+          <button id="btnRejectPayout" class="secondary" style="color:var(--danger); border-color:var(--danger);">Từ Chối</button>
+          <button id="btnCancelPayout" class="secondary">Hủy Lệnh</button>
+          <button class="secondary" onclick="document.getElementById('payoutDetailCard').style.display='none'">Đóng</button>
+        </div>
+      </div>
+      <div id="payoutBankFeedback" style="margin-bottom:12px; font-size:.88em; padding:8px 12px; border-radius:6px; background:rgba(127,127,127,.08); display:none;"></div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Mã GD Con</th>
+              <th>Người Thụ Hưởng</th>
+              <th>TK Nhận</th>
+              <th>Ngân Hàng Nhận</th>
+              <th>Kênh Chuyển</th>
+              <th>Mục Đích Chi</th>
+              <th>Số Tiền</th>
+              <th>Nội Dung Chuyển Tiền</th>
+              <th>Trạng Thái</th>
+              <th>Mã GD Bank</th>
+            </tr>
+          </thead>
+          <tbody id="payoutDetailTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 3: Nạp sao kê & đối soát mới -->
   <div id="tab-newBatch" style="display:none;">
     <div class="card">
       <h3>Nạp bảng sao kê ngân hàng &amp; Chạy đối soát tức thì</h3>
@@ -196,7 +284,64 @@
     </div>
   </div>
 
-  <!-- TAB 3: API Docs -->
+  <!-- TAB 4: Lập lệnh chi chuyển tiền mới -->
+  <div id="tab-newPayout" style="display:none;">
+    <div class="card">
+      <h3>Lập lệnh chi chuyển khoản ngân hàng mới (Host-to-Host Bulk Transfer)</h3>
+      <p class="muted">Tạo bảng kê ủy nhiệm chi thanh toán tự động cho nhà cung cấp, chi hoa hồng hoặc hoàn tiền khách hàng.</p>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Mã Lệnh Chi (để trống để tự sinh):</label>
+          <input type="text" id="inpPayoutBatchNo" placeholder="Ví dụ: BTX-20250514-03">
+        </div>
+        <div class="col">
+          <label class="muted">Ngân Hàng Trích Nợ:</label>
+          <select id="inpPayoutBankCode">
+            <option value="CTG">VietinBank (CTG)</option>
+            <option value="MBB">MBBank (MBB)</option>
+            <option value="VCB">Vietcombank (VCB)</option>
+            <option value="TCB">Techcombank (TCB)</option>
+            <option value="VPB">VPBank (VPB)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Số TK Trích Nợ:</label>
+          <input type="text" id="inpPayoutSourceAccount" value="112000345678">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Tên Chủ Tài Khoản Nguồn:</label>
+          <input type="text" id="inpPayoutSourceAccountName" value="CONG TY TNHH MINIPAY VIET NAM">
+        </div>
+        <div class="col">
+          <label class="muted">Số Chứng Từ / Quyết Định Chi:</label>
+          <input type="text" id="inpPayoutBizResNumber" value="QD-CHI-2025-102">
+        </div>
+        <div class="col">
+          <label class="muted">Diễn Giải Lệnh Chi:</label>
+          <input type="text" id="inpPayoutRemark" value="Chi trả đối tác cung ứng và hoàn tất hợp đồng">
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="muted">Danh sách các món chuyển khoản (JSON):</label>
+          <button class="secondary" type="button" onclick="loadSamplePayoutData()">Nạp Dữ Liệu Mẫu 3 Món Chuyển Tiền</button>
+        </div>
+        <textarea id="inpPayoutItemsJson" rows="8" style="font-family:monospace; font-size:.85em;"></textarea>
+      </div>
+
+      <div style="margin-top:16px;">
+        <button type="button" onclick="submitPayoutBatch()">Khởi Tạo Lệnh Chi</button>
+        <span id="submitPayoutMsg" style="margin-left:12px;" class="muted"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB 5: API Docs -->
   <div id="tab-apiDocs" style="display:none;">
     <div class="card">
       <h3>Cổng Thanh Toán (VNPay &amp; MoMo)</h3>
@@ -216,37 +361,82 @@
         <li><code>POST /api/reconcile/batches/{id}/re-run</code> — Chạy đối soát lại khi có cập nhật giao dịch mới</li>
         <li><code>GET /api/reconcile/summary</code> — Thống kê báo cáo tổng hợp tỷ lệ khớp, chênh lệch số tiền</li>
       </ul>
+      <h3>Nghiệp Vụ Lệnh Chi Chuyển Tiền Ngân Hàng (Banking Payout / RQ_BankingTransactions)</h3>
+      <ul>
+        <li><code>POST /api/payout/batches</code> — Lập lô lệnh chi / bảng kê ủy nhiệm chi tự động</li>
+        <li><code>GET /api/payout/batches</code> — Danh sách các lô lệnh chi (hỗ trợ lọc theo <code>status</code>, <code>bankCode</code>)</li>
+        <li><code>GET /api/payout/batches/{id}</code> — Chi tiết lô lệnh chi và trạng thái từng người thụ hưởng</li>
+        <li><code>POST /api/payout/batches/{id}/approve</code> — Kế toán trưởng phê duyệt lệnh chi</li>
+        <li><code>POST /api/payout/batches/{id}/reject</code> — Từ chối duyệt lệnh chi kèm lý do</li>
+        <li><code>POST /api/payout/batches/{id}/push-bank</code> — Đẩy lệnh chi sang cổng ngân hàng điện tử (VietinBank / MBBank Host-to-Host)</li>
+        <li><code>POST /api/payout/batches/{id}/cancel</code> — Hủy lệnh chi khi chưa đẩy ngân hàng</li>
+        <li><code>GET /api/payout/summary</code> — Báo cáo tổng hợp số liệu giải ngân, tỷ lệ thành công theo ngân hàng</li>
+      </ul>
     </div>
   </div>
 
   <script>
     const API_KEY = 'demo-pay';
     const headers = { 'Content-Type': 'application/json', 'X-Api-Key': API_KEY };
+    let currentTab = 'reconcile';
 
     function showTab(tabName) {
+      currentTab = tabName;
       document.getElementById('tab-reconcile').style.display = tabName === 'reconcile' ? 'block' : 'none';
+      document.getElementById('tab-payout').style.display = tabName === 'payout' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
+      document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
+
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
-        b.classList.toggle('active', (tabName === 'reconcile' && i === 0) || (tabName === 'newBatch' && i === 1) || (tabName === 'apiDocs' && i === 2));
+        b.classList.toggle('active',
+          (tabName === 'reconcile' && i === 0) ||
+          (tabName === 'payout' && i === 1) ||
+          (tabName === 'newBatch' && i === 2) ||
+          (tabName === 'newPayout' && i === 3) ||
+          (tabName === 'apiDocs' && i === 4));
       });
+
       if (tabName === 'reconcile') loadBatches();
+      else if (tabName === 'payout') loadPayoutBatches();
     }
 
-    async function loadSummary() {
+    // ===== BÁO CÁO SUMMARY DYNAMIC =====
+    async function loadReconcileSummary() {
       try {
         const res = await fetch('/api/reconcile/summary', { headers });
         if (!res.ok) return;
         const d = await res.json();
-        document.getElementById('statBatches').textContent = d.totalBatches;
-        document.getElementById('statRecords').textContent = d.totalRecords;
-        document.getElementById('statMatchRate').textContent = d.matchRatePercent + '%';
-        document.getElementById('statMatchedAmount').textContent = Number(d.matchedAmount).toLocaleString('vi-VN') + ' đ';
+        document.getElementById('statLabel1').textContent = 'Tổng đợt đối soát';
+        document.getElementById('stat1').textContent = d.totalBatches;
+        document.getElementById('statLabel2').textContent = 'Giao dịch đã đối soát';
+        document.getElementById('stat2').textContent = d.totalRecords;
+        document.getElementById('statLabel3').textContent = 'Tỷ lệ khớp';
+        document.getElementById('stat3').textContent = d.matchRatePercent + '%';
+        document.getElementById('statLabel4').textContent = 'Tiền sao kê đã khớp';
+        document.getElementById('stat4').textContent = Number(d.matchedAmount).toLocaleString('vi-VN') + ' đ';
       } catch(e) { console.error(e); }
     }
 
+    async function loadPayoutSummary() {
+      try {
+        const res = await fetch('/api/payout/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng lô lệnh chi';
+        document.getElementById('stat1').textContent = d.totalBatches;
+        document.getElementById('statLabel2').textContent = 'Tổng món chuyển tiền';
+        document.getElementById('stat2').textContent = d.totalTrans;
+        document.getElementById('statLabel3').textContent = 'Tỷ lệ chuyển thành công';
+        document.getElementById('stat3').textContent = d.successRatePercent + '%';
+        document.getElementById('statLabel4').textContent = 'Tiền đã giải ngân';
+        document.getElementById('stat4').textContent = Number(d.successAmount).toLocaleString('vi-VN') + ' đ';
+      } catch(e) { console.error(e); }
+    }
+
+    // ===== TAB 1: ĐỐI SOÁT SAO KÊ =====
     async function loadBatches() {
-      await loadSummary();
+      await loadReconcileSummary();
       try {
         const res = await fetch('/api/reconcile/batches', { headers });
         if (!res.ok) return;
@@ -292,7 +482,7 @@
           await fetch(`/api/reconcile/batches/${id}/re-run`, { method: 'POST', headers });
           btnReRun.textContent = 'Chạy Lại Đối Soát';
           viewDetail(id);
-          loadSummary();
+          loadReconcileSummary();
         };
 
         const tbody = document.getElementById('detailTableBody');
@@ -377,8 +567,237 @@
       }
     }
 
+    // ===== TAB 2: LỆNH CHI NGÂN HÀNG (PAYOUT) =====
+    async function loadPayoutBatches() {
+      await loadPayoutSummary();
+      const bank = document.getElementById('filterPayoutBank').value;
+      const status = document.getElementById('filterPayoutStatus').value;
+      let url = '/api/payout/batches?';
+      if (bank) url += 'bankCode=' + encodeURIComponent(bank) + '&';
+      if (status) url += 'status=' + encodeURIComponent(status) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('payoutTableBody');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="10" class="muted" style="text-align:center;">Chưa có lô lệnh chi nào.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = list.map(b => {
+          let badge = 'badge-info';
+          let stLabel = b.status;
+          if (b.status === 'Completed') { badge = 'badge-success'; stLabel = 'Hoàn Tất'; }
+          else if (b.status === 'Approved') { badge = 'badge-info'; stLabel = 'Đã Duyệt'; }
+          else if (b.status === 'PendingApproval') { badge = 'badge-warning'; stLabel = 'Chờ Duyệt'; }
+          else if (b.status === 'Rejected') { badge = 'badge-danger'; stLabel = 'Bị Từ Chối'; }
+          else if (b.status === 'Cancelled') { badge = 'muted'; stLabel = 'Đã Hủy'; }
+
+          let actionBtns = `<button class="secondary" onclick="viewPayoutDetail(${b.id})">Chi tiết</button>`;
+          if (b.status === 'PendingApproval') {
+            actionBtns += ` <button style="background:var(--success); padding:5px 8px; font-size:.8em;" onclick="quickApprovePayout(${b.id})">Duyệt</button>`;
+          } else if (b.status === 'Approved') {
+            actionBtns += ` <button style="background:var(--primary); padding:5px 8px; font-size:.8em;" onclick="quickPushPayout(${b.id})">Đẩy Bank</button>`;
+          }
+
+          return `
+            <tr>
+              <td><strong>${b.batchNo}</strong></td>
+              <td><span class="badge badge-info">${b.bankCode}</span></td>
+              <td><code>${b.sourceAccount}</code></td>
+              <td>${b.bizResNumber || '-'}</td>
+              <td>${b.totalTrans}</td>
+              <td style="color:var(--success); font-weight:600;">${b.successTrans}/${b.totalTrans}</td>
+              <td><strong>${Number(b.totalAmount).toLocaleString('vi-VN')} đ</strong></td>
+              <td><span class="badge ${badge}">${stLabel}</span></td>
+              <td><code>${b.refBankCode ? b.refBankCode.slice(0, 16) + '...' : '-'}</code></td>
+              <td>${actionBtns}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function viewPayoutDetail(id) {
+      try {
+        const res = await fetch('/api/payout/batches/' + id, { headers });
+        if (!res.ok) return;
+        const b = await res.json();
+        document.getElementById('payoutDetailCard').style.display = 'block';
+        document.getElementById('payoutDetailTitle').textContent = `Chi tiết lô lệnh chi: ${b.batchNo} (${b.bankCode})`;
+        document.getElementById('payoutDetailSubtitle').textContent = `Tài khoản nguồn: ${b.sourceAccount} (${b.sourceAccountName || 'Doanh nghiệp'}) | Tổng món: ${b.totalTrans} | Tổng tiền: ${Number(b.totalAmount).toLocaleString('vi-VN')} đ | Trạng thái: ${b.status}`;
+
+        const fb = document.getElementById('payoutBankFeedback');
+        if (b.bankRemark || b.refBankCode || b.rejectReason) {
+          fb.style.display = 'block';
+          fb.innerHTML = `<strong>Phản hồi cổng ngân hàng:</strong> ${b.bankRemark || b.rejectReason || 'Đang chờ xử lý'} ${b.refBankCode ? `(Mã GD Cổng: <code>${b.refBankCode}</code>)` : ''}`;
+        } else {
+          fb.style.display = 'none';
+        }
+
+        // Bật tắt các nút hành động theo trạng thái
+        const btnApprove = document.getElementById('btnApprovePayout');
+        const btnPush = document.getElementById('btnPushBank');
+        const btnReject = document.getElementById('btnRejectPayout');
+        const btnCancel = document.getElementById('btnCancelPayout');
+
+        btnApprove.style.display = (b.status === 'PendingApproval') ? 'inline-block' : 'none';
+        btnReject.style.display = (b.status === 'PendingApproval') ? 'inline-block' : 'none';
+        btnPush.style.display = (b.status === 'Approved') ? 'inline-block' : 'none';
+        btnCancel.style.display = (b.status === 'PendingApproval' || b.status === 'Approved') ? 'inline-block' : 'none';
+
+        btnApprove.onclick = async () => {
+          if (!confirm(`Phê duyệt lô lệnh chi ${b.batchNo}?`)) return;
+          btnApprove.textContent = 'Đang duyệt...';
+          const r = await fetch(`/api/payout/batches/${id}/approve`, { method: 'POST', headers });
+          btnApprove.textContent = 'Phê Duyệt Lệnh';
+          if (r.ok) { viewPayoutDetail(id); loadPayoutBatches(); }
+          else { const err = await r.json(); alert('Lỗi: ' + (err.error || r.statusText)); }
+        };
+
+        btnReject.onclick = async () => {
+          const reason = prompt('Nhập lý do từ chối phê duyệt:', 'Sai lệch thông tin chứng từ hoặc không đủ số dư.');
+          if (!reason) return;
+          const r = await fetch(`/api/payout/batches/${id}/reject`, {
+            method: 'POST', headers, body: JSON.stringify({ reason })
+          });
+          if (r.ok) { viewPayoutDetail(id); loadPayoutBatches(); }
+          else { const err = await r.json(); alert('Lỗi: ' + (err.error || r.statusText)); }
+        };
+
+        btnPush.onclick = async () => {
+          if (!confirm(`Xác nhận gửi lệnh chi sang cổng ngân hàng ${b.bankCode} xử lý?`)) return;
+          btnPush.textContent = 'Đang kết nối cổng ngân hàng...';
+          const r = await fetch(`/api/payout/batches/${id}/push-bank`, { method: 'POST', headers });
+          btnPush.textContent = 'Đẩy Cổng Ngân Hàng';
+          if (r.ok) { viewPayoutDetail(id); loadPayoutBatches(); }
+          else { const err = await r.json(); alert('Lỗi: ' + (err.error || r.statusText)); }
+        };
+
+        btnCancel.onclick = async () => {
+          if (!confirm(`Hủy lô lệnh chi ${b.batchNo}?`)) return;
+          const r = await fetch(`/api/payout/batches/${id}/cancel`, { method: 'POST', headers });
+          if (r.ok) { viewPayoutDetail(id); loadPayoutBatches(); }
+          else { const err = await r.json(); alert('Lỗi: ' + (err.error || r.statusText)); }
+        };
+
+        const tbody = document.getElementById('payoutDetailTableBody');
+        tbody.innerHTML = (b.details || []).map(d => {
+          let badge = d.status === 'Success' ? 'badge-success' : (d.status === 'Failed' ? 'badge-danger' : 'badge-warning');
+          let label = d.status === 'Success' ? 'Thành Công' : (d.status === 'Failed' ? 'Lỗi' : 'Chờ Xử Lý');
+          return `
+            <tr>
+              <td><code>${d.transNo}</code></td>
+              <td><strong>${d.receivingUnit}</strong></td>
+              <td><code>${d.bankAccountReceive}</code></td>
+              <td><span class="badge badge-info">${d.bankNameReceive}</span></td>
+              <td>${d.transType}</td>
+              <td><span class="badge" style="background:rgba(127,127,127,.15);">${d.disbursementType}</span></td>
+              <td><strong>${Number(d.transferAmount).toLocaleString('vi-VN')} đ</strong></td>
+              <td style="max-width:220px; font-size:.85em;">${d.transferRemark}</td>
+              <td><span class="badge ${badge}">${label}</span></td>
+              <td><code>${d.bankTxnRef || '-'}</code></td>
+            </tr>
+          `;
+        }).join('');
+        document.getElementById('payoutDetailCard').scrollIntoView({ behavior: 'smooth' });
+      } catch(e) { console.error(e); }
+    }
+
+    async function quickApprovePayout(id) {
+      if (!confirm('Duyệt nhanh lô lệnh chi này?')) return;
+      const r = await fetch(`/api/payout/batches/${id}/approve`, { method: 'POST', headers });
+      if (r.ok) loadPayoutBatches();
+      else alert('Lỗi phê duyệt.');
+    }
+
+    async function quickPushPayout(id) {
+      if (!confirm('Đẩy lệnh chi sang cổng ngân hàng xử lý?')) return;
+      const r = await fetch(`/api/payout/batches/${id}/push-bank`, { method: 'POST', headers });
+      if (r.ok) loadPayoutBatches();
+      else alert('Lỗi kết nối cổng ngân hàng.');
+    }
+
+    function loadSamplePayoutData() {
+      const sample = [
+        {
+          "transType": "Napas247",
+          "disbursementType": "Supplier",
+          "refNo": "PO-2025-" + Math.floor(Math.random()*900 + 100),
+          "receivingUnit": "CONG TY CP THIET BI ANH VIET",
+          "bankAccountReceive": "0011009988776",
+          "bankNameReceive": "VCB",
+          "provinceName": "Hà Nội",
+          "transferAmount": 15000000,
+          "transferRemark": "Thanh toan tien hang linh kien thang 5"
+        },
+        {
+          "transType": "Napas247",
+          "disbursementType": "Refund",
+          "refNo": "ORD-REC-105",
+          "receivingUnit": "TRAN THI MAI",
+          "bankAccountReceive": "1903451239871",
+          "bankNameReceive": "TCB",
+          "provinceName": "TP Hồ Chí Minh",
+          "transferAmount": 2800000,
+          "transferRemark": "Hoan tien dat coc don hang ORD-REC-105"
+        },
+        {
+          "transType": "Napas247",
+          "disbursementType": "Commission",
+          "refNo": "CMS-2025-05",
+          "receivingUnit": "LE HOANG NAM (CTV)",
+          "bankAccountReceive": "0880199443322",
+          "bankNameReceive": "MBB",
+          "provinceName": "Đà Nẵng",
+          "transferAmount": 4500000,
+          "transferRemark": "Chi tra hoa hong gioi thieu khach hang"
+        }
+      ];
+      document.getElementById('inpPayoutItemsJson').value = JSON.stringify(sample, null, 2);
+    }
+
+    async function submitPayoutBatch() {
+      const msg = document.getElementById('submitPayoutMsg');
+      try {
+        const rawJson = document.getElementById('inpPayoutItemsJson').value.trim();
+        if (!rawJson) { alert('Vui lòng nhập danh sách món chuyển tiền.'); return; }
+        const items = JSON.parse(rawJson);
+        const payload = {
+          batchNo: document.getElementById('inpPayoutBatchNo').value.trim() || null,
+          bankCode: document.getElementById('inpPayoutBankCode').value,
+          sourceAccount: document.getElementById('inpPayoutSourceAccount').value.trim(),
+          sourceAccountName: document.getElementById('inpPayoutSourceAccountName').value.trim(),
+          bizResNumber: document.getElementById('inpPayoutBizResNumber').value.trim(),
+          remark: document.getElementById('inpPayoutRemark').value.trim(),
+          items: items
+        };
+        msg.textContent = 'Đang khởi tạo lệnh chi...';
+        const res = await fetch('/api/payout/batches', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+        const data = await res.json();
+        msg.textContent = `Thành công! Lô: ${data.batchNo} (${data.totalTrans} món, ${Number(data.totalAmount).toLocaleString('vi-VN')} đ)`;
+        setTimeout(() => {
+          showTab('payout');
+          viewPayoutDetail(data.id);
+        }, 800);
+      } catch(e) {
+        msg.textContent = 'Lỗi cú pháp JSON: ' + e.message;
+      }
+    }
+
     // Khởi tạo
     loadSampleData();
+    loadSamplePayoutData();
     loadBatches();
   </script>
 </body>
