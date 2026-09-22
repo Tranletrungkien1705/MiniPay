@@ -505,6 +505,84 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_LatePaymentPenalties_OrgId_SOCode"" ON ""LatePaymentPenalties"" (""OrgId"", ""SOCode"");
                 CREATE INDEX IF NOT EXISTS ""IX_LatePaymentPenaltyDetails_PenaltyId"" ON ""LatePaymentPenaltyDetails"" (""PenaltyId"");
                 CREATE INDEX IF NOT EXISTS ""IX_LatePaymentPenaltyDetails_OrgId_VIN"" ON ""LatePaymentPenaltyDetails"" (""OrgId"", ""VIN"");
+
+                CREATE TABLE IF NOT EXISTS ""TransportInsPayments"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""TransportInsNo"" TEXT NOT NULL,
+                    ""PmtMonth"" TEXT NOT NULL,
+                    ""TransporterCode"" TEXT NOT NULL,
+                    ""TransporterName"" TEXT NOT NULL,
+                    ""InsuranceCompanyCode"" TEXT NOT NULL,
+                    ""InsuranceCompanyName"" TEXT NOT NULL,
+                    ""InsuranceContractNo"" TEXT NULL,
+                    ""TotalVehicles"" INTEGER NOT NULL,
+                    ""TotalTransportCost"" INTEGER NOT NULL,
+                    ""TotalDelayPenalty"" INTEGER NOT NULL,
+                    ""TotalInsuranceCost"" INTEGER NOT NULL,
+                    ""TotalAmount"" INTEGER NOT NULL,
+                    ""VATRate"" REAL NOT NULL,
+                    ""TotalBeforeVAT"" INTEGER NOT NULL,
+                    ""AmountVAT"" INTEGER NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""TCMSSignStatus"" INTEGER NOT NULL,
+                    ""TCMSSignUser"" TEXT NULL,
+                    ""TCMSSignDTime"" TEXT NULL,
+                    ""HTVSignStatus"" INTEGER NOT NULL,
+                    ""HTVSignUser"" TEXT NULL,
+                    ""HTVSignDTime"" TEXT NULL,
+                    ""Appr1By"" TEXT NULL,
+                    ""Appr1DTime"" TEXT NULL,
+                    ""Appr2By"" TEXT NULL,
+                    ""Appr2DTime"" TEXT NULL,
+                    ""SettledBy"" TEXT NULL,
+                    ""SettledAt"" TEXT NULL,
+                    ""BankTxnRef"" TEXT NULL,
+                    ""RejectReason"" TEXT NULL,
+                    ""CancelledAt"" TEXT NULL,
+                    ""FilePath"" TEXT NULL,
+                    ""Remark"" TEXT NULL,
+                    ""CreatedBy"" TEXT NULL,
+                    ""CreatedAt"" TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS ""TransportInsPaymentDetails"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""TransportInsPaymentId"" INTEGER NOT NULL,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""VIN"" TEXT NOT NULL,
+                    ""CarId"" TEXT NULL,
+                    ""ModelCode"" TEXT NOT NULL,
+                    ""ModelName"" TEXT NULL,
+                    ""SpecCode"" TEXT NULL,
+                    ""SpecDescription"" TEXT NULL,
+                    ""ColorName"" TEXT NULL,
+                    ""FStorageCode"" TEXT NOT NULL,
+                    ""FProvinceName"" TEXT NULL,
+                    ""TStorageCode"" TEXT NOT NULL,
+                    ""TProvinceName"" TEXT NULL,
+                    ""TranspReqType"" TEXT NOT NULL,
+                    ""DlvMnNo"" TEXT NULL,
+                    ""DlvStartDate"" TEXT NULL,
+                    ""ExpectedDays"" INTEGER NOT NULL,
+                    ""ExpectedDlvEndDate"" TEXT NULL,
+                    ""DlvEndDate"" TEXT NULL,
+                    ""DelayDays"" INTEGER NOT NULL,
+                    ""TFValReal"" INTEGER NOT NULL,
+                    ""TPValReal"" INTEGER NOT NULL,
+                    ""PriceCar"" INTEGER NOT NULL,
+                    ""InsurancePercent"" REAL NOT NULL,
+                    ""InsuranceCost"" INTEGER NOT NULL,
+                    ""Val_Transport"" INTEGER NOT NULL,
+                    ""StandardRemark"" TEXT NULL,
+                    ""FProvinceRemark"" TEXT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""Remark"" TEXT NULL,
+                    CONSTRAINT ""FK_TransportInsPaymentDetails_TransportInsPayments_TransportInsPaymentId"" FOREIGN KEY (""TransportInsPaymentId"") REFERENCES ""TransportInsPayments"" (""Id"") ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_TransportInsPayments_OrgId_TransportInsNo"" ON ""TransportInsPayments"" (""OrgId"", ""TransportInsNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_TransportInsPayments_OrgId_PmtMonth"" ON ""TransportInsPayments"" (""OrgId"", ""PmtMonth"");
+                CREATE INDEX IF NOT EXISTS ""IX_TransportInsPaymentDetails_TransportInsPaymentId"" ON ""TransportInsPaymentDetails"" (""TransportInsPaymentId"");
+                CREATE INDEX IF NOT EXISTS ""IX_TransportInsPaymentDetails_OrgId_VIN"" ON ""TransportInsPaymentDetails"" (""OrgId"", ""VIN"");
             ");
         }
         else if (db.Database.IsNpgsql())
@@ -993,6 +1071,83 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_LatePaymentPenalties_OrgId_SOCode"" ON ""LatePaymentPenalties"" (""OrgId"", ""SOCode"");
                 CREATE INDEX IF NOT EXISTS ""IX_LatePaymentPenaltyDetails_PenaltyId"" ON ""LatePaymentPenaltyDetails"" (""PenaltyId"");
                 CREATE INDEX IF NOT EXISTS ""IX_LatePaymentPenaltyDetails_OrgId_VIN"" ON ""LatePaymentPenaltyDetails"" (""OrgId"", ""VIN"");
+
+                CREATE TABLE IF NOT EXISTS ""TransportInsPayments"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""OrgId"" uuid NOT NULL,
+                    ""TransportInsNo"" text NOT NULL,
+                    ""PmtMonth"" text NOT NULL,
+                    ""TransporterCode"" text NOT NULL,
+                    ""TransporterName"" text NOT NULL,
+                    ""InsuranceCompanyCode"" text NOT NULL,
+                    ""InsuranceCompanyName"" text NOT NULL,
+                    ""InsuranceContractNo"" text NULL,
+                    ""TotalVehicles"" integer NOT NULL,
+                    ""TotalTransportCost"" bigint NOT NULL,
+                    ""TotalDelayPenalty"" bigint NOT NULL,
+                    ""TotalInsuranceCost"" bigint NOT NULL,
+                    ""TotalAmount"" bigint NOT NULL,
+                    ""VATRate"" numeric NOT NULL,
+                    ""TotalBeforeVAT"" bigint NOT NULL,
+                    ""AmountVAT"" bigint NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""TCMSSignStatus"" integer NOT NULL,
+                    ""TCMSSignUser"" text NULL,
+                    ""TCMSSignDTime"" timestamp without time zone NULL,
+                    ""HTVSignStatus"" integer NOT NULL,
+                    ""HTVSignUser"" text NULL,
+                    ""HTVSignDTime"" timestamp without time zone NULL,
+                    ""Appr1By"" text NULL,
+                    ""Appr1DTime"" timestamp without time zone NULL,
+                    ""Appr2By"" text NULL,
+                    ""Appr2DTime"" timestamp without time zone NULL,
+                    ""SettledBy"" text NULL,
+                    ""SettledAt"" timestamp without time zone NULL,
+                    ""BankTxnRef"" text NULL,
+                    ""RejectReason"" text NULL,
+                    ""CancelledAt"" timestamp without time zone NULL,
+                    ""FilePath"" text NULL,
+                    ""Remark"" text NULL,
+                    ""CreatedBy"" text NULL,
+                    ""CreatedAt"" timestamp without time zone NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS ""TransportInsPaymentDetails"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""TransportInsPaymentId"" bigint NOT NULL REFERENCES ""TransportInsPayments"" (""Id"") ON DELETE CASCADE,
+                    ""OrgId"" uuid NOT NULL,
+                    ""VIN"" text NOT NULL,
+                    ""CarId"" text NULL,
+                    ""ModelCode"" text NOT NULL,
+                    ""ModelName"" text NULL,
+                    ""SpecCode"" text NULL,
+                    ""SpecDescription"" text NULL,
+                    ""ColorName"" text NULL,
+                    ""FStorageCode"" text NOT NULL,
+                    ""FProvinceName"" text NULL,
+                    ""TStorageCode"" text NOT NULL,
+                    ""TProvinceName"" text NULL,
+                    ""TranspReqType"" text NOT NULL,
+                    ""DlvMnNo"" text NULL,
+                    ""DlvStartDate"" timestamp without time zone NULL,
+                    ""ExpectedDays"" integer NOT NULL,
+                    ""ExpectedDlvEndDate"" timestamp without time zone NULL,
+                    ""DlvEndDate"" timestamp without time zone NULL,
+                    ""DelayDays"" integer NOT NULL,
+                    ""TFValReal"" bigint NOT NULL,
+                    ""TPValReal"" bigint NOT NULL,
+                    ""PriceCar"" bigint NOT NULL,
+                    ""InsurancePercent"" numeric NOT NULL,
+                    ""InsuranceCost"" bigint NOT NULL,
+                    ""Val_Transport"" bigint NOT NULL,
+                    ""StandardRemark"" text NULL,
+                    ""FProvinceRemark"" text NULL,
+                    ""Status"" integer NOT NULL,
+                    ""Remark"" text NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_TransportInsPayments_OrgId_TransportInsNo"" ON ""TransportInsPayments"" (""OrgId"", ""TransportInsNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_TransportInsPayments_OrgId_PmtMonth"" ON ""TransportInsPayments"" (""OrgId"", ""PmtMonth"");
+                CREATE INDEX IF NOT EXISTS ""IX_TransportInsPaymentDetails_TransportInsPaymentId"" ON ""TransportInsPaymentDetails"" (""TransportInsPaymentId"");
+                CREATE INDEX IF NOT EXISTS ""IX_TransportInsPaymentDetails_OrgId_VIN"" ON ""TransportInsPaymentDetails"" (""OrgId"", ""VIN"");
             ");
         }
 
@@ -3302,6 +3457,448 @@ public static class Seeder
                     ActualItemPenalty = 935_342,
                     Status = LatePaymentPenaltyDetailStatus.Calculated,
                     Note = "Hồ sơ mới tính toán, đang chuẩn bị chuyển thẩm định"
+                }
+            );
+            await db.SaveChangesAsync();
+        }
+
+        // ===== 11. Seed Dữ liệu mẫu Bảng kê Thanh toán Chi phí Vận tải & Bảo hiểm Xe (Pmt_TransportIns) =====
+        if (!await db.TransportInsPayments.AnyAsync())
+        {
+            // 1. Bảng kê ĐÃ QUYẾT TOÁN THANH TOÁN (Settled) - Đơn vị vận tải NewWay (Tháng 04/2025)
+            // Tuyến Ninh Bình -> Hà Nội, 3 xe du lịch SantaFe, Tucson, Creta
+            var tip1 = new TransportInsPayment
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                TransportInsNo = "VTBH-202504-001",
+                PmtMonth = "2025-04",
+                TransporterCode = "TRANS-NEWWAY",
+                TransporterName = "Công ty Cổ phần Vận tải NewWay",
+                InsuranceCompanyCode = "PVI",
+                InsuranceCompanyName = "Tổng Công ty Cổ phần Bảo hiểm Dầu khí Việt Nam (PVI)",
+                InsuranceContractNo = "HD-BH-PVI-2025/VT09",
+                TotalVehicles = 3,
+                TotalTransportCost = 5_550_000,    // 3 xe * 1,850,000
+                TotalDelayPenalty = 0,            // Đúng hạn
+                TotalInsuranceCost = 1_550_000,   // 650k + 500k + 400k
+                TotalAmount = 7_100_000,          // TotalTransportCost + TotalInsuranceCost - TotalDelayPenalty
+                VATRate = 10.0m,
+                TotalBeforeVAT = 6_454_545,       // 7,100,000 / 1.1
+                AmountVAT = 645_455,
+                Status = TransportInsStatus.Settled,
+                TCMSSignStatus = TransportSignCAStatus.Signed,
+                TCMSSignUser = "DangVanHai_GDKyThuat_TCMS",
+                TCMSSignDTime = DateTime.Now.AddDays(-18),
+                HTVSignStatus = TransportSignCAStatus.Signed,
+                HTVSignUser = "NguyenThiMai_GDTaiChinh_HTV",
+                HTVSignDTime = DateTime.Now.AddDays(-16),
+                Appr1By = "DangVanHai_GDKyThuat_TCMS",
+                Appr1DTime = DateTime.Now.AddDays(-18),
+                Appr2By = "NguyenThiMai_GDTaiChinh_HTV",
+                Appr2DTime = DateTime.Now.AddDays(-16),
+                SettledBy = "PhamVanThanh_KeToanThanhToan",
+                SettledAt = DateTime.Now.AddDays(-14),
+                BankTxnRef = "UNC-VCB-20250428-9901",
+                Remark = "Quyết toán thanh toán cước vận tải và phí bảo hiểm hàng hóa xe đợt 1 tháng 4 qua VCB",
+                CreatedBy = "VuMinhTu_DieuVan",
+                CreatedAt = DateTime.Now.AddDays(-25)
+            };
+            db.TransportInsPayments.Add(tip1);
+            await db.SaveChangesAsync();
+
+            db.TransportInsPaymentDetails.AddRange(
+                new TransportInsPaymentDetail
+                {
+                    TransportInsPaymentId = tip1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    VIN = "KMHCT81EPHU500101",
+                    CarId = "CAR-SANTAFE-0101",
+                    ModelCode = "SANTAFE-CALLI",
+                    ModelName = "Hyundai Santa Fe Calligraphy 2.5T",
+                    SpecCode = "SF-2.5T-CAL",
+                    SpecDescription = "Bản cao cấp 6 chỗ ngồi dẫn động HTRAC",
+                    ColorName = "Đen Phantom",
+                    FStorageCode = "KHO-NINHBINH",
+                    FProvinceName = "Ninh Bình",
+                    TStorageCode = "KHO-THANHXUAN",
+                    TProvinceName = "Hà Nội",
+                    TranspReqType = "CARTRANSPORT",
+                    DlvMnNo = "BBVC-NW-2025-0401",
+                    DlvStartDate = DateTime.Today.AddDays(-24),
+                    ExpectedDays = 2,
+                    ExpectedDlvEndDate = DateTime.Today.AddDays(-22),
+                    DlvEndDate = DateTime.Today.AddDays(-22),
+                    DelayDays = 0,
+                    TFValReal = 1_850_000,
+                    TPValReal = 0,
+                    PriceCar = 1_300_000_000,
+                    InsurancePercent = 0.05m,
+                    InsuranceCost = 650_000,
+                    Val_Transport = 2_500_000,
+                    Status = TransportInsDetailStatus.Settled,
+                    Remark = "Bàn giao an toàn tại đại lý Hyundai Thanh Xuân"
+                },
+                new TransportInsPaymentDetail
+                {
+                    TransportInsPaymentId = tip1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    VIN = "KMHCT81EPHU500102",
+                    CarId = "CAR-TUCSON-0102",
+                    ModelCode = "TUCSON-TURBO",
+                    ModelName = "Hyundai Tucson 1.6 T-GDi Turbo",
+                    SpecCode = "TUC-1.6T-PREM",
+                    SpecDescription = "Bản máy xăng tăng áp HTRAC",
+                    ColorName = "Trắng Tinh Khôi",
+                    FStorageCode = "KHO-NINHBINH",
+                    FProvinceName = "Ninh Bình",
+                    TStorageCode = "KHO-THANHXUAN",
+                    TProvinceName = "Hà Nội",
+                    TranspReqType = "CARTRANSPORT",
+                    DlvMnNo = "BBVC-NW-2025-0401",
+                    DlvStartDate = DateTime.Today.AddDays(-24),
+                    ExpectedDays = 2,
+                    ExpectedDlvEndDate = DateTime.Today.AddDays(-22),
+                    DlvEndDate = DateTime.Today.AddDays(-22),
+                    DelayDays = 0,
+                    TFValReal = 1_850_000,
+                    TPValReal = 0,
+                    PriceCar = 1_000_000_000,
+                    InsurancePercent = 0.05m,
+                    InsuranceCost = 500_000,
+                    Val_Transport = 2_350_000,
+                    Status = TransportInsDetailStatus.Settled,
+                    Remark = "Đầy đủ biên bản bàn giao kèm tem niêm phong"
+                },
+                new TransportInsPaymentDetail
+                {
+                    TransportInsPaymentId = tip1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    VIN = "KMHCT81EPHU500103",
+                    CarId = "CAR-CRETA-0103",
+                    ModelCode = "CRETA-PREMIUM",
+                    ModelName = "Hyundai Creta 1.5 Cao Cấp",
+                    SpecCode = "CRT-1.5L-PRE",
+                    SpecDescription = "Bản máy xăng cao cấp gói SmartSense",
+                    ColorName = "Đỏ Mận",
+                    FStorageCode = "KHO-NINHBINH",
+                    FProvinceName = "Ninh Bình",
+                    TStorageCode = "KHO-THANHXUAN",
+                    TProvinceName = "Hà Nội",
+                    TranspReqType = "CARTRANSPORT",
+                    DlvMnNo = "BBVC-NW-2025-0402",
+                    DlvStartDate = DateTime.Today.AddDays(-23),
+                    ExpectedDays = 2,
+                    ExpectedDlvEndDate = DateTime.Today.AddDays(-21),
+                    DlvEndDate = DateTime.Today.AddDays(-21),
+                    DelayDays = 0,
+                    TFValReal = 1_850_000,
+                    TPValReal = 0,
+                    PriceCar = 800_000_000,
+                    InsurancePercent = 0.05m,
+                    InsuranceCost = 400_000,
+                    Val_Transport = 2_250_000,
+                    Status = TransportInsDetailStatus.Settled,
+                    Remark = "Giao đủ phụ kiện theo xe"
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // 2. Bảng kê ĐÃ KÝ SỐ CA HOÀN TẤT (Signed) - Nhà xe Đạt Đức (Tháng 05/2025 đợt 1)
+            // Tuyến Ninh Bình -> Sài Gòn, 2 xe lớn Palisade và Custin
+            var tip2 = new TransportInsPayment
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                TransportInsNo = "VTBH-202505-001",
+                PmtMonth = "2025-05",
+                TransporterCode = "TRANS-DATDUC",
+                TransporterName = "Công ty TNHH Vận tải Thương mại Đạt Đức",
+                InsuranceCompanyCode = "BAOVIET",
+                InsuranceCompanyName = "Tổng Công ty Bảo hiểm Bảo Việt",
+                InsuranceContractNo = "HD-BH-BV-2025/SG12",
+                TotalVehicles = 2,
+                TotalTransportCost = 13_000_000,  // 2 xe * 6,500,000 (Bắc - Nam)
+                TotalDelayPenalty = 0,
+                TotalInsuranceCost = 1_225_000,   // 750k + 475k
+                TotalAmount = 14_225_000,
+                VATRate = 10.0m,
+                TotalBeforeVAT = 12_931_818,      // 14,225,000 / 1.1
+                AmountVAT = 1_293_182,
+                Status = TransportInsStatus.Signed,
+                TCMSSignStatus = TransportSignCAStatus.Signed,
+                TCMSSignUser = "DangVanHai_GDKyThuat_TCMS",
+                TCMSSignDTime = DateTime.Now.AddDays(-5),
+                HTVSignStatus = TransportSignCAStatus.Signed,
+                HTVSignUser = "NguyenThiMai_GDTaiChinh_HTV",
+                HTVSignDTime = DateTime.Now.AddDays(-4),
+                Appr1By = "DangVanHai_GDKyThuat_TCMS",
+                Appr1DTime = DateTime.Now.AddDays(-6),
+                Appr2By = "NguyenThiMai_GDTaiChinh_HTV",
+                Appr2DTime = DateTime.Now.AddDays(-5),
+                FilePath = "/certs/signatures/VTBH-202505-001-signed.pdf",
+                Remark = "Đợt vận chuyển Bắc - Nam xe phân khúc cao cấp đã ký số CA hoàn tất, chuẩn bị phát hành UNC",
+                CreatedBy = "VuMinhTu_DieuVan",
+                CreatedAt = DateTime.Now.AddDays(-10)
+            };
+            db.TransportInsPayments.Add(tip2);
+            await db.SaveChangesAsync();
+
+            db.TransportInsPaymentDetails.AddRange(
+                new TransportInsPaymentDetail
+                {
+                    TransportInsPaymentId = tip2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    VIN = "KMHCT81EPHU500201",
+                    CarId = "CAR-PALISADE-0201",
+                    ModelCode = "PALISADE-PRE",
+                    ModelName = "Hyundai Palisade Prestige 6S",
+                    SpecCode = "PAL-3.8L-6S",
+                    SpecDescription = "SUV Flagship 6 chỗ máy dầu cao cấp",
+                    ColorName = "Xanh Bóng Đêm",
+                    FStorageCode = "KHO-NINHBINH",
+                    FProvinceName = "Ninh Bình",
+                    TStorageCode = "KHO-SAIGON",
+                    TProvinceName = "Hồ Chí Minh",
+                    TranspReqType = "CARTRANSPORT",
+                    DlvMnNo = "BBVC-DD-2025-0501",
+                    DlvStartDate = DateTime.Today.AddDays(-9),
+                    ExpectedDays = 5,
+                    ExpectedDlvEndDate = DateTime.Today.AddDays(-4),
+                    DlvEndDate = DateTime.Today.AddDays(-4),
+                    DelayDays = 0,
+                    TFValReal = 6_500_000,
+                    TPValReal = 0,
+                    PriceCar = 1_500_000_000,
+                    InsurancePercent = 0.05m,
+                    InsuranceCost = 750_000,
+                    Val_Transport = 7_250_000,
+                    Status = TransportInsDetailStatus.Approved,
+                    Remark = "Bàn giao đúng tiến độ cho đại lý Hyundai Sài Gòn 1S"
+                },
+                new TransportInsPaymentDetail
+                {
+                    TransportInsPaymentId = tip2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    VIN = "KMHCT81EPHU500202",
+                    CarId = "CAR-CUSTIN-0202",
+                    ModelCode = "CUSTIN-TURBO",
+                    ModelName = "Hyundai Custin 2.0 T-GDi Cao Cấp",
+                    SpecCode = "CUS-2.0T-PRE",
+                    SpecDescription = "MPV 7 chỗ ghế thương gia tích hợp làm mát",
+                    ColorName = "Bạc Ánh Kim",
+                    FStorageCode = "KHO-NINHBINH",
+                    FProvinceName = "Ninh Bình",
+                    TStorageCode = "KHO-SAIGON",
+                    TProvinceName = "Hồ Chí Minh",
+                    TranspReqType = "CARTRANSPORT",
+                    DlvMnNo = "BBVC-DD-2025-0501",
+                    DlvStartDate = DateTime.Today.AddDays(-9),
+                    ExpectedDays = 5,
+                    ExpectedDlvEndDate = DateTime.Today.AddDays(-4),
+                    DlvEndDate = DateTime.Today.AddDays(-4),
+                    DelayDays = 0,
+                    TFValReal = 6_500_000,
+                    TPValReal = 0,
+                    PriceCar = 950_000_000,
+                    InsurancePercent = 0.05m,
+                    InsuranceCost = 475_000,
+                    Val_Transport = 6_975_000,
+                    Status = TransportInsDetailStatus.Approved,
+                    Remark = "Xe kiểm tra ngoại thất nguyên vẹn, không trầy xước"
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // 3. Bảng kê TCMS ĐÃ DUYỆT CẤP 1 (TCMSApproved) - Vận tải Miền Bắc (Tháng 05/2025 đợt 2)
+            // Tuyến Ninh Bình -> Đà Nẵng, 2 xe Accent và Stargazer (Có 1 xe trễ hạn 1 ngày bị phạt)
+            var tip3 = new TransportInsPayment
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                TransportInsNo = "VTBH-202505-002",
+                PmtMonth = "2025-05",
+                TransporterCode = "TRANS-MIENBAC",
+                TransporterName = "Công ty Vận tải & Tiếp vận Miền Bắc",
+                InsuranceCompanyCode = "MIC",
+                InsuranceCompanyName = "Tổng Công ty Cổ phần Bảo hiểm Quân đội (MIC)",
+                InsuranceContractNo = "HD-BH-MIC-2025/DN03",
+                TotalVehicles = 2,
+                TotalTransportCost = 7_600_000,   // 2 xe * 3,800,000 (Ninh Bình - Đà Nẵng)
+                TotalDelayPenalty = 200_000,      // Trễ 1 ngày phạt 200k
+                TotalInsuranceCost = 625_000,     // 325k + 300k
+                TotalAmount = 8_025_000,          // 7,600,000 + 625,000 - 200,000
+                VATRate = 10.0m,
+                TotalBeforeVAT = 7_295_455,       // 8,025,000 / 1.1
+                AmountVAT = 729_545,
+                Status = TransportInsStatus.TCMSApproved,
+                TCMSSignStatus = TransportSignCAStatus.Pending,
+                HTVSignStatus = TransportSignCAStatus.Pending,
+                Appr1By = "DangVanHai_GDKyThuat_TCMS",
+                Appr1DTime = DateTime.Now.AddDays(-2),
+                Remark = "Đợt giao xe miền Trung có sự cố mưa lũ chậm 1 ngày, TCMS đã duyệt giảm trừ phạt chậm theo hợp đồng",
+                CreatedBy = "VuMinhTu_DieuVan",
+                CreatedAt = DateTime.Now.AddDays(-4)
+            };
+            db.TransportInsPayments.Add(tip3);
+            await db.SaveChangesAsync();
+
+            db.TransportInsPaymentDetails.AddRange(
+                new TransportInsPaymentDetail
+                {
+                    TransportInsPaymentId = tip3.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    VIN = "KMHCT81EPHU500301",
+                    CarId = "CAR-ACCENT-0301",
+                    ModelCode = "ACCENT-AT-DB",
+                    ModelName = "Hyundai Accent 1.5 AT Đặc Biệt",
+                    SpecCode = "ACC-1.5L-DB",
+                    SpecDescription = "Sedan hạng B thế hệ mới động cơ Smartstream",
+                    ColorName = "Đỏ Tươi",
+                    FStorageCode = "KHO-NINHBINH",
+                    FProvinceName = "Ninh Bình",
+                    TStorageCode = "KHO-DANANG",
+                    TProvinceName = "Đà Nẵng",
+                    TranspReqType = "CARTRANSPORT",
+                    DlvMnNo = "BBVC-MB-2025-0511",
+                    DlvStartDate = DateTime.Today.AddDays(-5),
+                    ExpectedDays = 3,
+                    ExpectedDlvEndDate = DateTime.Today.AddDays(-2),
+                    DlvEndDate = DateTime.Today.AddDays(-1), // Trễ 1 ngày
+                    DelayDays = 1,
+                    TFValReal = 3_800_000,
+                    TPValReal = 200_000,
+                    PriceCar = 650_000_000,
+                    InsurancePercent = 0.05m,
+                    InsuranceCost = 325_000,
+                    Val_Transport = 3_925_000,
+                    Status = TransportInsDetailStatus.Approved,
+                    StandardRemark = "Mưa lũ trên đèo Hải Vân gây ùn tắc kéo dài 1 ngày",
+                    Remark = "Đại lý đã xác nhận nhận xe đủ điều kiện"
+                },
+                new TransportInsPaymentDetail
+                {
+                    TransportInsPaymentId = tip3.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    VIN = "KMHCT81EPHU500302",
+                    CarId = "CAR-STARGAZER-0302",
+                    ModelCode = "STARGAZER-X",
+                    ModelName = "Hyundai Stargazer X Cao Cấp",
+                    SpecCode = "SGZ-1.5L-PRE",
+                    SpecDescription = "Crossover MPV 7 chỗ phong cách thể thao",
+                    ColorName = "Trắng Mờ",
+                    FStorageCode = "KHO-NINHBINH",
+                    FProvinceName = "Ninh Bình",
+                    TStorageCode = "KHO-DANANG",
+                    TProvinceName = "Đà Nẵng",
+                    TranspReqType = "STORAGEREARRANGE",
+                    DlvMnNo = "BBVC-MB-2025-0512",
+                    DlvStartDate = DateTime.Today.AddDays(-4),
+                    ExpectedDays = 3,
+                    ExpectedDlvEndDate = DateTime.Today.AddDays(-1),
+                    DlvEndDate = DateTime.Today.AddDays(-1), // Đúng hạn
+                    DelayDays = 0,
+                    TFValReal = 3_800_000,
+                    TPValReal = 0,
+                    PriceCar = 600_000_000,
+                    InsurancePercent = 0.05m,
+                    InsuranceCost = 300_000,
+                    Val_Transport = 4_100_000,
+                    Status = TransportInsDetailStatus.Approved,
+                    Remark = "Lệnh điều chuyển kho bãi phục vụ trưng bày triển lãm"
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // 4. Bảng kê MỚI TẠO NHÁP (Draft) - Đơn vị vận tải Sài Gòn (Tháng 05/2025 đợt 3)
+            // Tuyến Ninh Bình -> Cần Thơ, xe điện thuần IONIQ 5 và SUV Venue
+            var tip4 = new TransportInsPayment
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                TransportInsNo = "VTBH-202505-003",
+                PmtMonth = "2025-05",
+                TransporterCode = "TRANS-SAIGON",
+                TransporterName = "Công ty Dịch vụ Vận tải Ô tô Sài Gòn",
+                InsuranceCompanyCode = "PVI",
+                InsuranceCompanyName = "Tổng Công ty Cổ phần Bảo hiểm Dầu khí Việt Nam (PVI)",
+                InsuranceContractNo = "HD-BH-PVI-2025/CT01",
+                TotalVehicles = 2,
+                TotalTransportCost = 13_800_000, // Tuyến Miền Tây 6,900,000 * 2
+                TotalDelayPenalty = 0,
+                TotalInsuranceCost = 1_000_000,  // 700k + 300k
+                TotalAmount = 14_800_000,
+                VATRate = 10.0m,
+                TotalBeforeVAT = 13_454_545,     // 14,800,000 / 1.1
+                AmountVAT = 1_345_455,
+                Status = TransportInsStatus.Draft,
+                TCMSSignStatus = TransportSignCAStatus.Pending,
+                HTVSignStatus = TransportSignCAStatus.Pending,
+                Remark = "Đợt giao xe khu vực Tây Nam Bộ mới lập bảng kê, chuẩn bị gửi TCMS thẩm định",
+                CreatedBy = "VuMinhTu_DieuVan",
+                CreatedAt = DateTime.Now.AddHours(-4)
+            };
+            db.TransportInsPayments.Add(tip4);
+            await db.SaveChangesAsync();
+
+            db.TransportInsPaymentDetails.AddRange(
+                new TransportInsPaymentDetail
+                {
+                    TransportInsPaymentId = tip4.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    VIN = "KMHCT81EPHU500401",
+                    CarId = "CAR-IONIQ5-0401",
+                    ModelCode = "IONIQ-5-PREM",
+                    ModelName = "Hyundai IONIQ 5 Exclusive EV",
+                    SpecCode = "IQ5-72KWH-EXC",
+                    SpecDescription = "Xe thuần điện Pin 72.6 kWh công nghệ sạc 800V siêu nhanh",
+                    ColorName = "Xám Xi Măng",
+                    FStorageCode = "KHO-NINHBINH",
+                    FProvinceName = "Ninh Bình",
+                    TStorageCode = "KHO-CANTHO",
+                    TProvinceName = "Cần Thơ",
+                    TranspReqType = "CARTRANSPORT",
+                    DlvMnNo = "BBVC-SG-2025-0520",
+                    DlvStartDate = DateTime.Today.AddDays(-2),
+                    ExpectedDays = 5,
+                    ExpectedDlvEndDate = DateTime.Today.AddDays(3),
+                    DlvEndDate = DateTime.Today.AddDays(3),
+                    DelayDays = 0,
+                    TFValReal = 6_900_000,
+                    TPValReal = 0,
+                    PriceCar = 1_400_000_000,
+                    InsurancePercent = 0.05m,
+                    InsuranceCost = 700_000,
+                    Val_Transport = 7_600_000,
+                    Status = TransportInsDetailStatus.Pending,
+                    Remark = "Vận chuyển bằng xe lồng bọc kín chuyên dụng cho xe điện"
+                },
+                new TransportInsPaymentDetail
+                {
+                    TransportInsPaymentId = tip4.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    VIN = "KMHCT81EPHU500402",
+                    CarId = "CAR-VENUE-0402",
+                    ModelCode = "VENUE-TURBO",
+                    ModelName = "Hyundai Venue 1.0 T-GDi Đặc Biệt",
+                    SpecCode = "VNU-1.0T-DB",
+                    SpecDescription = "SUV đô thị nhỏ gọn động cơ Turbo hộp số ly hợp kép 7DCT",
+                    ColorName = "Đỏ Mận",
+                    FStorageCode = "KHO-NINHBINH",
+                    FProvinceName = "Ninh Bình",
+                    TStorageCode = "KHO-CANTHO",
+                    TProvinceName = "Cần Thơ",
+                    TranspReqType = "CARTRANSPORT",
+                    DlvMnNo = "BBVC-SG-2025-0520",
+                    DlvStartDate = DateTime.Today.AddDays(-2),
+                    ExpectedDays = 5,
+                    ExpectedDlvEndDate = DateTime.Today.AddDays(3),
+                    DlvEndDate = DateTime.Today.AddDays(3),
+                    DelayDays = 0,
+                    TFValReal = 6_900_000,
+                    TPValReal = 0,
+                    PriceCar = 600_000_000,
+                    InsurancePercent = 0.05m,
+                    InsuranceCost = 300_000,
+                    Val_Transport = 7_200_000,
+                    Status = TransportInsDetailStatus.Pending,
+                    Remark = "Bàn giao kèm theo phụ kiện tiêu chuẩn theo xe"
                 }
             );
             await db.SaveChangesAsync();

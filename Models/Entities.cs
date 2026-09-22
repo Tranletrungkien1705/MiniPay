@@ -65,6 +65,14 @@ public enum LatePaymentPenaltyStatus { Draft = 0, Calculated = 1, Reviewed = 2, 
 
 public enum LatePaymentPenaltyDetailStatus { Pending = 0, Calculated = 1, Approved = 2, Settled = 3, Cancelled = 4 }
 
+public enum TransportInsStatus { Draft = 0, TCMSApproved = 1, HTVApproved = 2, Signed = 3, Settled = 4, Rejected = 5, Cancelled = 6 }
+
+public enum TransportSignCAStatus { Pending = 0, Signed = 1 }
+
+public enum TransportInsDetailStatus { Pending = 0, Approved = 1, Adjusted = 2, Settled = 3, Cancelled = 4 }
+
+public enum TransportCommandType { CarTransport = 0, StorageRearrange = 1, StorageRearrCB = 2, CarRetrieve = 3 }
+
 /// <summary>Ý định thanh toán (payment intent) — 1 dòng / 1 lần khởi tạo cổng.</summary>
 public sealed class PaymentIntent
 {
@@ -642,6 +650,86 @@ public sealed class LatePaymentPenaltyDetail
     public long ActualItemPenalty { get; set; }           // Tiền phạt xe chốt thực tế
     public LatePaymentPenaltyDetailStatus Status { get; set; } = LatePaymentPenaltyDetailStatus.Pending;
     public string? Note { get; set; }                     // Ghi chú chi tiết dòng xe
+}
+
+/// <summary>Bảng kê thanh toán chi phí vận chuyển &amp; bảo hiểm xe — tương ứng Pmt_TransportIns trong BizHTC.Payment / 0.34.Contract / FrmQuanLyThanhToanVanTaiBaoHiem.</summary>
+public sealed class TransportInsPayment
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string TransportInsNo { get; set; } = "";             // Số bảng kê thanh toán (ví dụ: VTBH-202505-001)
+    public string PmtMonth { get; set; } = "";                   // Kỳ / tháng thanh toán (ví dụ: 2025-05)
+    public string TransporterCode { get; set; } = "";            // Mã đơn vị vận tải (TRANS-NEWWAY, TRANS-DATDUC...)
+    public string TransporterName { get; set; } = "";            // Tên đơn vị vận tải
+    public string InsuranceCompanyCode { get; set; } = "PVI";    // Mã công ty bảo hiểm (INS-PVI, INS-BAOVIET...)
+    public string InsuranceCompanyName { get; set; } = "Tổng Công ty Bảo hiểm Dầu khí (PVI)"; // Tên công ty bảo hiểm
+    public string? InsuranceContractNo { get; set; }             // Số hợp đồng bảo hiểm vận tải nguyên tắc
+    public int TotalVehicles { get; set; }                       // Tổng số lượng xe vận chuyển
+    public long TotalTransportCost { get; set; }                 // Tổng cước phí vận chuyển thực tế (TotalTransportCost = Σ TFValReal)
+    public long TotalDelayPenalty { get; set; }                  // Tổng tiền phạt giao chậm xe thực tế (TotalDelayPenalty = Σ TPValReal)
+    public long TotalInsuranceCost { get; set; }                 // Tổng phí bảo hiểm vận tải hàng hóa (TotalInsuranceCost = Σ InsuranceCost)
+    public long TotalAmount { get; set; }                        // Tổng thanh toán sau thuế VAT (= Σ Val_Transport)
+    public decimal VATRate { get; set; } = 10.0m;                // Thuế suất VAT (%)
+    public long TotalBeforeVAT { get; set; }                     // Tổng tiền trước VAT (= TotalAmount / (1 + VATRate/100))
+    public long AmountVAT { get; set; }                          // Tiền thuế VAT (= TotalAmount - TotalBeforeVAT)
+    public TransportInsStatus Status { get; set; } = TransportInsStatus.Draft;
+    public TransportSignCAStatus TCMSSignStatus { get; set; } = TransportSignCAStatus.Pending; // Trạng thái ký TCMS
+    public string? TCMSSignUser { get; set; }                    // Người ký số TCMS
+    public DateTime? TCMSSignDTime { get; set; }                 // Thời điểm ký số TCMS
+    public TransportSignCAStatus HTVSignStatus { get; set; } = TransportSignCAStatus.Pending;  // Trạng thái ký HTV
+    public string? HTVSignUser { get; set; }                     // Người ký số HTV
+    public DateTime? HTVSignDTime { get; set; }                  // Thời điểm ký số HTV
+    public string? Appr1By { get; set; }                         // Người duyệt cấp 1 (TCMS Thẩm định)
+    public DateTime? Appr1DTime { get; set; }                    // Thời điểm duyệt cấp 1
+    public string? Appr2By { get; set; }                         // Người duyệt cấp 2 (HTV Phê duyệt)
+    public DateTime? Appr2DTime { get; set; }                    // Thời điểm duyệt cấp 2
+    public string? SettledBy { get; set; }                       // Kế toán thanh toán qua UNC ngân hàng
+    public DateTime? SettledAt { get; set; }                     // Thời điểm thanh toán
+    public string? BankTxnRef { get; set; }                      // Mã giao dịch thanh toán UNC ngân hàng
+    public string? RejectReason { get; set; }                    // Lý do từ chối bảng kê
+    public DateTime? CancelledAt { get; set; }                   // Thời điểm hủy bảng kê
+    public string? FilePath { get; set; }                        // Đường dẫn / mã chứng từ file ký số CA
+    public string? Remark { get; set; }                          // Ghi chú / diễn giải bảng kê
+    public string? CreatedBy { get; set; }                       // Người lập bảng kê
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    public List<TransportInsPaymentDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết xe vận chuyển &amp; bảo hiểm trong bảng kê — tương ứng Pmt_TransportInsDetail trong BizHTC.Payment / 0.34.Contract.</summary>
+public sealed class TransportInsPaymentDetail
+{
+    public long Id { get; set; }
+    public long TransportInsPaymentId { get; set; }
+    public Guid OrgId { get; set; }
+    public string VIN { get; set; } = "";                        // Số khung xe (17 ký tự VIN)
+    public string? CarId { get; set; }                           // Mã định danh xe nội bộ
+    public string ModelCode { get; set; } = "";                  // Dòng xe (SANTAFE, TUCSON, CRETA, ACCENT...)
+    public string? ModelName { get; set; }                       // Tên thương mại dòng xe
+    public string? SpecCode { get; set; }                        // Mã phiên bản
+    public string? SpecDescription { get; set; }                 // Mô tả phiên bản
+    public string? ColorName { get; set; }                       // Màu ngoại thất xe
+    public string FStorageCode { get; set; } = "";               // Kho xuất xe / điểm đi (KHO-NINHBINH, KHO-DONGANH...)
+    public string? FProvinceName { get; set; }                   // Tỉnh xuất phát (Ninh Bình, Hà Nội...)
+    public string TStorageCode { get; set; } = "";               // Kho đại lý / điểm đến (KHO-THANHXUAN, KHO-SAIGON...)
+    public string? TProvinceName { get; set; }                   // Tỉnh nơi đến (Hà Nội, TP.HCM, Đà Nẵng...)
+    public string TranspReqType { get; set; } = "CARTRANSPORT";  // Loại lệnh vận chuyển (CARTRANSPORT, STORAGEREARRANGE, STORAGEREARRCB, CARRETRIEVE)
+    public string? DlvMnNo { get; set; }                         // Số biên bản giao nhận / Lệnh vận chuyển
+    public DateTime? DlvStartDate { get; set; }                  // Ngày xuất kho bắt đầu vận chuyển
+    public int ExpectedDays { get; set; } = 3;                   // Số ngày vận chuyển định mức
+    public DateTime? ExpectedDlvEndDate { get; set; }            // Ngày dự kiến đến nơi theo định mức (= DlvStartDate + ExpectedDays)
+    public DateTime? DlvEndDate { get; set; }                    // Ngày giao nhận thực tế tại đại lý
+    public int DelayDays { get; set; }                           // Số ngày chậm vận chuyển (= Max(0, (DlvEndDate - ExpectedDlvEndDate).Days))
+    public long TFValReal { get; set; }                          // Cước phí vận chuyển thực tế xe (Transport Fee Real)
+    public long TPValReal { get; set; }                          // Tiền phạt chậm giao xe thực tế (Transport Penalty Real)
+    public long PriceCar { get; set; }                           // Giá trị xe khai báo bảo hiểm hàng hóa
+    public decimal InsurancePercent { get; set; } = 0.05m;       // Tỷ lệ phí bảo hiểm vận tải (%)
+    public long InsuranceCost { get; set; }                      // Phí bảo hiểm vận tải hàng hóa xe
+    public long Val_Transport { get; set; }                      // Tổng tiền thanh toán dòng (= TFValReal + InsuranceCost - TPValReal)
+    public string? StandardRemark { get; set; }                  // Lý do điều chỉnh hạn mức định mức ngày đến
+    public string? FProvinceRemark { get; set; }                 // Lý do điều chỉnh cung đường / nơi đến
+    public TransportInsDetailStatus Status { get; set; } = TransportInsDetailStatus.Pending;
+    public string? Remark { get; set; }                          // Ghi chú chi tiết dòng xe
 }
 
 

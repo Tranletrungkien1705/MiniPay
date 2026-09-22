@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MiniPay — Cổng Thanh Toán, Đối Soát Sao Kê, Lệnh Chi, Chiết Khấu, Bảo Lãnh, Thế Chấp, Phiếu Thanh Toán UNC &amp; Hối Phiếu Ngân Hàng</title>
+<title>MiniPay — Cổng Thanh Toán, Đối Soát Sao Kê, Lệnh Chi, Chiết Khấu, Bảo Lãnh, Thế Chấp, Phiếu Thanh Toán UNC, Hối Phiếu &amp; Vận Tải Bảo Hiểm</title>
 <style>
   :root {
     --bg: #0f172a; --surface: #1e293b; --border: #334155;
@@ -58,7 +58,7 @@
   <div style="display:flex; justify-content:space-between; align-items:center;">
     <div>
       <h1>MiniPay</h1>
-      <p class="muted">Cổng thanh toán điện tử (VNPay/MoMo), Đối soát sao kê, Lệnh chi chuyển tiền, Chiết khấu thanh toán, Bảo lãnh &amp; Thế chấp/Giải chấp, Phiếu thanh toán UNC, Hối phiếu bàn giao xe, Bảng kê chi phí PDI xe &amp; Phạt chậm thanh toán đơn hàng xe (BizHTC.Payment / BizHTC.Report / BizHTC.GiaiChap).</p>
+      <p class="muted">Cổng thanh toán điện tử (VNPay/MoMo), Đối soát sao kê, Lệnh chi chuyển tiền, Chiết khấu thanh toán, Bảo lãnh &amp; Thế chấp/Giải chấp, Phiếu thanh toán UNC, Hối phiếu bàn giao xe, Chi phí PDI, Phạt chậm TT &amp; Bảng kê thanh toán vận tải bảo hiểm xe (BizHTC.Payment / 0.34.Contract).</p>
     </div>
     <div>
       <span class="badge badge-info">Demo Merchant</span>
@@ -95,6 +95,7 @@
     <button class="tab-btn" onclick="showTab('bankBill')">Hối Phiếu &amp; Bàn Giao Xe (Bank Bill / BBBG)</button>
     <button class="tab-btn" onclick="showTab('paymentPDI')">Chi Phí PDI Xe (PDI Payment)</button>
     <button class="tab-btn" onclick="showTab('penaltyDelay')">Phạt Chậm TT (TTC Penalty)</button>
+    <button class="tab-btn" onclick="showTab('transportIns')">Vận Tải &amp; Bảo Hiểm (Transport &amp; Ins)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -105,6 +106,7 @@
     <button class="tab-btn" onclick="showTab('newBankBill')">+ Lập BBBG Hối Phiếu</button>
     <button class="tab-btn" onclick="showTab('newPaymentPDI')">+ Lập Bảng Kê PDI</button>
     <button class="tab-btn" onclick="showTab('newPenaltyDelay')">+ Lập Hồ Sơ Phạt TTC</button>
+    <button class="tab-btn" onclick="showTab('newTransportIns')">+ Lập Bảng Kê Vận Tải</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -1059,6 +1061,112 @@
       </div>
     </div>
   </div>
+
+  <!-- TAB 10: Quản lý Bảng kê Thanh toán Chi phí Vận tải & Bảo hiểm Xe (Transport & Insurance Payment) -->
+  <div id="tab-transportIns" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="margin:0;">Quản lý Bảng Kê Thanh Toán Chi Phí Vận Tải &amp; Bảo Hiểm Xe (Transport &amp; Freight Insurance)</h3>
+        <div style="display:flex; gap:8px;">
+          <button class="secondary" onclick="loadTransportRecords()">Làm mới</button>
+          <button onclick="showTab('newTransportIns')">+ Lập Bảng Kê Mới</button>
+        </div>
+      </div>
+      <p class="muted" style="margin-top:0;">Quản lý cước vận chuyển (TFValReal), phạt chậm giao xe (TPValReal) và phí bảo hiểm hàng hóa xe (InsuranceCost) theo quy trình ký duyệt 2 cấp TCMS &amp; HTV, thanh toán qua UNC ngân hàng (Pmt_TransportIns / BizHTC.Payment).</p>
+
+      <div class="row" style="margin-bottom:12px; gap:8px; align-items:flex-end;">
+        <div class="col">
+          <label class="muted">Trạng Thái Bảng Kê:</label>
+          <select id="filterTransStatus" onchange="loadTransportRecords()">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="Draft">Nháp (Draft)</option>
+            <option value="TCMSApproved">TCMS Đã Duyệt Cấp 1</option>
+            <option value="HTVApproved">HTV Đã Duyệt Cấp 2</option>
+            <option value="Signed">Đã Ký Số CA Hoàn Tất</option>
+            <option value="Settled">Đã Quyết Toán UNC</option>
+            <option value="Rejected">Bị Từ Chối (Rejected)</option>
+            <option value="Cancelled">Đã Hủy (Cancelled)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Kỳ Thanh Toán (YYYY-MM):</label>
+          <input type="text" id="filterTransMonth" placeholder="Ví dụ: 2025-05" onchange="loadTransportRecords()">
+        </div>
+        <div class="col">
+          <label class="muted">Đơn Vị Vận Tải:</label>
+          <input type="text" id="filterTransporter" placeholder="Ví dụ: TRANS-NEWWAY" onchange="loadTransportRecords()">
+        </div>
+        <div style="margin-bottom:2px;">
+          <button class="secondary" onclick="loadTransportRecords()">Lọc</button>
+        </div>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Bảng Kê</th>
+              <th>Kỳ TT</th>
+              <th>Đơn Vị Vận Tải</th>
+              <th>Bảo Hiểm</th>
+              <th>Số Xe</th>
+              <th>Cước Vận Chuyển</th>
+              <th>Phạt Trễ Hạn</th>
+              <th>Phí Bảo Hiểm</th>
+              <th>Trước VAT</th>
+              <th>VAT 10%</th>
+              <th>Tổng Sau VAT</th>
+              <th>Ký Số TCMS</th>
+              <th>Ký Số HTV</th>
+              <th>Trạng Thái</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="transTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Card Chi Tiết Bảng Kê Vận Tải & Bảo Hiểm -->
+    <div class="card" id="cardTransportDetail" style="display:none; margin-top:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <h3 id="transDetailTitle" style="margin:0;">Chi Tiết Bảng Kê Vận Tải &amp; Bảo Hiểm</h3>
+        <button class="secondary" onclick="document.getElementById('cardTransportDetail').style.display='none'">Đóng [X]</button>
+      </div>
+
+      <div style="margin-top:12px; display:flex; flex-wrap:wrap; gap:8px;" id="transActionButtons"></div>
+
+      <div id="transDetailHeaderInfo" style="margin-top:12px;"></div>
+
+      <div style="margin-top:16px; overflow-x:auto;">
+        <h4 style="margin:0 0 8px;">Danh sách phương tiện vận chuyển &amp; Chi phí từng xe:</h4>
+        <table>
+          <thead>
+            <tr>
+              <th>STT</th>
+              <th>Số Khung (VIN)</th>
+              <th>Dòng Xe &amp; Bản</th>
+              <th>Màu Xe</th>
+              <th>Nơi Đi</th>
+              <th>Nơi Đến</th>
+              <th>Lệnh Vận Chuyển</th>
+              <th>Ngày Đi / Hạn Đến / Ngày Đến</th>
+              <th>Chậm</th>
+              <th>Cước Vận Chuyển</th>
+              <th>Phạt Giao Chậm</th>
+              <th>Giá Xe Khai Báo BH</th>
+              <th>Phí Bảo Hiểm</th>
+              <th>Tổng Thanh Toán Xe</th>
+              <th>Trạng Thái</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="transDetailTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div id="tab-newBatch" style="display:none;">
     <div class="card">
       <h3>Nạp bảng sao kê ngân hàng &amp; Chạy đối soát tức thì</h3>
@@ -1759,6 +1867,145 @@
     </div>
   </div>
 
+  <!-- TAB 11: Lập Bảng kê Thanh toán Chi phí Vận tải & Bảo hiểm Xe mới -->
+  <div id="tab-newTransportIns" style="display:none;">
+    <div class="card">
+      <h3>Lập Bảng Kê Thanh Toán Chi Phí Vận Tải &amp; Bảo Hiểm Xe</h3>
+      <p class="muted">Tạo mới bảng kê vận chuyển xe kèm tính cước vận tải, phạt giao chậm và phí bảo hiểm theo BizHTC.Payment / 0.34.Contract.</p>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Bảng Kê (để trống để tự sinh):</label>
+          <input type="text" id="inpTransInsNo" placeholder="Ví dụ: VTBH-202505-004">
+        </div>
+        <div class="col">
+          <label class="muted">Kỳ / Tháng Thanh Toán (PmtMonth):</label>
+          <input type="text" id="inpTransPmtMonth" value="2025-05">
+        </div>
+        <div class="col">
+          <label class="muted">Mã Đơn Vị Vận Tải (TransporterCode):</label>
+          <select id="inpTransporterCode" onchange="onTransporterChange()">
+            <option value="TRANS-NEWWAY">TRANS-NEWWAY (Công ty Cổ phần Vận tải NewWay)</option>
+            <option value="TRANS-DATDUC">TRANS-DATDUC (Công ty TNHH Vận tải Thương mại Đạt Đức)</option>
+            <option value="TRANS-MIENBAC">TRANS-MIENBAC (Công ty Vận tải &amp; Tiếp vận Miền Bắc)</option>
+            <option value="TRANS-SAIGON">TRANS-SAIGON (Công ty Dịch vụ Vận tải Ô tô Sài Gòn)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Tên Đơn Vị Vận Tải:</label>
+          <input type="text" id="inpTransporterName" value="Công ty Cổ phần Vận tải NewWay">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Công Ty Bảo Hiểm Hàng Hóa:</label>
+          <select id="inpTransInsCompanyCode" onchange="onTransInsCompanyChange()">
+            <option value="PVI">PVI (Tổng Công ty CP Bảo hiểm Dầu khí Việt Nam)</option>
+            <option value="BAOVIET">BAOVIET (Tổng Công ty Bảo hiểm Bảo Việt)</option>
+            <option value="MIC">MIC (Tổng Công ty Cổ phần Bảo hiểm Quân đội)</option>
+            <option value="BIC">BIC (Tổng Công ty Bảo hiểm BIDV)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Tên Đơn Vị Bảo Hiểm:</label>
+          <input type="text" id="inpTransInsCompanyName" value="Tổng Công ty Cổ phần Bảo hiểm Dầu khí Việt Nam (PVI)">
+        </div>
+        <div class="col">
+          <label class="muted">Số Hợp Đồng Bảo Hiểm:</label>
+          <input type="text" id="inpTransInsContractNo" value="HD-BH-PVI-2025/VT12">
+        </div>
+        <div class="col">
+          <label class="muted">Thuế Suất VAT (%):</label>
+          <input type="number" id="inpTransVATRate" step="1" value="10.0">
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <label class="muted">Diễn Giải / Ghi Chú Bảng Kê (Remark):</label>
+        <input type="text" id="inpTransRemark" value="Bảng kê chi phí vận tải xe lô đợt cuối tháng 05/2025">
+      </div>
+
+      <div style="margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="muted">Danh sách xe vận chuyển (VIN, Model, Kho đi, Kho đến, Ngày xuất, Hạn giao, Ngày đến, Cước, Phạt trễ, Khai báo BH) [JSON]:</label>
+          <button class="secondary" type="button" onclick="loadSampleTransportData()">Nạp Dữ Liệu Xe Mẫu</button>
+        </div>
+        <textarea id="inpTransVehiclesJson" rows="8" style="font-family:monospace; font-size:.85em;"></textarea>
+      </div>
+
+      <div style="margin-top:16px;">
+        <button type="button" onclick="submitTransportIns()">Khởi Tạo Bảng Kê Vận Tải</button>
+        <span id="submitTransMsg" style="margin-left:12px;" class="muted"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Xem & In Mẫu Bảng Kê Quyết Toán Vận Tải & Bảo Hiểm Xe (Transport Statement Advice) -->
+  <div id="modalTransportInsAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:920px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.25em;">BẢNG KÊ QUYẾT TOÁN CHI PHÍ VẬN TẢI &amp; BẢO HIỂM XE (CR_Pmt_TransportIns)</h2>
+        <button class="secondary" onclick="closeTransportAdviceModal()">Đóng [X]</button>
+      </div>
+      <div id="transAdviceContent" style="margin-top:16px; font-size:.9em; line-height:1.6;"></div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('transAdviceContent').innerText); alert('Đã sao chép nội dung Bảng kê quyết toán vào clipboard!');">Sao Chép Nội Dung</button>
+        <button onclick="window.print()">In Bảng Kê Quyết Toán</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Điều Chỉnh Chi Phí Vận Tải & Phạt Chậm Từng Xe (UpdateMulti) -->
+  <div id="modalEditTransportCosts" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:650px; margin:50px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <h3 style="margin:0;">Điều Chỉnh Chi Phí Vận Tải &amp; Phạt Chậm Xe</h3>
+        <button class="secondary" onclick="closeEditTransportCostsModal()">Đóng [X]</button>
+      </div>
+      <div style="margin-top:12px;">
+        <label class="muted">Chọn xe (VIN):</label>
+        <select id="editTransVINSelect" onchange="onEditTransVINChange()"></select>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Cước Vận Chuyển Thực Tế (TFValReal) [VND]:</label>
+          <input type="number" id="inpEditTransTFVal" step="50000">
+        </div>
+        <div class="col">
+          <label class="muted">Tiền Phạt Chậm Giao Xe (TPValReal) [VND]:</label>
+          <input type="number" id="inpEditTransTPVal" step="50000">
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Giá Trị Xe Khai Báo BH (PriceCar) [VND]:</label>
+          <input type="number" id="inpEditTransPriceCar" step="10000000">
+        </div>
+        <div class="col">
+          <label class="muted">Tỷ Lệ Phí Bảo Hiểm (%):</label>
+          <input type="number" id="inpEditTransInsPercent" step="0.01" value="0.05">
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <label class="muted">Lý Do Điều Chỉnh Tuyến Đường / Kho Đến (FProvinceRemark):</label>
+        <input type="text" id="inpEditTransFProvRemark" placeholder="Ví dụ: Thay đổi địa điểm giao sang kho bãi vệ tinh">
+      </div>
+      <div style="margin-top:12px;">
+        <label class="muted">Lý Do Điều Chỉnh Hạn Mức Định Mức Ngày Đến (StandardRemark):</label>
+        <input type="text" id="inpEditTransStdRemark" placeholder="Ví dụ: Sự cố sạt lở đèo giao thông bất khả kháng">
+      </div>
+      <div style="margin-top:12px;">
+        <label class="muted">Ghi Chú Chung (Remark):</label>
+        <input type="text" id="inpEditTransRemark" placeholder="Ghi chú điều chỉnh">
+      </div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="closeEditTransportCostsModal()">Hủy Bỏ</button>
+        <button onclick="saveTransportDetailEdit()">Lưu Cập Nhật</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Xem & In Mẫu Hối Phiếu Ngân Hàng (Bill of Exchange Advice) -->
   <div id="modalBillAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
     <div style="max-width:820px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
@@ -1970,6 +2217,24 @@
         <li><code>GET /api/penalty-delay/{id}/penalty-advice</code> — Sinh dữ liệu mẫu in Thông báo tính &amp; quyết toán phạt TTC kèm số tiền bằng chữ tiếng Việt</li>
         <li><code>GET /api/penalty-delay/summary</code> — Báo cáo tổng hợp số liệu tính phạt, phân rã theo tỷ lệ thu hồi và trạng thái</li>
       </ul>
+      <h3>Nghiệp Vụ Bảng Kê Thanh Toán Chi Phí Vận Tải &amp; Bảo Hiểm Xe (Transport &amp; Freight Insurance - BizHTC.Payment / 0.34.Contract)</h3>
+      <ul>
+        <li><code>POST /api/transport-insurance</code> — Lập bảng kê thanh toán chi phí vận chuyển &amp; bảo hiểm xe mới (Pmt_TransportIns_Save)</li>
+        <li><code>GET /api/transport-insurance</code> — Danh sách bảng kê vận tải &amp; bảo hiểm (lọc theo <code>status</code>, <code>pmtMonth</code>, <code>transporterCode</code>)</li>
+        <li><code>GET /api/transport-insurance/{id}</code> — Chi tiết 1 bảng kê kèm toàn bộ danh sách phương tiện, cung đường và tính toán chi phí</li>
+        <li><code>POST /api/transport-insurance/{id}/approve-tcms</code> — TCMS Thẩm định duyệt cấp 1 (Pmt_TransportIns_Approve1)</li>
+        <li><code>POST /api/transport-insurance/{id}/approve-htv</code> — HTV Ban Quản lý Vận tải &amp; Phân phối duyệt cấp 2 (Pmt_TransportIns_Approve2)</li>
+        <li><code>POST /api/transport-insurance/{id}/sign-tcms</code> — Ký số điện tử CA đại diện đơn vị vận hành TCMS (Pmt_TransportIns_TCMSApproveAndSign)</li>
+        <li><code>POST /api/transport-insurance/{id}/sign-htv</code> — Ký số điện tử CA đại diện HTC / HTV (Pmt_TransportIns_HTVApproveAndSign)</li>
+        <li><code>POST /api/transport-insurance/{id}/settle</code> — Kế toán quyết toán thanh toán chuyển khoản UNC ngân hàng (Settled)</li>
+        <li><code>POST /api/transport-insurance/{id}/reject</code> — Từ chối duyệt bảng kê kèm lý do thẩm định (Pmt_TransportIns_Cancel / btnDeny_Click)</li>
+        <li><code>POST /api/transport-insurance/{id}/cancel</code> — Hủy bảng kê vận tải &amp; bảo hiểm (Pmt_TransportIns_Cancel / btnDelete_Click)</li>
+        <li><code>PUT /api/transport-insurance/{id}/details</code> — Cập nhật chi phí vận tải, cước thực tế &amp; phạt trễ hàng loạt (Pmt_TransportIns_UpdateMulti)</li>
+        <li><code>POST /api/transport-insurance/{id}/import-vehicles</code> — Bổ sung danh sách xe vào bảng kê hiện có (FrmTaoThanhToanVanTaiBaoHiem_AddCar)</li>
+        <li><code>DELETE /api/transport-insurance/{id}/vehicles/{detailId}</code> — Xóa 1 xe khỏi bảng kê vận tải</li>
+        <li><code>GET /api/transport-insurance/{id}/statement-advice</code> — Sinh dữ liệu mẫu in Bảng kê quyết toán CR_Pmt_TransportIns kèm số tiền bằng chữ tiếng Việt</li>
+        <li><code>GET /api/transport-insurance/summary</code> — Báo cáo tổng hợp số liệu chi phí vận tải &amp; bảo hiểm xe</li>
+      </ul>
     </div>
   </div>
 
@@ -1989,6 +2254,7 @@
       document.getElementById('tab-bankBill').style.display = tabName === 'bankBill' ? 'block' : 'none';
       document.getElementById('tab-paymentPDI').style.display = tabName === 'paymentPDI' ? 'block' : 'none';
       document.getElementById('tab-penaltyDelay').style.display = tabName === 'penaltyDelay' ? 'block' : 'none';
+      document.getElementById('tab-transportIns').style.display = tabName === 'transportIns' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -1999,6 +2265,7 @@
       document.getElementById('tab-newBankBill').style.display = tabName === 'newBankBill' ? 'block' : 'none';
       document.getElementById('tab-newPaymentPDI').style.display = tabName === 'newPaymentPDI' ? 'block' : 'none';
       document.getElementById('tab-newPenaltyDelay').style.display = tabName === 'newPenaltyDelay' ? 'block' : 'none';
+      document.getElementById('tab-newTransportIns').style.display = tabName === 'newTransportIns' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
@@ -2012,17 +2279,19 @@
           (tabName === 'bankBill' && i === 6) ||
           (tabName === 'paymentPDI' && i === 7) ||
           (tabName === 'penaltyDelay' && i === 8) ||
-          (tabName === 'newBatch' && i === 9) ||
-          (tabName === 'newPayout' && i === 10) ||
-          (tabName === 'newDiscount' && i === 11) ||
-          (tabName === 'newGuarantee' && i === 12) ||
-          (tabName === 'newMortgage' && i === 13) ||
-          (tabName === 'newRedeem' && i === 14) ||
-          (tabName === 'newPaymentOrder' && i === 15) ||
-          (tabName === 'newBankBill' && i === 16) ||
-          (tabName === 'newPaymentPDI' && i === 17) ||
-          (tabName === 'newPenaltyDelay' && i === 18) ||
-          (tabName === 'apiDocs' && i === 19));
+          (tabName === 'transportIns' && i === 9) ||
+          (tabName === 'newBatch' && i === 10) ||
+          (tabName === 'newPayout' && i === 11) ||
+          (tabName === 'newDiscount' && i === 12) ||
+          (tabName === 'newGuarantee' && i === 13) ||
+          (tabName === 'newMortgage' && i === 14) ||
+          (tabName === 'newRedeem' && i === 15) ||
+          (tabName === 'newPaymentOrder' && i === 16) ||
+          (tabName === 'newBankBill' && i === 17) ||
+          (tabName === 'newPaymentPDI' && i === 18) ||
+          (tabName === 'newPenaltyDelay' && i === 19) ||
+          (tabName === 'newTransportIns' && i === 20) ||
+          (tabName === 'apiDocs' && i === 21));
       });
 
       if (tabName === 'reconcile') loadBatches();
@@ -2034,6 +2303,7 @@
       else if (tabName === 'bankBill') loadBankBills();
       else if (tabName === 'paymentPDI') loadPDIBatches();
       else if (tabName === 'penaltyDelay') loadPenaltyRecords();
+      else if (tabName === 'transportIns') loadTransportRecords();
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====
@@ -5458,12 +5728,614 @@
     initPenaltyDates();
     loadSamplePenaltyData();
 
+    // ===== NGHIỆP VỤ QUẢN LÝ BẢNG KÊ VẬN TẢI & BẢO HIỂM XE (Pmt_TransportIns) =====
+    async function loadTransportSummary() {
+      try {
+        const res = await fetch('/api/transport-insurance/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng bảng kê VT&BH';
+        document.getElementById('stat1').textContent = d.totalStatements;
+        document.getElementById('statLabel2').textContent = 'Tổng xe vận chuyển';
+        document.getElementById('stat2').textContent = d.totalVehicles;
+        document.getElementById('statLabel3').textContent = 'Tổng cước vận chuyển';
+        document.getElementById('stat3').textContent = (d.totalTransportCost / 1e6).toFixed(1) + 'M đ';
+        document.getElementById('statLabel4').textContent = 'Tiền đã quyết toán UNC';
+        document.getElementById('stat4').textContent = Number(d.totalSettledAmount).toLocaleString('vi-VN') + ' đ';
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadTransportRecords() {
+      await loadTransportSummary();
+      const status = document.getElementById('filterTransStatus').value;
+      const month = document.getElementById('filterTransMonth').value.trim();
+      const transp = document.getElementById('filterTransporter').value.trim();
+
+      let url = '/api/transport-insurance?';
+      if (status) url += 'status=' + encodeURIComponent(status) + '&';
+      if (month) url += 'pmtMonth=' + encodeURIComponent(month) + '&';
+      if (transp) url += 'transporterCode=' + encodeURIComponent(transp) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('transTableBody');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="15" class="muted" style="text-align:center;">Chưa có bảng kê thanh toán vận tải &amp; bảo hiểm nào phù hợp.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(p => {
+          let badge = 'badge-info';
+          let stText = p.status;
+          if (p.status === 'Settled') { badge = 'badge-success'; stText = 'Đã Quyết Toán UNC'; }
+          else if (p.status === 'Signed') { badge = 'badge-success'; stText = 'Đã Ký Số Hoàn Tất'; }
+          else if (p.status === 'HTVApproved') { badge = 'badge-info'; stText = 'HTV Đã Duyệt C2'; }
+          else if (p.status === 'TCMSApproved') { badge = 'badge-warning'; stText = 'TCMS Đã Duyệt C1'; }
+          else if (p.status === 'Draft') { badge = 'muted'; stText = 'Nháp'; }
+          else if (p.status === 'Cancelled') { badge = 'muted'; stText = 'Đã Hủy'; }
+          else if (p.status === 'Rejected') { badge = 'badge-danger'; stText = 'Từ Chối'; }
+
+          let tcmsSignBadge = p.tcmsSignStatus === 'Signed' ? '<span class="badge badge-success">✓ Đã Ký</span>' : '<span class="badge badge-warning">Chờ Ký</span>';
+          let htvSignBadge = p.htvSignStatus === 'Signed' ? '<span class="badge badge-success">✓ Đã Ký</span>' : '<span class="badge badge-warning">Chờ Ký</span>';
+
+          return `
+            <tr>
+              <td><strong>${p.transportInsNo}</strong><br><small class="muted">${p.createdAt ? p.createdAt.slice(0, 10) : ''}</small></td>
+              <td><strong>${p.pmtMonth}</strong></td>
+              <td><strong>${p.transporterCode}</strong><br><small class="muted">${p.transporterName || ''}</small></td>
+              <td><strong>${p.insuranceCompanyCode}</strong></td>
+              <td style="text-align:center;"><span class="badge badge-info">${p.totalVehicles} xe</span></td>
+              <td style="text-align:right;">${Number(p.totalTransportCost).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; color:${p.totalDelayPenalty > 0 ? 'var(--danger)' : 'var(--muted)'}; font-weight:${p.totalDelayPenalty > 0 ? '700' : '400'};">-${Number(p.totalDelayPenalty).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right;">${Number(p.totalInsuranceCost).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right;">${Number(p.totalBeforeVAT).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right;">${Number(p.amountVAT).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; font-weight:700; color:var(--primary);">${Number(p.totalAmount).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:center;">${tcmsSignBadge}</td>
+              <td style="text-align:center;">${htvSignBadge}</td>
+              <td><span class="badge ${badge}">${stText}</span></td>
+              <td>
+                <button class="secondary" onclick="viewTransportDetail(${p.id})">Chi tiết</button>
+                <button class="secondary" style="margin-left:4px;" onclick="openTransportAdviceModal(${p.id})">In</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    let activeTransStatement = null;
+
+    async function viewTransportDetail(id) {
+      try {
+        const res = await fetch(`/api/transport-insurance/${id}`, { headers });
+        if (!res.ok) { alert('Không tìm thấy bảng kê.'); return; }
+        const p = await res.json();
+        activeTransStatement = p;
+
+        const card = document.getElementById('cardTransportDetail');
+        card.style.display = 'block';
+        document.getElementById('transDetailTitle').innerHTML = `Bảng Kê Vận Tải &amp; Bảo Hiểm: <code>${p.transportInsNo}</code> (Kỳ ${p.pmtMonth})`;
+
+        // Action buttons
+        const btnBox = document.getElementById('transActionButtons');
+        let btns = '';
+
+        if (p.status === 'Draft') {
+          btns += `<button onclick="tcmsApproveTrans(${p.id})">✓ TCMS Thẩm Định Duyệt Cấp 1</button>`;
+          btns += `<button class="secondary" style="color:var(--danger);" onclick="rejectTrans(${p.id})">✕ Từ Chối Bảng Kê</button>`;
+          btns += `<button class="secondary" onclick="cancelTrans(${p.id})">Hủy Bảng Kê</button>`;
+        } else if (p.status === 'TCMSApproved') {
+          btns += `<button onclick="htvApproveTrans(${p.id})">✓ HTV Lãnh Đạo Duyệt Cấp 2</button>`;
+          if (p.tcmsSignStatus !== 'Signed') {
+            btns += `<button class="secondary" onclick="tcmsSignTrans(${p.id})">✍ Ký Số Điện Tử TCMS</button>`;
+          }
+          btns += `<button class="secondary" style="color:var(--danger);" onclick="rejectTrans(${p.id})">✕ Từ Chối Bảng Kê</button>`;
+        } else if (p.status === 'HTVApproved' || p.status === 'Signed') {
+          if (p.tcmsSignStatus !== 'Signed') {
+            btns += `<button class="secondary" onclick="tcmsSignTrans(${p.id})">✍ Ký Số Điện Tử TCMS</button>`;
+          }
+          if (p.htvSignStatus !== 'Signed') {
+            btns += `<button onclick="htvSignTrans(${p.id})">✍ Ký Số Điện Tử HTV</button>`;
+          }
+          if (p.status === 'Signed' || (p.tcmsSignStatus === 'Signed' && p.htvSignStatus === 'Signed')) {
+            btns += `<button style="background:var(--success);" onclick="settleTrans(${p.id})">💳 Quyết Toán Thanh Toán (UNC)</button>`;
+          }
+        }
+
+        if (p.status !== 'Settled' && p.status !== 'Cancelled' && p.status !== 'Rejected') {
+          btns += `<button class="secondary" onclick="openEditTransportCostsModal(${p.id})">✎ Điều Chỉnh Cước &amp; Phạt Xe</button>`;
+        }
+        btns += `<button class="secondary" onclick="openTransportAdviceModal(${p.id})">🖨 In Bảng Kê Quyết Toán (CR_Advice)</button>`;
+
+        btnBox.innerHTML = btns;
+
+        // Header info
+        document.getElementById('transDetailHeaderInfo').innerHTML = `
+          <div style="background:rgba(127,127,127,.06); padding:12px; border-radius:6px; font-size:.9em; line-height:1.6;">
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px;">
+              <div><strong>Đơn Vị Vận Tải:</strong> <strong>${p.transporterCode}</strong> - ${p.transporterName || ''}</div>
+              <div><strong>Công Ty Bảo Hiểm:</strong> <strong>${p.insuranceCompanyCode}</strong> - ${p.insuranceCompanyName || ''}</div>
+              <div><strong>Hợp Đồng Bảo Hiểm:</strong> <code>${p.insuranceContractNo || 'N/A'}</code></div>
+              <div><strong>Tổng Số Lượng Xe:</strong> <span class="badge badge-info">${p.totalVehicles} phương tiện</span></div>
+            </div>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-top:8px; border-top:1px dashed var(--border); padding-top:8px;">
+              <div><strong>Tổng Cước Vận Chuyển:</strong> ${Number(p.totalTransportCost).toLocaleString('vi-VN')} đ</div>
+              <div><strong>Tổng Phạt Giao Chậm:</strong> <span style="color:${p.totalDelayPenalty > 0 ? 'var(--danger)' : 'inherit'};">-${Number(p.totalDelayPenalty).toLocaleString('vi-VN')} đ</span></div>
+              <div><strong>Tổng Phí Bảo Hiểm:</strong> ${Number(p.totalInsuranceCost).toLocaleString('vi-VN')} đ</div>
+              <div><strong>Trước Thuế VAT:</strong> ${Number(p.totalBeforeVAT).toLocaleString('vi-VN')} đ</div>
+              <div><strong>Thuế VAT (10%):</strong> ${Number(p.amountVAT).toLocaleString('vi-VN')} đ</div>
+              <div><strong>Tổng Sau Thuế (Thực Chi):</strong> <strong style="color:var(--primary); font-size:1.1em;">${Number(p.totalAmount).toLocaleString('vi-VN')} đ</strong></div>
+            </div>
+            <div style="margin-top:8px; font-size:.85em; color:var(--muted);">
+              <span>Người lập: <code>${p.createdBy || 'DieuVan'}</code> (${p.createdAt ? p.createdAt.slice(0, 16) : ''})</span>
+              ${p.appr1By ? ` | <span>TCMS Duyệt: <code>${p.appr1By}</code></span>` : ''}
+              ${p.appr2By ? ` | <span>HTV Duyệt: <code>${p.appr2By}</code></span>` : ''}
+              ${p.tcmsSignUser ? ` | <span>TCMS Ký: <code>${p.tcmsSignUser}</code></span>` : ''}
+              ${p.htvSignUser ? ` | <span>HTV Ký: <code>${p.htvSignUser}</code></span>` : ''}
+              ${p.settledBy ? ` | <span style="color:var(--success);">Quyết toán UNC: <code>${p.bankTxnRef}</code> (${p.settledBy})</span>` : ''}
+              ${p.rejectReason ? ` | <span style="color:var(--danger);">Lý do từ chối: ${p.rejectReason}</span>` : ''}
+            </div>
+          </div>
+        `;
+
+        // Vehicle details table
+        const tbody = document.getElementById('transDetailTableBody');
+        tbody.innerHTML = p.details.map((d, idx) => {
+          let canDelete = (p.status === 'Draft' || p.status === 'TCMSApproved');
+          let delBtn = canDelete ? `<button class="secondary" style="color:var(--danger); padding:2px 6px; font-size:.78em;" onclick="removeTransVehicle(${p.id}, ${d.id})">Xóa</button>` : '-';
+
+          return `
+            <tr>
+              <td>${idx + 1}</td>
+              <td><code>${d.vin}</code></td>
+              <td><strong>${d.modelCode}</strong><br><small class="muted">${d.modelName || ''}</small></td>
+              <td>${d.colorName || '-'}</td>
+              <td>${d.fStorageCode}<br><small class="muted">${d.fProvinceName || ''}</small></td>
+              <td>${d.tStorageCode}<br><small class="muted">${d.tProvinceName || ''}</small></td>
+              <td><span class="badge badge-info">${d.transpReqType}</span><br><small class="muted">${d.dlvMnNo || ''}</small></td>
+              <td>
+                <small>Đi: ${d.dlvStartDate ? d.dlvStartDate.slice(0, 10) : '-'}</small><br>
+                <small>Hạn: ${d.expectedDlvEndDate ? d.expectedDlvEndDate.slice(0, 10) : '-'}</small><br>
+                <small>Đến: ${d.dlvEndDate ? d.dlvEndDate.slice(0, 10) : '-'}</small>
+              </td>
+              <td style="text-align:center; font-weight:${d.delayDays > 0 ? '700' : '400'}; color:${d.delayDays > 0 ? 'var(--danger)' : 'var(--muted)'};">${d.delayDays > 0 ? d.delayDays + 'd' : '0d'}</td>
+              <td style="text-align:right;">${Number(d.tfValReal).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; color:${d.tpValReal > 0 ? 'var(--danger)' : 'var(--muted)'}; font-weight:${d.tpValReal > 0 ? '700' : '400'};">-${Number(d.tpValReal).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right;">${Number(d.priceCar).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right;">${Number(d.insuranceCost).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; font-weight:700; color:var(--primary);">${Number(d.val_Transport).toLocaleString('vi-VN')} đ</td>
+              <td><span class="badge badge-info">${d.status}</span></td>
+              <td style="text-align:center;">${delBtn}</td>
+            </tr>
+          `;
+        }).join('');
+
+        card.scrollIntoView({ behavior: 'smooth' });
+      } catch(e) { console.error(e); }
+    }
+
+    async function tcmsApproveTrans(id) {
+      if (!confirm('Xác nhận TCMS Thẩm định duyệt cấp 1 bảng kê vận tải & bảo hiểm này?')) return;
+      try {
+        const res = await fetch(`/api/transport-insurance/${id}/approve-tcms`, {
+          method: 'POST', headers, body: JSON.stringify({ approverName: 'DangVanHai_GDKyThuat_TCMS' })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('TCMS đã thẩm định duyệt cấp 1 thành công!');
+        viewTransportDetail(id);
+        loadTransportRecords();
+      } catch(e) { console.error(e); }
+    }
+
+    async function htvApproveTrans(id) {
+      if (!confirm('Xác nhận Ban Lãnh đạo HTC/HTV phê duyệt cấp 2 bảng kê này?')) return;
+      try {
+        const res = await fetch(`/api/transport-insurance/${id}/approve-htv`, {
+          method: 'POST', headers, body: JSON.stringify({ approverName: 'NguyenThiMai_GDTaiChinh_HTV' })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('HTV đã phê duyệt cấp 2 thành công!');
+        viewTransportDetail(id);
+        loadTransportRecords();
+      } catch(e) { console.error(e); }
+    }
+
+    async function tcmsSignTrans(id) {
+      if (!confirm('Thực hiện ký số điện tử CA đại diện Trung tâm TCMS?')) return;
+      try {
+        const res = await fetch(`/api/transport-insurance/${id}/sign-tcms`, {
+          method: 'POST', headers, body: JSON.stringify({ signerName: 'DangVanHai_GDKyThuat_TCMS', filePath: `/certs/signatures/VTBH-${id}-tcms.pdf` })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã ký số điện tử TCMS thành công!');
+        viewTransportDetail(id);
+        loadTransportRecords();
+      } catch(e) { console.error(e); }
+    }
+
+    async function htvSignTrans(id) {
+      if (!confirm('Thực hiện ký số điện tử CA đại diện Ban Lãnh đạo HTC/HTV?')) return;
+      try {
+        const res = await fetch(`/api/transport-insurance/${id}/sign-htv`, {
+          method: 'POST', headers, body: JSON.stringify({ signerName: 'NguyenThiMai_GDTaiChinh_HTV', filePath: `/certs/signatures/VTBH-${id}-htv.pdf` })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã ký số điện tử HTV hoàn tất!');
+        viewTransportDetail(id);
+        loadTransportRecords();
+      } catch(e) { console.error(e); }
+    }
+
+    async function settleTrans(id) {
+      const ref = prompt('Nhập số chứng từ giao dịch UNC chi tiền ngân hàng (BankTxnRef):', `UNC-VCB-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-` + Math.floor(1000 + Math.random() * 9000));
+      if (!ref) return;
+
+      try {
+        const res = await fetch(`/api/transport-insurance/${id}/settle`, {
+          method: 'POST', headers, body: JSON.stringify({ bankTxnRef: ref, settlerName: 'PhamVanThanh_KeToanThanhToan' })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Quyết toán thanh toán chuyển tiền thành công!');
+        viewTransportDetail(id);
+        loadTransportRecords();
+      } catch(e) { console.error(e); }
+    }
+
+    async function rejectTrans(id) {
+      const reason = prompt('Nhập lý do từ chối bảng kê vận tải & bảo hiểm:');
+      if (!reason) return;
+
+      try {
+        const res = await fetch(`/api/transport-insurance/${id}/reject`, {
+          method: 'POST', headers, body: JSON.stringify({ reason: reason, rejecterName: 'KiemDinh_TCMS' })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã từ chối bảng kê.');
+        viewTransportDetail(id);
+        loadTransportRecords();
+      } catch(e) { console.error(e); }
+    }
+
+    async function cancelTrans(id) {
+      if (!confirm('Xác nhận hủy bảng kê vận tải & bảo hiểm này?')) return;
+      try {
+        const res = await fetch(`/api/transport-insurance/${id}/cancel`, {
+          method: 'POST', headers, body: JSON.stringify({ reason: 'Hủy theo yêu cầu của đơn vị điều vận' })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã hủy bảng kê.');
+        viewTransportDetail(id);
+        loadTransportRecords();
+      } catch(e) { console.error(e); }
+    }
+
+    async function removeTransVehicle(id, detailId) {
+      if (!confirm('Xác nhận xóa xe này khỏi bảng kê vận tải?')) return;
+      try {
+        const res = await fetch(`/api/transport-insurance/${id}/vehicles/${detailId}`, {
+          method: 'DELETE', headers
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã xóa xe khỏi bảng kê và tái tính toán tổng tiền.');
+        viewTransportDetail(id);
+        loadTransportRecords();
+      } catch(e) { console.error(e); }
+    }
+
+    // Modal In Bảng Kê Quyết Toán Vận Tải & Bảo Hiểm Xe (CR_Advice)
+    async function openTransportAdviceModal(id) {
+      try {
+        const res = await fetch(`/api/transport-insurance/${id}/statement-advice`, { headers });
+        if (!res.ok) { alert('Không thể tải dữ liệu in.'); return; }
+        const u = await res.json();
+
+        let vRows = u.lines.map(l => `
+          <tr>
+            <td style="border:1px solid var(--border); padding:4px 6px; text-align:center;">${l.lineIndex}</td>
+            <td style="border:1px solid var(--border); padding:4px 6px;"><code>${l.vin}</code></td>
+            <td style="border:1px solid var(--border); padding:4px 6px;"><strong>${l.modelCode}</strong><br><small class="muted">${l.modelName || ''}</small></td>
+            <td style="border:1px solid var(--border); padding:4px 6px;">${l.fStorageCode} &rarr; ${l.tStorageCode}</td>
+            <td style="border:1px solid var(--border); padding:4px 6px; text-align:center;"><small>${l.dlvStartDate ? l.dlvStartDate.slice(0, 10) : ''} &rarr; ${l.dlvEndDate ? l.dlvEndDate.slice(0, 10) : ''}</small></td>
+            <td style="border:1px solid var(--border); padding:4px 6px; text-align:center; font-weight:${l.delayDays > 0 ? '700' : '400'}; color:${l.delayDays > 0 ? 'var(--danger)' : 'inherit'};">${l.delayDays > 0 ? l.delayDays + ' ngày' : 'Đúng hạn'}</td>
+            <td style="border:1px solid var(--border); padding:4px 6px; text-align:right;">${Number(l.tfValReal).toLocaleString('vi-VN')} đ</td>
+            <td style="border:1px solid var(--border); padding:4px 6px; text-align:right; color:${l.tpValReal > 0 ? 'var(--danger)' : 'inherit'};">-${Number(l.tpValReal).toLocaleString('vi-VN')} đ</td>
+            <td style="border:1px solid var(--border); padding:4px 6px; text-align:right;">${Number(l.priceCar).toLocaleString('vi-VN')} đ</td>
+            <td style="border:1px solid var(--border); padding:4px 6px; text-align:right;">${Number(l.insuranceCost).toLocaleString('vi-VN')} đ</td>
+            <td style="border:1px solid var(--border); padding:4px 6px; text-align:right; font-weight:700;">${Number(l.val_Transport).toLocaleString('vi-VN')} đ</td>
+          </tr>
+        `).join('');
+
+        const content = `
+          <div style="font-family:'Times New Roman', Times, serif; color:var(--text);">
+            <div style="text-align:center; border-bottom:2px solid var(--border); padding-bottom:12px; margin-bottom:16px;">
+              <h2 style="margin:0; font-size:1.4em; text-transform:uppercase;">TỔNG CÔNG TY CỔ PHẦN LIÊN DOANH HYUNDAI THÀNH CÔNG VIỆT NAM (HTV)</h2>
+              <h3 style="margin:4px 0 0; font-size:1.15em; font-weight:600;">BẢNG KÊ QUYẾT TOÁN CHI PHÍ VẬN TẢI &amp; BẢO HIỂM XE Ô TÔ</h3>
+              <p class="muted" style="margin:4px 0 0; font-style:italic; font-size:.9em;">Mẫu số: CR_Pmt_TransportIns | Kỳ thanh toán: <strong>${u.pmtMonth}</strong> | Ngày lập: ${u.createdAt ? u.createdAt.slice(0, 10) : ''}</p>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-size:.92em;">
+              <div><strong>Số Bảng Kê:</strong> <code>${u.transportInsNo}</code></div>
+              <div><strong>Đơn Vị Vận Tải:</strong> <strong>${u.transporterName}</strong> (<code>${u.transporterCode}</code>)</div>
+              <div><strong>Bảo Hiểm Hàng Hóa:</strong> <strong>${u.insuranceCompanyName}</strong></div>
+              <div><strong>Hợp Đồng Bảo Hiểm:</strong> <code>${u.insuranceContractNo || 'Theo nguyên tắc'}</code></div>
+            </div>
+
+            <div style="margin-bottom:14px;">
+              <strong>Bảng kê chi tiết vận chuyển từng phương tiện:</strong>
+              <div style="overflow-x:auto; margin-top:6px;">
+                <table style="width:100%; border-collapse:collapse; font-size:.82em;">
+                  <thead>
+                    <tr style="background:rgba(127,127,127,.1);">
+                      <th style="border:1px solid var(--border); padding:4px 6px;">STT</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Số Khung (VIN)</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Dòng Xe</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Cung Đường</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Thời Gian VC</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Trễ Hạn</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Cước Vận Tải</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Phạt Trễ</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Khai Báo BH</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Phí Bảo Hiểm</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Thành Tiền</th>
+                    </tr>
+                  </thead>
+                  <tbody>${vRows}</tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style="margin-bottom:14px; padding:12px; border:1px solid var(--border); border-radius:6px; background:rgba(0,0,0,.15); font-size:.92em;">
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                <div><strong>1. Tổng cước phí vận chuyển thực tế:</strong> ${Number(u.totalTransportCost).toLocaleString('vi-VN')} VND</div>
+                <div><strong>2. Tổng tiền phạt giao chậm xe thực tế:</strong> <span style="color:var(--danger);">- ${Number(u.totalDelayPenalty).toLocaleString('vi-VN')} VND</span></div>
+                <div><strong>3. Tổng phí bảo hiểm vận tải hàng hóa:</strong> ${Number(u.totalInsuranceCost).toLocaleString('vi-VN')} VND</div>
+                <div><strong>4. Tổng tiền chi phí trước thuế VAT:</strong> ${Number(u.totalBeforeVAT).toLocaleString('vi-VN')} VND</div>
+                <div><strong>5. Tiền thuế GTGT (Thuế suất ${u.vatRate}%):</strong> ${Number(u.amountVAT).toLocaleString('vi-VN')} VND</div>
+              </div>
+              <div style="font-size:1.15em; font-weight:700; color:var(--primary); border-top:1px solid var(--border); padding-top:6px; margin-top:8px;">
+                TỔNG CỘNG TIỀN THANH TOÁN (BAO GỒM VAT): ${Number(u.totalAmount).toLocaleString('vi-VN')} VND
+              </div>
+              <div style="margin-top:6px; font-size:.95em;">
+                <strong>Số tiền thanh toán viết bằng chữ (In words):</strong><br>
+                <em style="color:var(--text); font-size:1.02em;"><strong>${u.totalAmountInWords}</strong></em>
+              </div>
+              ${u.bankTxnRef ? `<div style="margin-top:6px; color:var(--success);"><strong>Mã bút toán chuyển tiền UNC:</strong> <code>${u.bankTxnRef}</code> (${u.settledBy || ''})</div>` : ''}
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:8px; text-align:center; margin-top:24px; padding-top:16px; border-top:1px solid var(--border);">
+              <div>
+                <strong>CHUYÊN VIÊN ĐIỀU VẬN</strong><br><small class="muted">(Lập bảng kê)</small><br><br>
+                <span>${u.createdBy || 'ChuyenVienDieuVan'}<br><small>${u.createdAt ? u.createdAt.slice(0, 10) : ''}</small></span>
+              </div>
+              <div>
+                <strong>KẾ TOÁN THANH TOÁN</strong><br><small class="muted">(Kiểm tra đối chiếu cước &amp; UNC)</small><br><br>
+                <span>${u.settledBy || 'KeToanThanhToan'}<br><small>${u.settledAt ? u.settledAt.slice(0, 10) : ''}</small></span>
+              </div>
+              <div>
+                <strong>GIÁM ĐỐC KỸ THUẬT TCMS</strong><br><small class="muted">(Thẩm định kỹ thuật &amp; Ký số CA)</small><br><br>
+                <span>${u.tcmsSignUser || u.appr1By || 'Chờ thẩm định'}<br><small>${u.tcmsSignDTime ? u.tcmsSignDTime.slice(0, 16) : ''}</small></span>
+              </div>
+              <div>
+                <strong>GIÁM ĐỐC TÀI CHÍNH HTV</strong><br><small class="muted">(Phê duyệt quyết toán &amp; Ký số CA)</small><br><br>
+                <span>${u.htvSignUser || u.appr2By || 'Chờ phê duyệt'}<br><small>${u.htvSignDTime ? u.htvSignDTime.slice(0, 16) : ''}</small></span>
+              </div>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('transAdviceContent').innerHTML = content;
+        document.getElementById('modalTransportInsAdvice').style.display = 'block';
+      } catch(e) { console.error(e); }
+    }
+
+    function closeTransportAdviceModal() {
+      document.getElementById('modalTransportInsAdvice').style.display = 'none';
+    }
+
+    // Modal Điều Chỉnh Chi Phí Vận Tải Xe (UpdateMulti)
+    let editTransId = null;
+
+    function openEditTransportCostsModal(id) {
+      editTransId = id;
+      if (!activeTransStatement || activeTransStatement.id !== id) {
+        alert('Vui lòng mở chi tiết bảng kê trước khi điều chỉnh chi phí.');
+        return;
+      }
+      const sel = document.getElementById('editTransVINSelect');
+      sel.innerHTML = activeTransStatement.details.map(d => `
+        <option value="${d.id}">${d.vin} - ${d.modelCode} (${d.fStorageCode} -> ${d.tStorageCode})</option>
+      `).join('');
+
+      onEditTransVINChange();
+      document.getElementById('modalEditTransportCosts').style.display = 'block';
+    }
+
+    function onEditTransVINChange() {
+      if (!activeTransStatement) return;
+      const detailId = parseInt(document.getElementById('editTransVINSelect').value);
+      const d = activeTransStatement.details.find(x => x.id === detailId);
+      if (!d) return;
+
+      document.getElementById('inpEditTransTFVal').value = d.tfValReal;
+      document.getElementById('inpEditTransTPVal').value = d.tpValReal;
+      document.getElementById('inpEditTransPriceCar').value = d.priceCar;
+      document.getElementById('inpEditTransInsPercent').value = d.insurancePercent;
+      document.getElementById('inpEditTransFProvRemark').value = d.fProvinceRemark || '';
+      document.getElementById('inpEditTransStdRemark').value = d.standardRemark || '';
+      document.getElementById('inpEditTransRemark').value = d.remark || '';
+    }
+
+    async function saveTransportDetailEdit() {
+      if (!editTransId || !activeTransStatement) return;
+      const detailId = parseInt(document.getElementById('editTransVINSelect').value);
+
+      const item = {
+        detailId: detailId,
+        tfValReal: parseInt(document.getElementById('inpEditTransTFVal').value) || 0,
+        tpValReal: parseInt(document.getElementById('inpEditTransTPVal').value) || 0,
+        priceCar: parseInt(document.getElementById('inpEditTransPriceCar').value) || 600000000,
+        insurancePercent: parseFloat(document.getElementById('inpEditTransInsPercent').value) || 0.05,
+        fProvinceRemark: document.getElementById('inpEditTransFProvRemark').value.trim() || null,
+        standardRemark: document.getElementById('inpEditTransStdRemark').value.trim() || null,
+        remark: document.getElementById('inpEditTransRemark').value.trim() || null
+      };
+
+      try {
+        const res = await fetch(`/api/transport-insurance/${editTransId}/details`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ items: [item] })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Cập nhật chi phí xe thành công! Bảng kê đã được tự động tính toán lại.');
+        closeEditTransportCostsModal();
+        viewTransportDetail(editTransId);
+        loadTransportRecords();
+      } catch(e) { console.error(e); }
+    }
+
+    function closeEditTransportCostsModal() {
+      document.getElementById('modalEditTransportCosts').style.display = 'none';
+    }
+
+    // Tạo mới bảng kê vận tải & bảo hiểm
+    function onTransporterChange() {
+      const val = document.getElementById('inpTransporterCode').value;
+      const names = {
+        'TRANS-NEWWAY': 'Công ty Cổ phần Vận tải NewWay',
+        'TRANS-DATDUC': 'Công ty TNHH Vận tải Thương mại Đạt Đức',
+        'TRANS-MIENBAC': 'Công ty Vận tải & Tiếp vận Miền Bắc',
+        'TRANS-SAIGON': 'Công ty Dịch vụ Vận tải Ô tô Sài Gòn'
+      };
+      document.getElementById('inpTransporterName').value = names[val] || val;
+    }
+
+    function onTransInsCompanyChange() {
+      const val = document.getElementById('inpTransInsCompanyCode').value;
+      const names = {
+        'PVI': 'Tổng Công ty Cổ phần Bảo hiểm Dầu khí Việt Nam (PVI)',
+        'BAOVIET': 'Tổng Công ty Bảo hiểm Bảo Việt',
+        'MIC': 'Tổng Công ty Cổ phần Bảo hiểm Quân đội (MIC)',
+        'BIC': 'Tổng Công ty Bảo hiểm BIDV'
+      };
+      document.getElementById('inpTransInsCompanyName').value = names[val] || val;
+      document.getElementById('inpTransInsContractNo').value = `HD-BH-${val}-2025/VT` + Math.floor(10 + Math.random() * 89);
+    }
+
+    function loadSampleTransportData() {
+      const today = new Date();
+      const fmt = (daysOffset) => {
+        const d = new Date(today.getTime() + daysOffset * 86400000);
+        return d.toISOString().slice(0, 10);
+      };
+
+      const sample = [
+        {
+          "vin": "KMHCT81EPHU600101",
+          "carId": "CAR-SAN-601",
+          "modelCode": "SANTAFE-CALLI",
+          "modelName": "Hyundai Santa Fe Calligraphy 2.5T",
+          "colorName": "Trắng Ngọc Trai",
+          "fStorageCode": "KHO-NINHBINH",
+          "fProvinceName": "Ninh Bình",
+          "tStorageCode": "KHO-THANHXUAN",
+          "tProvinceName": "Hà Nội",
+          "transpReqType": "CARTRANSPORT",
+          "dlvMnNo": "BBVC-2025-0611",
+          "dlvStartDate": fmt(-4),
+          "expectedDays": 2,
+          "dlvEndDate": fmt(-2),
+          "tfValReal": 1850000,
+          "tpValReal": 0,
+          "priceCar": 1369000000,
+          "insurancePercent": 0.05,
+          "remark": "Giao xe an toàn đúng cam kết hợp đồng"
+        },
+        {
+          "vin": "KMHCT81EPHU600102",
+          "carId": "CAR-TUC-602",
+          "modelCode": "TUCSON-TURBO",
+          "modelName": "Hyundai Tucson 1.6T HTRAC",
+          "colorName": "Đen Phantom",
+          "fStorageCode": "KHO-NINHBINH",
+          "fProvinceName": "Ninh Bình",
+          "tStorageCode": "KHO-THANHXUAN",
+          "tProvinceName": "Hà Nội",
+          "transpReqType": "CARTRANSPORT",
+          "dlvMnNo": "BBVC-2025-0611",
+          "dlvStartDate": fmt(-4),
+          "expectedDays": 2,
+          "dlvEndDate": fmt(-1),
+          "tfValReal": 1850000,
+          "tpValReal": 200000,
+          "priceCar": 959000000,
+          "insurancePercent": 0.05,
+          "standardRemark": "Sự cố giao thông đường gom cao tốc trễ 1 ngày",
+          "remark": "Đã trừ phạt trễ 200.000 VND theo quy định hợp đồng"
+        }
+      ];
+
+      document.getElementById('inpTransVehiclesJson').value = JSON.stringify(sample, null, 2);
+    }
+
+    async function submitTransportIns() {
+      const msg = document.getElementById('submitTransMsg');
+      try {
+        const rawJson = document.getElementById('inpTransVehiclesJson').value.trim();
+        const items = rawJson ? JSON.parse(rawJson) : [];
+        if (!items.length) { alert('Vui lòng nhập ít nhất 1 dòng xe vận chuyển.'); return; }
+
+        const payload = {
+          transportInsNo: document.getElementById('inpTransInsNo').value.trim() || null,
+          pmtMonth: document.getElementById('inpTransPmtMonth').value.trim(),
+          transporterCode: document.getElementById('inpTransporterCode').value.trim(),
+          transporterName: document.getElementById('inpTransporterName').value.trim(),
+          insuranceCompanyCode: document.getElementById('inpTransInsCompanyCode').value.trim(),
+          insuranceCompanyName: document.getElementById('inpTransInsCompanyName').value.trim(),
+          insuranceContractNo: document.getElementById('inpTransInsContractNo').value.trim() || null,
+          vatRate: parseFloat(document.getElementById('inpTransVATRate').value) || 10.0,
+          remark: document.getElementById('inpTransRemark').value.trim(),
+          createdBy: 'ChuyenVienDieuVan',
+          items: items
+        };
+
+        if (!payload.pmtMonth) { alert('Vui lòng nhập kỳ thanh toán (PmtMonth).'); return; }
+        if (!payload.transporterCode) { alert('Vui lòng chọn mã đơn vị vận tải.'); return; }
+
+        msg.textContent = 'Đang lập bảng kê thanh toán vận tải & bảo hiểm...';
+        const res = await fetch('/api/transport-insurance', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Bảng kê: ${data.transportInsNo} (Tổng thực chi sau VAT: ${Number(data.totalAmount).toLocaleString('vi-VN')} đ)`;
+        setTimeout(() => {
+          showTab('transportIns');
+          viewTransportDetail(data.id);
+        }, 800);
+      } catch(e) {
+        msg.textContent = 'Lỗi cú pháp JSON: ' + e.message;
+      }
+    }
+
     // Khởi tạo
     loadSampleData();
     loadSamplePayoutData();
     loadSampleDiscountData();
     loadSamplePDIData();
     loadSamplePenaltyData();
+    loadSampleTransportData();
     loadBatches();
   </script>
 </body>

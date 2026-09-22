@@ -36,6 +36,7 @@ builder.Services.AddScoped<PaymentOrderService>();
 builder.Services.AddScoped<BankBillService>();
 builder.Services.AddScoped<PaymentPDIService>();
 builder.Services.AddScoped<LatePaymentPenaltyService>();
+builder.Services.AddScoped<TransportInsPaymentService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -3269,6 +3270,470 @@ app.MapGet("/api/penalty-delay/summary", async (LatePaymentPenaltyService penalt
     return Results.Ok(summary);
 });
 
+// ===== Quản lý Bảng kê Thanh toán Chi phí Vận tải & Bảo hiểm Xe (Transport & Freight Insurance Payment Settlement - BizHTC.Payment / 0.34.Contract / FrmQuanLyThanhToanVanTaiBaoHiem) =====
+
+// 1) Lập bảng kê thanh toán chi phí vận chuyển & bảo hiểm mới (Pmt_TransportIns_Save / FrmTaoThanhToanVanTaiBaoHiem)
+app.MapPost("/api/transport-insurance", async (CreateTransportInsDto dto, TransportInsPaymentService transService, ITenantContext tc) =>
+{
+    if (string.IsNullOrWhiteSpace(dto.PmtMonth))
+        return Results.BadRequest(new { error = "Kỳ / tháng thanh toán (PmtMonth) không được để trống." });
+    if (string.IsNullOrWhiteSpace(dto.TransporterCode))
+        return Results.BadRequest(new { error = "Mã đơn vị vận tải (TransporterCode) không được để trống." });
+    if (dto.Items == null || dto.Items.Count == 0)
+        return Results.BadRequest(new { error = "Bảng kê chi phí vận tải & bảo hiểm cần ít nhất 1 dòng xe vận chuyển." });
+
+    try
+    {
+        var payment = await transService.CreatePaymentAsync(
+            tc.OrgId,
+            dto.TransportInsNo,
+            dto.PmtMonth,
+            dto.TransporterCode,
+            dto.TransporterName,
+            dto.InsuranceCompanyCode,
+            dto.InsuranceCompanyName,
+            dto.InsuranceContractNo,
+            dto.VATRate ?? 10.0m,
+            dto.Remark,
+            dto.CreatedBy,
+            dto.Items
+        );
+
+        return Results.Ok(new
+        {
+            payment.Id,
+            payment.TransportInsNo,
+            payment.PmtMonth,
+            payment.TransporterCode,
+            payment.TransporterName,
+            payment.InsuranceCompanyCode,
+            payment.InsuranceCompanyName,
+            payment.InsuranceContractNo,
+            payment.TotalVehicles,
+            payment.TotalTransportCost,
+            payment.TotalDelayPenalty,
+            payment.TotalInsuranceCost,
+            payment.TotalBeforeVAT,
+            payment.VATRate,
+            payment.AmountVAT,
+            payment.TotalAmount,
+            status = payment.Status.ToString(),
+            payment.CreatedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 2) Danh sách tìm kiếm bảng kê thanh toán vận tải & bảo hiểm (Pmt_TransportIns_Get / FrmQuanLyThanhToanVanTaiBaoHiem)
+app.MapGet("/api/transport-insurance", async (AppDbContext db, ITenantContext tc, string? pmtMonth, string? status, string? transporterCode) =>
+{
+    var q = db.TransportInsPayments.Where(p => p.OrgId == tc.OrgId);
+
+    if (!string.IsNullOrWhiteSpace(pmtMonth))
+        q = q.Where(p => p.PmtMonth == pmtMonth.Trim());
+
+    if (!string.IsNullOrWhiteSpace(transporterCode))
+        q = q.Where(p => p.TransporterCode == transporterCode.Trim());
+
+    if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<TransportInsStatus>(status, true, out var st))
+        q = q.Where(p => p.Status == st);
+
+    var list = await q
+        .OrderByDescending(p => p.CreatedAt)
+        .Select(p => new
+        {
+            p.Id,
+            p.TransportInsNo,
+            p.PmtMonth,
+            p.TransporterCode,
+            p.TransporterName,
+            p.InsuranceCompanyCode,
+            p.InsuranceCompanyName,
+            p.InsuranceContractNo,
+            p.TotalVehicles,
+            p.TotalTransportCost,
+            p.TotalDelayPenalty,
+            p.TotalInsuranceCost,
+            p.TotalBeforeVAT,
+            p.VATRate,
+            p.AmountVAT,
+            p.TotalAmount,
+            status = p.Status.ToString(),
+            tcmsSignStatus = p.TCMSSignStatus.ToString(),
+            p.TCMSSignUser,
+            p.TCMSSignDTime,
+            htvSignStatus = p.HTVSignStatus.ToString(),
+            p.HTVSignUser,
+            p.HTVSignDTime,
+            p.Appr1By,
+            p.Appr1DTime,
+            p.Appr2By,
+            p.Appr2DTime,
+            p.SettledBy,
+            p.SettledAt,
+            p.BankTxnRef,
+            p.RejectReason,
+            p.CancelledAt,
+            p.FilePath,
+            p.Remark,
+            p.CreatedBy,
+            p.CreatedAt
+        })
+        .ToListAsync();
+
+    return Results.Ok(list);
+});
+
+// 3) Chi tiết 1 bảng kê vận tải & bảo hiểm kèm danh sách xe (Pmt_TransportInsDetail_Get)
+app.MapGet("/api/transport-insurance/{id:long}", async (long id, AppDbContext db, ITenantContext tc) =>
+{
+    var payment = await db.TransportInsPayments
+        .Include(p => p.Details)
+        .FirstOrDefaultAsync(p => p.Id == id && p.OrgId == tc.OrgId);
+
+    if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+
+    return Results.Ok(new
+    {
+        payment.Id,
+        payment.TransportInsNo,
+        payment.PmtMonth,
+        payment.TransporterCode,
+        payment.TransporterName,
+        payment.InsuranceCompanyCode,
+        payment.InsuranceCompanyName,
+        payment.InsuranceContractNo,
+        payment.TotalVehicles,
+        payment.TotalTransportCost,
+        payment.TotalDelayPenalty,
+        payment.TotalInsuranceCost,
+        payment.TotalBeforeVAT,
+        payment.VATRate,
+        payment.AmountVAT,
+        payment.TotalAmount,
+        status = payment.Status.ToString(),
+        tcmsSignStatus = payment.TCMSSignStatus.ToString(),
+        payment.TCMSSignUser,
+        payment.TCMSSignDTime,
+        htvSignStatus = payment.HTVSignStatus.ToString(),
+        payment.HTVSignUser,
+        payment.HTVSignDTime,
+        payment.Appr1By,
+        payment.Appr1DTime,
+        payment.Appr2By,
+        payment.Appr2DTime,
+        payment.SettledBy,
+        payment.SettledAt,
+        payment.BankTxnRef,
+        payment.RejectReason,
+        payment.CancelledAt,
+        payment.FilePath,
+        payment.Remark,
+        payment.CreatedBy,
+        payment.CreatedAt,
+        details = payment.Details.OrderBy(d => d.Id).Select(d => new
+        {
+            d.Id,
+            d.VIN,
+            d.CarId,
+            d.ModelCode,
+            d.ModelName,
+            d.SpecCode,
+            d.SpecDescription,
+            d.ColorName,
+            d.FStorageCode,
+            d.FProvinceName,
+            d.TStorageCode,
+            d.TProvinceName,
+            d.TranspReqType,
+            d.DlvMnNo,
+            d.DlvStartDate,
+            d.ExpectedDays,
+            d.ExpectedDlvEndDate,
+            d.DlvEndDate,
+            d.DelayDays,
+            d.TFValReal,
+            d.TPValReal,
+            d.PriceCar,
+            d.InsurancePercent,
+            d.InsuranceCost,
+            d.Val_Transport,
+            d.StandardRemark,
+            d.FProvinceRemark,
+            status = d.Status.ToString(),
+            d.Remark
+        })
+    });
+});
+
+// 4) TCMS Thẩm định duyệt cấp 1 (Pmt_TransportIns_Approve1)
+app.MapPost("/api/transport-insurance/{id:long}/approve-tcms", async (long id, ApproveTransportInsDto? dto, TransportInsPaymentService transService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await transService.ApproveStep1TCMSAsync(id, tc.OrgId, dto?.ApproverName);
+        if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+
+        return Results.Ok(new
+        {
+            payment.Id,
+            payment.TransportInsNo,
+            status = payment.Status.ToString(),
+            payment.Appr1By,
+            payment.Appr1DTime
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 5) HTV Lãnh đạo duyệt cấp 2 (Pmt_TransportIns_Approve2)
+app.MapPost("/api/transport-insurance/{id:long}/approve-htv", async (long id, ApproveTransportInsDto? dto, TransportInsPaymentService transService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await transService.ApproveStep2HTVAsync(id, tc.OrgId, dto?.ApproverName);
+        if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+
+        return Results.Ok(new
+        {
+            payment.Id,
+            payment.TransportInsNo,
+            status = payment.Status.ToString(),
+            payment.Appr2By,
+            payment.Appr2DTime
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Ký số điện tử CA đại diện TCMS (Pmt_TransportIns_TCMSApproveAndSign)
+app.MapPost("/api/transport-insurance/{id:long}/sign-tcms", async (long id, SignTransportInsDto dto, TransportInsPaymentService transService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await transService.SignTCMSAsync(id, tc.OrgId, dto.SignerName, dto.FilePath);
+        if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+
+        return Results.Ok(new
+        {
+            payment.Id,
+            payment.TransportInsNo,
+            tcmsSignStatus = payment.TCMSSignStatus.ToString(),
+            payment.TCMSSignUser,
+            payment.TCMSSignDTime,
+            status = payment.Status.ToString()
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 7) Ký số điện tử CA đại diện HTV (Pmt_TransportIns_HTVApproveAndSign)
+app.MapPost("/api/transport-insurance/{id:long}/sign-htv", async (long id, SignTransportInsDto dto, TransportInsPaymentService transService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await transService.SignHTVAsync(id, tc.OrgId, dto.SignerName, dto.FilePath);
+        if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+
+        return Results.Ok(new
+        {
+            payment.Id,
+            payment.TransportInsNo,
+            htvSignStatus = payment.HTVSignStatus.ToString(),
+            payment.HTVSignUser,
+            payment.HTVSignDTime,
+            status = payment.Status.ToString()
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 8) Quyết toán chi trả cước vận tải & bảo hiểm qua UNC ngân hàng (Settled / Paid)
+app.MapPost("/api/transport-insurance/{id:long}/settle", async (long id, SettleTransportInsDto? dto, TransportInsPaymentService transService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await transService.SettlePaymentAsync(id, tc.OrgId, dto?.BankTxnRef, dto?.SettlerName);
+        if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+
+        return Results.Ok(new
+        {
+            payment.Id,
+            payment.TransportInsNo,
+            status = payment.Status.ToString(),
+            payment.BankTxnRef,
+            payment.SettledBy,
+            payment.SettledAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 9) Từ chối bảng kê kèm lý do (Pmt_TransportIns_Cancel / btnDeny_Click)
+app.MapPost("/api/transport-insurance/{id:long}/reject", async (long id, RejectTransportInsDto dto, TransportInsPaymentService transService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await transService.RejectPaymentAsync(id, tc.OrgId, dto.Reason, dto.RejecterName);
+        if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+
+        return Results.Ok(new
+        {
+            payment.Id,
+            payment.TransportInsNo,
+            status = payment.Status.ToString(),
+            payment.RejectReason,
+            payment.CancelledAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 10) Hủy bảng kê vận tải & bảo hiểm (Pmt_TransportIns_Cancel / btnDelete_Click)
+app.MapPost("/api/transport-insurance/{id:long}/cancel", async (long id, CancelTransportInsDto? dto, TransportInsPaymentService transService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await transService.CancelPaymentAsync(id, tc.OrgId, dto?.Reason);
+        if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+
+        return Results.Ok(new
+        {
+            payment.Id,
+            payment.TransportInsNo,
+            status = payment.Status.ToString(),
+            payment.CancelledAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 11) Cập nhật điều chỉnh chi phí vận tải & phạt chậm hàng loạt (Pmt_TransportIns_UpdateMulti)
+app.MapPut("/api/transport-insurance/{id:long}/details", async (long id, UpdateTransportDetailsDto dto, TransportInsPaymentService transService, ITenantContext tc) =>
+{
+    if (dto.Items == null || dto.Items.Count == 0)
+        return Results.BadRequest(new { error = "Danh sách cập nhật chi phí (Items) không được để trống." });
+
+    try
+    {
+        var payment = await transService.UpdateDetailsAsync(id, tc.OrgId, dto.Items);
+        if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+
+        return Results.Ok(new
+        {
+            payment.Id,
+            payment.TransportInsNo,
+            payment.TotalVehicles,
+            payment.TotalTransportCost,
+            payment.TotalDelayPenalty,
+            payment.TotalInsuranceCost,
+            payment.TotalBeforeVAT,
+            payment.AmountVAT,
+            payment.TotalAmount,
+            status = payment.Status.ToString()
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 12) Bổ sung xe vào bảng kê hiện có (FrmTaoThanhToanVanTaiBaoHiem_AddCar)
+app.MapPost("/api/transport-insurance/{id:long}/import-vehicles", async (long id, ImportTransportVehiclesDto dto, TransportInsPaymentService transService, ITenantContext tc) =>
+{
+    if (dto.Items == null || dto.Items.Count == 0)
+        return Results.BadRequest(new { error = "Danh sách xe bổ sung không được để trống." });
+
+    try
+    {
+        var payment = await transService.ImportVehiclesAsync(id, tc.OrgId, dto.Items);
+        if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+
+        return Results.Ok(new
+        {
+            payment.Id,
+            payment.TransportInsNo,
+            payment.TotalVehicles,
+            payment.TotalTransportCost,
+            payment.TotalDelayPenalty,
+            payment.TotalInsuranceCost,
+            payment.TotalBeforeVAT,
+            payment.AmountVAT,
+            payment.TotalAmount,
+            status = payment.Status.ToString()
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 13) Xóa 1 xe khỏi bảng kê vận tải & bảo hiểm
+app.MapDelete("/api/transport-insurance/{id:long}/vehicles/{detailId:long}", async (long id, long detailId, TransportInsPaymentService transService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await transService.RemoveVehicleAsync(id, detailId, tc.OrgId);
+        if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+
+        return Results.Ok(new
+        {
+            payment.Id,
+            payment.TransportInsNo,
+            payment.TotalVehicles,
+            payment.TotalTransportCost,
+            payment.TotalDelayPenalty,
+            payment.TotalInsuranceCost,
+            payment.TotalAmount
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 14) Sinh dữ liệu mẫu in Bảng kê quyết toán chi phí vận chuyển & bảo hiểm xe (CR_Pmt_TransportIns Advice)
+app.MapGet("/api/transport-insurance/{id:long}/statement-advice", async (long id, TransportInsPaymentService transService, ITenantContext tc) =>
+{
+    var advice = await transService.GenerateStatementAdviceAsync(id, tc.OrgId);
+    if (advice == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+    return Results.Ok(advice);
+});
+
+// 15) Báo cáo dashboard tổng hợp số liệu thanh toán vận tải & bảo hiểm
+app.MapGet("/api/transport-insurance/summary", async (TransportInsPaymentService transService, ITenantContext tc) =>
+{
+    var summary = await transService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
 app.Run();
 
 record CreatePayDto(long Amount, string? OrderId, string? OrderInfo, string? BankCode);
@@ -3373,4 +3838,24 @@ record WaivePenaltyDto(string? WaiveReason, string? ApproverName);
 record CancelPenaltyDto(string? Reason);
 record UpdateActualPenaltyMultiDto(List<UpdateActualPenaltyItemDto>? Items, string? UpdatedBy);
 record ImportPenaltyVehiclesDto(List<PenaltyItemInputDto>? Items);
+record CreateTransportInsDto(
+    string? TransportInsNo,
+    string PmtMonth,
+    string TransporterCode,
+    string? TransporterName,
+    string? InsuranceCompanyCode,
+    string? InsuranceCompanyName,
+    string? InsuranceContractNo,
+    decimal? VATRate,
+    string? Remark,
+    string? CreatedBy,
+    List<TransportInsItemInputDto> Items
+);
+record ApproveTransportInsDto(string? ApproverName);
+record SignTransportInsDto(string? SignerName, string? FilePath);
+record SettleTransportInsDto(string? BankTxnRef, string? SettlerName);
+record RejectTransportInsDto(string Reason, string? RejecterName);
+record CancelTransportInsDto(string? Reason);
+record UpdateTransportDetailsDto(List<UpdateTransportDetailItemDto> Items);
+record ImportTransportVehiclesDto(List<TransportInsItemInputDto> Items);
 
