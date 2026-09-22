@@ -96,6 +96,7 @@
     <button class="tab-btn" onclick="showTab('paymentPDI')">Chi Phí PDI Xe (PDI Payment)</button>
     <button class="tab-btn" onclick="showTab('penaltyDelay')">Phạt Chậm TT (TTC Penalty)</button>
     <button class="tab-btn" onclick="showTab('transportIns')">Vận Tải &amp; Bảo Hiểm (Transport &amp; Ins)</button>
+    <button class="tab-btn" onclick="showTab('paymentStorage')">Chi Phí Lưu Kho Xe (Storage Payment)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -107,6 +108,7 @@
     <button class="tab-btn" onclick="showTab('newPaymentPDI')">+ Lập Bảng Kê PDI</button>
     <button class="tab-btn" onclick="showTab('newPenaltyDelay')">+ Lập Hồ Sơ Phạt TTC</button>
     <button class="tab-btn" onclick="showTab('newTransportIns')">+ Lập Bảng Kê Vận Tải</button>
+    <button class="tab-btn" onclick="showTab('newPaymentStorage')">+ Lập Bảng Kê Lưu Kho</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -1167,6 +1169,116 @@
     </div>
   </div>
 
+  <!-- TAB 11: Quản lý Bảng kê Thanh toán Chi phí Lưu kho Xe (Vehicle Warehouse Storage Payment) -->
+  <div id="tab-paymentStorage" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="margin:0;">Quản lý Bảng Kê Thanh Toán Chi Phí Lưu Kho Xe Ô Tô (Pmt_PaymentStorage / Warehouse Storage)</h3>
+        <div style="display:flex; gap:8px;">
+          <button class="secondary" onclick="loadStorageRecords()">Làm mới</button>
+          <button onclick="showTab('newPaymentStorage')">+ Lập Bảng Kê Mới</button>
+        </div>
+      </div>
+      <p class="muted" style="margin-top:0;">Quản lý chi phí bạt bọc xe (CostCoat) và tiền lưu bãi (CostStorage = Ngày lưu × Đơn giá) theo quy trình kiểm soát 2 cấp HTV &amp; TCMS, ký số CA điện tử và chi trả qua UNC ngân hàng (Pmt_PaymentStorage / BizHTC.Payment).</p>
+
+      <div class="row" style="margin-bottom:12px; gap:8px; align-items:flex-end;">
+        <div class="col">
+          <label class="muted">Trạng Thái Bảng Kê:</label>
+          <select id="filterStorageStatus" onchange="loadStorageRecords()">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="Draft">Nháp (Draft)</option>
+            <option value="HTVApproved">HTV Đã Duyệt Sơ Bộ (Cấp 1)</option>
+            <option value="TCMSApproved">TCMS Đã Thẩm Định (Cấp 2)</option>
+            <option value="Signed">Đã Ký Số CA Hoàn Tất</option>
+            <option value="Settled">Đã Quyết Toán UNC</option>
+            <option value="Rejected">Bị Từ Chối (Rejected)</option>
+            <option value="Cancelled">Đã Hủy (Cancelled)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Kỳ Thanh Toán (YYYY-MM):</label>
+          <input type="text" id="filterStorageMonth" placeholder="Ví dụ: 2025-05" onchange="loadStorageRecords()">
+        </div>
+        <div class="col">
+          <label class="muted">Mã / Tên Tổng Kho:</label>
+          <input type="text" id="filterStorageOperator" placeholder="Ví dụ: KHO-NBD" onchange="loadStorageRecords()">
+        </div>
+        <div class="col">
+          <label class="muted">Số Khung (VIN):</label>
+          <input type="text" id="filterStorageVIN" placeholder="Ví dụ: KMHCT..." onchange="loadStorageRecords()">
+        </div>
+        <div style="margin-bottom:2px;">
+          <button class="secondary" onclick="loadStorageRecords()">Lọc</button>
+        </div>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Bảng Kê</th>
+              <th>Kỳ TT</th>
+              <th>Tổng Kho Phân Phối</th>
+              <th>Số Xe</th>
+              <th>Tiền Bạt Phủ</th>
+              <th>Tiền Lưu Bãi</th>
+              <th>Trước VAT</th>
+              <th>Thuế VAT 10%</th>
+              <th>Tổng Sau VAT</th>
+              <th>Ký Số TCMS</th>
+              <th>Ký Số HTV</th>
+              <th>Trạng Thái</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="storageTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Card Chi Tiết Bảng Kê Lưu Kho -->
+    <div class="card" id="cardStorageDetail" style="display:none; margin-top:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <h3 id="storageDetailTitle" style="margin:0;">Chi Tiết Bảng Kê Thanh Toán Lưu Kho</h3>
+        <button class="secondary" onclick="document.getElementById('cardStorageDetail').style.display='none'">Đóng [X]</button>
+      </div>
+
+      <div style="margin-top:12px; display:flex; flex-wrap:wrap; gap:8px;" id="storageActionButtons"></div>
+
+      <div id="storageDetailHeaderInfo" style="margin-top:12px;"></div>
+
+      <div style="margin-top:16px; overflow-x:auto;">
+        <h4 style="margin:0 0 8px;">Danh sách phương tiện lưu giữ bãi &amp; Chi phí từng xe:</h4>
+        <table>
+          <thead>
+            <tr>
+              <th>STT</th>
+              <th>Số Khung (VIN)</th>
+              <th>Dòng Xe &amp; Bản</th>
+              <th>Màu Ngoại Thất</th>
+              <th>Kho Lưu Giữ</th>
+              <th>Ngày Nhập Kho</th>
+              <th>Ngày Duyệt LXX A2</th>
+              <th>Ngày Xuất Kho</th>
+              <th>Đại Lý Nhận</th>
+              <th>Ngày Bắt Đầu Tính</th>
+              <th>Ngày Kết Thúc Tính</th>
+              <th>Số Ngày Tính</th>
+              <th>Đơn Giá / Ngày</th>
+              <th>Tiền Bạt Phủ</th>
+              <th>Tiền Lưu Bãi</th>
+              <th>Tổng Chi Phí Xe</th>
+              <th>Trạng Thái</th>
+              <th>Ghi Chú</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="storageDetailTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div id="tab-newBatch" style="display:none;">
     <div class="card">
       <h3>Nạp bảng sao kê ngân hàng &amp; Chạy đối soát tức thì</h3>
@@ -1941,6 +2053,62 @@
     </div>
   </div>
 
+  <!-- TAB 12: Lập Bảng Kê Thanh Toán Chi Phí Lưu Kho Xe Mới -->
+  <div id="tab-newPaymentStorage" style="display:none;">
+    <div class="card">
+      <h3>Lập Bảng Kê Thanh Toán Chi Phí Lưu Kho Xe Mới</h3>
+      <p class="muted">Tạo mới bảng kê chi phí lưu kho bãi và bạt che phủ bảo quản xe theo mẫu chuẩn BizHTC.Payment / 0.34.Contract / FrmQuanLyThanhToanLuuKho.</p>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Bảng Kê (để trống để tự sinh):</label>
+          <input type="text" id="inpStorageNo" placeholder="Ví dụ: LK-202505-003">
+        </div>
+        <div class="col">
+          <label class="muted">Kỳ / Tháng Thanh Toán (PmtMonth):</label>
+          <input type="text" id="inpStoragePmtMonth" value="2025-05">
+        </div>
+        <div class="col">
+          <label class="muted">Mã Đơn Vị Quản Lý Kho (StorageOperatorCode):</label>
+          <select id="inpStorageOperatorCode" onchange="onStorageOperatorChange()">
+            <option value="KHO-NBD">KHO-NBD (Tổng kho Phân phối Ô tô Hyundai Ninh Bình)</option>
+            <option value="KHO-DA">KHO-DA (Tổng kho Trung chuyển Miền Bắc - Đông Anh)</option>
+            <option value="KHO-HY">KHO-HY (Tổng kho Phân phối Hưng Yên)</option>
+            <option value="KHO-SG">KHO-SG (Tổng kho Phân phối Miền Nam - Hiệp Phước SG)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Tên Đơn Vị Quản Lý Kho:</label>
+          <input type="text" id="inpStorageOperatorName" value="Tổng kho Phân phối Ô tô Hyundai Ninh Bình">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Thuế Suất VAT (%):</label>
+          <input type="number" id="inpStorageVATRate" step="1" value="10.0">
+        </div>
+        <div class="col" style="flex:3;">
+          <label class="muted">Diễn Giải / Ghi Chú Bảng Kê (Remark):</label>
+          <input type="text" id="inpStorageRemark" value="Bảng kê thanh toán chi phí lưu bãi và bạt phủ xe đợt cuối tháng 05/2025">
+        </div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="muted">Danh sách xe lưu kho (VIN, Model, Spec, Màu, Ngày nhập, Duyệt LXX, Xuất bãi, Đơn giá/ngày, Tiền bạt) [JSON]:</label>
+          <button class="secondary" type="button" onclick="loadSampleStorageData()">Nạp Dữ Liệu Xe Mẫu</button>
+        </div>
+        <textarea id="inpStorageVehiclesJson" rows="8" style="font-family:monospace; font-size:.85em;"></textarea>
+      </div>
+
+      <div style="margin-top:16px;">
+        <button type="button" onclick="submitPaymentStorage()">Khởi Tạo Bảng Kê Lưu Kho</button>
+        <span id="submitStorageMsg" style="margin-left:12px;" class="muted"></span>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Xem & In Mẫu Bảng Kê Quyết Toán Vận Tải & Bảo Hiểm Xe (Transport Statement Advice) -->
   <div id="modalTransportInsAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
     <div style="max-width:920px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
@@ -2079,6 +2247,53 @@
       <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
         <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('penaltyAdviceContent').innerText); alert('Đã sao chép nội dung Thông báo phạt vào clipboard!');">Sao Chép Nội Dung</button>
         <button onclick="window.print()">In Thông Báo Phạt</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Xem & In Mẫu Bảng Kê Quyết Toán Lưu Kho Xe (Storage Statement Advice) -->
+  <div id="modalStorageAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:960px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.25em;">BẢNG KÊ QUYẾT TOÁN CHI PHÍ LƯU KHO &amp; BẠT PHỦ XE (CR_PAYMENT_STORAGE)</h2>
+        <button class="secondary" onclick="closeStorageAdviceModal()">Đóng [X]</button>
+      </div>
+      <div id="storageAdviceContent" style="margin-top:16px; font-size:.9em; line-height:1.6;"></div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('storageAdviceContent').innerText); alert('Đã sao chép nội dung Bảng kê quyết toán lưu kho vào clipboard!');">Sao Chép Nội Dung</button>
+        <button onclick="window.print()">In Bảng Kê Quyết Toán</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Điều Chỉnh Chi Phí Bạt & Đơn Giá Lưu Kho Từng Xe (UpdateMulti / FrmSuaThanhToanLuuKho) -->
+  <div id="modalEditStorageCosts" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:650px; margin:50px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <h3 style="margin:0;">Điều Chỉnh Chi Phí Bạt &amp; Đơn Giá Lưu Kho Xe</h3>
+        <button class="secondary" onclick="closeEditStorageCostsModal()">Đóng [X]</button>
+      </div>
+      <div style="margin-top:12px;">
+        <label class="muted">Chọn xe (VIN):</label>
+        <select id="editStorageVINSelect" onchange="onEditStorageVINChange()"></select>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Chi Phí Bạt Che Phủ (CostCoat - VND):</label>
+          <input type="number" id="inpEditStorageCostCoat" value="50000" step="5000">
+        </div>
+        <div class="col">
+          <label class="muted">Đơn Giá Lưu Kho/Ngày (DailyStorageRate - VND):</label>
+          <input type="number" id="inpEditStorageDailyRate" value="25000" step="1000">
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <label class="muted">Ghi Chú Điều Chỉnh (Remark):</label>
+        <input type="text" id="inpEditStorageRemark" placeholder="Lý do điều chỉnh bạt phủ hoặc đơn giá theo thỏa thuận">
+      </div>
+      <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="closeEditStorageCostsModal()">Hủy</button>
+        <button onclick="saveStorageDetailEdit()">Lưu Cập Nhật Chi Phí</button>
       </div>
     </div>
   </div>
@@ -2235,6 +2450,25 @@
         <li><code>GET /api/transport-insurance/{id}/statement-advice</code> — Sinh dữ liệu mẫu in Bảng kê quyết toán CR_Pmt_TransportIns kèm số tiền bằng chữ tiếng Việt</li>
         <li><code>GET /api/transport-insurance/summary</code> — Báo cáo tổng hợp số liệu chi phí vận tải &amp; bảo hiểm xe</li>
       </ul>
+      <h3>Nghiệp Vụ Bảng Kê Thanh Toán Chi Phí Lưu Kho Xe (Vehicle Storage Payment - BizHTC.Payment / 0.34.Contract)</h3>
+      <ul>
+        <li><code>POST /api/payment-storage</code> — Lập bảng kê thanh toán chi phí lưu kho xe mới (Job_Pmt_PaymentStorage_Create)</li>
+        <li><code>GET /api/payment-storage</code> — Danh sách bảng kê lưu kho (hỗ trợ lọc theo <code>status</code>, <code>pmtMonth</code>, <code>operatorCode</code>, <code>vin</code>)</li>
+        <li><code>GET /api/payment-storage/{id}</code> — Chi tiết 1 bảng kê kèm danh sách xe, ngày nhập, ngày duyệt LXX, chi phí bạt và lưu bãi</li>
+        <li><code>POST /api/payment-storage/{id}/approve-htv</code> — HTV Ban Quản lý Bán xe duyệt sơ bộ cấp 1 (Pmt_PaymentStorage_Approve1)</li>
+        <li><code>POST /api/payment-storage/{id}/approve-tcms</code> — TCMS Thẩm định kỹ thuật kho bãi duyệt cấp 2 (Pmt_PaymentStorage_Approve2)</li>
+        <li><code>POST /api/payment-storage/{id}/sign-tcms</code> — Ký số điện tử CA đại diện đơn vị vận hành TCMS (Pmt_PaymentStorage_TCMSApproveAndSign)</li>
+        <li><code>POST /api/payment-storage/{id}/sign-htv</code> — Ký số điện tử CA đại diện HTC / HTV hoàn tất (Pmt_PaymentStorage_HTVApproveAndSign)</li>
+        <li><code>POST /api/payment-storage/{id}/settle</code> — Kế toán quyết toán thanh toán chuyển khoản UNC ngân hàng (Settled)</li>
+        <li><code>POST /api/payment-storage/{id}/reject</code> — Từ chối duyệt bảng kê kèm lý do thẩm định (Pmt_PaymentStorage_Cancel / Deny)</li>
+        <li><code>POST /api/payment-storage/{id}/cancel</code> — Hủy bảng kê thanh toán chi phí lưu kho (Pmt_PaymentStorage_Cancel)</li>
+        <li><code>PUT /api/payment-storage/{id}/details</code> — Cập nhật chi phí bạt che và đơn giá lưu kho xe hàng loạt (Pmt_PaymentStorage_UpdateMulti / FrmSuaThanhToanLuuKho)</li>
+        <li><code>POST /api/payment-storage/{id}/import-vehicles</code> — Bổ sung danh sách xe vào bảng kê hiện có kèm tự động tính số ngày và chi phí</li>
+        <li><code>DELETE /api/payment-storage/{id}/vehicles/{detailId}</code> — Xóa 1 xe khỏi bảng kê lưu kho</li>
+        <li><code>DELETE /api/payment-storage/{id}</code> — Xóa hẳn bảng kê lưu kho ở trạng thái Draft hoặc Hủy (Pmt_PaymentStorage_Delete)</li>
+        <li><code>GET /api/payment-storage/{id}/statement-advice</code> — Sinh dữ liệu mẫu in Bảng kê quyết toán CR_PAYMENT_STORAGE kèm số tiền bằng chữ tiếng Việt</li>
+        <li><code>GET /api/payment-storage/summary</code> — Báo cáo tổng hợp số liệu chi phí lưu bãi, xe lưu kho và trạng thái quyết toán</li>
+      </ul>
     </div>
   </div>
 
@@ -2255,6 +2489,7 @@
       document.getElementById('tab-paymentPDI').style.display = tabName === 'paymentPDI' ? 'block' : 'none';
       document.getElementById('tab-penaltyDelay').style.display = tabName === 'penaltyDelay' ? 'block' : 'none';
       document.getElementById('tab-transportIns').style.display = tabName === 'transportIns' ? 'block' : 'none';
+      document.getElementById('tab-paymentStorage').style.display = tabName === 'paymentStorage' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -2266,6 +2501,7 @@
       document.getElementById('tab-newPaymentPDI').style.display = tabName === 'newPaymentPDI' ? 'block' : 'none';
       document.getElementById('tab-newPenaltyDelay').style.display = tabName === 'newPenaltyDelay' ? 'block' : 'none';
       document.getElementById('tab-newTransportIns').style.display = tabName === 'newTransportIns' ? 'block' : 'none';
+      document.getElementById('tab-newPaymentStorage').style.display = tabName === 'newPaymentStorage' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
@@ -2280,18 +2516,20 @@
           (tabName === 'paymentPDI' && i === 7) ||
           (tabName === 'penaltyDelay' && i === 8) ||
           (tabName === 'transportIns' && i === 9) ||
-          (tabName === 'newBatch' && i === 10) ||
-          (tabName === 'newPayout' && i === 11) ||
-          (tabName === 'newDiscount' && i === 12) ||
-          (tabName === 'newGuarantee' && i === 13) ||
-          (tabName === 'newMortgage' && i === 14) ||
-          (tabName === 'newRedeem' && i === 15) ||
-          (tabName === 'newPaymentOrder' && i === 16) ||
-          (tabName === 'newBankBill' && i === 17) ||
-          (tabName === 'newPaymentPDI' && i === 18) ||
-          (tabName === 'newPenaltyDelay' && i === 19) ||
-          (tabName === 'newTransportIns' && i === 20) ||
-          (tabName === 'apiDocs' && i === 21));
+          (tabName === 'paymentStorage' && i === 10) ||
+          (tabName === 'newBatch' && i === 11) ||
+          (tabName === 'newPayout' && i === 12) ||
+          (tabName === 'newDiscount' && i === 13) ||
+          (tabName === 'newGuarantee' && i === 14) ||
+          (tabName === 'newMortgage' && i === 15) ||
+          (tabName === 'newRedeem' && i === 16) ||
+          (tabName === 'newPaymentOrder' && i === 17) ||
+          (tabName === 'newBankBill' && i === 18) ||
+          (tabName === 'newPaymentPDI' && i === 19) ||
+          (tabName === 'newPenaltyDelay' && i === 20) ||
+          (tabName === 'newTransportIns' && i === 21) ||
+          (tabName === 'newPaymentStorage' && i === 22) ||
+          (tabName === 'apiDocs' && i === 23));
       });
 
       if (tabName === 'reconcile') loadBatches();
@@ -2304,6 +2542,7 @@
       else if (tabName === 'paymentPDI') loadPDIBatches();
       else if (tabName === 'penaltyDelay') loadPenaltyRecords();
       else if (tabName === 'transportIns') loadTransportRecords();
+      else if (tabName === 'paymentStorage') loadStorageRecords();
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====
@@ -6329,6 +6568,635 @@
       }
     }
 
+    // ===== NGHIỆP VỤ QUẢN LÝ BẢNG KÊ LƯU KHO XE (Pmt_PaymentStorage) =====
+    async function loadStorageSummary() {
+      try {
+        const res = await fetch('/api/payment-storage/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng bảng kê lưu kho';
+        document.getElementById('stat1').textContent = d.totalBatches;
+        document.getElementById('statLabel2').textContent = 'Tổng xe lưu kho';
+        document.getElementById('stat2').textContent = d.totalVehicles;
+        document.getElementById('statLabel3').textContent = 'Tổng tiền trước VAT';
+        document.getElementById('stat3').textContent = (d.totalBeforeVAT / 1e6).toFixed(1) + 'M đ';
+        document.getElementById('statLabel4').textContent = 'Tiền đã quyết toán UNC';
+        document.getElementById('stat4').textContent = Number(d.totalSettledAmount).toLocaleString('vi-VN') + ' đ';
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadStorageRecords() {
+      await loadStorageSummary();
+      const status = document.getElementById('filterStorageStatus').value;
+      const month = document.getElementById('filterStorageMonth').value.trim();
+      const op = document.getElementById('filterStorageOperator').value.trim();
+      const vin = document.getElementById('filterStorageVIN').value.trim();
+
+      let url = '/api/payment-storage?';
+      if (status) url += 'status=' + encodeURIComponent(status) + '&';
+      if (month) url += 'pmtMonth=' + encodeURIComponent(month) + '&';
+      if (op) url += 'operatorCode=' + encodeURIComponent(op) + '&';
+      if (vin) url += 'vin=' + encodeURIComponent(vin) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('storageTableBody');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="13" class="muted" style="text-align:center;">Chưa có bảng kê thanh toán lưu kho nào phù hợp.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(p => {
+          let badge = 'badge-info';
+          let stText = p.status;
+          if (p.status === 'Settled') { badge = 'badge-success'; stText = 'Đã Quyết Toán UNC'; }
+          else if (p.status === 'Signed') { badge = 'badge-success'; stText = 'Đã Ký Số Hoàn Tất'; }
+          else if (p.status === 'TCMSApproved') { badge = 'badge-info'; stText = 'TCMS Đã Duyệt C2'; }
+          else if (p.status === 'HTVApproved') { badge = 'badge-warning'; stText = 'HTV Đã Duyệt C1'; }
+          else if (p.status === 'Draft') { badge = 'muted'; stText = 'Nháp (Draft)'; }
+          else if (p.status === 'Cancelled') { badge = 'muted'; stText = 'Đã Hủy'; }
+          else if (p.status === 'Rejected') { badge = 'badge-danger'; stText = 'Bị Từ Chối'; }
+
+          let tcmsSignBadge = p.tcmsSignStatus === 'Signed' ? '<span class="badge badge-success">✓ Đã Ký</span>' : '<span class="badge badge-warning">Chờ Ký</span>';
+          let htvSignBadge = p.htvSignStatus === 'Signed' ? '<span class="badge badge-success">✓ Đã Ký</span>' : '<span class="badge badge-warning">Chờ Ký</span>';
+
+          return `
+            <tr>
+              <td><strong>${p.paymentStorageNo}</strong><br><small class="muted">${p.createdAt ? p.createdAt.slice(0, 10) : ''}</small></td>
+              <td><strong>${p.pmtMonth}</strong></td>
+              <td><strong>${p.storageOperatorCode}</strong><br><small class="muted">${p.storageOperatorName || ''}</small></td>
+              <td style="text-align:center;"><span class="badge badge-info">${p.totalVehicles} xe</span></td>
+              <td style="text-align:right;">${Number(p.totalCoatCost).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right;">${Number(p.totalStorageCost).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right;">${Number(p.totalAmount).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right;">${Number(p.unitPriceVAT).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; font-weight:700; color:var(--primary);">${Number(p.amountTotal).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:center;">${tcmsSignBadge}</td>
+              <td style="text-align:center;">${htvSignBadge}</td>
+              <td><span class="badge ${badge}">${stText}</span></td>
+              <td>
+                <button class="secondary" onclick="viewStorageDetail(${p.id})">Chi tiết</button>
+                <button class="secondary" style="margin-left:4px;" onclick="openStorageAdviceModal(${p.id})">In</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    let activeStorageStatement = null;
+
+    async function viewStorageDetail(id) {
+      try {
+        const res = await fetch(`/api/payment-storage/${id}`, { headers });
+        if (!res.ok) { alert('Không tìm thấy bảng kê lưu kho.'); return; }
+        const p = await res.json();
+        activeStorageStatement = p;
+
+        const card = document.getElementById('cardStorageDetail');
+        card.style.display = 'block';
+        document.getElementById('storageDetailTitle').innerHTML = `Bảng Kê Chi Phí Lưu Kho Xe: <code>${p.paymentStorageNo}</code> (Kỳ ${p.pmtMonth})`;
+
+        // Action buttons
+        const btnBox = document.getElementById('storageActionButtons');
+        let btns = '';
+
+        if (p.status === 'Draft') {
+          btns += `<button onclick="htvApproveStorage(${p.id})">✓ HTV Duyệt Sơ Bộ Cấp 1</button>`;
+          btns += `<button class="secondary" style="color:var(--danger);" onclick="rejectStorage(${p.id})">✕ Từ Chối Bảng Kê</button>`;
+          btns += `<button class="secondary" onclick="cancelStorage(${p.id})">Hủy Bảng Kê</button>`;
+          btns += `<button class="secondary" style="color:var(--danger);" onclick="deleteStorageDraft(${p.id})">🗑 Xóa Hẳn Bảng Kê</button>`;
+        } else if (p.status === 'HTVApproved') {
+          btns += `<button onclick="tcmsApproveStorage(${p.id})">✓ TCMS Thẩm Định Duyệt Cấp 2</button>`;
+          btns += `<button class="secondary" style="color:var(--danger);" onclick="rejectStorage(${p.id})">✕ Từ Chối Bảng Kê</button>`;
+          btns += `<button class="secondary" onclick="cancelStorage(${p.id})">Hủy Bảng Kê</button>`;
+        } else if (p.status === 'TCMSApproved' || p.status === 'Signed') {
+          if (p.tcmsSignStatus !== 'Signed') {
+            btns += `<button class="secondary" onclick="tcmsSignStorage(${p.id})">✍ Ký Số Điện Tử CA TCMS</button>`;
+          }
+          if (p.tcmsSignStatus === 'Signed' && p.htvSignStatus !== 'Signed') {
+            btns += `<button onclick="htvSignStorage(${p.id})">✍ Ký Số Điện Tử CA HTV (Hoàn Tất)</button>`;
+          }
+          if (p.status === 'Signed' || (p.tcmsSignStatus === 'Signed' && p.htvSignStatus === 'Signed')) {
+            btns += `<button style="background:var(--success);" onclick="settleStorage(${p.id})">💳 Quyết Toán Thanh Toán (UNC)</button>`;
+          }
+        }
+
+        if (p.status === 'Draft' || p.status === 'HTVApproved') {
+          btns += `<button class="secondary" onclick="openEditStorageCostsModal(${p.id})">✎ Điều Chỉnh Bạt &amp; Đơn Giá Xe</button>`;
+        }
+        btns += `<button class="secondary" onclick="openStorageAdviceModal(${p.id})">🖨 In Bảng Kê Quyết Toán (CR_Advice)</button>`;
+
+        btnBox.innerHTML = btns;
+
+        // Header info
+        document.getElementById('storageDetailHeaderInfo').innerHTML = `
+          <div style="background:rgba(127,127,127,.06); padding:12px; border-radius:6px; font-size:.9em; line-height:1.6;">
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px;">
+              <div><strong>Đơn Vị Quản Lý Kho:</strong> <strong>${p.storageOperatorCode}</strong> - ${p.storageOperatorName || ''}</div>
+              <div><strong>Kỳ Thanh Toán:</strong> <strong>${p.pmtMonth}</strong></div>
+              <div><strong>Thuế Suất VAT:</strong> <strong>${p.vatRate}%</strong></div>
+              <div><strong>Tổng Số Lượng Xe:</strong> <span class="badge badge-info">${p.totalVehicles} xe lưu bãi</span></div>
+            </div>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap:10px; margin-top:8px; border-top:1px dashed var(--border); padding-top:8px;">
+              <div><strong>Tổng Chi Phí Bạt Che Phủ:</strong> <span style="font-weight:600;">${Number(p.totalCoatCost).toLocaleString('vi-VN')} đ</span></div>
+              <div><strong>Tổng Chi Phí Lưu Bãi:</strong> <span style="font-weight:600;">${Number(p.totalStorageCost).toLocaleString('vi-VN')} đ</span></div>
+              <div><strong>Tổng Tiền Trước Thuế:</strong> <span style="font-weight:600;">${Number(p.totalAmount).toLocaleString('vi-VN')} đ</span></div>
+              <div><strong>Thuế VAT (${p.vatRate}%):</strong> <span style="font-weight:600;">${Number(p.unitPriceVAT).toLocaleString('vi-VN')} đ</span></div>
+              <div><strong>TỔNG SAU THUẾ:</strong> <span style="font-weight:700; color:var(--primary); font-size:1.05em;">${Number(p.amountTotal).toLocaleString('vi-VN')} đ</span></div>
+            </div>
+            <div style="display:grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap:10px; margin-top:8px; border-top:1px dashed var(--border); padding-top:8px; font-size:.85em;" class="muted">
+              <div>HTV Duyệt C1: <strong>${p.appr1By || 'Chưa duyệt'}</strong> (${p.appr1DTime ? p.appr1DTime.slice(0, 16) : '-'})</div>
+              <div>TCMS Duyệt C2: <strong>${p.appr2By || 'Chưa duyệt'}</strong> (${p.appr2DTime ? p.appr2DTime.slice(0, 16) : '-'})</div>
+              <div>Ký CA TCMS: <strong>${p.tcmsSignUser || 'Chưa ký'}</strong> (${p.tcmsSignDTime ? p.tcmsSignDTime.slice(0, 16) : '-'})</div>
+              <div>Ký CA HTV: <strong>${p.htvSignUser || 'Chưa ký'}</strong> (${p.htvSignDTime ? p.htvSignDTime.slice(0, 16) : '-'})</div>
+              <div>Quyết Toán UNC: <strong>${p.settledBy || 'Chưa chi'}</strong> (${p.settledAt ? p.settledAt.slice(0, 16) : '-'})</div>
+              <div>Mã Giao Dịch Ngân Hàng: <code>${p.bankTxnRef || 'N/A'}</code></div>
+              ${p.rejectReason ? `<div style="grid-column: 1/-1; color:var(--danger);"><strong>Lý do từ chối/hủy:</strong> ${p.rejectReason}</div>` : ''}
+              ${p.remark ? `<div style="grid-column: 1/-1;"><strong>Ghi chú:</strong> ${p.remark}</div>` : ''}
+            </div>
+          </div>
+        `;
+
+        // Details table
+        const tbody = document.getElementById('storageDetailTableBody');
+        if (!p.details || !p.details.length) {
+          tbody.innerHTML = '<tr><td colspan="19" class="muted" style="text-align:center;">Chưa có dòng xe nào trong bảng kê.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = p.details.map((d, idx) => {
+          let rowBadge = 'badge-info';
+          let rowSt = d.status;
+          if (d.status === 'Approved') { rowBadge = 'badge-success'; rowSt = 'Đã Duyệt'; }
+          else if (d.status === 'Adjusted') { rowBadge = 'badge-warning'; rowSt = 'Đã Điều Chỉnh'; }
+          else if (d.status === 'Pending') { rowBadge = 'muted'; rowSt = 'Chờ Thẩm Định'; }
+
+          let deleteBtn = p.status === 'Draft'
+            ? `<button class="secondary" style="color:var(--danger); padding:2px 6px; font-size:.8em;" onclick="removeStorageVehicle(${p.id}, ${d.id})">✕ Xóa</button>`
+            : '-';
+
+          return `
+            <tr>
+              <td>${idx + 1}</td>
+              <td><strong>${d.vin}</strong></td>
+              <td><strong>${d.modelCode}</strong><br><small class="muted">${d.specDescription || d.specCode || ''}</small></td>
+              <td>${d.colorExtNameVN || 'Tiêu chuẩn'}</td>
+              <td><code>${d.storageCodeInit}</code></td>
+              <td>${d.storageDate ? d.storageDate.slice(0, 10) : ''}</td>
+              <td>${d.approvedDate2 ? d.approvedDate2.slice(0, 10) : '<span class="muted">-</span>'}</td>
+              <td>${d.deliveryOutDate ? d.deliveryOutDate.slice(0, 10) : '<span class="muted">Chưa xuất bãi</span>'}</td>
+              <td>${d.dealerCode ? `<strong>${d.dealerCode}</strong>` : '<span class="muted">-</span>'}</td>
+              <td>${d.inCostStorageDate ? d.inCostStorageDate.slice(0, 10) : ''}</td>
+              <td>${d.outCostStorageDate ? d.outCostStorageDate.slice(0, 10) : ''}</td>
+              <td style="text-align:center; font-weight:700;"><span class="badge badge-info">${d.costStorageMonth} ngày</span></td>
+              <td style="text-align:right;">${Number(d.dailyStorageRate).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right;">${Number(d.costCoat).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right;">${Number(d.costStorage).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; font-weight:700; color:var(--primary);">${Number(d.totalAmount).toLocaleString('vi-VN')} đ</td>
+              <td><span class="badge ${rowBadge}">${rowSt}</span></td>
+              <td><small class="muted">${d.remark || ''}</small></td>
+              <td style="text-align:center;">${deleteBtn}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function htvApproveStorage(id) {
+      const approver = prompt('Xác nhận HTV Duyệt sơ bộ cấp 1 (Pmt_PaymentStorage_Approve1). Tên người duyệt:', 'LanhDaoPhongKinhDoanh_HTV');
+      if (!approver) return;
+      try {
+        const res = await fetch(`/api/payment-storage/${id}/approve-htv`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ approverName: approver })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert(`Bảng kê #${id} đã được HTV duyệt sơ bộ cấp 1 thành công!`);
+        viewStorageDetail(id);
+        loadStorageRecords();
+      } catch(e) { console.error(e); }
+    }
+
+    async function tcmsApproveStorage(id) {
+      const approver = prompt('Xác nhận TCMS Thẩm định duyệt cấp 2 (Pmt_PaymentStorage_Approve2). Tên người duyệt:', 'GiamDocTaiChinh_TCMS');
+      if (!approver) return;
+      try {
+        const res = await fetch(`/api/payment-storage/${id}/approve-tcms`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ approverName: approver })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert(`Bảng kê #${id} đã được TCMS duyệt cấp 2 thành công! Chuyển sang bước ký số.`);
+        viewStorageDetail(id);
+        loadStorageRecords();
+      } catch(e) { console.error(e); }
+    }
+
+    async function tcmsSignStorage(id) {
+      const signer = prompt('Ký số điện tử CA đại diện đơn vị vận hành TCMS. Tên người ký:', 'DaiDienTCMS_Kysodientu');
+      if (!signer) return;
+      try {
+        const res = await fetch(`/api/payment-storage/${id}/sign-tcms`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ signerName: signer })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert(`TCMS đã ký số điện tử CA bảng kê #${id} thành công!`);
+        viewStorageDetail(id);
+        loadStorageRecords();
+      } catch(e) { console.error(e); }
+    }
+
+    async function htvSignStorage(id) {
+      const signer = prompt('Ký số điện tử CA đại diện HTC / HTV phê duyệt hoàn tất. Tên người ký:', 'TongGiamDoc_HTV_Kysodientu');
+      if (!signer) return;
+      try {
+        const res = await fetch(`/api/payment-storage/${id}/sign-htv`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ signerName: signer })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert(`HTV đã ký số điện tử CA hoàn tất bảng kê #${id}! Hồ sơ sẵn sàng quyết toán UNC.`);
+        viewStorageDetail(id);
+        loadStorageRecords();
+      } catch(e) { console.error(e); }
+    }
+
+    async function settleStorage(id) {
+      const ref = prompt('Xác nhận quyết toán thanh toán qua UNC ngân hàng. Nhập mã tham chiếu UNC / Bank Txn Ref:', 'UNC-CTG-STORAGE-' + Math.floor(100000 + Math.random() * 900000));
+      if (!ref) return;
+      const settler = prompt('Họ tên kế toán viên phụ trách thanh toán:', 'KeToanTruongHTV');
+      try {
+        const res = await fetch(`/api/payment-storage/${id}/settle`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ bankTxnRef: ref, settlerName: settler })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert(`Bảng kê lưu kho #${id} đã được quyết toán thanh toán UNC thành công!`);
+        viewStorageDetail(id);
+        loadStorageRecords();
+      } catch(e) { console.error(e); }
+    }
+
+    async function rejectStorage(id) {
+      const reason = prompt('Nhập lý do từ chối bảng kê thanh toán lưu kho:');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/payment-storage/${id}/reject`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ reason: reason, rejecterName: 'HoiDongThamDinh' })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert(`Đã từ chối bảng kê #${id}.`);
+        viewStorageDetail(id);
+        loadStorageRecords();
+      } catch(e) { console.error(e); }
+    }
+
+    async function cancelStorage(id) {
+      const reason = prompt('Nhập lý do hủy bảng kê thanh toán lưu kho:');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/payment-storage/${id}/cancel`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ reason: reason })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert(`Đã hủy bảng kê #${id}.`);
+        viewStorageDetail(id);
+        loadStorageRecords();
+      } catch(e) { console.error(e); }
+    }
+
+    async function deleteStorageDraft(id) {
+      if (!confirm(`Bạn có chắc chắn muốn xóa hẳn bảng kê nháp #${id}? Thao tác không thể khôi phục.`)) return;
+      try {
+        const res = await fetch(`/api/payment-storage/${id}`, { method: 'DELETE', headers });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert(`Đã xóa bảng kê #${id} thành công!`);
+        document.getElementById('cardStorageDetail').style.display = 'none';
+        loadStorageRecords();
+      } catch(e) { console.error(e); }
+    }
+
+    async function removeStorageVehicle(storageId, detailId) {
+      if (!confirm(`Bạn có chắc chắn muốn xóa dòng xe #${detailId} khỏi bảng kê?`)) return;
+      try {
+        const res = await fetch(`/api/payment-storage/${storageId}/vehicles/${detailId}`, { method: 'DELETE', headers });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert(`Đã xóa xe thành công! Bảng kê đã được tái tính toán.`);
+        viewStorageDetail(storageId);
+        loadStorageRecords();
+      } catch(e) { console.error(e); }
+    }
+
+    // Modal Advice Mẫu In Bảng Kê Quyết Toán Lưu Kho
+    async function openStorageAdviceModal(id) {
+      try {
+        const res = await fetch(`/api/payment-storage/${id}/statement-advice`, { headers });
+        if (!res.ok) { alert('Không thể lấy thông tin mẫu in.'); return; }
+        const u = await res.json();
+
+        let vRows = u.vehicles.map(v => `
+          <tr>
+            <td style="border:1px solid var(--border); padding:4px 6px; text-align:center;">${v.index}</td>
+            <td style="border:1px solid var(--border); padding:4px 6px;"><strong>${v.vin}</strong></td>
+            <td style="border:1px solid var(--border); padding:4px 6px;">${v.modelName}<br><small class="muted">${v.specDescription}</small></td>
+            <td style="border:1px solid var(--border); padding:4px 6px;">${v.colorName}</td>
+            <td style="border:1px solid var(--border); padding:4px 6px; text-align:center;"><code>${v.storageCode}</code></td>
+            <td style="border:1px solid var(--border); padding:4px 6px; text-align:center;">${v.storageDate}</td>
+            <td style="border:1px solid var(--border); padding:4px 6px; text-align:center;">${v.approvedDate2}</td>
+            <td style="border:1px solid var(--border); padding:4px 6px; text-align:center;">${v.deliveryOutDate}</td>
+            <td style="border:1px solid var(--border); padding:4px 6px; text-align:center;">${v.inCostStorageDate} → ${v.outCostStorageDate}</td>
+            <td style="border:1px solid var(--border); padding:4px 6px; text-align:center; font-weight:700;">${v.costStorageMonth} ngày</td>
+            <td style="border:1px solid var(--border); padding:4px 6px; text-align:right;">${Number(v.costCoat).toLocaleString('vi-VN')} đ</td>
+            <td style="border:1px solid var(--border); padding:4px 6px; text-align:right;">${Number(v.costStorage).toLocaleString('vi-VN')} đ</td>
+            <td style="border:1px solid var(--border); padding:4px 6px; text-align:right; font-weight:700; color:var(--primary);">${Number(v.totalAmount).toLocaleString('vi-VN')} đ</td>
+          </tr>
+        `).join('');
+
+        const content = `
+          <div style="font-family:'Times New Roman', Times, serif; color:var(--text);">
+            <div style="text-align:center; border-bottom:2px solid var(--border); padding-bottom:12px; margin-bottom:16px;">
+              <h2 style="margin:0; font-size:1.35em; text-transform:uppercase;">TỔNG CÔNG TY CỔ PHẦN LIÊN DOANH HYUNDAI THÀNH CÔNG VIỆT NAM (HTV)</h2>
+              <h3 style="margin:4px 0 0; font-size:1.15em; font-weight:600;">BẢNG KÊ QUYẾT TOÁN CHI PHÍ LƯU KHO &amp; BẠT PHỦ BẢO QUẢN XE Ô TÔ</h3>
+              <p class="muted" style="margin:4px 0 0; font-style:italic; font-size:.9em;">Mẫu số: CR_PAYMENT_STORAGE | Kỳ thanh toán: <strong>${u.pmtMonth}</strong> | Ngày lập: ${u.dateCreated}</p>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-size:.92em;">
+              <div><strong>Số Bảng Kê:</strong> <code>${u.paymentStorageNo}</code></div>
+              <div><strong>Đơn Vị Quản Lý Kho:</strong> <strong>${u.storageOperatorName}</strong></div>
+              <div><strong>Tổng Số Lượng Xe:</strong> <span class="badge badge-info">${u.totalVehicles} xe</span></div>
+              <div><strong>Trạng Thái Hồ Sơ:</strong> <strong>${u.status}</strong></div>
+            </div>
+
+            <div style="margin-bottom:14px;">
+              <strong>Danh sách chi tiết phương tiện lưu giữ bãi trong kỳ:</strong>
+              <div style="overflow-x:auto; margin-top:6px;">
+                <table style="width:100%; border-collapse:collapse; font-size:.82em;">
+                  <thead>
+                    <tr style="background:rgba(127,127,127,.1);">
+                      <th style="border:1px solid var(--border); padding:4px 6px;">STT</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Số Khung (VIN)</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Dòng Xe</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Màu Xe</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Kho Bãi</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Ngày Nhập</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Duyệt LXX</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Xuất Bãi</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Kỳ Tính Phí</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Số Ngày</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Tiền Bạt Phủ</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Tiền Lưu Bãi</th>
+                      <th style="border:1px solid var(--border); padding:4px 6px;">Tổng Tiền</th>
+                    </tr>
+                  </thead>
+                  <tbody>${vRows}</tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style="margin-bottom:14px; padding:12px; border:1px solid var(--border); border-radius:6px; background:rgba(0,0,0,.15); font-size:.92em;">
+              <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px;">
+                <div><strong>1. Tổng chi phí bạt che phủ chống nắng bụi:</strong> ${Number(u.totalCoatCost).toLocaleString('vi-VN')} VND</div>
+                <div><strong>2. Tổng chi phí lưu giữ kho bãi:</strong> ${Number(u.totalStorageCost).toLocaleString('vi-VN')} VND</div>
+                <div><strong>3. Tổng chi phí trước thuế VAT:</strong> ${Number(u.totalAmountBeforeVAT).toLocaleString('vi-VN')} VND</div>
+                <div><strong>4. Tiền thuế GTGT (Thuế suất ${u.vatRate}%):</strong> ${Number(u.unitPriceVAT).toLocaleString('vi-VN')} VND</div>
+              </div>
+              <div style="font-size:1.15em; font-weight:700; color:var(--primary); border-top:1px solid var(--border); padding-top:6px; margin-top:8px;">
+                TỔNG CỘNG TIỀN THANH TOÁN (BAO GỒM VAT): ${Number(u.amountTotalAfterVAT).toLocaleString('vi-VN')} VND
+              </div>
+              <div style="margin-top:6px; font-size:.95em;">
+                <strong>Số tiền thanh toán viết bằng chữ (In words):</strong><br>
+                <em style="color:var(--text); font-size:1.02em;"><strong>${u.amountInWords}</strong></em>
+              </div>
+              ${u.bankTxnRef ? `<div style="margin-top:6px; color:var(--success);"><strong>Mã bút toán chuyển tiền UNC:</strong> <code>${u.bankTxnRef}</code></div>` : ''}
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap:8px; text-align:center; margin-top:24px; padding-top:16px; border-top:1px solid var(--border);">
+              <div>
+                <strong>CHUYÊN VIÊN QUẢN LÝ KHO</strong><br><small class="muted">(Lập bảng kê chi phí)</small><br><br>
+                <span>ChuyenVienQuanLyKho<br><small>${u.dateCreated}</small></span>
+              </div>
+              <div>
+                <strong>KẾ TOÁN THANH TOÁN</strong><br><small class="muted">(Kiểm tra đối chiếu &amp; Lập UNC)</small><br><br>
+                <span>KeToanTruongHTV<br><small>${u.dateCreated}</small></span>
+              </div>
+              <div>
+                <strong>GIÁM ĐỐC KỸ THUẬT TCMS</strong><br><small class="muted">(Thẩm định kho bãi &amp; Ký số CA)</small><br><br>
+                <span>${u.tcmsSignUser || 'Chờ thẩm định'}<br><small>${u.tcmsSignDate || '-'}</small></span>
+              </div>
+              <div>
+                <strong>GIÁM ĐỐC TÀI CHÍNH HTV</strong><br><small class="muted">(Phê duyệt quyết toán &amp; Ký số CA)</small><br><br>
+                <span>${u.htvSignUser || 'Chờ phê duyệt'}<br><small>${u.htvSignDate || '-'}</small></span>
+              </div>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('storageAdviceContent').innerHTML = content;
+        document.getElementById('modalStorageAdvice').style.display = 'block';
+      } catch(e) { console.error(e); }
+    }
+
+    function closeStorageAdviceModal() {
+      document.getElementById('modalStorageAdvice').style.display = 'none';
+    }
+
+    // Modal Điều Chỉnh Chi Phí Bạt & Đơn Giá Lưu Kho Xe
+    let editStorageId = null;
+
+    function openEditStorageCostsModal(id) {
+      editStorageId = id;
+      if (!activeStorageStatement || activeStorageStatement.id !== id) {
+        alert('Vui lòng mở chi tiết bảng kê trước khi điều chỉnh chi phí.');
+        return;
+      }
+      const sel = document.getElementById('editStorageVINSelect');
+      sel.innerHTML = activeStorageStatement.details.map(d => `
+        <option value="${d.id}">${d.vin} - ${d.modelCode} (${d.costStorageMonth} ngày lưu)</option>
+      `).join('');
+
+      onEditStorageVINChange();
+      document.getElementById('modalEditStorageCosts').style.display = 'block';
+    }
+
+    function onEditStorageVINChange() {
+      if (!activeStorageStatement) return;
+      const detailId = parseInt(document.getElementById('editStorageVINSelect').value);
+      const d = activeStorageStatement.details.find(x => x.id === detailId);
+      if (!d) return;
+
+      document.getElementById('inpEditStorageCostCoat').value = d.costCoat;
+      document.getElementById('inpEditStorageDailyRate').value = d.dailyStorageRate;
+      document.getElementById('inpEditStorageRemark').value = d.remark || '';
+    }
+
+    async function saveStorageDetailEdit() {
+      if (!editStorageId || !activeStorageStatement) return;
+      const detailId = parseInt(document.getElementById('editStorageVINSelect').value);
+
+      const item = {
+        detailId: detailId,
+        costCoat: parseInt(document.getElementById('inpEditStorageCostCoat').value) || 0,
+        dailyStorageRate: parseInt(document.getElementById('inpEditStorageDailyRate').value) || 25000,
+        remark: document.getElementById('inpEditStorageRemark').value.trim() || null
+      };
+
+      try {
+        const res = await fetch(`/api/payment-storage/${editStorageId}/details`, {
+          method: 'PUT',
+          headers,
+          body: JSON.stringify({ items: [item] })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Cập nhật chi phí xe thành công! Bảng kê đã được tự động tái tính toán.');
+        closeEditStorageCostsModal();
+        viewStorageDetail(editStorageId);
+        loadStorageRecords();
+      } catch(e) { console.error(e); }
+    }
+
+    function closeEditStorageCostsModal() {
+      document.getElementById('modalEditStorageCosts').style.display = 'none';
+    }
+
+    // Tạo mới bảng kê lưu kho xe
+    function onStorageOperatorChange() {
+      const val = document.getElementById('inpStorageOperatorCode').value;
+      const names = {
+        'KHO-NBD': 'Tổng kho Phân phối Ô tô Hyundai Ninh Bình',
+        'KHO-DA': 'Tổng kho Trung chuyển Miền Bắc - Đông Anh',
+        'KHO-HY': 'Tổng kho Phân phối Hưng Yên',
+        'KHO-SG': 'Tổng kho Phân phối Miền Nam - Hiệp Phước SG'
+      };
+      document.getElementById('inpStorageOperatorName').value = names[val] || val;
+    }
+
+    function loadSampleStorageData() {
+      const today = new Date();
+      const fmt = (daysOffset) => {
+        const d = new Date(today.getTime() + daysOffset * 86400000);
+        return d.toISOString().slice(0, 10);
+      };
+
+      const sample = [
+        {
+          "vin": "KMHCT81EPHU600401",
+          "carId": "CAR-SAN-801",
+          "modelCode": "SANTAFE-CALLI",
+          "modelName": "Hyundai Santa Fe Calligraphy 2.5T HTRAC",
+          "specCode": "SAN-25T-CAL",
+          "specDescription": "Bản full cao cấp nhất 7 chỗ",
+          "colorExtNameVN": "Trắng Ngọc Trai",
+          "storageCodeInit": "KHO-NBD",
+          "storageDate": fmt(-20),
+          "approvedDate2": fmt(-5),
+          "deliveryOutDate": fmt(-2),
+          "dealerCode": "DLR-HYUNDAI-KINHDUONGVUONG",
+          "dealerName": "Đại lý Hyundai Kinh Dương Vương",
+          "levelStorage": 15,
+          "dailyStorageRate": 25000,
+          "costCoat": 50000,
+          "remark": "Bọc bạt chống trầy xước nước sơn xuất xưởng"
+        },
+        {
+          "vin": "KMHCT81EPHU600402",
+          "carId": "CAR-TUC-802",
+          "modelCode": "TUCSON-TURBO",
+          "modelName": "Hyundai Tucson 1.6T HTRAC",
+          "specCode": "TUC-16T-HTRAC",
+          "specDescription": "Bản máy xăng tăng áp dẫn động 4 bánh",
+          "colorExtNameVN": "Đen Phantom",
+          "storageCodeInit": "KHO-NBD",
+          "storageDate": fmt(-18),
+          "approvedDate2": null,
+          "deliveryOutDate": null,
+          "dealerCode": "DLR-HYUNDAI-THANHXUAN",
+          "dealerName": "Đại lý Hyundai Thanh Xuân",
+          "levelStorage": 15,
+          "dailyStorageRate": 25000,
+          "costCoat": 50000,
+          "remark": "Xe lưu bãi bảo quản chờ đại lý bố trí vốn mở bảo lãnh"
+        },
+        {
+          "vin": "KMHCT81EPHU600403",
+          "carId": "CAR-PAL-803",
+          "modelCode": "PALISADE-PRE",
+          "modelName": "Hyundai Palisade 2.2D Prestige 6 Chỗ",
+          "specCode": "PAL-22D-PRE6",
+          "specDescription": "Bản máy dầu thương gia ghế VIP",
+          "colorExtNameVN": "Xanh Bóng Đêm Moonlight Cloud",
+          "storageCodeInit": "KHO-NBD",
+          "storageDate": fmt(-25),
+          "approvedDate2": fmt(-10),
+          "deliveryOutDate": null,
+          "dealerCode": "DLR-HYUNDAI-SONTRA",
+          "dealerName": "Đại lý Hyundai Sơn Trà Đà Nẵng",
+          "levelStorage": 15,
+          "dailyStorageRate": 25000,
+          "costCoat": 50000,
+          "remark": "Đã duyệt LXX chờ lệnh điều xe vận chuyển liên tỉnh"
+        }
+      ];
+
+      document.getElementById('inpStorageVehiclesJson').value = JSON.stringify(sample, null, 2);
+    }
+
+    async function submitPaymentStorage() {
+      const msg = document.getElementById('submitStorageMsg');
+      try {
+        const rawJson = document.getElementById('inpStorageVehiclesJson').value.trim();
+        const items = rawJson ? JSON.parse(rawJson) : [];
+        if (!items.length) { alert('Vui lòng nhập ít nhất 1 dòng xe lưu kho.'); return; }
+
+        const payload = {
+          paymentStorageNo: document.getElementById('inpStorageNo').value.trim() || null,
+          pmtMonth: document.getElementById('inpStoragePmtMonth').value.trim(),
+          storageOperatorCode: document.getElementById('inpStorageOperatorCode').value.trim(),
+          storageOperatorName: document.getElementById('inpStorageOperatorName').value.trim(),
+          vatRate: parseFloat(document.getElementById('inpStorageVATRate').value) || 10.0,
+          remark: document.getElementById('inpStorageRemark').value.trim(),
+          createdBy: 'ChuyenVienQuanLyKho',
+          items: items
+        };
+
+        if (!payload.pmtMonth) { alert('Vui lòng nhập kỳ thanh toán lưu kho (PmtMonth).'); return; }
+
+        msg.textContent = 'Đang lập bảng kê thanh toán chi phí lưu kho...';
+        const res = await fetch('/api/payment-storage', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Bảng kê: ${data.paymentStorageNo} (Tổng thực chi sau VAT: ${Number(data.amountTotal).toLocaleString('vi-VN')} đ)`;
+        setTimeout(() => {
+          showTab('paymentStorage');
+          viewStorageDetail(data.id);
+        }, 800);
+      } catch(e) {
+        msg.textContent = 'Lỗi cú pháp JSON: ' + e.message;
+      }
+    }
+
     // Khởi tạo
     loadSampleData();
     loadSamplePayoutData();
@@ -6336,6 +7204,7 @@
     loadSamplePDIData();
     loadSamplePenaltyData();
     loadSampleTransportData();
+    loadSampleStorageData();
     loadBatches();
   </script>
 </body>

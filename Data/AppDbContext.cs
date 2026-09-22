@@ -29,6 +29,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<LatePaymentPenaltyDetail> LatePaymentPenaltyDetails => Set<LatePaymentPenaltyDetail>();
     public DbSet<TransportInsPayment> TransportInsPayments => Set<TransportInsPayment>();
     public DbSet<TransportInsPaymentDetail> TransportInsPaymentDetails => Set<TransportInsPaymentDetail>();
+    public DbSet<PaymentStorage> PaymentStorages => Set<PaymentStorage>();
+    public DbSet<PaymentStorageDetail> PaymentStorageDetails => Set<PaymentStorageDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -138,5 +140,16 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<TransportInsPaymentDetail>().Property(x => x.Status).HasConversion<int>();
         b.Entity<TransportInsPaymentDetail>().HasIndex(x => x.TransportInsPaymentId);
         b.Entity<TransportInsPaymentDetail>().HasIndex(x => new { x.OrgId, x.VIN });
+
+        b.Entity<PaymentStorage>().HasIndex(x => new { x.OrgId, x.PaymentStorageNo }).IsUnique();
+        b.Entity<PaymentStorage>().HasIndex(x => new { x.OrgId, x.PmtMonth });
+        b.Entity<PaymentStorage>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<PaymentStorage>().Property(x => x.TCMSSignStatus).HasConversion<int>();
+        b.Entity<PaymentStorage>().Property(x => x.HTVSignStatus).HasConversion<int>();
+        b.Entity<PaymentStorage>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.PaymentStorageId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<PaymentStorageDetail>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<PaymentStorageDetail>().HasIndex(x => x.PaymentStorageId);
+        b.Entity<PaymentStorageDetail>().HasIndex(x => new { x.OrgId, x.VIN });
     }
 }

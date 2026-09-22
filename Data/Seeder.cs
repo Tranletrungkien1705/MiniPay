@@ -583,6 +583,76 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_TransportInsPayments_OrgId_PmtMonth"" ON ""TransportInsPayments"" (""OrgId"", ""PmtMonth"");
                 CREATE INDEX IF NOT EXISTS ""IX_TransportInsPaymentDetails_TransportInsPaymentId"" ON ""TransportInsPaymentDetails"" (""TransportInsPaymentId"");
                 CREATE INDEX IF NOT EXISTS ""IX_TransportInsPaymentDetails_OrgId_VIN"" ON ""TransportInsPaymentDetails"" (""OrgId"", ""VIN"");
+
+                CREATE TABLE IF NOT EXISTS ""PaymentStorages"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""PaymentStorageNo"" TEXT NOT NULL,
+                    ""PmtMonth"" TEXT NOT NULL,
+                    ""StorageOperatorCode"" TEXT NOT NULL,
+                    ""StorageOperatorName"" TEXT NOT NULL,
+                    ""TotalVehicles"" INTEGER NOT NULL,
+                    ""TotalCoatCost"" INTEGER NOT NULL,
+                    ""TotalStorageCost"" INTEGER NOT NULL,
+                    ""TotalAmount"" INTEGER NOT NULL,
+                    ""VATRate"" REAL NOT NULL,
+                    ""UnitPriceVAT"" INTEGER NOT NULL,
+                    ""AmountTotal"" INTEGER NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""TCMSSignStatus"" INTEGER NOT NULL,
+                    ""TCMSSignUser"" TEXT NULL,
+                    ""TCMSSignDTime"" TEXT NULL,
+                    ""HTVSignStatus"" INTEGER NOT NULL,
+                    ""HTVSignUser"" TEXT NULL,
+                    ""HTVSignDTime"" TEXT NULL,
+                    ""Appr1By"" TEXT NULL,
+                    ""Appr1DTime"" TEXT NULL,
+                    ""Appr2By"" TEXT NULL,
+                    ""Appr2DTime"" TEXT NULL,
+                    ""SettledBy"" TEXT NULL,
+                    ""SettledAt"" TEXT NULL,
+                    ""BankTxnRef"" TEXT NULL,
+                    ""RejectReason"" TEXT NULL,
+                    ""CancelledAt"" TEXT NULL,
+                    ""FilePath"" TEXT NULL,
+                    ""Remark"" TEXT NULL,
+                    ""CreatedBy"" TEXT NULL,
+                    ""CreatedAt"" TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS ""PaymentStorageDetails"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""PaymentStorageId"" INTEGER NOT NULL,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""PaymentStorageNo"" TEXT NOT NULL,
+                    ""VIN"" TEXT NOT NULL,
+                    ""CarId"" TEXT NULL,
+                    ""ModelCode"" TEXT NOT NULL,
+                    ""ModelName"" TEXT NULL,
+                    ""SpecCode"" TEXT NULL,
+                    ""SpecDescription"" TEXT NULL,
+                    ""ColorExtNameVN"" TEXT NULL,
+                    ""StorageCodeInit"" TEXT NOT NULL,
+                    ""StorageDate"" TEXT NOT NULL,
+                    ""ApprovedDate2"" TEXT NULL,
+                    ""DeliveryOutDate"" TEXT NULL,
+                    ""DealerCode"" TEXT NULL,
+                    ""DealerName"" TEXT NULL,
+                    ""InCostStorageDate"" TEXT NOT NULL,
+                    ""OutCostStorageDate"" TEXT NOT NULL,
+                    ""CostStorageMonth"" INTEGER NOT NULL,
+                    ""LevelStorage"" INTEGER NOT NULL,
+                    ""DailyStorageRate"" INTEGER NOT NULL,
+                    ""CostCoat"" INTEGER NOT NULL,
+                    ""CostStorage"" INTEGER NOT NULL,
+                    ""TotalAmount"" INTEGER NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""Remark"" TEXT NULL,
+                    CONSTRAINT ""FK_PaymentStorageDetails_PaymentStorages_PaymentStorageId"" FOREIGN KEY (""PaymentStorageId"") REFERENCES ""PaymentStorages"" (""Id"") ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PaymentStorages_OrgId_PaymentStorageNo"" ON ""PaymentStorages"" (""OrgId"", ""PaymentStorageNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_PaymentStorages_OrgId_PmtMonth"" ON ""PaymentStorages"" (""OrgId"", ""PmtMonth"");
+                CREATE INDEX IF NOT EXISTS ""IX_PaymentStorageDetails_PaymentStorageId"" ON ""PaymentStorageDetails"" (""PaymentStorageId"");
+                CREATE INDEX IF NOT EXISTS ""IX_PaymentStorageDetails_OrgId_VIN"" ON ""PaymentStorageDetails"" (""OrgId"", ""VIN"");
             ");
         }
         else if (db.Database.IsNpgsql())
@@ -1148,6 +1218,75 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_TransportInsPayments_OrgId_PmtMonth"" ON ""TransportInsPayments"" (""OrgId"", ""PmtMonth"");
                 CREATE INDEX IF NOT EXISTS ""IX_TransportInsPaymentDetails_TransportInsPaymentId"" ON ""TransportInsPaymentDetails"" (""TransportInsPaymentId"");
                 CREATE INDEX IF NOT EXISTS ""IX_TransportInsPaymentDetails_OrgId_VIN"" ON ""TransportInsPaymentDetails"" (""OrgId"", ""VIN"");
+
+                CREATE TABLE IF NOT EXISTS ""PaymentStorages"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""OrgId"" uuid NOT NULL,
+                    ""PaymentStorageNo"" text NOT NULL,
+                    ""PmtMonth"" text NOT NULL,
+                    ""StorageOperatorCode"" text NOT NULL,
+                    ""StorageOperatorName"" text NOT NULL,
+                    ""TotalVehicles"" integer NOT NULL,
+                    ""TotalCoatCost"" bigint NOT NULL,
+                    ""TotalStorageCost"" bigint NOT NULL,
+                    ""TotalAmount"" bigint NOT NULL,
+                    ""VATRate"" numeric NOT NULL,
+                    ""UnitPriceVAT"" bigint NOT NULL,
+                    ""AmountTotal"" bigint NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""TCMSSignStatus"" integer NOT NULL,
+                    ""TCMSSignUser"" text NULL,
+                    ""TCMSSignDTime"" timestamp without time zone NULL,
+                    ""HTVSignStatus"" integer NOT NULL,
+                    ""HTVSignUser"" text NULL,
+                    ""HTVSignDTime"" timestamp without time zone NULL,
+                    ""Appr1By"" text NULL,
+                    ""Appr1DTime"" timestamp without time zone NULL,
+                    ""Appr2By"" text NULL,
+                    ""Appr2DTime"" timestamp without time zone NULL,
+                    ""SettledBy"" text NULL,
+                    ""SettledAt"" timestamp without time zone NULL,
+                    ""BankTxnRef"" text NULL,
+                    ""RejectReason"" text NULL,
+                    ""CancelledAt"" timestamp without time zone NULL,
+                    ""FilePath"" text NULL,
+                    ""Remark"" text NULL,
+                    ""CreatedBy"" text NULL,
+                    ""CreatedAt"" timestamp without time zone NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS ""PaymentStorageDetails"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""PaymentStorageId"" bigint NOT NULL REFERENCES ""PaymentStorages"" (""Id"") ON DELETE CASCADE,
+                    ""OrgId"" uuid NOT NULL,
+                    ""PaymentStorageNo"" text NOT NULL,
+                    ""VIN"" text NOT NULL,
+                    ""CarId"" text NULL,
+                    ""ModelCode"" text NOT NULL,
+                    ""ModelName"" text NULL,
+                    ""SpecCode"" text NULL,
+                    ""SpecDescription"" text NULL,
+                    ""ColorExtNameVN"" text NULL,
+                    ""StorageCodeInit"" text NOT NULL,
+                    ""StorageDate"" timestamp without time zone NOT NULL,
+                    ""ApprovedDate2"" timestamp without time zone NULL,
+                    ""DeliveryOutDate"" timestamp without time zone NULL,
+                    ""DealerCode"" text NULL,
+                    ""DealerName"" text NULL,
+                    ""InCostStorageDate"" timestamp without time zone NOT NULL,
+                    ""OutCostStorageDate"" timestamp without time zone NOT NULL,
+                    ""CostStorageMonth"" integer NOT NULL,
+                    ""LevelStorage"" integer NOT NULL,
+                    ""DailyStorageRate"" bigint NOT NULL,
+                    ""CostCoat"" bigint NOT NULL,
+                    ""CostStorage"" bigint NOT NULL,
+                    ""TotalAmount"" bigint NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""Remark"" text NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PaymentStorages_OrgId_PaymentStorageNo"" ON ""PaymentStorages"" (""OrgId"", ""PaymentStorageNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_PaymentStorages_OrgId_PmtMonth"" ON ""PaymentStorages"" (""OrgId"", ""PmtMonth"");
+                CREATE INDEX IF NOT EXISTS ""IX_PaymentStorageDetails_PaymentStorageId"" ON ""PaymentStorageDetails"" (""PaymentStorageId"");
+                CREATE INDEX IF NOT EXISTS ""IX_PaymentStorageDetails_OrgId_VIN"" ON ""PaymentStorageDetails"" (""OrgId"", ""VIN"");
             ");
         }
 
@@ -3899,6 +4038,445 @@ public static class Seeder
                     Val_Transport = 7_200_000,
                     Status = TransportInsDetailStatus.Pending,
                     Remark = "Bàn giao kèm theo phụ kiện tiêu chuẩn theo xe"
+                }
+            );
+            await db.SaveChangesAsync();
+        }
+
+        // Dữ liệu mẫu Bảng kê thanh toán chi phí lưu kho xe ô tô (Pmt_PaymentStorage & Pmt_PaymentStorageDetail)
+        if (!await db.PaymentStorages.AnyAsync(p => p.OrgId == TenantContext.DefaultOrgId))
+        {
+            // 1. Bảng kê Tháng 04/2025 - Đã quyết toán chi trả chuyển khoản UNC VietinBank (Settled)
+            // Tổng kho Ninh Bình (KHO-NBD), 3 xe SantaFe, Tucson, Creta
+            var ps1 = new PaymentStorage
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PaymentStorageNo = "LK-202504-001",
+                PmtMonth = "2025-04",
+                StorageOperatorCode = "KHO-NBD",
+                StorageOperatorName = "Tổng kho Phân phối Ô tô Hyundai Ninh Bình",
+                TotalVehicles = 3,
+                TotalCoatCost = 150_000,      // 3 xe * 50k bạt che phủ
+                TotalStorageCost = 2_250_000,  // (30 + 30 + 30 ngày) * 25k = 90 * 25k = 2,250,000
+                TotalAmount = 2_400_000,       // Trước VAT
+                VATRate = 10.0m,
+                UnitPriceVAT = 240_000,        // 10% VAT
+                AmountTotal = 2_640_000,       // Sau VAT
+                Status = PaymentStorageStatus.Settled,
+                TCMSSignStatus = StorageSignCAStatus.Signed,
+                TCMSSignUser = "TranQuocTuan_GDKyThuat_TCMS",
+                TCMSSignDTime = DateTime.Today.AddDays(-20),
+                HTVSignStatus = StorageSignCAStatus.Signed,
+                HTVSignUser = "NguyenVanHieu_TongGiamDoc_HTV",
+                HTVSignDTime = DateTime.Today.AddDays(-19),
+                Appr1By = "LeHongPhong_TruongPhongKD_HTV",
+                Appr1DTime = DateTime.Today.AddDays(-22),
+                Appr2By = "TranQuocTuan_GDKyThuat_TCMS",
+                Appr2DTime = DateTime.Today.AddDays(-21),
+                SettledBy = "BuiThiThanh_KeToanTruong",
+                SettledAt = DateTime.Today.AddDays(-18),
+                BankTxnRef = "UNC-CTG-LK-20250422-8812",
+                FilePath = "/documents/storage/LK-202504-001-Signed.pdf",
+                Remark = "Thanh toán dứt điểm chi phí lưu giữ kho bãi và bạt phủ xe tháng 04/2025",
+                CreatedBy = "PhamVanDuc_QuanLyKho",
+                CreatedAt = DateTime.Today.AddDays(-25)
+            };
+            db.PaymentStorages.Add(ps1);
+            await db.SaveChangesAsync();
+
+            db.PaymentStorageDetails.AddRange(
+                new PaymentStorageDetail
+                {
+                    PaymentStorageId = ps1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentStorageNo = ps1.PaymentStorageNo,
+                    VIN = "KMHCT81EPHU600101",
+                    CarId = "CAR-SAN-6001",
+                    ModelCode = "SANTAFE-CALLI",
+                    ModelName = "Hyundai SantaFe 2.5 Turbo Calligraphy",
+                    SpecCode = "SAN-2.5T-CAL",
+                    SpecDescription = "SUV 7 chỗ máy xăng Turbo dẫn động 4 bánh HTRAC",
+                    ColorExtNameVN = "Trắng Tinh Khôi",
+                    StorageCodeInit = "KHO-NBD",
+                    StorageDate = DateTime.Today.AddDays(-60),
+                    ApprovedDate2 = DateTime.Today.AddDays(-28),
+                    DeliveryOutDate = DateTime.Today.AddDays(-15),
+                    DealerCode = "DLR-HYUNDAI-ANPHU",
+                    DealerName = "Hyundai An Phú Sài Gòn",
+                    InCostStorageDate = new DateTime(2025, 4, 1),
+                    OutCostStorageDate = new DateTime(2025, 4, 30),
+                    CostStorageMonth = 30,
+                    LevelStorage = 15,
+                    DailyStorageRate = 25_000,
+                    CostCoat = 50_000,
+                    CostStorage = 750_000, // 30 * 25k
+                    TotalAmount = 800_000,
+                    Status = PaymentStorageDetailStatus.Approved,
+                    Remark = "Bạt bọc kín chống tia cực tím tiêu chuẩn HTC"
+                },
+                new PaymentStorageDetail
+                {
+                    PaymentStorageId = ps1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentStorageNo = ps1.PaymentStorageNo,
+                    VIN = "KMHCT81EPHU600102",
+                    CarId = "CAR-TUC-6002",
+                    ModelCode = "TUCSON-1.6T",
+                    ModelName = "Hyundai Tucson 1.6 T-GDi Đặc Biệt",
+                    SpecCode = "TUC-1.6T-DB",
+                    SpecDescription = "Crossover 5 chỗ máy Turbo hộp số ly hợp kép 7 cấp",
+                    ColorExtNameVN = "Đen Sang Trọng",
+                    StorageCodeInit = "KHO-NBD",
+                    StorageDate = DateTime.Today.AddDays(-55),
+                    ApprovedDate2 = DateTime.Today.AddDays(-26),
+                    DeliveryOutDate = DateTime.Today.AddDays(-16),
+                    DealerCode = "DLR-HYUNDAI-THANHXUAN",
+                    DealerName = "Hyundai Thanh Xuân Hà Nội",
+                    InCostStorageDate = new DateTime(2025, 4, 1),
+                    OutCostStorageDate = new DateTime(2025, 4, 30),
+                    CostStorageMonth = 30,
+                    LevelStorage = 15,
+                    DailyStorageRate = 25_000,
+                    CostCoat = 50_000,
+                    CostStorage = 750_000,
+                    TotalAmount = 800_000,
+                    Status = PaymentStorageDetailStatus.Approved,
+                    Remark = "Lưu kho khu vực có mái che phụ"
+                },
+                new PaymentStorageDetail
+                {
+                    PaymentStorageId = ps1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentStorageNo = ps1.PaymentStorageNo,
+                    VIN = "KMHCT81EPHU600103",
+                    CarId = "CAR-CRT-6003",
+                    ModelCode = "CRETA-PREM",
+                    ModelName = "Hyundai Creta 1.5L Cao Cấp",
+                    SpecCode = "CRT-1.5L-PRE",
+                    SpecDescription = "SUV đô thị nhỏ gọn gói công nghệ an toàn SmartSense",
+                    ColorExtNameVN = "Đỏ Mận",
+                    StorageCodeInit = "KHO-NBD",
+                    StorageDate = DateTime.Today.AddDays(-50),
+                    ApprovedDate2 = DateTime.Today.AddDays(-25),
+                    DeliveryOutDate = DateTime.Today.AddDays(-18),
+                    DealerCode = "DLR-HYUNDAI-DANANG",
+                    DealerName = "Hyundai Cẩm Lệ Đà Nẵng",
+                    InCostStorageDate = new DateTime(2025, 4, 1),
+                    OutCostStorageDate = new DateTime(2025, 4, 30),
+                    CostStorageMonth = 30,
+                    LevelStorage = 15,
+                    DailyStorageRate = 25_000,
+                    CostCoat = 50_000,
+                    CostStorage = 750_000,
+                    TotalAmount = 800_000,
+                    Status = PaymentStorageDetailStatus.Approved,
+                    Remark = "Kiểm tra bảo dưỡng lốp định kỳ trong thời gian lưu bãi"
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // 2. Bảng kê Tháng 05/2025 Đợt 1 - Đã ký số CA 2 cấp hoàn tất (Signed)
+            // Tổng kho Đông Anh (KHO-DA), 3 xe Palisade, Custin, Stargazer X
+            var ps2 = new PaymentStorage
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PaymentStorageNo = "LK-202505-001",
+                PmtMonth = "2025-05",
+                StorageOperatorCode = "KHO-DA",
+                StorageOperatorName = "Tổng kho Ô tô Hyundai Miền Bắc - Đông Anh",
+                TotalVehicles = 3,
+                TotalCoatCost = 150_000,       // 3 * 50k
+                TotalStorageCost = 1_500_000,   // (20 + 20 + 20 ngày) * 25k = 60 * 25k = 1,500,000
+                TotalAmount = 1_650_000,
+                VATRate = 10.0m,
+                UnitPriceVAT = 165_000,
+                AmountTotal = 1_815_000,
+                Status = PaymentStorageStatus.Signed,
+                TCMSSignStatus = StorageSignCAStatus.Signed,
+                TCMSSignUser = "TranQuocTuan_GDKyThuat_TCMS",
+                TCMSSignDTime = DateTime.Today.AddDays(-4),
+                HTVSignStatus = StorageSignCAStatus.Signed,
+                HTVSignUser = "NguyenVanHieu_TongGiamDoc_HTV",
+                HTVSignDTime = DateTime.Today.AddDays(-3),
+                Appr1By = "LeHongPhong_TruongPhongKD_HTV",
+                Appr1DTime = DateTime.Today.AddDays(-6),
+                Appr2By = "TranQuocTuan_GDKyThuat_TCMS",
+                Appr2DTime = DateTime.Today.AddDays(-5),
+                FilePath = "/documents/storage/LK-202505-001-Signed.pdf",
+                Remark = "Bảng kê đợt 1 tháng 05 xe lưu giữ kho bãi Đông Anh chuẩn bị giao đại lý phía Bắc",
+                CreatedBy = "VuDinhTruong_ThuKhoDA",
+                CreatedAt = DateTime.Today.AddDays(-7)
+            };
+            db.PaymentStorages.Add(ps2);
+            await db.SaveChangesAsync();
+
+            db.PaymentStorageDetails.AddRange(
+                new PaymentStorageDetail
+                {
+                    PaymentStorageId = ps2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentStorageNo = ps2.PaymentStorageNo,
+                    VIN = "KMHCT81EPHU600201",
+                    CarId = "CAR-PAL-6004",
+                    ModelCode = "PALISADE-PRE",
+                    ModelName = "Hyundai Palisade 2.2D Prestige",
+                    SpecCode = "PLS-2.2D-PRE",
+                    SpecDescription = "SUV Flagship 7 chỗ động cơ Diesel dẫn động HTRAC",
+                    ColorExtNameVN = "Xanh Bóng Đêm",
+                    StorageCodeInit = "KHO-DA",
+                    StorageDate = DateTime.Today.AddDays(-35),
+                    ApprovedDate2 = DateTime.Today.AddDays(-10),
+                    DeliveryOutDate = DateTime.Today.AddDays(-3),
+                    DealerCode = "DLR-HYUNDAI-LEVANLUONG",
+                    DealerName = "Hyundai Lê Văn Lương",
+                    InCostStorageDate = new DateTime(2025, 5, 1),
+                    OutCostStorageDate = new DateTime(2025, 5, 20),
+                    CostStorageMonth = 20,
+                    LevelStorage = 15,
+                    DailyStorageRate = 25_000,
+                    CostCoat = 50_000,
+                    CostStorage = 500_000, // 20 * 25k
+                    TotalAmount = 550_000,
+                    Status = PaymentStorageDetailStatus.Approved,
+                    Remark = "Xe bọc bạt phủ chuyên dụng bảo vệ lớp sơn bóng"
+                },
+                new PaymentStorageDetail
+                {
+                    PaymentStorageId = ps2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentStorageNo = ps2.PaymentStorageNo,
+                    VIN = "KMHCT81EPHU600202",
+                    CarId = "CAR-CUS-6005",
+                    ModelCode = "CUSTIN-2.0T",
+                    ModelName = "Hyundai Custin 2.0 T-GDi Cao Cấp",
+                    SpecCode = "CST-2.0T-PRE",
+                    SpecDescription = "MPV cỡ trung cao cấp cửa trượt điện thông minh",
+                    ColorExtNameVN = "Trắng Tuyết",
+                    StorageCodeInit = "KHO-DA",
+                    StorageDate = DateTime.Today.AddDays(-32),
+                    ApprovedDate2 = DateTime.Today.AddDays(-8),
+                    DeliveryOutDate = DateTime.Today.AddDays(-2),
+                    DealerCode = "DLR-HYUNDAI-PHAMVANVO",
+                    DealerName = "Hyundai Phạm Văn Đồng",
+                    InCostStorageDate = new DateTime(2025, 5, 1),
+                    OutCostStorageDate = new DateTime(2025, 5, 20),
+                    CostStorageMonth = 20,
+                    LevelStorage = 15,
+                    DailyStorageRate = 25_000,
+                    CostCoat = 50_000,
+                    CostStorage = 500_000,
+                    TotalAmount = 550_000,
+                    Status = PaymentStorageDetailStatus.Approved,
+                    Remark = "Kiểm tra ắc quy và áp suất lốp trước khi xuất"
+                },
+                new PaymentStorageDetail
+                {
+                    PaymentStorageId = ps2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentStorageNo = ps2.PaymentStorageNo,
+                    VIN = "KMHCT81EPHU600203",
+                    CarId = "CAR-SGZ-6006",
+                    ModelCode = "STARGAZER-X",
+                    ModelName = "Hyundai Stargazer X Cao Cấp",
+                    SpecCode = "SGZ-1.5L-PRE",
+                    SpecDescription = "Crossover MPV 7 chỗ phong cách thể thao gầm cao",
+                    ColorExtNameVN = "Bạc Ánh Kim",
+                    StorageCodeInit = "KHO-DA",
+                    StorageDate = DateTime.Today.AddDays(-30),
+                    ApprovedDate2 = DateTime.Today.AddDays(-9),
+                    DeliveryOutDate = DateTime.Today.AddDays(-1),
+                    DealerCode = "DLR-HYUNDAI-HADONG",
+                    DealerName = "Hyundai Hà Đông",
+                    InCostStorageDate = new DateTime(2025, 5, 1),
+                    OutCostStorageDate = new DateTime(2025, 5, 20),
+                    CostStorageMonth = 20,
+                    LevelStorage = 15,
+                    DailyStorageRate = 25_000,
+                    CostCoat = 50_000,
+                    CostStorage = 500_000,
+                    TotalAmount = 550_000,
+                    Status = PaymentStorageDetailStatus.Approved,
+                    Remark = "Đã rửa sạch bụi bẩn trước bàn giao nhà xe vận chuyển"
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // 3. Bảng kê Tháng 05/2025 Đợt 2 - TCMS Thẩm định duyệt cấp 2 (TCMSApproved)
+            // Đang chờ lãnh đạo ký số CA điện tử. Tổng kho Đà Nẵng (KHO-DN), 2 xe Accent, Venue
+            var ps3 = new PaymentStorage
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PaymentStorageNo = "LK-202505-002",
+                PmtMonth = "2025-05",
+                StorageOperatorCode = "KHO-DN",
+                StorageOperatorName = "Tổng kho Trung chuyển Ô tô Hyundai Miền Trung - Đà Nẵng",
+                TotalVehicles = 2,
+                TotalCoatCost = 100_000,       // 2 * 50k
+                TotalStorageCost = 600_000,     // (12 + 12 ngày) * 25k = 24 * 25k = 600,000
+                TotalAmount = 700_000,
+                VATRate = 10.0m,
+                UnitPriceVAT = 70_000,
+                AmountTotal = 770_000,
+                Status = PaymentStorageStatus.TCMSApproved,
+                TCMSSignStatus = StorageSignCAStatus.Pending,
+                HTVSignStatus = StorageSignCAStatus.Pending,
+                Appr1By = "LeHongPhong_TruongPhongKD_HTV",
+                Appr1DTime = DateTime.Today.AddDays(-3),
+                Appr2By = "TranQuocTuan_GDKyThuat_TCMS",
+                Appr2DTime = DateTime.Today.AddDays(-2),
+                Remark = "Đợt 2 tháng 05/2025 kho Đà Nẵng phân bổ cho các đại lý khu vực Miền Trung",
+                CreatedBy = "NguyenThiMai_ThuKhoDN",
+                CreatedAt = DateTime.Today.AddDays(-5)
+            };
+            db.PaymentStorages.Add(ps3);
+            await db.SaveChangesAsync();
+
+            db.PaymentStorageDetails.AddRange(
+                new PaymentStorageDetail
+                {
+                    PaymentStorageId = ps3.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentStorageNo = ps3.PaymentStorageNo,
+                    VIN = "KMHCT81EPHU600301",
+                    CarId = "CAR-ACC-6007",
+                    ModelCode = "ACCENT-AT-DB",
+                    ModelName = "Hyundai Accent 1.5 AT Đặc Biệt",
+                    SpecCode = "ACC-1.5L-DB",
+                    SpecDescription = "Sedan phân khúc B thế hệ mới động cơ Smartstream",
+                    ColorExtNameVN = "Trắng",
+                    StorageCodeInit = "KHO-DN",
+                    StorageDate = DateTime.Today.AddDays(-20),
+                    ApprovedDate2 = DateTime.Today.AddDays(-5),
+                    DeliveryOutDate = null, // Chưa xuất kho
+                    DealerCode = "DLR-HYUNDAI-SONTRA",
+                    DealerName = "Hyundai Sơn Trà Đà Nẵng",
+                    InCostStorageDate = new DateTime(2025, 5, 1),
+                    OutCostStorageDate = new DateTime(2025, 5, 12),
+                    CostStorageMonth = 12,
+                    LevelStorage = 15,
+                    DailyStorageRate = 25_000,
+                    CostCoat = 50_000,
+                    CostStorage = 300_000, // 12 * 25k
+                    TotalAmount = 350_000,
+                    Status = PaymentStorageDetailStatus.Approved,
+                    Remark = "Bạt phủ che nắng vùng miền Trung"
+                },
+                new PaymentStorageDetail
+                {
+                    PaymentStorageId = ps3.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentStorageNo = ps3.PaymentStorageNo,
+                    VIN = "KMHCT81EPHU600302",
+                    CarId = "CAR-VNU-6008",
+                    ModelCode = "VENUE-TURBO",
+                    ModelName = "Hyundai Venue 1.0 T-GDi Đặc Biệt",
+                    SpecCode = "VNU-1.0T-DB",
+                    SpecDescription = "A-SUV phong cách trẻ trung thể thao hiện đại",
+                    ColorExtNameVN = "Đỏ Mận",
+                    StorageCodeInit = "KHO-DN",
+                    StorageDate = DateTime.Today.AddDays(-18),
+                    ApprovedDate2 = DateTime.Today.AddDays(-4),
+                    DeliveryOutDate = null,
+                    DealerCode = "DLR-HYUNDAI-QUANGNAM",
+                    DealerName = "Hyundai Quảng Nam",
+                    InCostStorageDate = new DateTime(2025, 5, 1),
+                    OutCostStorageDate = new DateTime(2025, 5, 12),
+                    CostStorageMonth = 12,
+                    LevelStorage = 15,
+                    DailyStorageRate = 25_000,
+                    CostCoat = 50_000,
+                    CostStorage = 300_000,
+                    TotalAmount = 350_000,
+                    Status = PaymentStorageDetailStatus.Approved,
+                    Remark = "Lưu kho an toàn có camera giám sát 24/7"
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // 4. Bảng kê Tháng 05/2025 Đợt 3 - MỚI TẠO NHÁP (Draft)
+            // Tổng kho Bình Dương (KHO-BD), 2 xe điện thuần IONIQ 5 và SUV Tucson
+            var ps4 = new PaymentStorage
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PaymentStorageNo = "LK-202505-003",
+                PmtMonth = "2025-05",
+                StorageOperatorCode = "KHO-BD",
+                StorageOperatorName = "Tổng kho Lưu chuyển Ô tô Hyundai Miền Nam - Bình Dương",
+                TotalVehicles = 2,
+                TotalCoatCost = 100_000,       // 2 * 50k
+                TotalStorageCost = 450_000,     // (9 + 9 ngày) * 25k = 18 * 25k = 450,000
+                TotalAmount = 550_000,
+                VATRate = 10.0m,
+                UnitPriceVAT = 55_000,
+                AmountTotal = 605_000,
+                Status = PaymentStorageStatus.Draft,
+                TCMSSignStatus = StorageSignCAStatus.Pending,
+                HTVSignStatus = StorageSignCAStatus.Pending,
+                Remark = "Đợt 3 tháng 05/2025 kho Bình Dương đang kiểm đếm bạt che phủ và hạn xuất kho",
+                CreatedBy = "VoVanNam_QuanLyKhoBD",
+                CreatedAt = DateTime.Now.AddHours(-3)
+            };
+            db.PaymentStorages.Add(ps4);
+            await db.SaveChangesAsync();
+
+            db.PaymentStorageDetails.AddRange(
+                new PaymentStorageDetail
+                {
+                    PaymentStorageId = ps4.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentStorageNo = ps4.PaymentStorageNo,
+                    VIN = "KMHCT81EPHU600401",
+                    CarId = "CAR-IQ5-6009",
+                    ModelCode = "IONIQ-5-PREM",
+                    ModelName = "Hyundai IONIQ 5 Exclusive EV",
+                    SpecCode = "IQ5-72KWH-EXC",
+                    SpecDescription = "Xe thuần điện Pin 72.6 kWh sạc siêu nhanh 800V",
+                    ColorExtNameVN = "Xám Xi Măng",
+                    StorageCodeInit = "KHO-BD",
+                    StorageDate = DateTime.Today.AddDays(-10),
+                    ApprovedDate2 = null, // Chưa duyệt LXX
+                    DeliveryOutDate = null,
+                    DealerCode = "DLR-HYUNDAI-BINHDUONG",
+                    DealerName = "Hyundai Bình Dương",
+                    InCostStorageDate = new DateTime(2025, 5, 1),
+                    OutCostStorageDate = new DateTime(2025, 5, 9),
+                    CostStorageMonth = 9,
+                    LevelStorage = 15,
+                    DailyStorageRate = 25_000,
+                    CostCoat = 50_000,
+                    CostStorage = 225_000, // 9 * 25k
+                    TotalAmount = 275_000,
+                    Status = PaymentStorageDetailStatus.Pending,
+                    Remark = "Khoang lưu giữ xe điện cách ly nhiệt độ và kiểm tra điện áp pin"
+                },
+                new PaymentStorageDetail
+                {
+                    PaymentStorageId = ps4.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentStorageNo = ps4.PaymentStorageNo,
+                    VIN = "KMHCT81EPHU600402",
+                    CarId = "CAR-TUC-6010",
+                    ModelCode = "TUCSON-2.0D",
+                    ModelName = "Hyundai Tucson 2.0 Diesel Đặc Biệt",
+                    SpecCode = "TUC-2.0D-DB",
+                    SpecDescription = "Crossover 5 chỗ máy dầu tiết kiệm nhiên liệu hộp số 8 cấp",
+                    ColorExtNameVN = "Nâu Vàng Ánh Kim",
+                    StorageCodeInit = "KHO-BD",
+                    StorageDate = DateTime.Today.AddDays(-12),
+                    ApprovedDate2 = null,
+                    DeliveryOutDate = null,
+                    DealerCode = "DLR-HYUNDAI-MIENTAY",
+                    DealerName = "Hyundai Miền Tây Sài Gòn",
+                    InCostStorageDate = new DateTime(2025, 5, 1),
+                    OutCostStorageDate = new DateTime(2025, 5, 9),
+                    CostStorageMonth = 9,
+                    LevelStorage = 15,
+                    DailyStorageRate = 25_000,
+                    CostCoat = 50_000,
+                    CostStorage = 225_000,
+                    TotalAmount = 275_000,
+                    Status = PaymentStorageDetailStatus.Pending,
+                    Remark = "Xe mới nhập kho đang lắp bạt phủ chống bụi"
                 }
             );
             await db.SaveChangesAsync();

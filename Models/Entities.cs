@@ -73,6 +73,12 @@ public enum TransportInsDetailStatus { Pending = 0, Approved = 1, Adjusted = 2, 
 
 public enum TransportCommandType { CarTransport = 0, StorageRearrange = 1, StorageRearrCB = 2, CarRetrieve = 3 }
 
+public enum PaymentStorageStatus { Draft = 0, HTVApproved = 1, TCMSApproved = 2, Signed = 3, Settled = 4, Rejected = 5, Cancelled = 6 }
+
+public enum StorageSignCAStatus { Pending = 0, Signed = 1 }
+
+public enum PaymentStorageDetailStatus { Pending = 0, Approved = 1, Adjusted = 2, Cancelled = 3 }
+
 /// <summary>Ý định thanh toán (payment intent) — 1 dòng / 1 lần khởi tạo cổng.</summary>
 public sealed class PaymentIntent
 {
@@ -730,6 +736,78 @@ public sealed class TransportInsPaymentDetail
     public string? FProvinceRemark { get; set; }                 // Lý do điều chỉnh cung đường / nơi đến
     public TransportInsDetailStatus Status { get; set; } = TransportInsDetailStatus.Pending;
     public string? Remark { get; set; }                          // Ghi chú chi tiết dòng xe
+}
+
+/// <summary>Bảng kê thanh toán chi phí lưu kho xe ô tô — tương ứng Pmt_PaymentStorage trong BizHTC.Payment / 0.34.Contract / FrmQuanLyThanhToanLuuKho.</summary>
+public sealed class PaymentStorage
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string PaymentStorageNo { get; set; } = "";             // Số bảng kê thanh toán lưu kho (LK-202505-001)
+    public string PmtMonth { get; set; } = "";                     // Kỳ / tháng thanh toán lưu kho (ví dụ: 2025-05)
+    public string StorageOperatorCode { get; set; } = "KHO-NBD";   // Mã đơn vị vận hành kho xe (KHO-NBD, KHO-HP, KHO-DN, KHO-BD...)
+    public string StorageOperatorName { get; set; } = "Tổng kho Phân phối Ô tô Hyundai Ninh Bình"; // Tên đơn vị quản lý kho
+    public int TotalVehicles { get; set; }                         // Tổng số lượng xe lưu kho trong kỳ
+    public long TotalCoatCost { get; set; }                        // Tổng chi phí bạt che phủ bảo quản xe (= Σ CostCoat)
+    public long TotalStorageCost { get; set; }                     // Tổng chi phí lưu giữ kho bãi (= Σ CostStorage)
+    public long TotalAmount { get; set; }                          // Tổng chi phí trước thuế VAT (= TotalCoatCost + TotalStorageCost)
+    public decimal VATRate { get; set; } = 10.0m;                  // Thuế suất VAT (%)
+    public long UnitPriceVAT { get; set; }                         // Tiền thuế VAT (= TotalAmount * VATRate / 100)
+    public long AmountTotal { get; set; }                          // Tổng thanh toán sau thuế VAT (= TotalAmount + UnitPriceVAT)
+    public PaymentStorageStatus Status { get; set; } = PaymentStorageStatus.Draft;
+    public StorageSignCAStatus TCMSSignStatus { get; set; } = StorageSignCAStatus.Pending; // Trạng thái ký TCMS
+    public string? TCMSSignUser { get; set; }                      // Người ký số TCMS
+    public DateTime? TCMSSignDTime { get; set; }                   // Thời điểm ký số TCMS
+    public StorageSignCAStatus HTVSignStatus { get; set; } = StorageSignCAStatus.Pending;  // Trạng thái ký HTV
+    public string? HTVSignUser { get; set; }                       // Người ký số HTV
+    public DateTime? HTVSignDTime { get; set; }                    // Thời điểm ký số HTV
+    public string? Appr1By { get; set; }                           // Người duyệt cấp 1 (HTV Duyệt sơ bộ)
+    public DateTime? Appr1DTime { get; set; }                      // Thời điểm duyệt cấp 1
+    public string? Appr2By { get; set; }                           // Người duyệt cấp 2 (TCMS Thẩm định duyệt)
+    public DateTime? Appr2DTime { get; set; }                      // Thời điểm duyệt cấp 2
+    public string? SettledBy { get; set; }                         // Kế toán thanh toán qua UNC ngân hàng
+    public DateTime? SettledAt { get; set; }                       // Thời điểm quyết toán chi trả
+    public string? BankTxnRef { get; set; }                        // Mã UNC chuyển tiền ngân hàng
+    public string? RejectReason { get; set; }                      // Lý do từ chối bảng kê
+    public DateTime? CancelledAt { get; set; }                     // Thời điểm hủy bảng kê
+    public string? FilePath { get; set; }                          // Đường dẫn / mã chứng từ file ký số CA (CR_PAYMENT_STORAGE.pdf)
+    public string? Remark { get; set; }                            // Ghi chú / diễn giải bảng kê
+    public string? CreatedBy { get; set; }                         // Người lập bảng kê
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    public List<PaymentStorageDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết xe tính phí lưu kho trong bảng kê — tương ứng Pmt_PaymentStorageDetail trong BizHTC.Payment / 0.34.Contract.</summary>
+public sealed class PaymentStorageDetail
+{
+    public long Id { get; set; }
+    public long PaymentStorageId { get; set; }
+    public Guid OrgId { get; set; }
+    public string PaymentStorageNo { get; set; } = "";             // Số bảng kê lưu kho
+    public string VIN { get; set; } = "";                          // Số khung xe (17 ký tự VIN)
+    public string? CarId { get; set; }                             // Mã xe nội bộ
+    public string ModelCode { get; set; } = "";                    // Dòng xe (SANTAFE, TUCSON, CRETA, ACCENT...)
+    public string? ModelName { get; set; }                         // Tên thương mại dòng xe
+    public string? SpecCode { get; set; }                          // Mã phiên bản xe
+    public string? SpecDescription { get; set; }                   // Mô tả chi tiết phiên bản
+    public string? ColorExtNameVN { get; set; }                    // Tên màu ngoại thất xe
+    public string StorageCodeInit { get; set; } = "KHO-NBD";       // Kho nhập lưu xe
+    public DateTime StorageDate { get; set; }                      // Ngày xe nhập kho
+    public DateTime? ApprovedDate2 { get; set; }                   // Ngày duyệt lệnh xuất xe LXX A2
+    public DateTime? DeliveryOutDate { get; set; }                 // Ngày thực tế xuất kho giao xe
+    public string? DealerCode { get; set; }                        // Mã đại lý nhận xe
+    public string? DealerName { get; set; }                        // Tên đại lý nhận xe
+    public DateTime InCostStorageDate { get; set; }                // Ngày bắt đầu tính phí lưu kho trong kỳ
+    public DateTime OutCostStorageDate { get; set; }               // Ngày kết thúc tính phí lưu kho trong kỳ
+    public int CostStorageMonth { get; set; }                      // Số ngày lưu kho tính phí trong tháng (= OutCost - InCost + 1)
+    public int LevelStorage { get; set; } = 15;                    // Định mức hạn ngày lưu kho (ngày)
+    public long DailyStorageRate { get; set; } = 25_000;           // Đơn giá lưu kho/xe/ngày (VND)
+    public long CostCoat { get; set; } = 50_000;                   // Chi phí bạt che phủ chống bụi nắng mưa (VND)
+    public long CostStorage { get; set; }                          // Chi phí lưu kho xe (= CostStorageMonth * DailyStorageRate)
+    public long TotalAmount { get; set; }                          // Tổng chi phí dòng xe (= CostCoat + CostStorage)
+    public PaymentStorageDetailStatus Status { get; set; } = PaymentStorageDetailStatus.Pending;
+    public string? Remark { get; set; }                            // Ghi chú chi tiết dòng xe
 }
 
 

@@ -37,6 +37,7 @@ builder.Services.AddScoped<BankBillService>();
 builder.Services.AddScoped<PaymentPDIService>();
 builder.Services.AddScoped<LatePaymentPenaltyService>();
 builder.Services.AddScoped<TransportInsPaymentService>();
+builder.Services.AddScoped<PaymentStorageService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -3734,6 +3735,361 @@ app.MapGet("/api/transport-insurance/summary", async (TransportInsPaymentService
     return Results.Ok(summary);
 });
 
+// =========================================================================
+// QUẢN LÝ BẢNG KÊ THANH TOÁN CHI PHÍ LƯU KHO XE (BizHTC.Payment / 0.34.Contract)
+// Tương ứng Pmt_PaymentStorage, Pmt_PaymentStorageDetail, FrmQuanLyThanhToanLuuKho, FrmSuaThanhToanLuuKho & CR_PAYMENT_STORAGE
+// =========================================================================
+
+// 1) Lập bảng kê chi phí lưu kho xe mới (Job_Pmt_PaymentStorage_Create)
+app.MapPost("/api/payment-storage", async (CreatePaymentStorageDto dto, PaymentStorageService storageService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await storageService.CreatePaymentAsync(
+            tc.OrgId,
+            dto.PaymentStorageNo,
+            dto.PmtMonth,
+            dto.StorageOperatorCode,
+            dto.StorageOperatorName,
+            dto.VATRate ?? 10.0m,
+            dto.Remark,
+            dto.CreatedBy,
+            dto.Items
+        );
+        return Results.Created($"/api/payment-storage/{payment.Id}", new
+        {
+            payment.Id,
+            payment.PaymentStorageNo,
+            payment.PmtMonth,
+            payment.StorageOperatorCode,
+            payment.StorageOperatorName,
+            payment.TotalVehicles,
+            payment.TotalCoatCost,
+            payment.TotalStorageCost,
+            payment.TotalAmount,
+            payment.VATRate,
+            payment.UnitPriceVAT,
+            payment.AmountTotal,
+            Status = payment.Status.ToString(),
+            payment.CreatedAt
+        });
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.Conflict(new { error = ex.Message });
+    }
+});
+
+// 2) Danh sách tìm kiếm bảng kê thanh toán lưu kho (Pmt_PaymentStorage_Get)
+app.MapGet("/api/payment-storage", async (string? pmtMonth, string? status, string? operatorCode, string? vin, PaymentStorageService storageService, ITenantContext tc) =>
+{
+    var list = await storageService.GetListAsync(tc.OrgId, pmtMonth, status, operatorCode, vin);
+    return Results.Ok(list.Select(p => new
+    {
+        p.Id,
+        p.PaymentStorageNo,
+        p.PmtMonth,
+        p.StorageOperatorCode,
+        p.StorageOperatorName,
+        p.TotalVehicles,
+        p.TotalCoatCost,
+        p.TotalStorageCost,
+        p.TotalAmount,
+        p.VATRate,
+        p.UnitPriceVAT,
+        p.AmountTotal,
+        Status = p.Status.ToString(),
+        TCMSSignStatus = p.TCMSSignStatus.ToString(),
+        p.TCMSSignUser,
+        p.TCMSSignDTime,
+        HTVSignStatus = p.HTVSignStatus.ToString(),
+        p.HTVSignUser,
+        p.HTVSignDTime,
+        p.Appr1By,
+        p.Appr1DTime,
+        p.Appr2By,
+        p.Appr2DTime,
+        p.SettledBy,
+        p.SettledAt,
+        p.BankTxnRef,
+        p.FilePath,
+        p.Remark,
+        p.CreatedBy,
+        p.CreatedAt
+    }));
+});
+
+// 3) Chi tiết 1 bảng kê kèm danh sách xe lưu kho (Pmt_PaymentStorageDetail_Get)
+app.MapGet("/api/payment-storage/{id:long}", async (long id, PaymentStorageService storageService, ITenantContext tc) =>
+{
+    var payment = await storageService.GetByIdAsync(id, tc.OrgId);
+    if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+
+    return Results.Ok(new
+    {
+        payment.Id,
+        payment.PaymentStorageNo,
+        payment.PmtMonth,
+        payment.StorageOperatorCode,
+        payment.StorageOperatorName,
+        payment.TotalVehicles,
+        payment.TotalCoatCost,
+        payment.TotalStorageCost,
+        payment.TotalAmount,
+        payment.VATRate,
+        payment.UnitPriceVAT,
+        payment.AmountTotal,
+        Status = payment.Status.ToString(),
+        TCMSSignStatus = payment.TCMSSignStatus.ToString(),
+        payment.TCMSSignUser,
+        payment.TCMSSignDTime,
+        HTVSignStatus = payment.HTVSignStatus.ToString(),
+        payment.HTVSignUser,
+        payment.HTVSignDTime,
+        payment.Appr1By,
+        payment.Appr1DTime,
+        payment.Appr2By,
+        payment.Appr2DTime,
+        payment.SettledBy,
+        payment.SettledAt,
+        payment.BankTxnRef,
+        payment.FilePath,
+        payment.Remark,
+        payment.RejectReason,
+        payment.CancelledAt,
+        payment.CreatedBy,
+        payment.CreatedAt,
+        Details = payment.Details.Select(d => new
+        {
+            d.Id,
+            d.PaymentStorageId,
+            d.PaymentStorageNo,
+            d.VIN,
+            d.CarId,
+            d.ModelCode,
+            d.ModelName,
+            d.SpecCode,
+            d.SpecDescription,
+            d.ColorExtNameVN,
+            d.StorageCodeInit,
+            d.StorageDate,
+            d.ApprovedDate2,
+            d.DeliveryOutDate,
+            d.DealerCode,
+            d.DealerName,
+            d.InCostStorageDate,
+            d.OutCostStorageDate,
+            d.CostStorageMonth,
+            d.LevelStorage,
+            d.DailyStorageRate,
+            d.CostCoat,
+            d.CostStorage,
+            d.TotalAmount,
+            Status = d.Status.ToString(),
+            d.Remark
+        })
+    });
+});
+
+// 4) HTV Duyệt sơ bộ cấp 1 (Pmt_PaymentStorage_Approve1)
+app.MapPost("/api/payment-storage/{id:long}/approve-htv", async (long id, ApproveStorageDto dto, PaymentStorageService storageService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await storageService.Approve1HTVAsync(id, tc.OrgId, dto.ApproverName);
+        return Results.Ok(new { message = $"HTV duyệt sơ bộ cấp 1 bảng kê #{id} thành công.", Status = payment.Status.ToString(), payment.Appr1By, payment.Appr1DTime });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 5) TCMS Thẩm định duyệt cấp 2 (Pmt_PaymentStorage_Approve2)
+app.MapPost("/api/payment-storage/{id:long}/approve-tcms", async (long id, ApproveStorageDto dto, PaymentStorageService storageService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await storageService.Approve2TCMSAsync(id, tc.OrgId, dto.ApproverName);
+        return Results.Ok(new { message = $"TCMS duyệt cấp 2 bảng kê #{id} thành công.", Status = payment.Status.ToString(), payment.Appr2By, payment.Appr2DTime });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Ký số điện tử CA đại diện TCMS (Pmt_PaymentStorage_TCMSApproveAndSign)
+app.MapPost("/api/payment-storage/{id:long}/sign-tcms", async (long id, SignStorageDto dto, PaymentStorageService storageService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await storageService.SignTCMSAsync(id, tc.OrgId, dto.SignerName, dto.FilePath);
+        return Results.Ok(new { message = $"TCMS đã ký số điện tử bảng kê #{id} thành công.", TCMSSignStatus = payment.TCMSSignStatus.ToString(), payment.TCMSSignUser, payment.TCMSSignDTime, payment.FilePath });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 7) Ký số điện tử CA đại diện HTV (Pmt_PaymentStorage_HTVApproveAndSign)
+app.MapPost("/api/payment-storage/{id:long}/sign-htv", async (long id, SignStorageDto dto, PaymentStorageService storageService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await storageService.SignHTVAsync(id, tc.OrgId, dto.SignerName, dto.FilePath);
+        return Results.Ok(new { message = $"HTV đã ký số hoàn tất bảng kê #{id}.", Status = payment.Status.ToString(), HTVSignStatus = payment.HTVSignStatus.ToString(), payment.HTVSignUser, payment.HTVSignDTime, payment.FilePath });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 8) Quyết toán chi trả qua UNC ngân hàng (Settled / Paid)
+app.MapPost("/api/payment-storage/{id:long}/settle", async (long id, SettleStorageDto dto, PaymentStorageService storageService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await storageService.SettlePaymentAsync(id, tc.OrgId, dto.BankTxnRef, dto.SettlerName);
+        return Results.Ok(new { message = $"Đã quyết toán chi trả thành công bảng kê #{id} qua UNC ngân hàng.", Status = payment.Status.ToString(), payment.SettledBy, payment.SettledAt, payment.BankTxnRef });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 9) Từ chối bảng kê kèm lý do (Pmt_PaymentStorage_Cancel / Deny)
+app.MapPost("/api/payment-storage/{id:long}/reject", async (long id, RejectStorageDto dto, PaymentStorageService storageService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await storageService.RejectAsync(id, tc.OrgId, dto.Reason, dto.RejecterName);
+        return Results.Ok(new { message = $"Đã từ chối bảng kê #{id}.", Status = payment.Status.ToString(), payment.RejectReason });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 10) Hủy bảng kê (Pmt_PaymentStorage_Cancel)
+app.MapPost("/api/payment-storage/{id:long}/cancel", async (long id, CancelStorageDto dto, PaymentStorageService storageService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await storageService.CancelAsync(id, tc.OrgId, dto.Reason);
+        return Results.Ok(new { message = $"Đã hủy bảng kê #{id}.", Status = payment.Status.ToString(), payment.RejectReason });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 11) Cập nhật điều chỉnh chi phí bạt & lưu kho xe hàng loạt (Pmt_PaymentStorage_UpdateMulti / FrmSuaThanhToanLuuKho)
+app.MapPut("/api/payment-storage/{id:long}/details", async (long id, UpdateStorageDetailsDto dto, PaymentStorageService storageService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await storageService.UpdateDetailsAsync(id, tc.OrgId, dto.Items);
+        return Results.Ok(new
+        {
+            message = $"Cập nhật điều chỉnh chi phí xe bảng kê #{id} thành công.",
+            payment.TotalCoatCost,
+            payment.TotalStorageCost,
+            payment.TotalAmount,
+            payment.UnitPriceVAT,
+            payment.AmountTotal
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 12) Bổ sung xe vào bảng kê hiện có
+app.MapPost("/api/payment-storage/{id:long}/import-vehicles", async (long id, ImportStorageVehiclesDto dto, PaymentStorageService storageService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await storageService.ImportVehiclesAsync(id, tc.OrgId, dto.Items);
+        return Results.Ok(new
+        {
+            message = $"Bổ sung {dto.Items.Count} xe vào bảng kê #{id} thành công.",
+            payment.TotalVehicles,
+            payment.TotalCoatCost,
+            payment.TotalStorageCost,
+            payment.TotalAmount,
+            payment.UnitPriceVAT,
+            payment.AmountTotal
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 13) Xóa 1 xe khỏi bảng kê
+app.MapDelete("/api/payment-storage/{id:long}/vehicles/{detailId:long}", async (long id, long detailId, PaymentStorageService storageService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await storageService.RemoveVehicleAsync(id, detailId, tc.OrgId);
+        return Results.Ok(new
+        {
+            message = $"Đã xóa xe #{detailId} khỏi bảng kê #{id}.",
+            payment.TotalVehicles,
+            payment.TotalCoatCost,
+            payment.TotalStorageCost,
+            payment.TotalAmount,
+            payment.UnitPriceVAT,
+            payment.AmountTotal
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 14) Xóa hẳn bảng kê nháp/hủy (Pmt_PaymentStorage_Delete)
+app.MapDelete("/api/payment-storage/{id:long}", async (long id, PaymentStorageService storageService, ITenantContext tc) =>
+{
+    try
+    {
+        await storageService.DeleteDraftAsync(id, tc.OrgId);
+        return Results.Ok(new { message = $"Đã xóa bảng kê lưu kho #{id} thành công." });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 15) Sinh dữ liệu mẫu in Bảng kê quyết toán chi phí lưu kho xe (CR_PAYMENT_STORAGE Advice)
+app.MapGet("/api/payment-storage/{id:long}/statement-advice", async (long id, PaymentStorageService storageService, ITenantContext tc) =>
+{
+    var advice = await storageService.GenerateStatementAdviceAsync(id, tc.OrgId);
+    if (advice == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+    return Results.Ok(advice);
+});
+
+// 16) Báo cáo dashboard tổng hợp số liệu lưu kho
+app.MapGet("/api/payment-storage/summary", async (PaymentStorageService storageService, ITenantContext tc) =>
+{
+    var summary = await storageService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
 app.Run();
 
 record CreatePayDto(long Amount, string? OrderId, string? OrderInfo, string? BankCode);
@@ -3858,4 +4214,22 @@ record RejectTransportInsDto(string Reason, string? RejecterName);
 record CancelTransportInsDto(string? Reason);
 record UpdateTransportDetailsDto(List<UpdateTransportDetailItemDto> Items);
 record ImportTransportVehiclesDto(List<TransportInsItemInputDto> Items);
+
+record CreatePaymentStorageDto(
+    string? PaymentStorageNo,
+    string PmtMonth,
+    string? StorageOperatorCode,
+    string? StorageOperatorName,
+    decimal? VATRate,
+    string? Remark,
+    string? CreatedBy,
+    List<PaymentStorageItemInputDto> Items
+);
+record ApproveStorageDto(string? ApproverName);
+record SignStorageDto(string? SignerName, string? FilePath);
+record SettleStorageDto(string? BankTxnRef, string? SettlerName);
+record RejectStorageDto(string Reason, string? RejecterName);
+record CancelStorageDto(string? Reason);
+record UpdateStorageDetailsDto(List<UpdateStorageDetailItemDto> Items);
+record ImportStorageVehiclesDto(List<PaymentStorageItemInputDto> Items);
 
