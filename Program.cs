@@ -33,6 +33,7 @@ builder.Services.AddScoped<PaymentDiscountService>();
 builder.Services.AddScoped<PaymentGuaranteeService>();
 builder.Services.AddScoped<MortgageRedeemService>();
 builder.Services.AddScoped<PaymentOrderService>();
+builder.Services.AddScoped<BankBillService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -2201,6 +2202,333 @@ app.MapGet("/api/payment-orders/summary", async (PaymentOrderService pmtService,
     return Results.Ok(summary);
 });
 
+// ===== Quản lý Biên bản Bàn giao Xe & Chứng từ theo Hối phiếu ngân hàng (Bank Bill of Exchange / Bank Draft - FrmQuanLyBBBGTheoHoiPhieu & FrmTaoBBBGTheoHoiPhieu) =====
+
+// 1) Lập biên bản bàn giao xe & chứng từ theo hối phiếu mới (Car_BankBillMinutes_Add / FrmTaoBBBGTheoHoiPhieu)
+app.MapPost("/api/bank-bills", async (CreateBankBillDto dto, BankBillService billService, ITenantContext tc) =>
+{
+    if (string.IsNullOrWhiteSpace(dto.BankCode))
+        return Results.BadRequest(new { error = "Cần mã ngân hàng nhận hối phiếu (BankCode: VPB, CTG, MBB, TCB, VCB...)." });
+    if (string.IsNullOrWhiteSpace(dto.PartnerCode))
+        return Results.BadRequest(new { error = "Cần mã đại lý ký phát hối phiếu (PartnerCode / DealerCode)." });
+    if (dto.Items == null || dto.Items.Count == 0)
+        return Results.BadRequest(new { error = "Biên bản bàn giao hối phiếu cần ít nhất 1 xe / hồ sơ gốc." });
+
+    try
+    {
+        var minutes = await billService.CreateMinutesAsync(
+            tc.OrgId,
+            dto.BankBillMnNo,
+            dto.BankCode,
+            dto.BankName,
+            dto.PartnerCode,
+            dto.PartnerName,
+            dto.BankBillDate,
+            dto.BankBillPrintDate,
+            dto.Remark,
+            "ChuyenVienHopDong",
+            dto.Items
+        );
+
+        return Results.Ok(new
+        {
+            minutes.Id,
+            minutes.BankBillMnNo,
+            minutes.BankCode,
+            minutes.BankName,
+            minutes.PartnerCode,
+            minutes.PartnerName,
+            minutes.BankBillDate,
+            minutes.BankBillPrintDate,
+            minutes.BankBillReciveDate,
+            minutes.TotalVehicles,
+            minutes.TotalClaimAmount,
+            status = minutes.Status.ToString(),
+            minutes.Remark,
+            minutes.CreatedBy,
+            minutes.CreatedAt,
+            details = minutes.Details.Select(d => new
+            {
+                d.Id,
+                d.VIN,
+                d.ModelCode,
+                d.SpecCode,
+                d.SpecDescription,
+                d.EngineNo,
+                d.CONo,
+                d.CabinCONo,
+                d.DeclarationNo,
+                d.BankGuaranteeNo,
+                d.HTCInvoiceNo,
+                d.TCGInvoiceNo,
+                d.TransportMinutesNo,
+                d.ClaimAmount,
+                d.GuaranteeDateStart,
+                d.GuaranteeDateOpen,
+                d.NumberOfDaysDeferred,
+                status = d.Status.ToString(),
+                d.Note
+            })
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 2) Danh sách biên bản bàn giao xe theo hối phiếu (Car_BankBillMinutes_Get / FrmQuanLyBBBGTheoHoiPhieu)
+app.MapGet("/api/bank-bills", async (AppDbContext db, ITenantContext tc, string? status, string? bankCode, string? partnerCode) =>
+{
+    var q = db.BankBillMinutes.Where(b => b.OrgId == tc.OrgId);
+    if (!string.IsNullOrWhiteSpace(bankCode))
+        q = q.Where(b => b.BankCode == bankCode.ToUpper());
+    if (!string.IsNullOrWhiteSpace(partnerCode))
+        q = q.Where(b => b.PartnerCode == partnerCode.ToUpper());
+    if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<BankBillMinutesStatus>(status, true, out var st))
+        q = q.Where(b => b.Status == st);
+
+    var list = await q.OrderByDescending(b => b.CreatedAt)
+        .Select(b => new
+        {
+            b.Id,
+            b.BankBillMnNo,
+            b.BankCode,
+            b.BankName,
+            b.PartnerCode,
+            b.PartnerName,
+            b.BankBillDate,
+            b.BankBillPrintDate,
+            b.BankBillReciveDate,
+            b.TotalVehicles,
+            b.TotalClaimAmount,
+            status = b.Status.ToString(),
+            b.Remark,
+            b.CreatedBy,
+            b.CreatedAt,
+            b.HandedOverBy,
+            b.HandedOverAt,
+            b.BankReceivedBy,
+            b.BankReceivedAt,
+            b.SettledBy,
+            b.SettledAt,
+            b.CancelledAt
+        })
+        .ToListAsync();
+
+    return Results.Ok(list);
+});
+
+// 3) Chi tiết 1 biên bản kèm toàn bộ danh sách hồ sơ xe (FrmQuanLyBBBGTheoHoiPhieu.LoadGridViewDetail)
+app.MapGet("/api/bank-bills/{id:long}", async (long id, AppDbContext db, ITenantContext tc) =>
+{
+    var minutes = await db.BankBillMinutes
+        .Include(b => b.Details)
+        .FirstOrDefaultAsync(b => b.Id == id && b.OrgId == tc.OrgId);
+
+    if (minutes == null) return Results.NotFound(new { error = $"Không tìm thấy biên bản bàn giao hối phiếu #{id}." });
+
+    return Results.Ok(new
+    {
+        minutes.Id,
+        minutes.BankBillMnNo,
+        minutes.BankCode,
+        minutes.BankName,
+        minutes.PartnerCode,
+        minutes.PartnerName,
+        minutes.BankBillDate,
+        minutes.BankBillPrintDate,
+        minutes.BankBillReciveDate,
+        minutes.TotalVehicles,
+        minutes.TotalClaimAmount,
+        status = minutes.Status.ToString(),
+        minutes.Remark,
+        minutes.CreatedBy,
+        minutes.CreatedAt,
+        minutes.HandedOverBy,
+        minutes.HandedOverAt,
+        minutes.BankReceivedBy,
+        minutes.BankReceivedAt,
+        minutes.SettledBy,
+        minutes.SettledAt,
+        minutes.CancelledAt,
+        details = minutes.Details.OrderBy(d => d.Id).Select(d => new
+        {
+            d.Id,
+            d.VIN,
+            d.ModelCode,
+            d.SpecCode,
+            d.SpecDescription,
+            d.EngineNo,
+            d.CONo,
+            d.CabinCONo,
+            d.DeclarationNo,
+            d.BankGuaranteeNo,
+            d.HTCInvoiceNo,
+            d.TCGInvoiceNo,
+            d.TransportMinutesNo,
+            d.ClaimAmount,
+            d.GuaranteeDateStart,
+            d.GuaranteeDateOpen,
+            d.NumberOfDaysDeferred,
+            status = d.Status.ToString(),
+            d.Note
+        })
+    });
+});
+
+// 4) Xuất trình và bàn giao bộ chứng từ gốc sang Ngân hàng
+app.MapPost("/api/bank-bills/{id:long}/handover", async (long id, HandoverBankBillDto? dto, BankBillService billService, ITenantContext tc) =>
+{
+    try
+    {
+        var minutes = await billService.HandoverToBankAsync(id, tc.OrgId, dto?.HandedOverBy, dto?.Note);
+        if (minutes == null) return Results.NotFound(new { error = $"Không tìm thấy biên bản #{id}." });
+
+        return Results.Ok(new
+        {
+            minutes.Id,
+            minutes.BankBillMnNo,
+            status = minutes.Status.ToString(),
+            minutes.HandedOverBy,
+            minutes.HandedOverAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 5) Ngân hàng xác nhận tiếp nhận đủ hồ sơ gốc xe theo hối phiếu (Car_BankBillMinutes_Save / BankBillReciveDate)
+app.MapPost("/api/bank-bills/{id:long}/bank-receive", async (long id, BankReceiveDto dto, BankBillService billService, ITenantContext tc) =>
+{
+    try
+    {
+        var minutes = await billService.BankConfirmReceiveAsync(id, tc.OrgId, dto.ReceiveDate, dto.ReceivedBy, dto.Note);
+        if (minutes == null) return Results.NotFound(new { error = $"Không tìm thấy biên bản #{id}." });
+
+        return Results.Ok(new
+        {
+            minutes.Id,
+            minutes.BankBillMnNo,
+            status = minutes.Status.ToString(),
+            minutes.BankBillReciveDate,
+            minutes.BankReceivedBy,
+            minutes.BankReceivedAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Quyết toán hoàn tất thanh toán hối phiếu khi dòng tiền đã chuyển đủ
+app.MapPost("/api/bank-bills/{id:long}/settle", async (long id, SettleBankBillDto? dto, BankBillService billService, ITenantContext tc) =>
+{
+    try
+    {
+        var minutes = await billService.SettleBankBillAsync(id, tc.OrgId, dto?.SettlerName, dto?.Note);
+        if (minutes == null) return Results.NotFound(new { error = $"Không tìm thấy biên bản #{id}." });
+
+        return Results.Ok(new
+        {
+            minutes.Id,
+            minutes.BankBillMnNo,
+            status = minutes.Status.ToString(),
+            minutes.SettledBy,
+            minutes.SettledAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 7) Hủy biên bản bàn giao xe theo hối phiếu (FrmQuanLyBBBGTheoHoiPhieu.btnDelete_Click)
+app.MapPost("/api/bank-bills/{id:long}/cancel", async (long id, CancelBankBillDto? dto, BankBillService billService, ITenantContext tc) =>
+{
+    try
+    {
+        var minutes = await billService.CancelMinutesAsync(id, tc.OrgId, dto?.Reason);
+        if (minutes == null) return Results.NotFound(new { error = $"Không tìm thấy biên bản #{id}." });
+
+        return Results.Ok(new
+        {
+            minutes.Id,
+            minutes.BankBillMnNo,
+            status = minutes.Status.ToString(),
+            minutes.CancelledAt
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 8) Sinh dữ liệu mẫu in Hối phiếu thương mại ngân hàng (Bank Acceptance Draft Advice - FrmPopupChonMauNHInHoiPhieu / btnExportHoiPhieu_Click)
+app.MapGet("/api/bank-bills/{id:long}/bill-advice", async (long id, BankBillService billService, ITenantContext tc) =>
+{
+    var advice = await billService.GenerateBillOfExchangeAdviceAsync(id, tc.OrgId);
+    if (advice == null) return Results.NotFound(new { error = $"Không tìm thấy biên bản #{id}." });
+    return Results.Ok(advice);
+});
+
+// 9) Bổ sung danh sách xe VIN vào biên bản hiện có (FrmTaoBBBGTheoHoiPhieu.btnImport_Click)
+app.MapPost("/api/bank-bills/{id:long}/import-vins", async (long id, ImportVinsDto dto, BankBillService billService, ITenantContext tc) =>
+{
+    try
+    {
+        var minutes = await billService.ImportVinsAsync(id, tc.OrgId, dto.Items);
+        if (minutes == null) return Results.NotFound(new { error = $"Không tìm thấy biên bản #{id}." });
+
+        return Results.Ok(new
+        {
+            minutes.Id,
+            minutes.BankBillMnNo,
+            minutes.TotalVehicles,
+            minutes.TotalClaimAmount,
+            status = minutes.Status.ToString()
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 10) Xóa 1 xe khỏi biên bản bàn giao
+app.MapDelete("/api/bank-bills/{id:long}/vins/{detailId:long}", async (long id, long detailId, BankBillService billService, ITenantContext tc) =>
+{
+    try
+    {
+        var minutes = await billService.RemoveVinAsync(id, detailId, tc.OrgId);
+        if (minutes == null) return Results.NotFound(new { error = $"Không tìm thấy biên bản #{id}." });
+
+        return Results.Ok(new
+        {
+            minutes.Id,
+            minutes.BankBillMnNo,
+            minutes.TotalVehicles,
+            minutes.TotalClaimAmount
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 11) Báo cáo tổng hợp số liệu biên bản bàn giao hối phiếu
+app.MapGet("/api/bank-bills/summary", async (BankBillService billService, ITenantContext tc) =>
+{
+    var summary = await billService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
 app.Run();
 
 record CreatePayDto(long Amount, string? OrderId, string? OrderInfo, string? BankCode);
@@ -2256,3 +2584,20 @@ record FinishPaymentOrderDto(DateTime? PaymentEndDate, string? BankPaymentNo, st
 record RejectPaymentOrderDto(string Reason, string? RejecterName);
 record CancelPaymentOrderDto(string? Reason);
 record UpdatePaymentRatesDto(List<long> PaymentIds, decimal InterestRate, int LoanPeriodMonths);
+record CreateBankBillDto(
+    string? BankBillMnNo,
+    string BankCode,
+    string? BankName,
+    string PartnerCode,
+    string? PartnerName,
+    DateTime? BankBillDate,
+    DateTime? BankBillPrintDate,
+    string? Remark,
+    List<BankBillItemInputDto> Items
+);
+record HandoverBankBillDto(string? HandedOverBy, string? Note);
+record BankReceiveDto(DateTime? ReceiveDate, string? ReceivedBy, string? Note);
+record SettleBankBillDto(string? SettlerName, string? Note);
+record CancelBankBillDto(string? Reason);
+record ImportVinsDto(List<BankBillItemInputDto> Items);
+

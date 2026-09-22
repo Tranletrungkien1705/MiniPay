@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>MiniPay — Cổng Thanh Toán, Đối Soát Sao Kê, Lệnh Chi, Chiết Khấu, Bảo Lãnh, Thế Chấp &amp; Phiếu Thanh Toán UNC</title>
+<title>MiniPay — Cổng Thanh Toán, Đối Soát Sao Kê, Lệnh Chi, Chiết Khấu, Bảo Lãnh, Thế Chấp, Phiếu Thanh Toán UNC &amp; Hối Phiếu Ngân Hàng</title>
 <style>
   :root {
     --bg: #0f172a; --surface: #1e293b; --border: #334155;
@@ -58,7 +58,7 @@
   <div style="display:flex; justify-content:space-between; align-items:center;">
     <div>
       <h1>MiniPay</h1>
-      <p class="muted">Cổng thanh toán điện tử (VNPay/MoMo), Đối soát sao kê, Lệnh chi chuyển tiền, Chiết khấu thanh toán, Bảo lãnh &amp; Thế chấp/Giải chấp ngân hàng (BizHTC.Payment / BizHTC.GiaiChap).</p>
+      <p class="muted">Cổng thanh toán điện tử (VNPay/MoMo), Đối soát sao kê, Lệnh chi chuyển tiền, Chiết khấu thanh toán, Bảo lãnh &amp; Thế chấp/Giải chấp, Phiếu thanh toán UNC &amp; Hối phiếu bàn giao xe ngân hàng (BizHTC.Payment / BizHTC.GiaiChap).</p>
     </div>
     <div>
       <span class="badge badge-info">Demo Merchant</span>
@@ -92,6 +92,7 @@
     <button class="tab-btn" onclick="showTab('guarantee')">Bảo Lãnh Ngân Hàng (Bank Guarantee)</button>
     <button class="tab-btn" onclick="showTab('mortgage')">Thế Chấp &amp; Giải Chấp (Bank Mortgage &amp; Redeem)</button>
     <button class="tab-btn" onclick="showTab('paymentOrder')">Phiếu Thanh Toán &amp; UNC (Payment Order)</button>
+    <button class="tab-btn" onclick="showTab('bankBill')">Hối Phiếu &amp; Bàn Giao Xe (Bank Bill / BBBG)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -99,6 +100,7 @@
     <button class="tab-btn" onclick="showTab('newMortgage')">+ Lập Đề Nghị Thế Chấp</button>
     <button class="tab-btn" onclick="showTab('newRedeem')">+ Lập Đề Nghị Giải Chấp</button>
     <button class="tab-btn" onclick="showTab('newPaymentOrder')">+ Lập Phiếu Thanh Toán</button>
+    <button class="tab-btn" onclick="showTab('newBankBill')">+ Lập BBBG Hối Phiếu</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -727,6 +729,116 @@
     </div>
   </div>
 
+  <!-- TAB: Danh sách Biên bản bàn giao chứng từ xe theo Hối phiếu ngân hàng -->
+  <div id="tab-bankBill" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+        <h3 style="margin:0;">Quản lý Biên Bản Bàn Giao Xe &amp; Chứng Từ Theo Hối Phiếu (Car_BankBillMinutes / FrmQuanLyBBBGTheoHoiPhieu)</h3>
+        <div style="display:flex; gap:8px;">
+          <button class="secondary" onclick="loadBankBills()">Làm mới</button>
+          <button onclick="showTab('newBankBill')">+ Lập BBBG Hối Phiếu</button>
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Trạng Thái Biên Bản:</label>
+          <select id="filterBankBillStatus" onchange="loadBankBills()">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="PendingHandover">Chờ Bàn Giao (PendingHandover)</option>
+            <option value="Delivered">Đã Xuất Trình Ngân Hàng (Delivered)</option>
+            <option value="BankReceived">Ngân Hàng Đã Nhận Gốc (BankReceived)</option>
+            <option value="Settled">Đã Quyết Toán (Settled)</option>
+            <option value="Cancelled">Đã Hủy (Cancelled)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Ngân Hàng Tài Trợ / Thụ Lý:</label>
+          <select id="filterBankBillBank" onchange="loadBankBills()">
+            <option value="">-- Tất cả ngân hàng --</option>
+            <option value="VPB">VPBank (VPB)</option>
+            <option value="CTG">VietinBank (CTG)</option>
+            <option value="MBB">MBBank (MBB)</option>
+            <option value="TCB">Techcombank (TCB)</option>
+            <option value="VCB">Vietcombank (VCB)</option>
+            <option value="BIDV">BIDV</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Mã Đại Lý Ký Phát:</label>
+          <input type="text" id="filterBankBillPartner" placeholder="Ví dụ: DLR-HYUNDAI..." onkeyup="if(event.key==='Enter')loadBankBills()">
+        </div>
+      </div>
+
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Biên Bản (BBBG)</th>
+              <th>Ngân Hàng</th>
+              <th>Đại Lý Ký Phát</th>
+              <th>Ngày Lập</th>
+              <th>Ngày In HP</th>
+              <th>Ngày NH Nhận Gốc</th>
+              <th>Tổng Xe</th>
+              <th>Tổng Tiền Hối Phiếu</th>
+              <th>Trạng Thái</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="bankBillTableBody">
+            <tr><td colspan="10" class="muted" style="text-align:center;">Đang tải danh sách biên bản bàn giao hối phiếu...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Chi tiết 1 biên bản bàn giao xe & chứng từ hối phiếu -->
+    <div class="card" id="bankBillDetailCard" style="display:none; margin-top:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <h3 id="bankBillDetailTitle" style="margin:0;">Chi Tiết Biên Bản Bàn Giao Hối Phiếu</h3>
+        <button class="secondary" onclick="document.getElementById('bankBillDetailCard').style.display='none'">Đóng</button>
+      </div>
+      <p class="muted" id="bankBillDetailSubtitle" style="margin-top:4px;"></p>
+
+      <div id="bankBillAuditBox" style="background:rgba(127,127,127,.08); padding:10px; border-radius:6px; margin:10px 0; font-size:.88em; display:none;"></div>
+
+      <div style="margin:12px 0; display:flex; gap:8px; flex-wrap:wrap;">
+        <button id="btnHandoverBankBill" style="display:none; background:var(--primary);">Bàn Giao Sang Ngân Hàng (Handover)</button>
+        <button id="btnBankReceiveBankBill" style="display:none; background:var(--success);">NH Tiếp Nhận Hồ Sơ Gốc (BankReceive)</button>
+        <button id="btnSettleBankBill" style="display:none; background:var(--warning); color:#000;">Quyết Toán Hối Phiếu (Settle)</button>
+        <button id="btnCancelBankBill" style="display:none; background:var(--danger);">Hủy Biên Bản (Cancel)</button>
+        <button id="btnViewBillAdvice" class="secondary">In Mẫu Hối Phiếu (Bill Advice)</button>
+        <button id="btnAddVinToBankBill" class="secondary">+ Bổ Sung Xe VIN</button>
+      </div>
+
+      <h4 style="margin:16px 0 8px;">Danh Mục Xe &amp; Chứng Từ Gốc Bàn Giao Kèm Hối Phiếu:</h4>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Số Khung (VIN)</th>
+              <th>Model / Phiên Bản</th>
+              <th>Số Máy</th>
+              <th>Số CO Xuất Xưởng</th>
+              <th>Tờ Khai HQ</th>
+              <th>Số Bảo Lãnh / LC</th>
+              <th>Số Hóa Đơn VAT</th>
+              <th>Tiền Hối Phiếu</th>
+              <th>Thời Hạn</th>
+              <th>Trạng Thái</th>
+              <th>Ghi Chú Hồ Sơ Gốc</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="bankBillDetailTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+
 
   <!-- TAB 3: Nạp sao kê & đối soát mới -->
   <div id="tab-newBatch" style="display:none;">
@@ -1256,6 +1368,84 @@
     </div>
   </div>
 
+  <!-- TAB: Lập biên bản bàn giao xe theo hối phiếu mới -->
+  <div id="tab-newBankBill" style="display:none;">
+    <div class="card">
+      <h3>Lập Biên Bản Bàn Giao Xe &amp; Chứng Từ Kèm Hối Phiếu Ngân Hàng (Car_BankBillMinutes_Add)</h3>
+      <p class="muted">Xuất trình hồ sơ gốc (Phiếu kiểm tra chất lượng xuất xưởng CO, Tờ khai Hải quan, Đăng kiểm CQ, Hóa đơn VAT HTC) kèm Hối phiếu đòi nợ thương mại (FrmTaoBBBGTheoHoiPhieu).</p>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Biên Bản BBBG (để trống để tự sinh):</label>
+          <input type="text" id="inpBankBillMnNo" placeholder="Ví dụ: BBBG-20250514-01">
+        </div>
+        <div class="col">
+          <label class="muted">Ngân Hàng Tài Trợ / Nhận Hối Phiếu (*):</label>
+          <select id="inpBankBillBankCode">
+            <option value="VPB">VPB — Ngân hàng TMCP Việt Nam Thịnh Vượng (VPBank)</option>
+            <option value="CTG">CTG — Ngân hàng TMCP Công thương Việt Nam (VietinBank)</option>
+            <option value="MBB">MBB — Ngân hàng TMCP Quân Đội (MBBank)</option>
+            <option value="TCB">TCB — Ngân hàng TMCP Kỹ Thương Việt Nam (Techcombank)</option>
+            <option value="VCB">VCB — Ngân hàng TMCP Ngoại Thương Việt Nam (Vietcombank)</option>
+            <option value="BIDV">BIDV — Ngân hàng TMCP Đầu tư và Phát triển VN</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Mã Đại Lý Ký Phát Hối Phiếu (*):</label>
+          <input type="text" id="inpBankBillPartnerCode" value="DLR-HYUNDAI-HADONG">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Tên Đại Lý Ký Phát Hối Phiếu:</label>
+          <input type="text" id="inpBankBillPartnerName" value="Đại lý Ô tô Hyundai Hà Đông">
+        </div>
+        <div class="col">
+          <label class="muted">Ngày Lập Biên Bản Bàn Giao:</label>
+          <input type="date" id="inpBankBillDate">
+        </div>
+        <div class="col">
+          <label class="muted">Ngày In / Xuất Trình Hối Phiếu:</label>
+          <input type="date" id="inpBankBillPrintDate">
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <label class="muted">Diễn Giải / Căn Cứ Hợp Đồng Hạn Mức Tín Dụng:</label>
+        <input type="text" id="inpBankBillRemark" value="Bàn giao hồ sơ gốc xe kèm Hối phiếu tài trợ thương mại theo hạn mức bảo lãnh ngân hàng">
+      </div>
+
+      <div style="margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="muted">Danh sách xe &amp; chứng từ gốc bàn giao (VIN, Model, Số máy, Số CO, Tờ khai HQ, Hóa đơn VAT, Tiền hối phiếu) [JSON]:</label>
+          <button class="secondary" type="button" onclick="loadSampleBankBillData()">Nạp Dữ Liệu Xe Mẫu</button>
+        </div>
+        <textarea id="inpBankBillItemsJson" rows="8" style="font-family:monospace; font-size:.85em;"></textarea>
+      </div>
+
+      <div style="margin-top:16px;">
+        <button type="button" onclick="submitBankBill()">Khởi Tạo Biên Bản Bàn Giao Hối Phiếu</button>
+        <span id="submitBankBillMsg" style="margin-left:12px;" class="muted"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Xem & In Mẫu Hối Phiếu Ngân Hàng (Bill of Exchange Advice) -->
+  <div id="modalBillAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:820px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.25em;">HỐI PHIẾU ĐÒI NỢ THƯƠNG MẠI / BILL OF EXCHANGE</h2>
+        <button class="secondary" onclick="closeBillAdviceModal()">Đóng [X]</button>
+      </div>
+      <div id="billAdviceContent" style="margin-top:16px; font-size:.9em; line-height:1.6;"></div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('billAdviceContent').innerText); alert('Đã sao chép nội dung Hối phiếu vào clipboard!');">Sao Chép Nội Dung</button>
+        <button onclick="window.print()">In Hối Phiếu</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB 5: API Docs -->
   <div id="tab-apiDocs" style="display:none;">
     <div class="card">
@@ -1346,6 +1536,20 @@
         <li><code>POST /api/payment-orders/update-rates</code> — Cập nhật nhanh lãi suất vay &amp; kỳ hạn vay theo lô (FrmUpdate_Pmt_Payment)</li>
         <li><code>GET /api/payment-orders/summary</code> — Báo cáo tổng hợp số liệu thanh toán, phân rã theo hình thức &amp; nguồn vốn</li>
       </ul>
+      <h3>Nghiệp Vụ Hối Phiếu &amp; Bàn Giao Xe Ngân Hàng (Bank Acceptance Draft / Bill of Exchange Handover - BizHTC.Payment)</h3>
+      <ul>
+        <li><code>POST /api/bank-bills</code> — Lập biên bản bàn giao xe &amp; chứng từ theo hối phiếu mới (Car_BankBillMinutes_Add / FrmTaoBBBGTheoHoiPhieu)</li>
+        <li><code>GET /api/bank-bills</code> — Danh sách biên bản bàn giao hối phiếu (lọc theo <code>status</code>, <code>bankCode</code>, <code>partnerCode</code>)</li>
+        <li><code>GET /api/bank-bills/{id}</code> — Chi tiết 1 biên bản kèm toàn bộ danh sách hồ sơ xe (VIN, CO, CQ, tờ khai HQ, HĐ VAT)</li>
+        <li><code>POST /api/bank-bills/{id}/handover</code> — Xuất trình và bàn giao bộ chứng từ gốc sang Ngân hàng</li>
+        <li><code>POST /api/bank-bills/{id}/bank-receive</code> — Ngân hàng xác nhận tiếp nhận đủ hồ sơ gốc xe theo hối phiếu</li>
+        <li><code>POST /api/bank-bills/{id}/settle</code> — Quyết toán hoàn tất thanh toán hối phiếu khi dòng tiền đã chuyển đủ</li>
+        <li><code>POST /api/bank-bills/{id}/cancel</code> — Hủy biên bản bàn giao xe theo hối phiếu</li>
+        <li><code>GET /api/bank-bills/{id}/bill-advice</code> — Sinh dữ liệu mẫu in Hối phiếu thương mại ngân hàng (Bank Draft Advice)</li>
+        <li><code>POST /api/bank-bills/{id}/import-vins</code> — Bổ sung danh sách xe VIN vào biên bản hiện có</li>
+        <li><code>DELETE /api/bank-bills/{id}/vins/{detailId}</code> — Xóa 1 xe khỏi biên bản bàn giao</li>
+        <li><code>GET /api/bank-bills/summary</code> — Báo cáo tổng hợp số liệu biên bản bàn giao hối phiếu</li>
+      </ul>
     </div>
   </div>
 
@@ -1362,6 +1566,7 @@
       document.getElementById('tab-guarantee').style.display = tabName === 'guarantee' ? 'block' : 'none';
       document.getElementById('tab-mortgage').style.display = tabName === 'mortgage' ? 'block' : 'none';
       document.getElementById('tab-paymentOrder').style.display = tabName === 'paymentOrder' ? 'block' : 'none';
+      document.getElementById('tab-bankBill').style.display = tabName === 'bankBill' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -1369,6 +1574,7 @@
       document.getElementById('tab-newMortgage').style.display = tabName === 'newMortgage' ? 'block' : 'none';
       document.getElementById('tab-newRedeem').style.display = tabName === 'newRedeem' ? 'block' : 'none';
       document.getElementById('tab-newPaymentOrder').style.display = tabName === 'newPaymentOrder' ? 'block' : 'none';
+      document.getElementById('tab-newBankBill').style.display = tabName === 'newBankBill' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
@@ -1379,14 +1585,16 @@
           (tabName === 'guarantee' && i === 3) ||
           (tabName === 'mortgage' && i === 4) ||
           (tabName === 'paymentOrder' && i === 5) ||
-          (tabName === 'newBatch' && i === 6) ||
-          (tabName === 'newPayout' && i === 7) ||
-          (tabName === 'newDiscount' && i === 8) ||
-          (tabName === 'newGuarantee' && i === 9) ||
-          (tabName === 'newMortgage' && i === 10) ||
-          (tabName === 'newRedeem' && i === 11) ||
-          (tabName === 'newPaymentOrder' && i === 12) ||
-          (tabName === 'apiDocs' && i === 13));
+          (tabName === 'bankBill' && i === 6) ||
+          (tabName === 'newBatch' && i === 7) ||
+          (tabName === 'newPayout' && i === 8) ||
+          (tabName === 'newDiscount' && i === 9) ||
+          (tabName === 'newGuarantee' && i === 10) ||
+          (tabName === 'newMortgage' && i === 11) ||
+          (tabName === 'newRedeem' && i === 12) ||
+          (tabName === 'newPaymentOrder' && i === 13) ||
+          (tabName === 'newBankBill' && i === 14) ||
+          (tabName === 'apiDocs' && i === 15));
       });
 
       if (tabName === 'reconcile') loadBatches();
@@ -1395,6 +1603,7 @@
       else if (tabName === 'guarantee') loadGuarantees();
       else if (tabName === 'mortgage') { loadMortgages(); loadRedeems(); }
       else if (tabName === 'paymentOrder') loadPaymentOrders();
+      else if (tabName === 'bankBill') loadBankBills();
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====
@@ -3331,6 +3540,525 @@
     };
     initPaymentOrderDates();
     loadSamplePaymentOrderData();
+
+    // ===== HỐI PHIẾU & BÀN GIAO XE NGÂN HÀNG (BANK BILL OF EXCHANGE / BBBG) =====
+    async function loadBankBillSummary() {
+      try {
+        const res = await fetch('/api/bank-bills/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng BBBG hối phiếu';
+        document.getElementById('stat1').textContent = d.totalMinutes;
+        document.getElementById('statLabel2').textContent = 'Tổng xe bàn giao';
+        document.getElementById('stat2').textContent = `${d.totalVehicles} xe (NH nhận: ${d.bankReceivedVehicles})`;
+        document.getElementById('statLabel3').textContent = 'Tiền hối phiếu';
+        document.getElementById('stat3').textContent = (d.totalClaimAmount >= 1e9 ? (d.totalClaimAmount / 1e9).toFixed(2) + ' tỷ' : Number(d.totalClaimAmount).toLocaleString('vi-VN') + ' đ');
+        document.getElementById('statLabel4').textContent = 'Đã quyết toán';
+        document.getElementById('stat4').textContent = (d.settledAmount >= 1e9 ? (d.settledAmount / 1e9).toFixed(2) + ' tỷ' : Number(d.settledAmount).toLocaleString('vi-VN') + ' đ');
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadBankBills() {
+      await loadBankBillSummary();
+      const status = document.getElementById('filterBankBillStatus').value;
+      const bank = document.getElementById('filterBankBillBank').value;
+      const partner = document.getElementById('filterBankBillPartner').value.trim();
+
+      let url = '/api/bank-bills?';
+      if (status) url += 'status=' + encodeURIComponent(status) + '&';
+      if (bank) url += 'bankCode=' + encodeURIComponent(bank) + '&';
+      if (partner) url += 'partnerCode=' + encodeURIComponent(partner) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('bankBillTableBody');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="10" class="muted" style="text-align:center;">Chưa có biên bản bàn giao hối phiếu nào phù hợp.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(b => {
+          let badge = 'badge-info';
+          let stText = b.status;
+          if (b.status === 'Settled') { badge = 'badge-success'; stText = 'Đã Quyết Toán'; }
+          else if (b.status === 'BankReceived') { badge = 'badge-success'; stText = 'NH Đã Nhận Gốc'; }
+          else if (b.status === 'Delivered') { badge = 'badge-info'; stText = 'Đã Xuất Trình'; }
+          else if (b.status === 'PendingHandover') { badge = 'badge-warning'; stText = 'Chờ Bàn Giao'; }
+          else if (b.status === 'Draft') { badge = 'muted'; stText = 'Nháp'; }
+          else if (b.status === 'Cancelled') { badge = 'muted'; stText = 'Đã Hủy'; }
+
+          return `
+            <tr>
+              <td><strong>${b.bankBillMnNo}</strong><br><small class="muted">${b.createdBy || ''}</small></td>
+              <td><strong>${b.bankCode}</strong><br><small class="muted">${b.bankName || ''}</small></td>
+              <td>${b.partnerName}<br><code class="muted">${b.partnerCode}</code></td>
+              <td>${b.bankBillDate ? b.bankBillDate.slice(0, 10) : '-'}</td>
+              <td>${b.bankBillPrintDate ? b.bankBillPrintDate.slice(0, 10) : '-'}</td>
+              <td>${b.bankBillReciveDate ? `<strong style="color:var(--success);">${b.bankBillReciveDate.slice(0, 10)}</strong>` : '<span class="muted">-</span>'}</td>
+              <td><span class="badge badge-info">${b.totalVehicles} xe</span></td>
+              <td><strong style="color:var(--primary);">${Number(b.totalClaimAmount).toLocaleString('vi-VN')} đ</strong></td>
+              <td><span class="badge ${badge}">${stText}</span></td>
+              <td>
+                <button class="secondary" onclick="viewBankBillDetail(${b.id})">Chi tiết</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    let activeBankBillId = null;
+
+    async function viewBankBillDetail(id) {
+      activeBankBillId = id;
+      try {
+        const res = await fetch(`/api/bank-bills/${id}`, { headers });
+        if (!res.ok) { alert('Không tìm thấy biên bản.'); return; }
+        const b = await res.json();
+
+        const card = document.getElementById('bankBillDetailCard');
+        card.style.display = 'block';
+        card.scrollIntoView({ behavior: 'smooth' });
+
+        document.getElementById('bankBillDetailTitle').textContent = `Biên Bản BBBG: ${b.bankBillMnNo} (${b.bankCode} - ${b.partnerCode})`;
+        document.getElementById('bankBillDetailSubtitle').textContent = `Đại lý: ${b.partnerName} | Ngân hàng: ${b.bankName} | Tổng: ${b.totalVehicles} xe — ${Number(b.totalClaimAmount).toLocaleString('vi-VN')} đ | Trạng thái: ${b.status}`;
+
+        // Audit box
+        const audit = document.getElementById('bankBillAuditBox');
+        audit.style.display = 'block';
+        audit.innerHTML = `
+          <strong>Nhật ký luân chuyển chứng từ:</strong> Lập bởi <strong>${b.createdBy || '-'}</strong> (${b.createdAt ? b.createdAt.slice(0,19).replace('T',' ') : '-'})
+          | Xuất trình bàn giao: <strong>${b.handedOverBy || '-'}</strong> (${b.handedOverAt ? b.handedOverAt.slice(0,19).replace('T',' ') : '-'})
+          | Ngân hàng tiếp nhận: <strong>${b.bankReceivedBy || '-'}</strong> (${b.bankReceivedAt ? b.bankReceivedAt.slice(0,19).replace('T',' ') : '-'})
+          | Quyết toán: <strong>${b.settledBy || '-'}</strong> (${b.settledAt ? b.settledAt.slice(0,19).replace('T',' ') : '-'})
+          ${b.cancelledAt ? `<br><span style="color:var(--danger);">Biên bản đã hủy lúc ${b.cancelledAt.slice(0,19).replace('T',' ')}</span>` : ''}
+          ${b.remark ? `<br><em>Ghi chú: ${b.remark}</em>` : ''}
+        `;
+
+        // Buttons
+        const btnHandover = document.getElementById('btnHandoverBankBill');
+        const btnReceive = document.getElementById('btnBankReceiveBankBill');
+        const btnSettle = document.getElementById('btnSettleBankBill');
+        const btnCancel = document.getElementById('btnCancelBankBill');
+        const btnAddVin = document.getElementById('btnAddVinToBankBill');
+        const btnBillAdvice = document.getElementById('btnViewBillAdvice');
+
+        btnHandover.style.display = (b.status === 'PendingHandover' || b.status === 'Draft') ? 'inline-block' : 'none';
+        btnHandover.onclick = () => handoverBankBill(b.id);
+
+        btnReceive.style.display = (b.status === 'Delivered' || b.status === 'PendingHandover') ? 'inline-block' : 'none';
+        btnReceive.onclick = () => bankReceiveBankBill(b.id);
+
+        btnSettle.style.display = (b.status === 'BankReceived' || b.status === 'Delivered') ? 'inline-block' : 'none';
+        btnSettle.onclick = () => settleBankBill(b.id);
+
+        btnCancel.style.display = (b.status !== 'Settled' && b.status !== 'Cancelled') ? 'inline-block' : 'none';
+        btnCancel.onclick = () => cancelBankBill(b.id);
+
+        btnAddVin.style.display = (b.status === 'PendingHandover' || b.status === 'Draft') ? 'inline-block' : 'none';
+        btnAddVin.onclick = () => promptAddVin(b.id);
+
+        btnBillAdvice.onclick = () => openBillAdviceModal(b.id);
+
+        // Details table
+        const tbody = document.getElementById('bankBillDetailTableBody');
+        const details = b.details || [];
+        if (!details.length) {
+          tbody.innerHTML = '<tr><td colspan="13" class="muted" style="text-align:center;">Biên bản chưa có xe nào.</td></tr>';
+          return;
+        }
+
+        const canDeleteVin = (b.status === 'PendingHandover' || b.status === 'Draft');
+
+        tbody.innerHTML = details.map((d, idx) => {
+          let itemBadge = 'badge-info';
+          if (d.status === 'BankVerified') itemBadge = 'badge-success';
+          else if (d.status === 'Delivered') itemBadge = 'badge-info';
+          else if (d.status === 'Pending') itemBadge = 'badge-warning';
+          else if (d.status === 'Cancelled') itemBadge = 'muted';
+
+          return `
+            <tr>
+              <td>${idx + 1}</td>
+              <td><code><strong>${d.vin}</strong></code></td>
+              <td>${d.specDescription || d.modelCode}<br><small class="muted">${d.specCode || d.modelCode}</small></td>
+              <td><code>${d.engineNo || '-'}</code></td>
+              <td><code>${d.coNo || '-'}</code>${d.cabinCONo ? `<br><small class="muted">Cabin: ${d.cabinCONo}</small>` : ''}</td>
+              <td><code>${d.declarationNo || '-'}</code></td>
+              <td>${d.bankGuaranteeNo ? `<span class="badge badge-info">${d.bankGuaranteeNo}</span>` : '-'}</td>
+              <td><code>${d.htcInvoiceNo || d.tcgInvoiceNo || '-'}</code></td>
+              <td><strong style="color:var(--primary);">${Number(d.claimAmount).toLocaleString('vi-VN')} đ</strong></td>
+              <td><small>${d.numberOfDaysDeferred} ngày</small></td>
+              <td><span class="badge ${itemBadge}">${d.status}</span></td>
+              <td><small class="muted">${d.note || '-'}</small></td>
+              <td>
+                ${canDeleteVin ? `<button class="danger" style="padding:2px 8px; font-size:.8em;" onclick="deleteBankBillVin(${b.id}, ${d.id})">Xóa</button>` : '-'}
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function handoverBankBill(id) {
+      const handedOverBy = prompt('Nhập tên cán bộ thực hiện bàn giao hồ sơ sang Ngân hàng:', 'ChuyenVienGiaoNhan');
+      if (!handedOverBy) return;
+      const note = prompt('Ghi chú bàn giao hồ sơ (tùy chọn):', 'Bàn giao đầy đủ CO bản gốc, tờ khai HQ và hóa đơn VAT');
+
+      try {
+        const res = await fetch(`/api/bank-bills/${id}/handover`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ handedOverBy, note })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã cập nhật trạng thái xuất trình bàn giao chứng từ sang Ngân hàng thành công!');
+        await loadBankBills();
+        await viewBankBillDetail(id);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function bankReceiveBankBill(id) {
+      const receivedBy = prompt('Tên cán bộ/giao dịch viên Ngân hàng ký nhận:', 'GDV-NganHang');
+      if (!receivedBy) return;
+      const recDate = prompt('Ngày ngân hàng tiếp nhận chứng từ (YYYY-MM-DD):', new Date().toISOString().slice(0, 10));
+      const note = prompt('Ghi chú xác nhận của Ngân hàng (tùy chọn):', 'Đã nhận đủ hồ sơ gốc kiểm tra xuất xưởng CO và tờ khai hải quan');
+
+      try {
+        const res = await fetch(`/api/bank-bills/${id}/bank-receive`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ receiveDate: recDate, receivedBy, note })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Ngân hàng đã ký nhận đủ hồ sơ gốc xe thành công!');
+        await loadBankBills();
+        await viewBankBillDetail(id);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function settleBankBill(id) {
+      if (!confirm('Xác nhận hoàn tất quyết toán hối phiếu này (đã nhận đủ tiền từ ngân hàng / đại lý)?')) return;
+      const settlerName = prompt('Người xác nhận quyết toán hối phiếu:', 'KeToanTruong');
+      const note = prompt('Ghi chú quyết toán (tùy chọn):', 'Tất toán hoàn tất thu hồi tiền hối phiếu');
+
+      try {
+        const res = await fetch(`/api/bank-bills/${id}/settle`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ settlerName, note })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Quyết toán hối phiếu thành công!');
+        await loadBankBills();
+        await viewBankBillDetail(id);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function cancelBankBill(id) {
+      const reason = prompt('Nhập lý do hủy biên bản bàn giao hối phiếu:');
+      if (!reason) return;
+
+      try {
+        const res = await fetch(`/api/bank-bills/${id}/cancel`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ reason })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã hủy biên bản thành công!');
+        await loadBankBills();
+        await viewBankBillDetail(id);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function deleteBankBillVin(minutesId, detailId) {
+      if (!confirm('Xác nhận xóa xe này khỏi biên bản bàn giao hối phiếu?')) return;
+      try {
+        const res = await fetch(`/api/bank-bills/${minutesId}/vins/${detailId}`, {
+          method: 'DELETE',
+          headers
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã xóa xe khỏi biên bản.');
+        await loadBankBills();
+        await viewBankBillDetail(minutesId);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function promptAddVin(minutesId) {
+      const vin = prompt('Nhập số khung xe (VIN 17 ký tự):');
+      if (!vin) return;
+      const model = prompt('Nhập Model xe (ví dụ: SANTAFE, TUCSON, CRETA):', 'SANTAFE');
+      const amountStr = prompt('Nhập giá trị thanh toán theo hối phiếu (VND):', '1200000000');
+      const claimAmount = parseInt(amountStr) || 0;
+      const coNo = prompt('Nhập số Phiếu kiểm tra chất lượng xuất xưởng CO:', 'CO-2025-HTC-' + Math.floor(Math.random() * 90000 + 10000));
+      const declarationNo = prompt('Nhập số Tờ khai HQ:', 'TKHQ-' + Math.floor(Math.random() * 9000000 + 1000000));
+
+      const newItem = [{
+        vin: vin.trim().toUpperCase(),
+        modelCode: model,
+        specCode: model,
+        specDescription: 'Hyundai ' + model,
+        coNo: coNo,
+        declarationNo: declarationNo,
+        claimAmount: claimAmount,
+        numberOfDaysDeferred: 30,
+        note: 'Bổ sung xe vào biên bản'
+      }];
+
+      try {
+        const res = await fetch(`/api/bank-bills/${minutesId}/import-vins`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ items: newItem })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã bổ sung xe vào biên bản thành công!');
+        await loadBankBills();
+        await viewBankBillDetail(minutesId);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function openBillAdviceModal(id) {
+      try {
+        const res = await fetch(`/api/bank-bills/${id}/bill-advice`, { headers });
+        if (!res.ok) { alert('Không thể tạo mẫu Hối phiếu.'); return; }
+        const u = await res.json();
+
+        const vList = u.vehicles || [];
+        const vRows = vList.map((v, i) => `
+          <tr>
+            <td style="border:1px solid var(--border); padding:4px 8px; text-align:center;">${i+1}</td>
+            <td style="border:1px solid var(--border); padding:4px 8px;"><code>${v.vin}</code></td>
+            <td style="border:1px solid var(--border); padding:4px 8px;">${v.specDescription || v.modelCode}</td>
+            <td style="border:1px solid var(--border); padding:4px 8px;"><code>${v.coNo || '-'}</code></td>
+            <td style="border:1px solid var(--border); padding:4px 8px;"><code>${v.declarationNo || '-'}</code></td>
+            <td style="border:1px solid var(--border); padding:4px 8px; text-align:right;"><strong>${Number(v.claimAmount).toLocaleString('vi-VN')} đ</strong></td>
+          </tr>
+        `).join('');
+
+        const content = `
+          <div style="border:1px solid var(--border); padding:18px; border-radius:6px; background:rgba(127,127,127,.04);">
+            <div style="text-align:center; margin-bottom:14px; border-bottom:2px solid var(--border); padding-bottom:10px;">
+              <h2 style="margin:0; letter-spacing:1px; color:var(--primary);">HỐI PHIẾU THƯƠNG MẠI / BILL OF EXCHANGE</h2>
+              <div style="margin-top:4px; font-style:italic;" class="muted">(Ký phát theo Luật các công cụ chuyển nhượng và Quy định thanh toán ngân hàng)</div>
+            </div>
+
+            <div style="display:flex; justify-content:space-between; margin-bottom:12px; font-size:.92em;">
+              <div><strong>Số Hối phiếu:</strong> <code>${u.billNo}</code></div>
+              <div><strong>Số Biên bản BBBG:</strong> <code>${u.minutesNo}</code></div>
+              <div><strong>Ngày ký phát:</strong> ${u.issueDate ? u.issueDate.slice(0, 10) : '-'}</div>
+              <div><strong>Nơi ký phát:</strong> ${u.issuePlace}</div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:16px; margin-bottom:14px; border-top:1px dashed var(--border); border-bottom:1px dashed var(--border); padding:12px 0;">
+              <div>
+                <h4 style="margin:0 0 6px; color:var(--primary);">1. BÊN KÝ PHÁT HỐI PHIẾU (DRAWER):</h4>
+                <div><strong>Đại lý:</strong> ${u.drawerName}</div>
+                <div><strong>Mã đại lý:</strong> <code>${u.drawerCode}</code></div>
+                <div><strong>Địa chỉ:</strong> ${u.drawerAddress}</div>
+              </div>
+              <div>
+                <h4 style="margin:0 0 6px; color:var(--success);">2. NGƯỜI THỤ HƯỞNG (PAYEE):</h4>
+                <div><strong>Doanh nghiệp:</strong> ${u.payeeName}</div>
+                <div><strong>Mã số thuế:</strong> <code>${u.payeeTaxCode}</code></div>
+                <div><strong>Địa chỉ:</strong> ${u.payeeAddress}</div>
+              </div>
+            </div>
+
+            <div style="margin-bottom:12px; background:rgba(56,189,248,.08); padding:12px; border-radius:6px;">
+              <h4 style="margin:0 0 6px; color:var(--warning);">3. NGÂN HÀNG BỊ KÝ PHÁT / THANH TOÁN (DRAWEE BANK):</h4>
+              <div><strong>Tên ngân hàng:</strong> ${u.draweeBankName} (Mã: <code>${u.draweeBankCode}</code>)</div>
+              <div style="margin-top:6px;"><strong>Căn cứ hạn mức bảo lãnh:</strong> ${u.guaranteeSummary}</div>
+            </div>
+
+            <div style="margin-bottom:14px; padding:12px; border:1px solid var(--border); border-radius:6px; background:rgba(0,0,0,.15);">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <div><strong>Số tiền bằng số (Amount in figures):</strong></div>
+                <div><span style="font-size:1.35em; font-weight:700; color:var(--primary);">${Number(u.amountFigures).toLocaleString('vi-VN')} VND</span></div>
+              </div>
+              <div style="margin-top:8px;">
+                <strong>Số tiền bằng chữ (Amount in words):</strong><br>
+                <em style="font-size:1.05em; color:var(--text);"><strong>${u.amountWords}</strong></em>
+              </div>
+            </div>
+
+            <div style="margin-bottom:14px; font-size:.92em; line-height:1.6; padding:10px; background:rgba(127,127,127,.05); border-left:3px solid var(--primary);">
+              <strong>Lệnh thanh toán (Tenor Clause):</strong><br>
+              ${u.tenorClause}
+            </div>
+
+            <div style="margin-bottom:14px;">
+              <strong>Danh mục ${u.totalVehicles} xe bảo đảm bàn giao theo hối phiếu:</strong>
+              <div style="overflow-x:auto; margin-top:6px;">
+                <table style="width:100%; border-collapse:collapse; font-size:.85em;">
+                  <thead>
+                    <tr style="background:rgba(127,127,127,.1);">
+                      <th style="border:1px solid var(--border); padding:4px 8px;">#</th>
+                      <th style="border:1px solid var(--border); padding:4px 8px;">Số Khung (VIN)</th>
+                      <th style="border:1px solid var(--border); padding:4px 8px;">Dòng Xe</th>
+                      <th style="border:1px solid var(--border); padding:4px 8px;">Số CO</th>
+                      <th style="border:1px solid var(--border); padding:4px 8px;">Tờ Khai HQ</th>
+                      <th style="border:1px solid var(--border); padding:4px 8px;">Tiền Hối Phiếu</th>
+                    </tr>
+                  </thead>
+                  <tbody>${vRows}</tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns: 1fr 1fr 1fr; gap:10px; text-align:center; margin-top:24px; padding-top:16px; border-top:1px solid var(--border);">
+              <div>
+                <strong>ĐẠI LÝ KÝ PHÁT</strong><br><small class="muted">(Ký, ghi rõ họ tên, đóng dấu)</small><br><br><br><br>
+                <span><strong>${u.drawerName}</strong></span>
+              </div>
+              <div>
+                <strong>CÁN BỘ QUẢN LÝ TÍN DỤNG</strong><br><small class="muted">(Ký, kiểm soát hồ sơ gốc)</small><br><br><br><br>
+                <span><em>Đã kiểm tra CO / CQ / HQ</em></span>
+              </div>
+              <div>
+                <strong>NGÂN HÀNG CHẤP NHẬN TT</strong><br><small class="muted">(Ký, đóng dấu chấp nhận)</small><br><br><br><br>
+                <span><strong>${u.draweeBankName}</strong></span>
+              </div>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('billAdviceContent').innerHTML = content;
+        document.getElementById('modalBillAdvice').style.display = 'block';
+      } catch(e) { console.error(e); }
+    }
+
+    function closeBillAdviceModal() {
+      document.getElementById('modalBillAdvice').style.display = 'none';
+    }
+
+    function loadSampleBankBillData() {
+      const sample = [
+        {
+          "vin": "KMHD841CBPU129841",
+          "modelCode": "SANTAFE-CALLIGRAPHY",
+          "specCode": "TM24-2.5T-AWD",
+          "specDescription": "Hyundai Santa Fe 2.5T Calligraphy HTRAC 2025",
+          "engineNo": "G4KP-PU892341",
+          "coNo": "CO-2025-HTC-88124",
+          "cabinCONo": "CAB-2025-88124",
+          "declarationNo": "TKHQ-1049281923",
+          "bankGuaranteeNo": "BL-VPB-2025-001",
+          "htcInvoiceNo": "INV-HTC-0091823",
+          "tcgInvoiceNo": "INV-TCG-004123",
+          "transportMinutesNo": "BBVC-2025-0511",
+          "claimAmount": 1369000000,
+          "numberOfDaysDeferred": 45,
+          "note": "Đủ bản gốc CO, Đăng kiểm chất lượng CQ, Tờ khai Hải Quan"
+        },
+        {
+          "vin": "KMHD841CBPU129842",
+          "modelCode": "TUCSON-TURBO",
+          "specCode": "NX4-1.6T-AWD",
+          "specDescription": "Hyundai Tucson 1.6 T-GDi Turbo 2025",
+          "engineNo": "G4FP-TU551299",
+          "coNo": "CO-2025-HTC-88125",
+          "cabinCONo": "CAB-2025-88125",
+          "declarationNo": "TKHQ-1049281924",
+          "bankGuaranteeNo": "BL-VPB-2025-001",
+          "htcInvoiceNo": "INV-HTC-0091824",
+          "tcgInvoiceNo": "INV-TCG-004124",
+          "transportMinutesNo": "BBVC-2025-0511",
+          "claimAmount": 959000000,
+          "numberOfDaysDeferred": 45,
+          "note": "Đủ bản gốc CO, Phiếu xuất xưởng bản chính, Hóa đơn VAT HTC"
+        }
+      ];
+      document.getElementById('inpBankBillItemsJson').value = JSON.stringify(sample, null, 2);
+    }
+
+    async function submitBankBill() {
+      const msg = document.getElementById('submitBankBillMsg');
+      try {
+        const rawJson = document.getElementById('inpBankBillItemsJson').value.trim();
+        const items = rawJson ? JSON.parse(rawJson) : [];
+        if (!items.length) { alert('Vui lòng nhập ít nhất 1 dòng xe bàn giao chứng từ.'); return; }
+
+        const bankSelect = document.getElementById('inpBankBillBankCode');
+        const bankCode = bankSelect.value.trim();
+        const bankName = bankSelect.options[bankSelect.selectedIndex].text;
+
+        const payload = {
+          bankBillMnNo: document.getElementById('inpBankBillMnNo').value.trim() || null,
+          bankCode: bankCode,
+          bankName: bankName,
+          partnerCode: document.getElementById('inpBankBillPartnerCode').value.trim(),
+          partnerName: document.getElementById('inpBankBillPartnerName').value.trim(),
+          bankBillDate: document.getElementById('inpBankBillDate').value || null,
+          bankBillPrintDate: document.getElementById('inpBankBillPrintDate').value || null,
+          remark: document.getElementById('inpBankBillRemark').value.trim(),
+          items: items
+        };
+
+        if (!payload.bankCode) { alert('Vui lòng chọn ngân hàng nhận hối phiếu.'); return; }
+        if (!payload.partnerCode) { alert('Vui lòng nhập mã đối tác/đại lý.'); return; }
+
+        msg.textContent = 'Đang kiểm tra và khởi tạo biên bản bàn giao hối phiếu...';
+        const res = await fetch('/api/bank-bills', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Biên bản: ${data.bankBillMnNo} (Tổng xe: ${data.totalVehicles}, Tiền: ${Number(data.totalClaimAmount).toLocaleString('vi-VN')} đ)`;
+        setTimeout(() => {
+          showTab('bankBill');
+          viewBankBillDetail(data.id);
+        }, 800);
+      } catch(e) {
+        msg.textContent = 'Lỗi cú pháp JSON: ' + e.message;
+      }
+    }
+
+    const initBankBillDates = () => {
+      const today = new Date().toISOString().slice(0, 10);
+      const elDate = document.getElementById('inpBankBillDate');
+      const elPrint = document.getElementById('inpBankBillPrintDate');
+      if (elDate) elDate.value = today;
+      if (elPrint) elPrint.value = today;
+    };
+    initBankBillDates();
+    loadSampleBankBillData();
 
     // Khởi tạo
     loadSampleData();

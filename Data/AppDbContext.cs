@@ -21,6 +21,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<RedeemDetail> RedeemDetails => Set<RedeemDetail>();
     public DbSet<PaymentOrder> PaymentOrders => Set<PaymentOrder>();
     public DbSet<PaymentOrderDetail> PaymentOrderDetails => Set<PaymentOrderDetail>();
+    public DbSet<BankBillMinutes> BankBillMinutes => Set<BankBillMinutes>();
+    public DbSet<BankBillMinutesDetail> BankBillMinutesDetails => Set<BankBillMinutesDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -91,5 +93,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<PaymentOrderDetail>().Property(x => x.Status).HasConversion<int>();
         b.Entity<PaymentOrderDetail>().HasIndex(x => x.PaymentOrderId);
         b.Entity<PaymentOrderDetail>().HasIndex(x => new { x.OrgId, x.ItemRefNo });
+
+        b.Entity<BankBillMinutes>().HasIndex(x => new { x.OrgId, x.BankBillMnNo }).IsUnique();
+        b.Entity<BankBillMinutes>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<BankBillMinutes>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.MinutesId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<BankBillMinutesDetail>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<BankBillMinutesDetail>().HasIndex(x => x.MinutesId);
+        b.Entity<BankBillMinutesDetail>().HasIndex(x => new { x.OrgId, x.VIN });
     }
 }
