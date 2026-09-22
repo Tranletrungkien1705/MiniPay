@@ -39,6 +39,7 @@ builder.Services.AddScoped<LatePaymentPenaltyService>();
 builder.Services.AddScoped<TransportInsPaymentService>();
 builder.Services.AddScoped<PaymentStorageService>();
 builder.Services.AddScoped<GuaranteeExtensionService>();
+builder.Services.AddScoped<BankGuaranteeClaimService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -4295,6 +4296,252 @@ app.MapGet("/api/guarantee-extensions/summary", async (GuaranteeExtensionService
     return Results.Ok(summary);
 });
 
+// ===== Quản Lý Hồ Sơ & Công Văn Đòi Tiền Bảo Lãnh Ngân Hàng (Bank Guarantee Default Claim / Pmt_GrtClaim) =====
+
+// 1) Lấy danh sách hồ sơ công văn đòi bảo lãnh (Pmt_GrtClaimGet)
+app.MapGet("/api/guarantee-claims", async (
+    string? dealerCode,
+    string? bankCode,
+    string? status,
+    string? flagIsHTC,
+    string? vin,
+    BankGuaranteeClaimService claimService,
+    ITenantContext tc) =>
+{
+    var list = await claimService.GetClaimsAsync(tc.OrgId, dealerCode, bankCode, status, flagIsHTC, vin);
+    return Results.Ok(list.Select(c => new
+    {
+        c.Id,
+        c.ClaimNo,
+        c.DealerCode,
+        c.DealerName,
+        c.BankCode,
+        c.BankName,
+        c.BankCodeMonitor,
+        c.FlagIsHTC,
+        c.TotalCarCount,
+        c.TotalClaimAmount,
+        c.SettledAmount,
+        status = c.Status.ToString(),
+        signCAStatus = c.SignCAStatus.ToString(),
+        c.SignedBy,
+        c.SignedAt,
+        c.SentToBankAt,
+        c.BankRefNo,
+        c.SettledAt,
+        c.SettledBy,
+        c.BankTxnRef,
+        c.BankRejectReason,
+        c.CancelledAt,
+        c.CancelReason,
+        c.Remark,
+        c.CreatedBy,
+        c.CreatedAt
+    }));
+});
+
+// 2) Báo cáo dashboard tổng hợp công văn đòi bảo lãnh
+app.MapGet("/api/guarantee-claims/summary", async (BankGuaranteeClaimService claimService, ITenantContext tc) =>
+{
+    var summary = await claimService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
+// 3) Chi tiết 1 công văn đòi bảo lãnh kèm danh mục xe ô tô (Pmt_GrtClaimDetail)
+app.MapGet("/api/guarantee-claims/{id:long}", async (long id, BankGuaranteeClaimService claimService, ITenantContext tc) =>
+{
+    var claim = await claimService.GetClaimByIdAsync(id, tc.OrgId);
+    if (claim == null) return Results.NotFound(new { error = $"Không tìm thấy công văn đòi bảo lãnh #{id}." });
+    return Results.Ok(claim);
+});
+
+// 4) Sinh công văn mẫu in gửi ngân hàng kèm đọc số thành chữ tiếng Việt (CR_ClaimPM Advice)
+app.MapGet("/api/guarantee-claims/{id:long}/advice", async (long id, BankGuaranteeClaimService claimService, ITenantContext tc) =>
+{
+    var advice = await claimService.GenerateClaimAdviceAsync(id, tc.OrgId);
+    if (advice == null) return Results.NotFound(new { error = $"Không tìm thấy công văn #{id}." });
+    return Results.Ok(advice);
+});
+
+// 5) Tự động quét bảo lãnh quá hạn đề xuất lập công văn (Auto-Scan)
+app.MapPost("/api/guarantee-claims/auto-scan", async (AutoScanClaimRequestDto? dto, BankGuaranteeClaimService claimService, ITenantContext tc) =>
+{
+    var minDays = dto?.MinOverdueDays ?? 1;
+    var candidates = await claimService.AutoScanOverdueGuaranteesAsync(tc.OrgId, minDays);
+    return Results.Ok(candidates);
+});
+
+// 6) Lập công văn đòi bảo lãnh mới (Pmt_GrtClaimCreate_Multi_New20190312 / FrmNewGrtClaim)
+app.MapPost("/api/guarantee-claims", async (CreateGuaranteeClaimDto dto, BankGuaranteeClaimService claimService, ITenantContext tc) =>
+{
+    try
+    {
+        var claim = await claimService.CreateClaimAsync(
+            tc.OrgId,
+            dto.ClaimNo,
+            dto.DealerCode,
+            dto.DealerName,
+            dto.BankCode,
+            dto.BankName,
+            dto.BankCodeMonitor,
+            dto.FlagIsHTC ?? "1",
+            dto.Remark,
+            dto.CreatedBy,
+            dto.Items
+        );
+        return Results.Ok(claim);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 7) Trình Ban Pháp chế & Rủi ro tín dụng thẩm định (Draft -> Submitted)
+app.MapPost("/api/guarantee-claims/{id:long}/submit", async (long id, SubmitClaimDto? dto, BankGuaranteeClaimService claimService, ITenantContext tc) =>
+{
+    try
+    {
+        var claim = await claimService.SubmitForReviewAsync(id, tc.OrgId, dto?.SubmittedBy);
+        if (claim == null) return Results.NotFound(new { error = $"Không tìm thấy công văn #{id}." });
+        return Results.Ok(claim);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 8) Ký số điện tử CA phát hành công văn (Submitted -> SignedCA)
+app.MapPost("/api/guarantee-claims/{id:long}/sign-ca", async (long id, SignClaimCADto? dto, BankGuaranteeClaimService claimService, ITenantContext tc) =>
+{
+    try
+    {
+        var claim = await claimService.SignAndIssueCAAsync(id, tc.OrgId, dto?.SignedBy, dto?.CertThumbprint, dto?.FilePath);
+        if (claim == null) return Results.NotFound(new { error = $"Không tìm thấy công văn #{id}." });
+        return Results.Ok(claim);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 9) Gửi công văn đòi nợ tới Ngân hàng bảo lãnh (SignedCA -> SentToBank)
+app.MapPost("/api/guarantee-claims/{id:long}/send-to-bank", async (long id, SendClaimToBankDto? dto, BankGuaranteeClaimService claimService, ITenantContext tc) =>
+{
+    try
+    {
+        var claim = await claimService.SendToBankAsync(id, tc.OrgId, dto?.SentBy, dto?.BankRefNo);
+        if (claim == null) return Results.NotFound(new { error = $"Không tìm thấy công văn #{id}." });
+        return Results.Ok(claim);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 10) Ngân hàng giải ngân bồi hoàn tất toán thành công (SentToBank -> Settled)
+app.MapPost("/api/guarantee-claims/{id:long}/settle", async (long id, SettleClaimDto? dto, BankGuaranteeClaimService claimService, ITenantContext tc) =>
+{
+    try
+    {
+        var settledAmount = dto?.SettledAmount ?? 0;
+        var claim = await claimService.SettleClaimAsync(id, tc.OrgId, settledAmount, dto?.BankTxnRef, dto?.SettlerName);
+        if (claim == null) return Results.NotFound(new { error = $"Không tìm thấy công văn #{id}." });
+        return Results.Ok(claim);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 11) Ngân hàng từ chối chi trả bồi hoàn bảo lãnh (SentToBank -> BankRejected)
+app.MapPost("/api/guarantee-claims/{id:long}/bank-reject", async (long id, BankRejectClaimDto dto, BankGuaranteeClaimService claimService, ITenantContext tc) =>
+{
+    try
+    {
+        var claim = await claimService.BankRejectAsync(id, tc.OrgId, dto.Reason, dto.RejectedBy);
+        if (claim == null) return Results.NotFound(new { error = $"Không tìm thấy công văn #{id}." });
+        return Results.Ok(claim);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 12) Hủy công văn đòi nợ (Pmt_GrtClaim_Cancel / FrmNewGrtClaim.btnCancel)
+app.MapPost("/api/guarantee-claims/{id:long}/cancel", async (long id, CancelClaimDto? dto, BankGuaranteeClaimService claimService, ITenantContext tc) =>
+{
+    try
+    {
+        var claim = await claimService.CancelClaimAsync(id, tc.OrgId, dto?.CancelReason, dto?.CancelledBy);
+        if (claim == null) return Results.NotFound(new { error = $"Không tìm thấy công văn #{id}." });
+        return Results.Ok(claim);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 13) Bổ sung xe vào công văn nháp / đang trình duyệt (FrmNewGrtClaim.btnAddCar)
+app.MapPost("/api/guarantee-claims/{id:long}/vehicles", async (long id, AddClaimVehicleDto dto, BankGuaranteeClaimService claimService, ITenantContext tc) =>
+{
+    try
+    {
+        var claim = await claimService.AddVehicleAsync(id, tc.OrgId, dto.Vehicle);
+        return Results.Ok(claim);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 14) Xóa xe khỏi công văn nháp (FrmNewGrtClaim.btnRemoveCar)
+app.MapDelete("/api/guarantee-claims/{id:long}/vehicles/{detailId:long}", async (long id, long detailId, BankGuaranteeClaimService claimService, ITenantContext tc) =>
+{
+    try
+    {
+        var claim = await claimService.RemoveVehicleAsync(id, detailId, tc.OrgId);
+        return Results.Ok(claim);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 15) Xóa công văn nháp (GrtClaimDelete_New20181115)
+app.MapDelete("/api/guarantee-claims/{id:long}", async (long id, BankGuaranteeClaimService claimService, ITenantContext tc) =>
+{
+    try
+    {
+        await claimService.DeleteDraftAsync(id, tc.OrgId);
+        return Results.Ok(new { message = $"Đã xóa công văn đòi nợ bảo lãnh #{id} thành công." });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
 app.Run();
 
 record CreatePayDto(long Amount, string? OrderId, string? OrderInfo, string? BankCode);
@@ -4457,4 +4704,25 @@ record BankAcceptExtensionDto(string BankResponseRef, string? Note);
 record BankRejectExtensionDto(string Reason);
 record CancelExtensionDto(string? Reason);
 record ImportExtensionVehiclesDto(List<GuaranteeExtensionItemInputDto> Items);
+
+record CreateGuaranteeClaimDto(
+    string? ClaimNo,
+    string DealerCode,
+    string? DealerName,
+    string BankCode,
+    string? BankName,
+    string? BankCodeMonitor,
+    string? FlagIsHTC,
+    string? Remark,
+    string? CreatedBy,
+    List<GuaranteeClaimItemInputDto> Items
+);
+record AutoScanClaimRequestDto(int? MinOverdueDays);
+record SubmitClaimDto(string? SubmittedBy);
+record SignClaimCADto(string? SignedBy, string? CertThumbprint, string? FilePath);
+record SendClaimToBankDto(string? SentBy, string? BankRefNo);
+record SettleClaimDto(long? SettledAmount, string? BankTxnRef, string? SettlerName);
+record BankRejectClaimDto(string Reason, string? RejectedBy);
+record CancelClaimDto(string? CancelReason, string? CancelledBy);
+record AddClaimVehicleDto(GuaranteeClaimItemInputDto Vehicle);
 

@@ -58,7 +58,7 @@
   <div style="display:flex; justify-content:space-between; align-items:center;">
     <div>
       <h1>MiniPay</h1>
-      <p class="muted">Cổng thanh toán điện tử (VNPay/MoMo), Đối soát sao kê, Lệnh chi chuyển tiền, Chiết khấu thanh toán, Bảo lãnh &amp; Thế chấp/Giải chấp, Phiếu thanh toán UNC, Hối phiếu bàn giao xe, Chi phí PDI, Phạt chậm TT &amp; Bảng kê thanh toán vận tải bảo hiểm xe (BizHTC.Payment / 0.34.Contract).</p>
+      <p class="muted">Cổng thanh toán điện tử (VNPay/MoMo), Đối soát sao kê, Lệnh chi chuyển tiền, Chiết khấu thanh toán, Bảo lãnh, Thế chấp/Giải chấp, Phiếu thanh toán UNC, Hối phiếu bàn giao xe, Chi phí PDI, Phạt chậm TT, Thanh toán vận tải/bảo hiểm/lưu kho, Gia hạn &amp; Đòi bảo lãnh ngân hàng (BizHTC.Payment / Pmt_GrtClaim).</p>
     </div>
     <div>
       <span class="badge badge-info">Demo Merchant</span>
@@ -98,6 +98,7 @@
     <button class="tab-btn" onclick="showTab('transportIns')">Vận Tải &amp; Bảo Hiểm (Transport &amp; Ins)</button>
     <button class="tab-btn" onclick="showTab('paymentStorage')">Chi Phí Lưu Kho Xe (Storage Payment)</button>
     <button class="tab-btn" onclick="showTab('guaranteeExt')">Gia Hạn Bảo Lãnh (Guarantee Extension Dispatch)</button>
+    <button class="tab-btn" onclick="showTab('guaranteeClaim')">Đòi Bảo Lãnh (Bank Guarantee Claim / CVĐBL)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -111,6 +112,7 @@
     <button class="tab-btn" onclick="showTab('newTransportIns')">+ Lập Bảng Kê Vận Tải</button>
     <button class="tab-btn" onclick="showTab('newPaymentStorage')">+ Lập Bảng Kê Lưu Kho</button>
     <button class="tab-btn" onclick="showTab('newGuaranteeExt')">+ Lập Công Văn Gia Hạn</button>
+    <button class="tab-btn" onclick="showTab('newGuaranteeClaim')">+ Lập Công Văn Đòi BL</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -1440,6 +1442,182 @@
     </div>
   </div>
 
+  <!-- TAB: Quản Lý Hồ Sơ & Công Văn Đòi Tiền Bảo Lãnh Ngân Hàng (Pmt_GrtClaim / FrmMngGrtClaim) -->
+  <div id="tab-guaranteeClaim" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="margin:0;">Quản Lý Hồ Sơ &amp; Công Văn Đòi Tiền Bảo Lãnh Ngân Hàng (Pmt_GrtClaim)</h3>
+        <div style="display:flex; gap:8px;">
+          <button class="secondary" onclick="openAutoScanClaimModal()">⚡ Quét Nợ Quá Hạn Tự Động (Auto-Scan)</button>
+          <button onclick="showTab('newGuaranteeClaim')">+ Lập Công Văn Đòi BL Mới</button>
+        </div>
+      </div>
+      <p class="muted">Nghiệp vụ lập công văn yêu cầu ngân hàng phát hành Thư bảo lãnh thanh toán (VCB, TCB, MBB, CTG, VPB) trích nợ bồi hoàn cho HTC/HTV khi đại lý quá hạn cam kết thanh toán xe, thẩm định pháp chế, ký số điện tử CA và theo dõi giải ngân bồi hoàn từ hệ nguồn 2010.HTC (BizHTC.Payment / FrmMngGrtClaim / FrmNewGrtClaim / CR_ClaimPM).</p>
+
+      <!-- KPI Thống kê -->
+      <div class="row" style="margin-top:14px; margin-bottom:14px;">
+        <div class="col card" style="text-align:center; padding:10px;">
+          <div class="muted" style="font-size:.85em;">Tổng Công Văn</div>
+          <div id="claimStatTotal" style="font-size:1.4em; font-weight:bold; color:var(--primary);">-</div>
+        </div>
+        <div class="col card" style="text-align:center; padding:10px;">
+          <div class="muted" style="font-size:.85em;">Dự Thảo &amp; Trình Duyệt</div>
+          <div id="claimStatPending" style="font-size:1.4em; font-weight:bold; color:#f39c12;">-</div>
+        </div>
+        <div class="col card" style="text-align:center; padding:10px;">
+          <div class="muted" style="font-size:.85em;">Đang Đòi Ngân Hàng</div>
+          <div id="claimStatSentToBank" style="font-size:1.4em; font-weight:bold; color:#3498db;">-</div>
+        </div>
+        <div class="col card" style="text-align:center; padding:10px;">
+          <div class="muted" style="font-size:.85em;">Đã Thu Hồi Bồi Hoàn</div>
+          <div id="claimStatSettled" style="font-size:1.4em; font-weight:bold; color:#2ecc71;">-</div>
+        </div>
+        <div class="col card" style="text-align:center; padding:10px;">
+          <div class="muted" style="font-size:.85em;">Tổng Tiền Nợ Đòi BL</div>
+          <div id="claimStatTotalAmount" style="font-size:1.25em; font-weight:bold; color:#e74c3c;">-</div>
+        </div>
+      </div>
+
+      <!-- Bộ lọc -->
+      <div class="row" style="margin-top:8px; margin-bottom:12px; gap:8px; align-items:flex-end;">
+        <div class="col">
+          <label class="muted">Ngân Hàng Bảo Lãnh:</label>
+          <select id="selClaimFilterBank" onchange="loadGuaranteeClaims()">
+            <option value="">-- Tất cả ngân hàng --</option>
+            <option value="VCB">Vietcombank (VCB)</option>
+            <option value="TCB">Techcombank (TCB)</option>
+            <option value="MBB">MBBank (MBB)</option>
+            <option value="CTG">VietinBank (CTG)</option>
+            <option value="VPB">VPBank (VPB)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Trạng Thái Công Văn:</label>
+          <select id="selClaimFilterStatus" onchange="loadGuaranteeClaims()">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="Draft">Mới tạo (Draft)</option>
+            <option value="Submitted">Đã trình thẩm định (Submitted)</option>
+            <option value="SignedCA">Đã ký số CA (SignedCA)</option>
+            <option value="SentToBank">Đã gửi ngân hàng (SentToBank)</option>
+            <option value="Settled">Đã thu hồi bồi hoàn (Settled)</option>
+            <option value="BankRejected">Ngân hàng từ chối (BankRejected)</option>
+            <option value="Cancelled">Đã hủy (Cancelled)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Pháp Nhân Phát Hành:</label>
+          <select id="selClaimFilterFlag" onchange="loadGuaranteeClaims()">
+            <option value="">-- Tất cả pháp nhân --</option>
+            <option value="1">Hyundai Thành Công (HTC)</option>
+            <option value="2">Hyundai Thương Mại (HTV)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Tìm VIN / Đại lý / Số CV:</label>
+          <input type="text" id="inpClaimSearch" placeholder="Nhập VIN, đại lý, số CV..." onkeyup="if(event.key==='Enter') loadGuaranteeClaims()">
+        </div>
+        <div style="flex:0 0 auto;">
+          <button class="secondary" onclick="loadGuaranteeClaims()">Lọc Dữ Liệu</button>
+        </div>
+      </div>
+
+      <!-- Bảng danh sách công văn đòi nợ -->
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Công Văn</th>
+              <th>Pháp Nhân</th>
+              <th>Đại Lý Vi Phạm</th>
+              <th>Ngân Hàng BL</th>
+              <th>Số Lượng Xe</th>
+              <th>Tổng Tiền Đòi (VND)</th>
+              <th>Đã Thu Hồi (VND)</th>
+              <th>Trạng Thái</th>
+              <th>Ký Số CA</th>
+              <th>Ngày Tạo</th>
+              <th>Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="claimTableBody">
+            <tr><td colspan="11" class="muted" style="text-align:center;">Đang tải danh sách công văn đòi nợ bảo lãnh...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Chi tiết hồ sơ công văn đòi bảo lãnh -->
+    <div class="card" id="claimDetailCard" style="margin-top:18px; display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:14px;">
+        <div>
+          <h3 id="claimDetailTitle" style="margin:0; font-size:1.2em;">Chi Tiết Hồ Sơ Đòi Bảo Lãnh</h3>
+          <p class="muted" id="claimDetailSubtitle" style="margin:4px 0 0;"></p>
+        </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+          <button id="btnClaimSubmitReview" class="secondary" onclick="submitClaimReview(currentClaimDetailId)" style="display:none;">📤 Trình Thẩm Định</button>
+          <button id="btnClaimSignCA" onclick="signClaimCA(currentClaimDetailId)" style="display:none;">✍️ Ký Số Điện Tử CA</button>
+          <button id="btnClaimSendToBank" class="secondary" onclick="sendClaimToBank(currentClaimDetailId)" style="display:none;">🏦 Gửi Ngân Hàng</button>
+          <button id="btnClaimSettle" style="background:var(--success); color:#fff; display:none;" onclick="settleClaim(currentClaimDetailId)">💰 Quyết Toán Bồi Hoàn</button>
+          <button id="btnClaimReject" class="secondary" style="color:var(--danger); display:none;" onclick="bankRejectClaim(currentClaimDetailId)">❌ Ngân Hàng Từ Chối</button>
+          <button id="btnClaimCancel" class="secondary" onclick="cancelClaim(currentClaimDetailId)" style="display:none;">🚫 Hủy Công Văn</button>
+          <button id="btnClaimAddCar" class="secondary" onclick="openAddClaimCarModal(currentClaimDetailId)" style="display:none;">+ Thêm Xe</button>
+          <button class="secondary" onclick="openClaimAdviceModal(currentClaimDetailId)">📄 In Công Văn (CR_ClaimPM)</button>
+          <button id="btnClaimDeleteDraft" class="secondary" style="color:var(--danger); display:none;" onclick="deleteDraftClaim(currentClaimDetailId)">🗑️ Xóa Nháp</button>
+          <button class="secondary" onclick="document.getElementById('claimDetailCard').style.display='none'">Đóng</button>
+        </div>
+      </div>
+
+      <!-- Thẻ thông tin công văn -->
+      <div class="row" style="margin-bottom:16px;">
+        <div class="col card" style="padding:10px; font-size:.9em; line-height:1.7;">
+          <div><b>Số công văn:</b> <span id="dtlClaimNo" style="font-weight:600; color:var(--primary);">-</span></div>
+          <div><b>Pháp nhân:</b> <span id="dtlClaimLegalName">-</span></div>
+          <div><b>Đại lý vi phạm:</b> <span id="dtlClaimDealer">-</span></div>
+          <div><b>Ngân hàng bảo lãnh:</b> <span id="dtlClaimBank">-</span></div>
+          <div><b>Ngân hàng giám sát:</b> <span id="dtlClaimBankMonitor">-</span></div>
+        </div>
+        <div class="col card" style="padding:10px; font-size:.9em; line-height:1.7;">
+          <div><b>Số lượng xe nợ:</b> <span id="dtlClaimTotalCars" style="font-weight:600;">-</span></div>
+          <div><b>Tổng tiền đòi bảo lãnh:</b> <span id="dtlClaimTotalAmount" style="font-weight:700; color:#e74c3c;">-</span></div>
+          <div><b>Số tiền đã thu hồi:</b> <span id="dtlClaimSettledAmount" style="font-weight:700; color:var(--success);">-</span></div>
+          <div><b>Mã giao dịch UNC bồi hoàn:</b> <span id="dtlClaimBankTxnRef">-</span></div>
+          <div><b>Số tiếp nhận NH:</b> <span id="dtlClaimBankRefNo">-</span></div>
+        </div>
+        <div class="col card" style="padding:10px; font-size:.9em; line-height:1.7;">
+          <div><b>Trạng thái:</b> <span id="dtlClaimStatus">-</span></div>
+          <div><b>Ký số CA:</b> <span id="dtlClaimSignCA">-</span></div>
+          <div><b>Người ký CA:</b> <span id="dtlClaimSignedBy">-</span></div>
+          <div><b>Ngày ký CA:</b> <span id="dtlClaimSignedAt">-</span></div>
+          <div><b>Diễn giải / Căn cứ:</b> <span id="dtlClaimRemark">-</span></div>
+        </div>
+      </div>
+
+      <!-- Bảng danh sách xe ô tô vi phạm -->
+      <h4 style="margin:12px 0 6px;">Danh Sách Xe Ô Tô Vi Phạm Nợ Bảo Lãnh Trong Công Văn</h4>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Khung (VIN)</th>
+              <th>Dòng Xe</th>
+              <th>Phiên Bản</th>
+              <th>Màu Xe</th>
+              <th>Hợp Đồng</th>
+              <th>Thư BL Gốc</th>
+              <th>Hạn BL</th>
+              <th>Trễ (Ngày)</th>
+              <th>Đơn Giá Xe</th>
+              <th>Tiền Đòi BL</th>
+              <th>Trạng Thái Xe</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="claimDetailTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div id="tab-newBatch" style="display:none;">
     <div class="card">
       <h3>Nạp bảng sao kê ngân hàng &amp; Chạy đối soát tức thì</h3>
@@ -2343,6 +2521,75 @@
     </div>
   </div>
 
+  <!-- TAB: Lập Công Văn Đòi Tiền Bảo Lãnh Mới (Pmt_GrtClaim / FrmNewGrtClaim) -->
+  <div id="tab-newGuaranteeClaim" style="display:none;">
+    <div class="card">
+      <h3>Lập Hồ Sơ Công Văn Đòi Tiền Bảo Lãnh Ngân Hàng Mới (Pmt_GrtClaim)</h3>
+      <p class="muted">Khởi tạo công văn yêu cầu ngân hàng phát hành Thư bảo lãnh thanh toán trích nợ bồi hoàn cho HTC/HTV khi đại lý vi phạm cam kết thanh toán xe theo quy trình BizHTC.Payment / FrmNewGrtClaim.</p>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Công Văn (để trống để tự sinh):</label>
+          <input type="text" id="inpNewClaimNo" placeholder="Ví dụ: CVDBL-202505-006">
+        </div>
+        <div class="col">
+          <label class="muted">Pháp Nhân Phát Hành (FlagIsHTC):</label>
+          <select id="inpNewClaimFlagIsHTC">
+            <option value="1">1 - Hyundai Thành Công Việt Nam (HTC)</option>
+            <option value="2">2 - Hyundai Thành Công Thương Mại (HTV)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Mã Đại Lý (DealerCode):</label>
+          <input type="text" id="inpNewClaimDealerCode" value="DLR-HADONG">
+        </div>
+        <div class="col">
+          <label class="muted">Tên Đại Lý:</label>
+          <input type="text" id="inpNewClaimDealerName" value="Công ty CP Ô tô Hyundai Hà Đông">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Ngân Hàng Bảo Lãnh (BankCode):</label>
+          <select id="inpNewClaimBankCode" onchange="onNewClaimBankChange()">
+            <option value="VCB">Vietcombank - Ngân hàng TMCP Ngoại Thương Việt Nam</option>
+            <option value="TCB">Techcombank - Ngân hàng TMCP Kỹ Thương Việt Nam</option>
+            <option value="MBB">MBBank - Ngân hàng TMCP Quân Đội</option>
+            <option value="CTG">VietinBank - Ngân hàng TMCP Công Thương Việt Nam</option>
+            <option value="VPB">VPBank - Ngân hàng TMCP Việt Nam Thịnh Vượng</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Tên Ngân Hàng:</label>
+          <input type="text" id="inpNewClaimBankName" value="Ngân hàng TMCP Ngoại Thương Việt Nam (Vietcombank)">
+        </div>
+        <div class="col">
+          <label class="muted">Ngân Hàng Giám Sát (BankCodeMonitor):</label>
+          <input type="text" id="inpNewClaimBankCodeMonitor" value="VCB_HO">
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <label class="muted">Căn Cứ Vi Phạm Nợ / Lý Do Đòi Tiền (Remark):</label>
+        <input type="text" id="inpNewClaimRemark" value="Đại lý quá hạn cam kết thanh toán xe theo Hợp đồng và Thư bảo lãnh thanh toán. Kính đề nghị Ngân hàng thực hiện nghĩa vụ bảo lãnh trích nợ chuyển tiền bồi hoàn.">
+      </div>
+
+      <div style="margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="muted">Danh sách xe ô tô vi phạm nợ cần đòi bảo lãnh [JSON]:</label>
+          <button class="secondary" type="button" onclick="loadSampleGuaranteeClaimData()">Nạp Dữ Liệu Xe Mẫu</button>
+        </div>
+        <textarea id="inpNewClaimVehiclesJson" rows="8" style="font-family:monospace; font-size:.85em;"></textarea>
+      </div>
+
+      <div style="margin-top:16px;">
+        <button type="button" onclick="submitGuaranteeClaim()">Khởi Tạo Công Văn Đòi Bảo Lãnh</button>
+        <span id="submitNewClaimMsg" style="margin-left:12px;" class="muted"></span>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Xem & In Mẫu Bảng Kê Quyết Toán Vận Tải & Bảo Hiểm Xe (Transport Statement Advice) -->
   <div id="modalTransportInsAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
     <div style="max-width:920px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
@@ -2584,6 +2831,96 @@
     </div>
   </div>
 
+  <!-- Modal Xem & In Mẫu Công Văn Đòi Tiền Bảo Lãnh Ngân Hàng (CR_ClaimPM Advice) -->
+  <div id="modalGuaranteeClaimAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:920px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.25em;">CÔNG VĂN YÊU CẦU THỰC HIỆN NGHĨA VỤ BẢO LÃNH THANH TOÁN (CR_ClaimPM)</h2>
+        <button class="secondary" onclick="closeClaimAdviceModal()">Đóng [X]</button>
+      </div>
+      <div id="claimAdviceContent" style="margin-top:16px; font-size:.9em; line-height:1.6;"></div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('claimAdviceContent').innerText); alert('Đã sao chép nội dung công văn đòi bảo lãnh vào clipboard!');">Sao Chép Nội Dung</button>
+        <button onclick="window.print()">In Công Văn</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Quét Tự Động & Đề Xuất Công Văn Đòi Bảo Lãnh (Auto-Scan Overdue) -->
+  <div id="modalAutoScanClaim" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:850px; margin:40px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <h3 style="margin:0;">⚡ Tự Động Quét Nợ Quá Hạn &amp; Gợi Ý Lập Công Văn Đòi Bảo Lãnh</h3>
+        <button class="secondary" onclick="closeAutoScanClaimModal()">Đóng [X]</button>
+      </div>
+      <p class="muted" style="margin-top:10px;">Hệ thống sẽ quét toàn bộ các Thư bảo lãnh đã quá hạn thanh toán chưa được giải tỏa, tự động gom nhóm theo cặp (Đại lý - Ngân hàng bảo lãnh) và đề xuất lập công văn đòi tiền bảo lãnh.</p>
+      <div class="row" style="margin-top:12px; align-items:flex-end; gap:8px;">
+        <div class="col">
+          <label class="muted">Số ngày quá hạn tối thiểu (ngày):</label>
+          <input type="number" id="inpAutoScanMinDays" value="1" min="1" max="180">
+        </div>
+        <div style="flex:0 0 auto;">
+          <button onclick="executeAutoScanClaim()">Quét Danh Mục Nợ Quá Hạn</button>
+        </div>
+      </div>
+      <div id="autoScanClaimResults" style="margin-top:16px;"></div>
+    </div>
+  </div>
+
+  <!-- Modal Bổ Sung Xe Vào Công Văn Nháp (FrmNewGrtClaim.btnAddCar) -->
+  <div id="modalAddClaimVehicle" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:650px; margin:50px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <h3 style="margin:0;">Thêm Xe Ô Tô Vào Công Văn Đòi Bảo Lãnh</h3>
+        <button class="secondary" onclick="closeAddClaimCarModal()">Đóng [X]</button>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Khung Xe (VIN):</label>
+          <input type="text" id="inpAddClaimVin" placeholder="KMHCT81EPHU...">
+        </div>
+        <div class="col">
+          <label class="muted">Dòng Xe (ModelCode):</label>
+          <input type="text" id="inpAddClaimVinModel" value="SANTAFE">
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Thư BL Ngân Hàng (BankGuaranteeNo):</label>
+          <input type="text" id="inpAddClaimVinBankGrtNo" value="BL-VCB-2025-0101">
+        </div>
+        <div class="col">
+          <label class="muted">Số Phụ Lục HĐ (ContractNo):</label>
+          <input type="text" id="inpAddClaimVinContractNo" value="PLHD-2025/01">
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Đơn Giá Xe Thực Tế (VND):</label>
+          <input type="number" id="inpAddClaimVinUnitPrice" value="1150000000" step="10000000">
+        </div>
+        <div class="col">
+          <label class="muted">Số Tiền Đòi Bảo Lãnh (VND):</label>
+          <input type="number" id="inpAddClaimVinGrtValue" value="950000000" step="10000000">
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Hạn Hiệu Lực Cũ Của BL:</label>
+          <input type="date" id="inpAddClaimVinDateExpired">
+        </div>
+        <div class="col">
+          <label class="muted">Ghi Chú Xe:</label>
+          <input type="text" id="inpAddClaimVinRemark" value="Bổ sung xe nợ quá hạn vào công văn">
+        </div>
+      </div>
+      <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="closeAddClaimCarModal()">Hủy</button>
+        <button onclick="submitAddClaimCar()">Thêm Xe Vào Công Văn</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB 5: API Docs -->
   <div id="tab-apiDocs" style="display:none;">
     <div class="card">
@@ -2771,6 +3108,24 @@
         <li><code>GET /api/guarantee-extensions/{id}/advice</code> — Sinh dữ liệu mẫu in Công văn gửi ngân hàng CR_ClaimPM kèm số tiền bằng chữ tiếng Việt</li>
         <li><code>GET /api/guarantee-extensions/summary</code> — Báo cáo tổng hợp số liệu công văn gia hạn bảo lãnh, phân bổ theo từng ngân hàng đối tác</li>
       </ul>
+      <h3>Nghiệp Vụ Công Văn Đòi Tiền Bảo Lãnh Ngân Hàng (Bank Guarantee Default Claim - BizHTC.Payment / FrmMngGrtClaim / FrmNewGrtClaim)</h3>
+      <ul>
+        <li><code>POST /api/guarantee-claims</code> — Lập công văn đòi tiền bảo lãnh mới khi đại lý quá hạn thanh toán xe (Pmt_GrtClaimCreate_Multi_New20190312)</li>
+        <li><code>GET /api/guarantee-claims</code> — Danh sách hồ sơ công văn đòi nợ bảo lãnh (Pmt_GrtClaimGet, lọc theo <code>dealerCode</code>, <code>bankCode</code>, <code>status</code>, <code>flagIsHTC</code>, <code>vin</code>)</li>
+        <li><code>GET /api/guarantee-claims/{id}</code> — Chi tiết 1 công văn kèm danh mục xe ô tô vi phạm nợ (Pmt_GrtClaimDetail)</li>
+        <li><code>POST /api/guarantee-claims/auto-scan</code> — Tự động quét bảo lãnh quá hạn nợ chưa giải tỏa, gom nhóm theo cặp Đại lý - Ngân hàng</li>
+        <li><code>POST /api/guarantee-claims/{id}/submit</code> — Trình Ban Pháp chế &amp; Quản lý Rủi ro tín dụng thẩm định hồ sơ vi phạm</li>
+        <li><code>POST /api/guarantee-claims/{id}/sign-ca</code> — Lãnh đạo HTC/HTV phê duyệt &amp; Ký số điện tử CA phát hành công văn (Pmt_GrtClaim_SignAndSendEmail)</li>
+        <li><code>POST /api/guarantee-claims/{id}/send-to-bank</code> — Gửi công văn đòi nợ tới Hội sở Ngân hàng bảo lãnh (SentToBank)</li>
+        <li><code>POST /api/guarantee-claims/{id}/settle</code> — Ngân hàng giải ngân bồi hoàn tất toán thành công, ghi nhận mã UNC thu hồi nợ (Settled)</li>
+        <li><code>POST /api/guarantee-claims/{id}/bank-reject</code> — Ngân hàng từ chối chi trả bồi hoàn bảo lãnh kèm lý do giải trình (BankRejected)</li>
+        <li><code>POST /api/guarantee-claims/{id}/cancel</code> — Hủy công văn đòi nợ khi đại lý tự thanh toán tiền trực tiếp (Pmt_GrtClaim_Cancel)</li>
+        <li><code>POST /api/guarantee-claims/{id}/vehicles</code> — Bổ sung xe ô tô vào công văn nháp (FrmNewGrtClaim.btnAddCar)</li>
+        <li><code>DELETE /api/guarantee-claims/{id}/vehicles/{detailId}</code> — Xóa xe khỏi công văn nháp (FrmNewGrtClaim.btnRemoveCar)</li>
+        <li><code>DELETE /api/guarantee-claims/{id}</code> — Xóa hẳn công văn nháp chưa ký số (GrtClaimDelete_New20181115)</li>
+        <li><code>GET /api/guarantee-claims/{id}/advice</code> — Sinh dữ liệu mẫu in Công văn Đòi Tiền Bảo Lãnh CR_ClaimPM Advice kèm đọc số tiền bằng chữ tiếng Việt chuẩn quy chuẩn ngân hàng</li>
+        <li><code>GET /api/guarantee-claims/summary</code> — Báo cáo tổng hợp dashboard số liệu nợ đòi bảo lãnh, đã thu hồi và đang đòi nợ</li>
+      </ul>
     </div>
   </div>
 
@@ -2793,6 +3148,7 @@
       document.getElementById('tab-transportIns').style.display = tabName === 'transportIns' ? 'block' : 'none';
       document.getElementById('tab-paymentStorage').style.display = tabName === 'paymentStorage' ? 'block' : 'none';
       document.getElementById('tab-guaranteeExt').style.display = tabName === 'guaranteeExt' ? 'block' : 'none';
+      document.getElementById('tab-guaranteeClaim').style.display = tabName === 'guaranteeClaim' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -2806,6 +3162,7 @@
       document.getElementById('tab-newTransportIns').style.display = tabName === 'newTransportIns' ? 'block' : 'none';
       document.getElementById('tab-newPaymentStorage').style.display = tabName === 'newPaymentStorage' ? 'block' : 'none';
       document.getElementById('tab-newGuaranteeExt').style.display = tabName === 'newGuaranteeExt' ? 'block' : 'none';
+      document.getElementById('tab-newGuaranteeClaim').style.display = tabName === 'newGuaranteeClaim' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
@@ -2822,20 +3179,22 @@
           (tabName === 'transportIns' && i === 9) ||
           (tabName === 'paymentStorage' && i === 10) ||
           (tabName === 'guaranteeExt' && i === 11) ||
-          (tabName === 'newBatch' && i === 12) ||
-          (tabName === 'newPayout' && i === 13) ||
-          (tabName === 'newDiscount' && i === 14) ||
-          (tabName === 'newGuarantee' && i === 15) ||
-          (tabName === 'newMortgage' && i === 16) ||
-          (tabName === 'newRedeem' && i === 17) ||
-          (tabName === 'newPaymentOrder' && i === 18) ||
-          (tabName === 'newBankBill' && i === 19) ||
-          (tabName === 'newPaymentPDI' && i === 20) ||
-          (tabName === 'newPenaltyDelay' && i === 21) ||
-          (tabName === 'newTransportIns' && i === 22) ||
-          (tabName === 'newPaymentStorage' && i === 23) ||
-          (tabName === 'newGuaranteeExt' && i === 24) ||
-          (tabName === 'apiDocs' && i === 25));
+          (tabName === 'guaranteeClaim' && i === 12) ||
+          (tabName === 'newBatch' && i === 13) ||
+          (tabName === 'newPayout' && i === 14) ||
+          (tabName === 'newDiscount' && i === 15) ||
+          (tabName === 'newGuarantee' && i === 16) ||
+          (tabName === 'newMortgage' && i === 17) ||
+          (tabName === 'newRedeem' && i === 18) ||
+          (tabName === 'newPaymentOrder' && i === 19) ||
+          (tabName === 'newBankBill' && i === 20) ||
+          (tabName === 'newPaymentPDI' && i === 21) ||
+          (tabName === 'newPenaltyDelay' && i === 22) ||
+          (tabName === 'newTransportIns' && i === 23) ||
+          (tabName === 'newPaymentStorage' && i === 24) ||
+          (tabName === 'newGuaranteeExt' && i === 25) ||
+          (tabName === 'newGuaranteeClaim' && i === 26) ||
+          (tabName === 'apiDocs' && i === 27));
       });
 
       if (tabName === 'reconcile') loadBatches();
@@ -2850,6 +3209,7 @@
       else if (tabName === 'transportIns') loadTransportRecords();
       else if (tabName === 'paymentStorage') loadStorageRecords();
       else if (tabName === 'guaranteeExt') { loadGuaranteeExtList(); loadGuaranteeExtSummary(); }
+      else if (tabName === 'guaranteeClaim') { loadGuaranteeClaims(); loadGuaranteeClaimSummary(); }
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====
@@ -8220,6 +8580,704 @@
       }
     }
 
+    // ===== NGHIỆP VỤ HỒ SƠ & CÔNG VĂN ĐÒI TIỀN BẢO LÃNH NGÂN HÀNG (Pmt_GrtClaim / FrmMngGrtClaim) =====
+    let currentClaimDetailId = null;
+
+    async function loadGuaranteeClaimSummary() {
+      try {
+        const res = await fetch('/api/guarantee-claims/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('claimStatTotal').textContent = d.totalClaims;
+        document.getElementById('claimStatPending').textContent = (d.draftCount + d.submittedCount);
+        document.getElementById('claimStatSentToBank').textContent = (d.signedCount + d.sentToBankCount);
+        document.getElementById('claimStatSettled').textContent = d.settledCount;
+        document.getElementById('claimStatTotalAmount').textContent = Number(d.totalClaimAmount).toLocaleString('vi-VN') + ' đ';
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadGuaranteeClaims() {
+      await loadGuaranteeClaimSummary();
+      const bankCode = document.getElementById('selClaimFilterBank').value;
+      const status = document.getElementById('selClaimFilterStatus').value;
+      const flagIsHTC = document.getElementById('selClaimFilterFlag').value;
+      const search = document.getElementById('inpClaimSearch').value.trim();
+
+      const params = new URLSearchParams();
+      if (bankCode) params.append('bankCode', bankCode);
+      if (status) params.append('status', status);
+      if (flagIsHTC) params.append('flagIsHTC', flagIsHTC);
+      if (search) params.append('vin', search);
+
+      const tbody = document.getElementById('claimTableBody');
+      tbody.innerHTML = '<tr><td colspan="11" class="muted" style="text-align:center;">Đang tải danh sách công văn đòi nợ bảo lãnh...</td></tr>';
+
+      try {
+        const res = await fetch('/api/guarantee-claims?' + params.toString(), { headers });
+        if (!res.ok) throw new Error(res.statusText);
+        const data = await res.json();
+
+        if (!data || data.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="11" class="muted" style="text-align:center;">Không tìm thấy công văn đòi bảo lãnh nào phù hợp điều kiện lọc.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = data.map(c => {
+          let stBadge = '<span class="badge badge-info">' + c.status + '</span>';
+          if (c.status === 'Draft') stBadge = '<span class="badge" style="background:#f39c12; color:#fff;">Dự Thảo (Draft)</span>';
+          else if (c.status === 'Submitted') stBadge = '<span class="badge badge-warning">Chờ Thẩm Định</span>';
+          else if (c.status === 'SignedCA') stBadge = '<span class="badge" style="background:#8e44ad; color:#fff;">Đã Ký CA</span>';
+          else if (c.status === 'SentToBank') stBadge = '<span class="badge" style="background:#2980b9; color:#fff;">Đang Đòi NH</span>';
+          else if (c.status === 'Settled') stBadge = '<span class="badge badge-success">Đã Thu Hồi Nợ</span>';
+          else if (c.status === 'BankRejected') stBadge = '<span class="badge badge-danger">NH Từ Chối</span>';
+          else if (c.status === 'Cancelled') stBadge = '<span class="badge" style="background:#7f8c8d; color:#fff;">Đã Hủy</span>';
+
+          const signBadge = c.signCAStatus === 'Signed'
+            ? '<span class="badge badge-success">Đã Ký CA</span>'
+            : '<span class="badge badge-warning">Chưa Ký</span>';
+
+          const phapNhan = c.flagIsHTC === '2' ? 'HTV' : 'HTC';
+
+          return `<tr>
+            <td><b>${c.claimNo}</b></td>
+            <td><span class="badge badge-info">${phapNhan}</span></td>
+            <td><b>${c.dealerCode}</b><br><small class="muted">${c.dealerName}</small></td>
+            <td><b>${c.bankCode}</b><br><small class="muted">${c.bankName}</small></td>
+            <td><b>${c.totalCarCount}</b> xe</td>
+            <td style="font-weight:600; color:#e74c3c;">${Number(c.totalClaimAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="font-weight:600; color:var(--success);">${Number(c.settledAmount).toLocaleString('vi-VN')} đ</td>
+            <td>${stBadge}</td>
+            <td>${signBadge}</td>
+            <td><small>${new Date(c.createdAt).toLocaleDateString('vi-VN')}</small></td>
+            <td>
+              <button class="secondary" style="padding:4px 8px; font-size:.8em;" onclick="viewGuaranteeClaimDetail(${c.id})">Chi Tiết</button>
+            </td>
+          </tr>`;
+        }).join('');
+      } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="11" class="muted" style="text-align:center; color:var(--danger);">Lỗi tải dữ liệu: ${e.message}</td></tr>`;
+      }
+    }
+
+    async function viewGuaranteeClaimDetail(id) {
+      currentClaimDetailId = id;
+      const card = document.getElementById('claimDetailCard');
+      card.style.display = 'block';
+
+      try {
+        const res = await fetch(`/api/guarantee-claims/${id}`, { headers });
+        if (!res.ok) throw new Error(res.statusText);
+        const c = await res.json();
+
+        document.getElementById('claimDetailTitle').textContent = `Hồ Sơ Công Văn Đòi Bảo Lãnh #${c.claimNo}`;
+        document.getElementById('claimDetailSubtitle').textContent = `Mã hồ sơ #${c.id} | Ngày lập: ${new Date(c.createdAt).toLocaleDateString('vi-VN')} | Người lập: ${c.createdBy || 'Chuyên viên tín dụng'}`;
+
+        document.getElementById('dtlClaimNo').textContent = c.claimNo;
+        document.getElementById('dtlClaimLegalName').textContent = c.flagIsHTC === '2' ? 'Hyundai Thương Mại (HTV)' : 'Hyundai Thành Công Việt Nam (HTC)';
+        document.getElementById('dtlClaimDealer').textContent = `${c.dealerCode} - ${c.dealerName}`;
+        document.getElementById('dtlClaimBank').textContent = `${c.bankCode} - ${c.bankName}`;
+        document.getElementById('dtlClaimBankMonitor').textContent = c.bankCodeMonitor || 'VCB_HO / VPBANK_HO';
+
+        document.getElementById('dtlClaimTotalCars').textContent = `${c.totalCarCount} xe`;
+        document.getElementById('dtlClaimTotalAmount').textContent = `${Number(c.totalClaimAmount).toLocaleString('vi-VN')} đ`;
+        document.getElementById('dtlClaimSettledAmount').textContent = `${Number(c.settledAmount).toLocaleString('vi-VN')} đ`;
+        document.getElementById('dtlClaimBankTxnRef').textContent = c.bankTxnRef || '-';
+        document.getElementById('dtlClaimBankRefNo').textContent = c.bankRefNo || '-';
+
+        document.getElementById('dtlClaimStatus').textContent = c.status;
+        document.getElementById('dtlClaimSignCA').textContent = c.signCAStatus === 'Signed' ? `Đã Ký CA (Thumbprint: ${c.certThumbprint || 'N/A'})` : 'Chưa Ký CA';
+        document.getElementById('dtlClaimSignedBy').textContent = c.signedBy || '-';
+        document.getElementById('dtlClaimSignedAt').textContent = c.signedAt ? new Date(c.signedAt).toLocaleString('vi-VN') : '-';
+        document.getElementById('dtlClaimRemark').textContent = c.remark || '-';
+
+        // Phân quyền nút bấm theo trạng thái
+        const btnSubmit = document.getElementById('btnClaimSubmitReview');
+        const btnSignCA = document.getElementById('btnClaimSignCA');
+        const btnSendToBank = document.getElementById('btnClaimSendToBank');
+        const btnSettle = document.getElementById('btnClaimSettle');
+        const btnReject = document.getElementById('btnClaimReject');
+        const btnCancel = document.getElementById('btnClaimCancel');
+        const btnAddCar = document.getElementById('btnClaimAddCar');
+        const btnDeleteDraft = document.getElementById('btnClaimDeleteDraft');
+
+        btnSubmit.style.display = (c.status === 'Draft') ? 'inline-block' : 'none';
+        btnSignCA.style.display = (c.status === 'Draft' || c.status === 'Submitted') ? 'inline-block' : 'none';
+        btnSendToBank.style.display = (c.status === 'SignedCA') ? 'inline-block' : 'none';
+        btnSettle.style.display = (c.status === 'SentToBank' || c.status === 'SignedCA') ? 'inline-block' : 'none';
+        btnReject.style.display = (c.status === 'SentToBank' || c.status === 'SignedCA') ? 'inline-block' : 'none';
+        btnCancel.style.display = (c.status !== 'Settled' && c.status !== 'Cancelled') ? 'inline-block' : 'none';
+        btnAddCar.style.display = (c.status === 'Draft' || c.status === 'Submitted') ? 'inline-block' : 'none';
+        btnDeleteDraft.style.display = (c.status === 'Draft' || c.status === 'Cancelled') ? 'inline-block' : 'none';
+
+        // Danh sách xe chi tiết
+        const tbody = document.getElementById('claimDetailTableBody');
+        tbody.innerHTML = (c.details || []).map(d => {
+          let dtlStatusBadge = '<span class="badge badge-info">' + d.status + '</span>';
+          if (d.status === 'Pending') dtlStatusBadge = '<span class="badge badge-warning">Đang Nợ</span>';
+          else if (d.status === 'Claimed') dtlStatusBadge = '<span class="badge" style="background:#2980b9; color:#fff;">Đang Đòi NH</span>';
+          else if (d.status === 'Settled') dtlStatusBadge = '<span class="badge badge-success">Đã Thu Hồi</span>';
+          else if (d.status === 'BankRejected') dtlStatusBadge = '<span class="badge badge-danger">NH Từ Chối</span>';
+          else if (d.status === 'Cancelled') dtlStatusBadge = '<span class="badge" style="background:#7f8c8d; color:#fff;">Đã Hủy Đòi</span>';
+
+          const canRemove = (c.status === 'Draft' || c.status === 'Submitted');
+          const removeBtn = canRemove
+            ? `<button class="secondary" style="color:var(--danger); padding:3px 6px; font-size:.75em;" onclick="removeClaimCar(${c.id}, ${d.id})">Bỏ Xe</button>`
+            : '-';
+
+          return `<tr>
+            <td><code>${d.vin}</code></td>
+            <td><b>${d.modelCode}</b><br><small class="muted">${d.modelName || ''}</small></td>
+            <td><small>${d.specDescription || '-'}</small></td>
+            <td><small>${d.colorName || '-'}</small></td>
+            <td><small>${d.contractNo || '-'}</small></td>
+            <td><b>${d.bankGuaranteeNo}</b></td>
+            <td><small>${d.dateExpired ? new Date(d.dateExpired).toLocaleDateString('vi-VN') : '-'}</small></td>
+            <td style="color:#e74c3c; font-weight:700;">+${d.overdueDays} ngày</td>
+            <td>${Number(d.unitPriceActual).toLocaleString('vi-VN')} đ</td>
+            <td style="font-weight:700; color:#e74c3c;">${Number(d.grtValue).toLocaleString('vi-VN')} đ</td>
+            <td>${dtlStatusBadge}</td>
+            <td>${removeBtn}</td>
+          </tr>`;
+        }).join('');
+
+        card.scrollIntoView({ behavior: 'smooth' });
+      } catch(e) {
+        alert('Lỗi tải chi tiết công văn: ' + e.message);
+      }
+    }
+
+    async function submitClaimReview(id) {
+      if (!confirm(`Xác nhận trình công văn đòi bảo lãnh #${id} lên Ban Pháp chế & Rủi ro tín dụng thẩm định?`)) return;
+      try {
+        const res = await fetch(`/api/guarantee-claims/${id}/submit`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ submittedBy: 'ChuyenVienTinDungHTC' })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã trình Ban Pháp chế & Rủi ro tín dụng thẩm định thành công!');
+        loadGuaranteeClaims();
+        viewGuaranteeClaimDetail(id);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function signClaimCA(id) {
+      const signer = prompt('Nhập tên Lãnh đạo phê duyệt & Ký số điện tử CA:', 'LeNgocAnh_TongGiamDoc_HTC');
+      if (!signer) return;
+      try {
+        const res = await fetch(`/api/guarantee-claims/${id}/sign-ca`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            signedBy: signer,
+            certThumbprint: 'CA-' + Math.random().toString(36).substring(2, 10).toUpperCase()
+          })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã phê duyệt và ký số điện tử CA phát hành công văn chính thức thành công!');
+        loadGuaranteeClaims();
+        viewGuaranteeClaimDetail(id);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function sendClaimToBank(id) {
+      const ref = prompt('Nhập mã số tiếp nhận / tham chiếu của Ngân hàng bảo lãnh (nếu có):', `NH-REC-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`);
+      if (ref === null) return;
+      try {
+        const res = await fetch(`/api/guarantee-claims/${id}/send-to-bank`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            sentBy: 'BanPhapCheTinDungHTC',
+            bankRefNo: ref || null
+          })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã gửi công văn đòi tiền bảo lãnh tới Hội sở Ngân hàng thành công!');
+        loadGuaranteeClaims();
+        viewGuaranteeClaimDetail(id);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function settleClaim(id) {
+      const txnRef = prompt('Nhập mã bút toán UNC / giao dịch chuyển khoản bồi hoàn từ ngân hàng:', `FT${new Date().getFullYear()}${Math.floor(100000 + Math.random() * 900000)}`);
+      if (!txnRef) return;
+      try {
+        const res = await fetch(`/api/guarantee-claims/${id}/settle`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            bankTxnRef: txnRef,
+            settlerName: 'KTT_NguyenThiMai'
+          })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã xác nhận Ngân hàng bồi hoàn giải ngân thành công! Thu hồi nợ bảo lãnh hoàn tất.');
+        loadGuaranteeClaims();
+        viewGuaranteeClaimDetail(id);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function bankRejectClaim(id) {
+      const reason = prompt('Nhập lý do Ngân hàng từ chối chi trả bồi hoàn bảo lãnh:');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/guarantee-claims/${id}/bank-reject`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            reason: reason,
+            rejectedBy: 'DaiDienNganHangBaoLanh'
+          })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã ghi nhận Ngân hàng từ chối chi trả bảo lãnh.');
+        loadGuaranteeClaims();
+        viewGuaranteeClaimDetail(id);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function cancelClaim(id) {
+      const reason = prompt('Nhập lý do hủy công văn đòi nợ (ví dụ: Đại lý đã tự nộp tiền dứt điểm):');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/guarantee-claims/${id}/cancel`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            cancelReason: reason,
+            cancelledBy: 'ChuyenVienTinDungHTC'
+          })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã hủy công văn đòi nợ bảo lãnh.');
+        loadGuaranteeClaims();
+        viewGuaranteeClaimDetail(id);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function deleteDraftClaim(id) {
+      if (!confirm(`Xác nhận xóa hẳn công văn nháp #${id}? Hành động không thể hoàn tác.`)) return;
+      try {
+        const res = await fetch(`/api/guarantee-claims/${id}`, {
+          method: 'DELETE',
+          headers
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã xóa công văn nháp thành công!');
+        document.getElementById('claimDetailCard').style.display = 'none';
+        loadGuaranteeClaims();
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function openClaimAdviceModal(id) {
+      const modal = document.getElementById('modalGuaranteeClaimAdvice');
+      const content = document.getElementById('claimAdviceContent');
+      content.innerHTML = '<div style="text-align:center; padding:30px;" class="muted">Đang kết xuất công văn chuẩn in (CR_ClaimPM)...</div>';
+      modal.style.display = 'block';
+
+      try {
+        const res = await fetch(`/api/guarantee-claims/${id}/advice`, { headers });
+        if (!res.ok) throw new Error(res.statusText);
+        const a = await res.json();
+
+        content.innerHTML = `
+          <div style="text-align:center; border-bottom:2px solid var(--border); padding-bottom:12px; margin-bottom:16px;">
+            <div style="font-weight:700; font-size:1.1em; text-transform:uppercase;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+            <div style="font-size:.9em; font-style:italic;">Độc lập - Tự do - Hạnh phúc</div>
+            <div style="margin-top:10px; font-weight:700; color:var(--primary); font-size:1.15em;">${a.companyLegalName}</div>
+            <div style="font-size:.85em;" class="muted">Địa chỉ: Tòa nhà HTC, Phố Duy Tân, Cầu Giấy, TP. Hà Nội | Điện thoại: (024) 3795 8888</div>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; margin-bottom:16px; font-size:.92em;">
+            <div><b>Số CV:</b> <span style="color:var(--primary); font-weight:700;">${a.claimSubNo}</span></div>
+            <div><i>Hà Nội, ngày ${a.dateCreated}</i></div>
+          </div>
+
+          <div style="text-align:center; margin:16px 0;">
+            <h3 style="margin:0; text-transform:uppercase; color:#e74c3c;">CÔNG VĂN YÊU CẦU THỰC HIỆN NGHĨA VỤ BẢO LÃNH THANH TOÁN</h3>
+            <div style="font-size:.9em; font-style:italic; margin-top:4px;">(V/v: Yêu cầu trích tiền thực hiện Thư bảo lãnh do đại lý vi phạm cam kết thanh toán xe ô tô)</div>
+          </div>
+
+          <div style="margin-bottom:14px; font-size:.92em; line-height:1.7;">
+            <div><b>Kính gửi:</b> HỘI SỞ / CHI NHÁNH ${a.bankName.toUpperCase()}</div>
+            <div><b>Đồng kính gửi:</b> Ban Giám sát Tài khoản phong tỏa ${a.bankCodeMonitor}</div>
+            <div style="margin-top:8px;">Căn cứ Hợp đồng phân phối xe ô tô giữa <b>${a.companyLegalName}</b> và Đại lý <b>${a.dealerName}</b> (Mã: ${a.dealerCode});</div>
+            <div>Căn cứ các Thư bảo lãnh thanh toán do Quý Ngân hàng phát hành bảo lãnh nghĩa vụ thanh toán tiền xe của Đại lý;</div>
+            <div>Do Đại lý <b>${a.dealerName}</b> đã vi phạm thời hạn thanh toán tiền mua xe ô tô quá hạn quy định, <b>${a.companyLegalName}</b> chính thức có công văn yêu cầu Quý Ngân hàng thực hiện ngay nghĩa vụ bảo lãnh thanh toán theo đúng cam kết vô điều kiện và không hủy ngang.</div>
+          </div>
+
+          <div style="margin-bottom:14px;">
+            <b>1. Danh mục xe ô tô vi phạm quá hạn thanh toán bảo lãnh:</b>
+            <table style="width:100%; border-collapse:collapse; margin-top:8px; font-size:.85em;">
+              <thead>
+                <tr style="background:rgba(127,127,127,.08);">
+                  <th style="border:1px solid var(--border); padding:6px;">STT</th>
+                  <th style="border:1px solid var(--border); padding:6px;">Số Khung (VIN)</th>
+                  <th style="border:1px solid var(--border); padding:6px;">Model Xe</th>
+                  <th style="border:1px solid var(--border); padding:6px;">Thư BL Gốc</th>
+                  <th style="border:1px solid var(--border); padding:6px;">Hạn BL</th>
+                  <th style="border:1px solid var(--border); padding:6px;">Trễ</th>
+                  <th style="border:1px solid var(--border); padding:6px;">Đơn Giá (VND)</th>
+                  <th style="border:1px solid var(--border); padding:6px;">Số Tiền Đòi BL (VND)</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(a.vehicles || []).map((v, i) => `
+                  <tr>
+                    <td style="border:1px solid var(--border); padding:6px; text-align:center;">${i+1}</td>
+                    <td style="border:1px solid var(--border); padding:6px;"><code>${v.vin}</code></td>
+                    <td style="border:1px solid var(--border); padding:6px;"><b>${v.modelCode}</b></td>
+                    <td style="border:1px solid var(--border); padding:6px;">${v.bankGuaranteeNo}</td>
+                    <td style="border:1px solid var(--border); padding:6px;">${v.dateExpired}</td>
+                    <td style="border:1px solid var(--border); padding:6px; text-align:center; color:#e74c3c; font-weight:700;">+${v.overdueDays} ngày</td>
+                    <td style="border:1px solid var(--border); padding:6px; text-align:right;">${Number(v.unitPriceActual).toLocaleString('vi-VN')} đ</td>
+                    <td style="border:1px solid var(--border); padding:6px; text-align:right; font-weight:700; color:#e74c3c;">${Number(v.grtValue).toLocaleString('vi-VN')} đ</td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+          </div>
+
+          <div style="margin-bottom:16px; font-size:.92em; line-height:1.8; background:rgba(231,76,60,.06); padding:12px; border-left:4px solid #e74c3c; border-radius:4px;">
+            <div><b>2. Tổng số tiền bảo lãnh yêu cầu Quý Ngân hàng thanh toán bồi hoàn:</b> <span style="font-size:1.15em; font-weight:700; color:#e74c3c;">${Number(a.totalClaimAmount).toLocaleString('vi-VN')} VND</span></div>
+            <div><b>Bằng chữ:</b> <i style="font-weight:700;">${a.amountInWords}</i></div>
+            <div><b>3. Tài khoản thụ hưởng của ${a.companyLegalName}:</b> Số TK: <b>0011009988776</b> tại Vietcombank Sở Giao Dịch Hà Nội.</div>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; margin-top:28px; font-size:.92em;">
+            <div style="text-align:left; font-size:.85em; max-width:300px;">
+              <b>Nơi nhận:</b><br>
+              - Như kính gửi;<br>
+              - Đại lý ${a.dealerName} (để biết);<br>
+              - Lưu: VT, TC-KT, Ban Pháp chế.
+            </div>
+            <div style="text-align:center;">
+              <b>ĐẠI DIỆN THEO PHÁP LUẬT<br>${a.companyLegalName.toUpperCase()}</b><br>
+              <div style="margin:16px 0; font-size:.85em; color:var(--success); border:1px dashed var(--success); padding:6px 12px; border-radius:4px; display:inline-block;">
+                ${a.signCAStatus === 'Signed' ? `[ĐÃ KÝ SỐ ĐIỆN TỬ CA]<br>Ký bởi: <b>${a.signedBy || 'Tổng Giám Đốc'}</b><br>Thời điểm: ${a.signedDate || a.dateCreated}` : '[CHƯA KÝ SỐ CA ĐIỆN TỬ]'}
+              </div><br>
+              <b>${a.signedBy || 'LÊ NGỌC ANH - TỔNG GIÁM ĐỐC'}</b>
+            </div>
+          </div>
+        `;
+      } catch(e) {
+        content.innerHTML = `<div style="color:var(--danger); padding:20px;">Lỗi kết xuất công văn: ${e.message}</div>`;
+      }
+    }
+
+    function closeClaimAdviceModal() {
+      document.getElementById('modalGuaranteeClaimAdvice').style.display = 'none';
+    }
+
+    let scanCandidates = [];
+
+    function openAutoScanClaimModal() {
+      document.getElementById('modalAutoScanClaim').style.display = 'block';
+      document.getElementById('autoScanClaimResults').innerHTML = '';
+      executeAutoScanClaim();
+    }
+
+    function closeAutoScanClaimModal() {
+      document.getElementById('modalAutoScanClaim').style.display = 'none';
+    }
+
+    async function executeAutoScanClaim() {
+      const minDays = parseInt(document.getElementById('inpAutoScanMinDays').value) || 1;
+      const resDiv = document.getElementById('autoScanClaimResults');
+      resDiv.innerHTML = '<div class="muted">Đang quét hệ thống bảo lãnh quá hạn...</div>';
+
+      try {
+        const res = await fetch('/api/guarantee-claims/auto-scan', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ minOverdueDays: minDays })
+        });
+        if (!res.ok) throw new Error(res.statusText);
+        scanCandidates = await res.json();
+
+        if (!scanCandidates || scanCandidates.length === 0) {
+          resDiv.innerHTML = '<div class="card" style="padding:16px; color:var(--success);">Tất cả các bảo lãnh ngân hàng trong hệ thống đều đang trong hạn an toàn hoặc đã nằm trong hồ sơ công văn đòi nợ. Không có nợ quá hạn mới.</div>';
+          return;
+        }
+
+        resDiv.innerHTML = `
+          <div style="margin-bottom:10px;"><b>Tìm thấy ${scanCandidates.length} gói nợ quá hạn bảo lãnh cần lập công văn đòi:</b></div>
+          ${scanCandidates.map((c, idx) => `
+            <div class="card" style="margin-bottom:12px; padding:12px; border-left:4px solid #e74c3c;">
+              <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                <div>
+                  <h4 style="margin:0; color:var(--primary);">${c.dealerCode} - ${c.dealerName}</h4>
+                  <div style="margin-top:4px;">Ngân hàng bảo lãnh: <b>${c.bankCode}</b> (${c.bankName})</div>
+                  <div style="margin-top:2px;">Số lượng xe nợ: <b>${c.overdueVehicleCount} xe</b> | Tổng tiền đòi: <b style="color:#e74c3c;">${Number(c.totalOverdueClaimAmount).toLocaleString('vi-VN')} đ</b></div>
+                  <div style="margin-top:4px; font-size:.85em;" class="muted">Số công văn đề xuất: <code>${c.suggestedClaimNo}</code></div>
+                </div>
+                <div>
+                  <button onclick="createClaimFromCandidate(${idx})">Khởi Tạo Công Văn Ngay</button>
+                </div>
+              </div>
+            </div>
+          `).join('')}
+        `;
+      } catch(e) {
+        resDiv.innerHTML = `<div style="color:var(--danger);">Lỗi quét dữ liệu: ${e.message}</div>`;
+      }
+    }
+
+    async function createClaimFromCandidate(idx) {
+      const c = scanCandidates[idx];
+      if (!c) return;
+
+      const payload = {
+        claimNo: c.suggestedClaimNo,
+        dealerCode: c.dealerCode,
+        dealerName: c.dealerName,
+        bankCode: c.bankCode,
+        bankName: c.bankName,
+        flagIsHTC: '1',
+        remark: `Quét tự động phát hiện ${c.overdueVehicleCount} xe bảo lãnh quá hạn. Đề xuất Ngân hàng thực hiện nghĩa vụ bảo lãnh thanh toán.`,
+        createdBy: 'AutoScanSystem',
+        items: c.suggestedVehicles
+      };
+
+      try {
+        const res = await fetch('/api/guarantee-claims', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi khởi tạo: ' + (err.error || res.statusText));
+          return;
+        }
+        const created = await res.json();
+        alert(`Đã khởi tạo công văn đòi bảo lãnh #${created.claimNo} thành công!`);
+        closeAutoScanClaimModal();
+        showTab('guaranteeClaim');
+        viewGuaranteeClaimDetail(created.id);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    let addCarForClaimId = null;
+
+    function openAddClaimCarModal(claimId) {
+      addCarForClaimId = claimId;
+      document.getElementById('modalAddClaimVehicle').style.display = 'block';
+      const d = new Date();
+      d.setDate(d.getDate() - 15);
+      document.getElementById('inpAddClaimVinDateExpired').value = d.toISOString().split('T')[0];
+    }
+
+    function closeAddClaimCarModal() {
+      document.getElementById('modalAddClaimVehicle').style.display = 'none';
+    }
+
+    async function submitAddClaimCar() {
+      const vin = document.getElementById('inpAddClaimVin').value.trim();
+      if (!vin) { alert('Vui lòng nhập số khung xe (VIN).'); return; }
+
+      const payload = {
+        vehicle: {
+          carId: 'CAR-' + vin.slice(-6),
+          vin: vin,
+          modelCode: document.getElementById('inpAddClaimVinModel').value.trim(),
+          modelName: document.getElementById('inpAddClaimVinModel').value.trim(),
+          specCode: 'STD',
+          specDescription: 'Bản tiêu chuẩn',
+          colorName: 'Trắng/Đen',
+          contractNo: document.getElementById('inpAddClaimVinContractNo').value.trim(),
+          bankGuaranteeNo: document.getElementById('inpAddClaimVinBankGrtNo').value.trim(),
+          dateOpen: new Date(Date.now() - 50*86400000).toISOString(),
+          dateExpired: document.getElementById('inpAddClaimVinDateExpired').value || new Date(Date.now() - 15*86400000).toISOString(),
+          overdueDays: 15,
+          unitPriceActual: parseInt(document.getElementById('inpAddClaimVinUnitPrice').value) || 1000000000,
+          grtValue: parseInt(document.getElementById('inpAddClaimVinGrtValue').value) || 800000000,
+          grtPercent: 100.0,
+          remark: document.getElementById('inpAddClaimVinRemark').value.trim()
+        }
+      };
+
+      try {
+        const res = await fetch(`/api/guarantee-claims/${addCarForClaimId}/vehicles`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi thêm xe: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã bổ sung xe vào công văn thành công!');
+        closeAddClaimCarModal();
+        loadGuaranteeClaims();
+        viewGuaranteeClaimDetail(addCarForClaimId);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function removeClaimCar(claimId, detailId) {
+      if (!confirm(`Xác nhận xóa dòng xe #${detailId} khỏi công văn?`)) return;
+      try {
+        const res = await fetch(`/api/guarantee-claims/${claimId}/vehicles/${detailId}`, {
+          method: 'DELETE',
+          headers
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi xóa xe: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã xóa xe khỏi công văn thành công!');
+        loadGuaranteeClaims();
+        viewGuaranteeClaimDetail(claimId);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    function onNewClaimBankChange() {
+      const sel = document.getElementById('inpNewClaimBankCode');
+      const bankCode = sel.value;
+      const bankNameInp = document.getElementById('inpNewClaimBankName');
+      const bankMonInp = document.getElementById('inpNewClaimBankCodeMonitor');
+
+      const bankMap = {
+        'VCB': { name: 'Ngân hàng TMCP Ngoại Thương Việt Nam (Vietcombank)', mon: 'VCB_HO' },
+        'TCB': { name: 'Ngân hàng TMCP Kỹ Thương Việt Nam (Techcombank)', mon: 'TCB_HO' },
+        'MBB': { name: 'Ngân hàng TMCP Quân Đội (MBBank)', mon: 'MBB_HO' },
+        'CTG': { name: 'Ngân hàng TMCP Công Thương Việt Nam (VietinBank)', mon: 'CTG_HO' },
+        'VPB': { name: 'Ngân hàng TMCP Việt Nam Thịnh Vượng (VPBank)', mon: 'VPB_HO' }
+      };
+
+      if (bankMap[bankCode]) {
+        bankNameInp.value = bankMap[bankCode].name;
+        bankMonInp.value = bankMap[bankCode].mon;
+      }
+    }
+
+    function loadSampleGuaranteeClaimData() {
+      const sample = [
+        {
+          "carId": "CAR-SAN-9001",
+          "vin": "KMHCT81EPHU900001",
+          "modelCode": "SANTAFE-2.2D",
+          "modelName": "Hyundai Santa Fe 2.2 Diesel HTRAC",
+          "specCode": "SAN-PRE",
+          "specDescription": "SUV 7 chỗ máy dầu cao cấp",
+          "colorName": "Trắng Ngọc Trai",
+          "socode": "SO-2025-0520",
+          "contractNo": "PLHD-HADONG-2025/06",
+          "guaranteeNo": "GRT-2025-0520",
+          "bankGuaranteeNo": "BL-VCB-2025-0620",
+          "bankCode": "VCB",
+          "dateOpen": new Date(Date.now() - 50*86400000).toISOString(),
+          "dateExpired": new Date(Date.now() - 16*86400000).toISOString(),
+          "overdueDays": 16,
+          "unitPriceActual": 1250000000,
+          "grtValue": 1050000000,
+          "grtPercent": 100.0,
+          "remark": "Đại lý trễ hạn thanh toán tiền xe 16 ngày"
+        },
+        {
+          "carId": "CAR-CUS-9002",
+          "vin": "KMHCT81EPHU900002",
+          "modelCode": "CUSTIN-2.0T",
+          "modelName": "Hyundai Custin 2.0 Turbo Cao Cấp",
+          "specCode": "CUS-PRE",
+          "specDescription": "MPV thương gia 7 chỗ",
+          "colorName": "Xám Kim Loại",
+          "socode": "SO-2025-0520",
+          "contractNo": "PLHD-HADONG-2025/06",
+          "guaranteeNo": "GRT-2025-0520",
+          "bankGuaranteeNo": "BL-VCB-2025-0620",
+          "bankCode": "VCB",
+          "dateOpen": new Date(Date.now() - 50*86400000).toISOString(),
+          "dateExpired": new Date(Date.now() - 16*86400000).toISOString(),
+          "overdueDays": 16,
+          "unitPriceActual": 1180000000,
+          "grtValue": 980000000,
+          "grtPercent": 100.0,
+          "remark": "Đại lý trễ hạn thanh toán tiền xe 16 ngày"
+        }
+      ];
+
+      document.getElementById('inpNewClaimVehiclesJson').value = JSON.stringify(sample, null, 2);
+    }
+
+    async function submitGuaranteeClaim() {
+      const msg = document.getElementById('submitNewClaimMsg');
+      try {
+        const rawJson = document.getElementById('inpNewClaimVehiclesJson').value.trim();
+        const items = rawJson ? JSON.parse(rawJson) : [];
+        if (!items.length) { alert('Vui lòng nhập ít nhất 1 dòng xe ô tô vi phạm nợ.'); return; }
+
+        const payload = {
+          claimNo: document.getElementById('inpNewClaimNo').value.trim() || null,
+          dealerCode: document.getElementById('inpNewClaimDealerCode').value.trim(),
+          dealerName: document.getElementById('inpNewClaimDealerName').value.trim(),
+          bankCode: document.getElementById('inpNewClaimBankCode').value.trim(),
+          bankName: document.getElementById('inpNewClaimBankName').value.trim(),
+          bankCodeMonitor: document.getElementById('inpNewClaimBankCodeMonitor').value.trim() || null,
+          flagIsHTC: document.getElementById('inpNewClaimFlagIsHTC').value,
+          remark: document.getElementById('inpNewClaimRemark').value.trim(),
+          createdBy: 'ChuyenVienTinDungHTC',
+          items: items
+        };
+
+        if (!payload.dealerCode) { alert('Vui lòng nhập mã đại lý.'); return; }
+        if (!payload.bankCode) { alert('Vui lòng chọn ngân hàng bảo lãnh.'); return; }
+
+        msg.textContent = 'Đang khởi tạo công văn đòi bảo lãnh...';
+        const res = await fetch('/api/guarantee-claims', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Công văn: ${data.claimNo} (Tổng tiền đòi: ${Number(data.totalClaimAmount).toLocaleString('vi-VN')} đ)`;
+        setTimeout(() => {
+          showTab('guaranteeClaim');
+          viewGuaranteeClaimDetail(data.id);
+        }, 800);
+      } catch(e) {
+        msg.textContent = 'Lỗi cú pháp JSON: ' + e.message;
+      }
+    }
+
     // Khởi tạo
     loadSampleData();
     loadSamplePayoutData();
@@ -8229,6 +9287,7 @@
     loadSampleTransportData();
     loadSampleStorageData();
     loadSampleGuaranteeExtData();
+    loadSampleGuaranteeClaimData();
     loadBatches();
   </script>
 </body>

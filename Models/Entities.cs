@@ -85,6 +85,12 @@ public enum ExtensionSignCAStatus { Pending = 0, Signed = 1 }
 
 public enum GuaranteeExtensionDetailStatus { Pending = 0, Active = 1, BankAccepted = 2, BankRejected = 3, Cancelled = 4 }
 
+public enum GuaranteeClaimStatus { Draft = 0, Submitted = 1, SignedCA = 2, SentToBank = 3, Settled = 4, BankRejected = 5, Cancelled = 6 }
+
+public enum ClaimSignCAStatus { Pending = 0, Signed = 1 }
+
+public enum GuaranteeClaimDetailStatus { Pending = 0, Claimed = 1, Settled = 2, BankRejected = 3, Cancelled = 4 }
+
 /// <summary>Ý định thanh toán (payment intent) — 1 dòng / 1 lần khởi tạo cổng.</summary>
 public sealed class PaymentIntent
 {
@@ -876,6 +882,69 @@ public sealed class GuaranteeExtensionDetail
     public DateTime? DeliveryDate { get; set; }                      // Ngày bàn giao xe thực tế
     public GuaranteeExtensionDetailStatus Status { get; set; } = GuaranteeExtensionDetailStatus.Pending;
     public string? Remark { get; set; }                              // Ghi chú dòng xe
+}
+
+/// <summary>Hồ sơ công văn yêu cầu đòi tiền bảo lãnh thanh toán ngân hàng do đại lý quá hạn nợ — tương ứng Pmt_GrtClaim trong BizHTC.Payment / FrmMngGrtClaim &amp; FrmNewGrtClaim.</summary>
+public sealed class BankGuaranteeClaim
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string ClaimNo { get; set; } = "";                        // Số công văn đòi bảo lãnh (ví dụ: CVDBL-202505-001)
+    public string DealerCode { get; set; } = "";                     // Mã đại lý vi phạm cam kết thanh toán (DealerCode)
+    public string DealerName { get; set; } = "";                     // Tên đại lý phân phối
+    public string BankCode { get; set; } = "";                       // Ngân hàng phát hành thư bảo lãnh bị đòi tiền (VCB, TCB, MBB, CTG, VPB...)
+    public string BankName { get; set; } = "";                       // Tên ngân hàng phát hành bảo lãnh
+    public string? BankCodeMonitor { get; set; }                     // Ngân hàng giám sát / quản lý tài khoản phong tỏa
+    public string FlagIsHTC { get; set; } = "1";                     // Pháp nhân: "1" = Hyundai Thành Công Việt Nam (HTC), "2" = Hyundai Thương Mại (HTV)
+    public int TotalCarCount { get; set; }                           // Tổng số lượng xe vi phạm nợ cần đòi bảo lãnh
+    public long TotalClaimAmount { get; set; }                       // Tổng số tiền đòi ngân hàng thanh toán bồi hoàn (VND)
+    public long SettledAmount { get; set; }                          // Số tiền ngân hàng đã giải ngân bồi hoàn thực tế (VND)
+    public GuaranteeClaimStatus Status { get; set; } = GuaranteeClaimStatus.Draft;
+    public ClaimSignCAStatus SignCAStatus { get; set; } = ClaimSignCAStatus.Pending; // Trạng thái ký số CA
+    public string? SignedBy { get; set; }                            // Lãnh đạo ký số điện tử CA
+    public DateTime? SignedAt { get; set; }                          // Thời điểm ký số CA
+    public string? CertThumbprint { get; set; }                      // Dấu vân tay chứng thư số điện tử CA
+    public DateTime? SentToBankAt { get; set; }                      // Thời điểm gửi công văn tới Hội sở Ngân hàng
+    public string? BankRefNo { get; set; }                           // Số tiếp nhận / mã tham chiếu hồ sơ từ ngân hàng
+    public DateTime? SettledAt { get; set; }                         // Thời điểm ngân hàng giải ngân bồi hoàn
+    public string? SettledBy { get; set; }                           // Kế toán xác nhận thu hồi nợ bảo lãnh
+    public string? BankTxnRef { get; set; }                          // Mã bút toán / UNC ngân hàng chuyển tiền bồi hoàn
+    public string? BankRejectReason { get; set; }                    // Lý do ngân hàng từ chối chi trả bồi hoàn bảo lãnh
+    public DateTime? CancelledAt { get; set; }                       // Thời điểm hủy công văn
+    public string? CancelReason { get; set; }                        // Lý do hủy công văn (đại lý đã nộp tiền trực tiếp...)
+    public string? FilePath { get; set; }                            // Đường dẫn file công văn ký số điện tử (CR_ClaimPM.pdf)
+    public string? Remark { get; set; }                              // Căn cứ vi phạm hợp đồng / diễn giải nội dung đòi bảo lãnh
+    public string? CreatedBy { get; set; }                           // Chuyên viên tín dụng / pháp chế lập hồ sơ
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    public List<BankGuaranteeClaimDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết xe ô tô trong công văn đòi bảo lãnh ngân hàng — tương ứng Pmt_GrtClaimDetail trong BizHTC.Payment.</summary>
+public sealed class BankGuaranteeClaimDetail
+{
+    public long Id { get; set; }
+    public long ClaimId { get; set; }
+    public Guid OrgId { get; set; }
+    public string? CarId { get; set; }                               // Mã xe nội bộ HTC
+    public string VIN { get; set; } = "";                            // Số khung xe (17 ký tự VIN)
+    public string ModelCode { get; set; } = "";                      // Mã model xe (SANTAFE, TUCSON, CRETA, ACCENT, STAREX...)
+    public string? ModelName { get; set; }                           // Tên thương mại mẫu xe
+    public string? SpecCode { get; set; }                            // Mã phiên bản
+    public string? SpecDescription { get; set; }                     // Diễn giải phiên bản
+    public string? ColorName { get; set; }                           // Màu sơn ngoại thất
+    public string? SOCode { get; set; }                              // Số đơn đặt hàng bán lẻ
+    public string? ContractNo { get; set; }                          // Số phụ lục hợp đồng mua bán buôn xe
+    public string? GuaranteeNo { get; set; }                         // Mã bảo lãnh hệ thống HTC
+    public string BankGuaranteeNo { get; set; } = "";                // Số thư bảo lãnh chính thức của ngân hàng (BankGuaranteeNo)
+    public DateTime DateOpen { get; set; }                           // Ngày phát hành thư bảo lãnh
+    public DateTime DateExpired { get; set; }                        // Ngày hết hạn hiệu lực thư bảo lãnh thanh toán
+    public int OverdueDays { get; set; }                             // Số ngày quá hạn thanh toán nợ xe
+    public long UnitPriceActual { get; set; }                        // Giá trị thực tế của xe theo hợp đồng (VND)
+    public long GrtValue { get; set; }                               // Số tiền bảo lãnh của xe yêu cầu ngân hàng trích thanh toán (VND)
+    public double GrtPercent { get; set; } = 100.0;                  // Tỷ lệ % bảo lãnh xe
+    public GuaranteeClaimDetailStatus Status { get; set; } = GuaranteeClaimDetailStatus.Pending; // Trạng thái xe đòi nợ
+    public string? Remark { get; set; }                              // Ghi chú chi tiết dòng xe
 }
 
 
