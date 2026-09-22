@@ -41,6 +41,7 @@ builder.Services.AddScoped<PaymentStorageService>();
 builder.Services.AddScoped<GuaranteeExtensionService>();
 builder.Services.AddScoped<BankGuaranteeClaimService>();
 builder.Services.AddScoped<PaymentAVNService>();
+builder.Services.AddScoped<PaymentGPSService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -4804,6 +4805,289 @@ app.MapGet("/api/payment-avn/prices", () =>
     return Results.Ok(prices);
 });
 
+// ===== Quản Lý Bảng Kê Thanh Toán Chi Phí Định Vị GPS Trên Xe Ô Tô (Pmt_PaymentGPS / FrmQuanLyThanhToanGPS) =====
+
+// 1) Lấy danh sách bảng kê thanh toán GPS
+app.MapGet("/api/payment-gps", async (
+    string? pmtMonth,
+    string? status,
+    string? providerCode,
+    string? vin,
+    PaymentGPSService gpsService,
+    ITenantContext tc) =>
+{
+    var list = await gpsService.GetListAsync(tc.OrgId, pmtMonth, status, providerCode, vin);
+    return Results.Ok(list.Select(p => new
+    {
+        p.Id,
+        p.PaymentGPSNo,
+        p.PmtMonth,
+        p.ContractNo,
+        p.ProviderCode,
+        p.ProviderName,
+        p.TotalVehicles,
+        p.TotalPlanDays,
+        p.TotalDeductDays,
+        p.TotalActualDays,
+        p.AmountTotal,
+        p.VATRate,
+        p.UnitPriceVAT,
+        p.TotalAmountVAT,
+        status = p.Status.ToString(),
+        htvSignStatus = p.HTVSignStatus.ToString(),
+        p.HTVSignUser,
+        p.HTVSignDTime,
+        tcmsSignStatus = p.TCMSSignStatus.ToString(),
+        p.TCMSSignUser,
+        p.TCMSSignDTime,
+        p.Appr1By,
+        p.Appr1DTime,
+        p.Appr2By,
+        p.Appr2DTime,
+        p.SettledBy,
+        p.SettledAt,
+        p.BankTxnRef,
+        p.RejectReason,
+        p.CancelledAt,
+        p.FilePath,
+        p.Remark,
+        p.CreatedBy,
+        p.CreatedAt
+    }));
+});
+
+// 2) Lấy chi tiết 1 bảng kê kèm danh sách xe
+app.MapGet("/api/payment-gps/{id:long}", async (long id, PaymentGPSService gpsService, ITenantContext tc) =>
+{
+    var payment = await gpsService.GetByIdAsync(id, tc.OrgId);
+    if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê GPS #{id}." });
+    return Results.Ok(payment);
+});
+
+// 3) Lập bảng kê thanh toán GPS mới
+app.MapPost("/api/payment-gps", async (CreatePaymentGPSDto dto, PaymentGPSService gpsService, ITenantContext tc) =>
+{
+    try
+    {
+        var created = await gpsService.CreatePaymentAsync(
+            tc.OrgId,
+            dto.PaymentGPSNo,
+            dto.PmtMonth,
+            dto.ContractNo,
+            dto.ProviderCode,
+            dto.ProviderName,
+            dto.VATRate,
+            dto.Remark,
+            dto.CreatedBy,
+            dto.Items
+        );
+        return Results.Created($"/api/payment-gps/{created.Id}", created);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 4) Duyệt thẩm định cấp 1 HTV (A1)
+app.MapPost("/api/payment-gps/{id:long}/htv-approve", async (long id, ApprovePaymentGPSDto? dto, PaymentGPSService gpsService, ITenantContext tc) =>
+{
+    try
+    {
+        var updated = await gpsService.HTVApproveAsync(id, tc.OrgId, dto?.ApproverName);
+        return Results.Ok(updated);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 5) Duyệt thẩm định cấp 2 TCMS (A2)
+app.MapPost("/api/payment-gps/{id:long}/tcms-approve", async (long id, ApprovePaymentGPSDto? dto, PaymentGPSService gpsService, ITenantContext tc) =>
+{
+    try
+    {
+        var updated = await gpsService.TCMSApproveAsync(id, tc.OrgId, dto?.ApproverName);
+        return Results.Ok(updated);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Ký số điện tử CA HTV
+app.MapPost("/api/payment-gps/{id:long}/htv-sign", async (long id, SignPaymentGPSDto? dto, PaymentGPSService gpsService, ITenantContext tc) =>
+{
+    try
+    {
+        var updated = await gpsService.HTVSignCAAsync(id, tc.OrgId, dto?.SignerName, dto?.FilePath);
+        return Results.Ok(updated);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 7) Ký số điện tử CA TCMS
+app.MapPost("/api/payment-gps/{id:long}/tcms-sign", async (long id, SignPaymentGPSDto? dto, PaymentGPSService gpsService, ITenantContext tc) =>
+{
+    try
+    {
+        var updated = await gpsService.TCMSSignCAAsync(id, tc.OrgId, dto?.SignerName, dto?.FilePath);
+        return Results.Ok(updated);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 8) Kế toán quyết toán chi trả chuyển khoản UNC ngân hàng (Settled)
+app.MapPost("/api/payment-gps/{id:long}/settle", async (long id, SettlePaymentGPSDto? dto, PaymentGPSService gpsService, ITenantContext tc) =>
+{
+    try
+    {
+        var updated = await gpsService.SettlePaymentAsync(id, tc.OrgId, dto?.BankTxnRef, dto?.SettledBy);
+        return Results.Ok(updated);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 9) Từ chối bảng kê
+app.MapPost("/api/payment-gps/{id:long}/reject", async (long id, RejectPaymentGPSDto dto, PaymentGPSService gpsService, ITenantContext tc) =>
+{
+    try
+    {
+        var updated = await gpsService.RejectPaymentAsync(id, tc.OrgId, dto.Reason, dto.RejecterName);
+        return Results.Ok(updated);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 10) Hủy bảng kê
+app.MapPost("/api/payment-gps/{id:long}/cancel", async (long id, CancelPaymentGPSDto? dto, PaymentGPSService gpsService, ITenantContext tc) =>
+{
+    try
+    {
+        var updated = await gpsService.CancelPaymentAsync(id, tc.OrgId, dto?.Reason);
+        return Results.Ok(updated);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 11) Bổ sung xe vào bảng kê nháp
+app.MapPost("/api/payment-gps/{id:long}/vehicles", async (long id, ImportPaymentGPSVehiclesDto dto, PaymentGPSService gpsService, ITenantContext tc) =>
+{
+    try
+    {
+        var updated = await gpsService.AddVehiclesAsync(id, tc.OrgId, dto.Items);
+        return Results.Ok(updated);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 12) Xóa xe khỏi bảng kê nháp
+app.MapDelete("/api/payment-gps/{id:long}/vehicles/{detailId:long}", async (long id, long detailId, PaymentGPSService gpsService, ITenantContext tc) =>
+{
+    try
+    {
+        var updated = await gpsService.RemoveVehicleAsync(id, detailId, tc.OrgId);
+        return Results.Ok(updated);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 13) Cập nhật chi tiết xe & tái tính toán bảng kê
+app.MapPut("/api/payment-gps/{id:long}/details", async (long id, UpdatePaymentGPSDetailsRequestDto dto, PaymentGPSService gpsService, ITenantContext tc) =>
+{
+    try
+    {
+        var updated = await gpsService.UpdateDetailsAsync(id, tc.OrgId, dto.Items);
+        return Results.Ok(updated);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 14) Xóa toàn bộ bảng kê nháp
+app.MapDelete("/api/payment-gps/{id:long}", async (long id, PaymentGPSService gpsService, ITenantContext tc) =>
+{
+    try
+    {
+        await gpsService.DeleteDraftAsync(id, tc.OrgId);
+        return Results.Ok(new { message = $"Đã xóa bảng kê GPS #{id} thành công." });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 15) Sinh dữ liệu mẫu in Bảng kê quyết toán GPS (CR_Pmt_PaymentGPS Advice)
+app.MapGet("/api/payment-gps/{id:long}/advice", async (long id, PaymentGPSService gpsService, ITenantContext tc) =>
+{
+    var advice = await gpsService.GenerateAdviceAsync(id, tc.OrgId);
+    if (advice == null) return Results.NotFound(new { error = $"Không tìm thấy bảng kê #{id}." });
+    return Results.Ok(advice);
+});
+
+// 16) Thống kê tổng hợp dashboard
+app.MapGet("/api/payment-gps/summary", async (PaymentGPSService gpsService, ITenantContext tc) =>
+{
+    var summary = await gpsService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
+// 17) Bảng đơn giá tham chiếu dịch vụ định vị GPS theo nhà cung cấp
+app.MapGet("/api/payment-gps/providers", () =>
+{
+    var providers = PaymentGPSService.DefaultGPSProviders.Select(kv => new
+    {
+        providerCode = kv.Key,
+        providerName = kv.Value.ProviderName,
+        contractNo = kv.Value.ContractNo,
+        dailyPrice = kv.Value.DailyPrice,
+        monthlyRate = kv.Value.MonthlyRate
+    });
+    return Results.Ok(providers);
+});
+
 app.Run();
 
 record CreatePayDto(long Amount, string? OrderId, string? OrderInfo, string? BankCode);
@@ -5004,4 +5288,23 @@ record SettlePaymentAVNDto(string? BankTxnRef, string? SettledBy);
 record RejectPaymentAVNDto(string Reason, string? RejecterName);
 record CancelPaymentAVNDto(string? Reason);
 record ImportPaymentAVNVehiclesDto(List<PaymentAVNItemInputDto> Items);
+
+record CreatePaymentGPSDto(
+    string? PaymentGPSNo,
+    string PmtMonth,
+    string? ContractNo,
+    string? ProviderCode,
+    string? ProviderName,
+    decimal? VATRate,
+    string? Remark,
+    string? CreatedBy,
+    List<PaymentGPSItemInputDto> Items
+);
+record ApprovePaymentGPSDto(string? ApproverName);
+record SignPaymentGPSDto(string? SignerName, string? FilePath);
+record SettlePaymentGPSDto(string? BankTxnRef, string? SettledBy);
+record RejectPaymentGPSDto(string Reason, string? RejecterName);
+record CancelPaymentGPSDto(string? Reason);
+record ImportPaymentGPSVehiclesDto(List<PaymentGPSItemInputDto> Items);
+record UpdatePaymentGPSDetailsRequestDto(List<UpdatePaymentGPSDetailItemDto> Items);
 

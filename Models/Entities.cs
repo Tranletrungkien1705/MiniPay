@@ -97,6 +97,12 @@ public enum AVNSignCAStatus { Pending = 0, Signed = 1 }
 
 public enum PaymentAVNDetailStatus { Pending = 0, Approved = 1, Adjusted = 2, Cancelled = 3 }
 
+public enum PaymentGPSStatus { Draft = 0, HTVApproved = 1, TCMSApproved = 2, Signed = 3, Settled = 4, Rejected = 5, Cancelled = 6 }
+
+public enum GPSSignCAStatus { Pending = 0, Signed = 1 }
+
+public enum PaymentGPSDetailStatus { Pending = 0, Approved = 1, Adjusted = 2, Cancelled = 3 }
+
 /// <summary>Ý định thanh toán (payment intent) — 1 dòng / 1 lần khởi tạo cổng.</summary>
 public sealed class PaymentIntent
 {
@@ -1081,5 +1087,199 @@ public sealed class PaymentAVNSummaryDto
     public long TotalVATAmount { get; set; }
     public long TotalSettledAmount { get; set; }
 }
+
+/// <summary>Bảng kê thanh toán chi phí quản lý & giám sát thiết bị định vị vệ tinh GPS trên xe ô tô — tương ứng Pmt_PaymentGPS trong BizHTC.Payment / FrmQuanLyThanhToanGPS &amp; FrmTaoThanhToanGPS.</summary>
+public sealed class PaymentGPS
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string PaymentGPSNo { get; set; } = "";             // Số bảng kê thanh toán GPS (ví dụ: GPS-202505-001)
+    public string PmtMonth { get; set; } = "";                 // Kỳ / tháng thanh toán GPS (ví dụ: 2025-05)
+    public string ContractNo { get; set; } = "HD-GPS-VIETTEL"; // Số hợp đồng cung cấp dịch vụ định vị GPS
+    public string ProviderCode { get; set; } = "VIETTEL";      // Mã đối tác viễn thông / thiết bị GPS (VIETTEL, VNPT, BAGPS, BKAV...)
+    public string ProviderName { get; set; } = "Tổng Công ty Viễn thông Viettel (Viettel Telecom)"; // Tên nhà cung cấp dịch vụ
+    public int TotalVehicles { get; set; }                     // Tổng số lượng xe lắp đặt / kích hoạt GPS trong kỳ
+    public int TotalPlanDays { get; set; }                     // Tổng số ngày tính phí dự kiến (Σ PlanCostGPSDate)
+    public int TotalDeductDays { get; set; }                   // Tổng số ngày khấu trừ (Σ DeductDate)
+    public int TotalActualDays { get; set; }                   // Tổng số ngày tính phí thực tế (Σ ActualCostGPSDate)
+    public long AmountTotal { get; set; }                      // Tổng chi phí GPS trước thuế VAT (= Σ AmountGPS)
+    public decimal VATRate { get; set; } = 10.0m;              // Thuế suất VAT (%)
+    public long UnitPriceVAT { get; set; }                     // Tiền thuế VAT (= AmountTotal * VATRate / 100)
+    public long TotalAmountVAT { get; set; }                   // Tổng giá trị thanh toán sau thuế VAT (= AmountTotal + UnitPriceVAT)
+    public PaymentGPSStatus Status { get; set; } = PaymentGPSStatus.Draft; // Trạng thái bảng kê (P, A1, A2, F, Settled, Rejected, C)
+    public GPSSignCAStatus HTVSignStatus { get; set; } = GPSSignCAStatus.Pending;  // Trạng thái ký HTV (P: Chưa ký, A: Đã ký)
+    public string? HTVSignUser { get; set; }                   // Người đại diện HTV ký số CA
+    public DateTime? HTVSignDTime { get; set; }                // Thời điểm ký số HTV
+    public GPSSignCAStatus TCMSSignStatus { get; set; } = GPSSignCAStatus.Pending; // Trạng thái ký TCMS (P: Chưa ký, A: Đã ký)
+    public string? TCMSSignUser { get; set; }                  // Người đại diện TCMS ký số CA
+    public DateTime? TCMSSignDTime { get; set; }               // Thời điểm ký số TCMS
+    public string? Appr1By { get; set; }                       // Người duyệt cấp 1 (HTV Thẩm định duyệt sơ bộ A1)
+    public DateTime? Appr1DTime { get; set; }                  // Thời điểm duyệt cấp 1
+    public string? Appr2By { get; set; }                       // Người duyệt cấp 2 (TCMS Ban Tài chính / Kế toán duyệt A2)
+    public DateTime? Appr2DTime { get; set; }                  // Thời điểm duyệt cấp 2
+    public string? SettledBy { get; set; }                     // Kế toán quyết toán thanh toán chuyển khoản UNC ngân hàng
+    public DateTime? SettledAt { get; set; }                   // Thời điểm quyết toán chi trả
+    public string? BankTxnRef { get; set; }                    // Mã bút toán / số UNC ủy nhiệm chi ngân hàng
+    public string? RejectReason { get; set; }                  // Lý do từ chối bảng kê
+    public DateTime? CancelledAt { get; set; }                 // Thời điểm hủy bảng kê
+    public string? FilePath { get; set; }                      // Đường dẫn / mã chứng từ file ký số CA (CR_Pmt_PaymentGPS.pdf)
+    public string? Remark { get; set; }                        // Ghi chú / diễn giải bảng kê
+    public string? CreatedBy { get; set; }                     // Người lập bảng kê
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    public List<PaymentGPSDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết dòng xe tính phí dịch vụ định vị GPS — tương ứng Pmt_PaymentGPSDetail trong BizHTC.Payment.</summary>
+public sealed class PaymentGPSDetail
+{
+    public long Id { get; set; }
+    public long PaymentGPSId { get; set; }
+    public Guid OrgId { get; set; }
+    public string PaymentGPSNo { get; set; } = "";             // Số bảng kê thanh toán GPS
+    public string VIN { get; set; } = "";                      // Số khung xe (17 ký tự VIN)
+    public string? EngineNo { get; set; }                      // Số máy xe
+    public string? CarID { get; set; }                         // Mã định danh xe kho nội bộ
+    public string ModelCode { get; set; } = "";                // Mã model xe (SANTAFE, TUCSON, CRETA, ACCENT, ELANTRA...)
+    public string? ModelName { get; set; }                     // Tên thương mại dòng xe
+    public string? SpecCode { get; set; }                      // Mã phiên bản đặc tả kỹ thuật
+    public string? SpecDescription { get; set; }               // Diễn giải phiên bản xe
+    public string GPSID { get; set; } = "";                    // Mã / serial / IMEI thiết bị định vị vệ tinh GPS
+    public string ContractGPS { get; set; } = "HD-GPS-VIETTEL";// Hợp đồng dịch vụ GPS áp dụng
+    public DateTime? GPSStartDate { get; set; }                // Thời điểm map thiết bị GPS vào xe
+    public DateTime? RetailDate { get; set; }                  // Ngày đại lý khai báo bán lẻ / bàn giao xe
+    public DateTime CostGPSStartDate { get; set; }             // Ngày bắt đầu tính phí GPS trong kỳ
+    public DateTime CostGPSEndDate { get; set; }               // Ngày kết thúc tính phí GPS trong kỳ
+    public int PlanCostGPSDate { get; set; }                   // Số ngày tính phí GPS dự kiến (= (End - Start).Days + 1)
+    public int DeductDate { get; set; }                        // Số ngày khấu trừ (ngưng phát sóng / bảo trì xe)
+    public int ActualCostGPSDate { get; set; }                 // Số ngày tính phí GPS thực tế (= PlanCostGPSDate - DeductDate)
+    public long PriceGPS { get; set; }                         // Đơn giá thuê bao / quản lý GPS theo ngày (VND/ngày)
+    public long AmountGPS { get; set; }                        // Phí quản lý GPS của xe (= ActualCostGPSDate * PriceGPS)
+    public PaymentGPSDetailStatus Status { get; set; } = PaymentGPSDetailStatus.Pending; // Trạng thái dòng
+    public string? Remark { get; set; }                        // Ghi chú chi tiết dòng xe
+}
+
+/// <summary>Bảng đơn giá định mức phí dịch vụ GPS theo hợp đồng — tương ứng Mst_UnitPriceGPS / TblMst_UnitPriceGPS.</summary>
+public sealed class UnitPriceGPS
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string ContractNo { get; set; } = "";               // Số hợp đồng nhà cung cấp GPS (CONTRACTNO)
+    public string ProviderCode { get; set; } = "";             // Mã nhà cung cấp (VIETTEL, VNPT, BAGPS, BKAV)
+    public string ProviderName { get; set; } = "";             // Tên đối tác cung cấp dịch vụ GPS
+    public long DailyPrice { get; set; }                       // Đơn giá cước theo ngày (VND/ngày)
+    public long MonthlyRate { get; set; }                      // Mức cước tháng tham chiếu (VND/tháng)
+    public DateTime EffectiveStartDate { get; set; }           // Ngày bắt đầu hiệu lực hợp đồng (EFFSTARTDATE)
+    public bool IsActive { get; set; } = true;                 // Cờ kích hoạt (FLAGACTIVE)
+    public string? Remark { get; set; }                        // Ghi chú điều khoản hợp đồng
+}
+
+public sealed class PaymentGPSItemInputDto
+{
+    public string VIN { get; set; } = "";
+    public string? EngineNo { get; set; }
+    public string? CarID { get; set; }
+    public string ModelCode { get; set; } = "";
+    public string? ModelName { get; set; }
+    public string? SpecCode { get; set; }
+    public string? SpecDescription { get; set; }
+    public string GPSID { get; set; } = "";
+    public string? ContractGPS { get; set; }
+    public DateTime? GPSStartDate { get; set; }
+    public DateTime? RetailDate { get; set; }
+    public DateTime? CostGPSStartDate { get; set; }
+    public DateTime? CostGPSEndDate { get; set; }
+    public int? DeductDate { get; set; }
+    public long? PriceGPS { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class UpdatePaymentGPSDetailItemDto
+{
+    public long DetailId { get; set; }
+    public DateTime? CostGPSStartDate { get; set; }
+    public DateTime? CostGPSEndDate { get; set; }
+    public int? DeductDate { get; set; }
+    public long? PriceGPS { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class PaymentGPSAdviceDto
+{
+    public string PaymentGPSNo { get; set; } = "";
+    public string PmtMonth { get; set; } = "";
+    public string PmtMonthFormatted { get; set; } = "";
+    public string PrintDate { get; set; } = "";
+    public string ContractNo { get; set; } = "";
+    public string ProviderName { get; set; } = "";
+    public int TotalVehicles { get; set; }
+    public int TotalPlanDays { get; set; }
+    public int TotalDeductDays { get; set; }
+    public int TotalActualDays { get; set; }
+    public long AmountTotal { get; set; }
+    public decimal VATRate { get; set; }
+    public long UnitPriceVAT { get; set; }
+    public long TotalAmountVAT { get; set; }
+    public string AmountInWords { get; set; } = "";
+    public string StatusText { get; set; } = "";
+    public string TCMSSignInfo { get; set; } = "";
+    public string HTVSignInfo { get; set; } = "";
+    public string? BankTxnRef { get; set; }
+    public List<PaymentGPSDetailAdviceDto> Items { get; set; } = [];
+}
+
+public sealed class PaymentGPSDetailAdviceDto
+{
+    public int No { get; set; }
+    public string VIN { get; set; } = "";
+    public string ModelCode { get; set; } = "";
+    public string ModelName { get; set; } = "";
+    public string SpecCode { get; set; } = "";
+    public string SpecDescription { get; set; } = "";
+    public string EngineNo { get; set; } = "";
+    public string GPSID { get; set; } = "";
+    public string ContractGPS { get; set; } = "";
+    public string? GPSStartDate { get; set; }
+    public string? RetailDate { get; set; }
+    public string CostGPSStartDate { get; set; } = "";
+    public string CostGPSEndDate { get; set; } = "";
+    public int PlanCostGPSDate { get; set; }
+    public int DeductDate { get; set; }
+    public int ActualCostGPSDate { get; set; }
+    public long PriceGPS { get; set; }
+    public long AmountGPS { get; set; }
+    public string Status { get; set; } = "";
+}
+
+public sealed class PaymentGPSSummaryDto
+{
+    public int TotalStatements { get; set; }
+    public int DraftCount { get; set; }
+    public int ApprovedCount { get; set; }
+    public int SignedCount { get; set; }
+    public int SettledCount { get; set; }
+    public int CancelledCount { get; set; }
+    public int TotalVehiclesTracked { get; set; }
+    public int TotalTrackedDays { get; set; }
+    public long TotalAmountBeforeVAT { get; set; }
+    public long TotalVATAmount { get; set; }
+    public long TotalSettledAmount { get; set; }
+}
+
+public sealed class CandidateVehicleGPSDto
+{
+    public string VIN { get; set; } = "";
+    public string? EngineNo { get; set; }
+    public string ModelCode { get; set; } = "";
+    public string ModelName { get; set; } = "";
+    public string SpecCode { get; set; } = "";
+    public string SpecDescription { get; set; } = "";
+    public string GPSDvNo { get; set; } = "";
+    public string ContractNo { get; set; } = "";
+    public DateTime GPSMapVINDateTime { get; set; }
+    public DateTime? DealDate { get; set; }
+    public long DefaultDailyPrice { get; set; }
+}
+
 
 

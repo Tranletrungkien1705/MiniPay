@@ -834,6 +834,88 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_PaymentAVNs_OrgId_PmtMonth"" ON ""PaymentAVNs"" (""OrgId"", ""PmtMonth"");
                 CREATE INDEX IF NOT EXISTS ""IX_PaymentAVNDetails_PaymentAVNId"" ON ""PaymentAVNDetails"" (""PaymentAVNId"");
                 CREATE INDEX IF NOT EXISTS ""IX_PaymentAVNDetails_OrgId_VIN"" ON ""PaymentAVNDetails"" (""OrgId"", ""VIN"");
+
+                CREATE TABLE IF NOT EXISTS ""PaymentGPSs"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""PaymentGPSNo"" TEXT NOT NULL,
+                    ""PmtMonth"" TEXT NOT NULL,
+                    ""ContractNo"" TEXT NOT NULL,
+                    ""ProviderCode"" TEXT NOT NULL,
+                    ""ProviderName"" TEXT NOT NULL,
+                    ""TotalVehicles"" INTEGER NOT NULL,
+                    ""TotalPlanDays"" INTEGER NOT NULL,
+                    ""TotalDeductDays"" INTEGER NOT NULL,
+                    ""TotalActualDays"" INTEGER NOT NULL,
+                    ""AmountTotal"" INTEGER NOT NULL,
+                    ""VATRate"" REAL NOT NULL,
+                    ""UnitPriceVAT"" INTEGER NOT NULL,
+                    ""TotalAmountVAT"" INTEGER NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""HTVSignStatus"" INTEGER NOT NULL,
+                    ""HTVSignUser"" TEXT NULL,
+                    ""HTVSignDTime"" TEXT NULL,
+                    ""TCMSSignStatus"" INTEGER NOT NULL,
+                    ""TCMSSignUser"" TEXT NULL,
+                    ""TCMSSignDTime"" TEXT NULL,
+                    ""Appr1By"" TEXT NULL,
+                    ""Appr1DTime"" TEXT NULL,
+                    ""Appr2By"" TEXT NULL,
+                    ""Appr2DTime"" TEXT NULL,
+                    ""SettledBy"" TEXT NULL,
+                    ""SettledAt"" TEXT NULL,
+                    ""BankTxnRef"" TEXT NULL,
+                    ""RejectReason"" TEXT NULL,
+                    ""CancelledAt"" TEXT NULL,
+                    ""FilePath"" TEXT NULL,
+                    ""Remark"" TEXT NULL,
+                    ""CreatedBy"" TEXT NULL,
+                    ""CreatedAt"" TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS ""PaymentGPSDetails"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""PaymentGPSId"" INTEGER NOT NULL,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""PaymentGPSNo"" TEXT NOT NULL,
+                    ""VIN"" TEXT NOT NULL,
+                    ""EngineNo"" TEXT NULL,
+                    ""CarID"" TEXT NULL,
+                    ""ModelCode"" TEXT NOT NULL,
+                    ""ModelName"" TEXT NULL,
+                    ""SpecCode"" TEXT NULL,
+                    ""SpecDescription"" TEXT NULL,
+                    ""GPSID"" TEXT NOT NULL,
+                    ""ContractGPS"" TEXT NOT NULL,
+                    ""GPSStartDate"" TEXT NULL,
+                    ""RetailDate"" TEXT NULL,
+                    ""CostGPSStartDate"" TEXT NOT NULL,
+                    ""CostGPSEndDate"" TEXT NOT NULL,
+                    ""PlanCostGPSDate"" INTEGER NOT NULL,
+                    ""DeductDate"" INTEGER NOT NULL,
+                    ""ActualCostGPSDate"" INTEGER NOT NULL,
+                    ""PriceGPS"" INTEGER NOT NULL,
+                    ""AmountGPS"" INTEGER NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""Remark"" TEXT NULL,
+                    CONSTRAINT ""FK_PaymentGPSDetails_PaymentGPSs_PaymentGPSId"" FOREIGN KEY (""PaymentGPSId"") REFERENCES ""PaymentGPSs"" (""Id"") ON DELETE CASCADE
+                );
+                CREATE TABLE IF NOT EXISTS ""UnitPriceGPSs"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""ContractNo"" TEXT NOT NULL,
+                    ""ProviderCode"" TEXT NOT NULL,
+                    ""ProviderName"" TEXT NOT NULL,
+                    ""DailyPrice"" INTEGER NOT NULL,
+                    ""MonthlyRate"" INTEGER NOT NULL,
+                    ""EffectiveStartDate"" TEXT NOT NULL,
+                    ""IsActive"" INTEGER NOT NULL,
+                    ""Remark"" TEXT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PaymentGPSs_OrgId_PaymentGPSNo"" ON ""PaymentGPSs"" (""OrgId"", ""PaymentGPSNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_PaymentGPSs_OrgId_PmtMonth"" ON ""PaymentGPSs"" (""OrgId"", ""PmtMonth"");
+                CREATE INDEX IF NOT EXISTS ""IX_PaymentGPSDetails_PaymentGPSId"" ON ""PaymentGPSDetails"" (""PaymentGPSId"");
+                CREATE INDEX IF NOT EXISTS ""IX_PaymentGPSDetails_OrgId_VIN"" ON ""PaymentGPSDetails"" (""OrgId"", ""VIN"");
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_UnitPriceGPSs_OrgId_ContractNo"" ON ""UnitPriceGPSs"" (""OrgId"", ""ContractNo"");
             ");
         }
         else if (db.Database.IsNpgsql())
@@ -1649,6 +1731,88 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_PaymentAVNs_OrgId_PmtMonth"" ON ""PaymentAVNs"" (""OrgId"", ""PmtMonth"");
                 CREATE INDEX IF NOT EXISTS ""IX_PaymentAVNDetails_PaymentAVNId"" ON ""PaymentAVNDetails"" (""PaymentAVNId"");
                 CREATE INDEX IF NOT EXISTS ""IX_PaymentAVNDetails_OrgId_VIN"" ON ""PaymentAVNDetails"" (""OrgId"", ""VIN"");
+
+                CREATE TABLE IF NOT EXISTS ""PaymentGPSs"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""OrgId"" uuid NOT NULL,
+                    ""PaymentGPSNo"" text NOT NULL,
+                    ""PmtMonth"" text NOT NULL,
+                    ""ContractNo"" text NOT NULL,
+                    ""ProviderCode"" text NOT NULL,
+                    ""ProviderName"" text NOT NULL,
+                    ""TotalVehicles"" integer NOT NULL,
+                    ""TotalPlanDays"" integer NOT NULL,
+                    ""TotalDeductDays"" integer NOT NULL,
+                    ""TotalActualDays"" integer NOT NULL,
+                    ""AmountTotal"" bigint NOT NULL,
+                    ""VATRate"" numeric NOT NULL,
+                    ""UnitPriceVAT"" bigint NOT NULL,
+                    ""TotalAmountVAT"" bigint NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""HTVSignStatus"" integer NOT NULL,
+                    ""HTVSignUser"" text NULL,
+                    ""HTVSignDTime"" timestamp with time zone NULL,
+                    ""TCMSSignStatus"" integer NOT NULL,
+                    ""TCMSSignUser"" text NULL,
+                    ""TCMSSignDTime"" timestamp with time zone NULL,
+                    ""Appr1By"" text NULL,
+                    ""Appr1DTime"" timestamp with time zone NULL,
+                    ""Appr2By"" text NULL,
+                    ""Appr2DTime"" timestamp with time zone NULL,
+                    ""SettledBy"" text NULL,
+                    ""SettledAt"" timestamp with time zone NULL,
+                    ""BankTxnRef"" text NULL,
+                    ""RejectReason"" text NULL,
+                    ""CancelledAt"" timestamp with time zone NULL,
+                    ""FilePath"" text NULL,
+                    ""Remark"" text NULL,
+                    ""CreatedBy"" text NULL,
+                    ""CreatedAt"" timestamp with time zone NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS ""PaymentGPSDetails"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""PaymentGPSId"" bigint NOT NULL,
+                    ""OrgId"" uuid NOT NULL,
+                    ""PaymentGPSNo"" text NOT NULL,
+                    ""VIN"" text NOT NULL,
+                    ""EngineNo"" text NULL,
+                    ""CarID"" text NULL,
+                    ""ModelCode"" text NOT NULL,
+                    ""ModelName"" text NULL,
+                    ""SpecCode"" text NULL,
+                    ""SpecDescription"" text NULL,
+                    ""GPSID"" text NOT NULL,
+                    ""ContractGPS"" text NOT NULL,
+                    ""GPSStartDate"" timestamp with time zone NULL,
+                    ""RetailDate"" timestamp with time zone NULL,
+                    ""CostGPSStartDate"" timestamp with time zone NOT NULL,
+                    ""CostGPSEndDate"" timestamp with time zone NOT NULL,
+                    ""PlanCostGPSDate"" integer NOT NULL,
+                    ""DeductDate"" integer NOT NULL,
+                    ""ActualCostGPSDate"" integer NOT NULL,
+                    ""PriceGPS"" bigint NOT NULL,
+                    ""AmountGPS"" bigint NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""Remark"" text NULL,
+                    CONSTRAINT ""FK_PaymentGPSDetails_PaymentGPSs_PaymentGPSId"" FOREIGN KEY (""PaymentGPSId"") REFERENCES ""PaymentGPSs"" (""Id"") ON DELETE CASCADE
+                );
+                CREATE TABLE IF NOT EXISTS ""UnitPriceGPSs"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""OrgId"" uuid NOT NULL,
+                    ""ContractNo"" text NOT NULL,
+                    ""ProviderCode"" text NOT NULL,
+                    ""ProviderName"" text NOT NULL,
+                    ""DailyPrice"" bigint NOT NULL,
+                    ""MonthlyRate"" bigint NOT NULL,
+                    ""EffectiveStartDate"" timestamp with time zone NOT NULL,
+                    ""IsActive"" boolean NOT NULL,
+                    ""Remark"" text NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PaymentGPSs_OrgId_PaymentGPSNo"" ON ""PaymentGPSs"" (""OrgId"", ""PaymentGPSNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_PaymentGPSs_OrgId_PmtMonth"" ON ""PaymentGPSs"" (""OrgId"", ""PmtMonth"");
+                CREATE INDEX IF NOT EXISTS ""IX_PaymentGPSDetails_PaymentGPSId"" ON ""PaymentGPSDetails"" (""PaymentGPSId"");
+                CREATE INDEX IF NOT EXISTS ""IX_PaymentGPSDetails_OrgId_VIN"" ON ""PaymentGPSDetails"" (""OrgId"", ""VIN"");
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_UnitPriceGPSs_OrgId_ContractNo"" ON ""UnitPriceGPSs"" (""OrgId"", ""ContractNo"");
             ");
         }
 
@@ -6097,6 +6261,596 @@ public static class Seeder
                     InStorageDate = DateTime.Today.AddDays(-42),
                     Status = PaymentAVNDetailStatus.Cancelled,
                     Remark = "Hủy dòng xe do không khớp chứng từ nhập linh kiện"
+                }
+            );
+            await db.SaveChangesAsync();
+        }
+
+        // Dữ liệu mẫu Bảng đơn giá định mức thuê bao dịch vụ GPS (Mst_UnitPriceGPS / BizHTC.Payment)
+        if (!await db.UnitPriceGPSs.AnyAsync(u => u.OrgId == TenantContext.DefaultOrgId))
+        {
+            db.UnitPriceGPSs.AddRange(
+                new UnitPriceGPS
+                {
+                    OrgId = TenantContext.DefaultOrgId,
+                    ContractNo = "HD-GPS-VIETTEL-2024",
+                    ProviderCode = "VIETTEL",
+                    ProviderName = "Tổng Công ty Viễn thông Viettel (Viettel Telecom)",
+                    DailyPrice = 2_500,
+                    MonthlyRate = 75_000,
+                    EffectiveStartDate = new DateTime(2024, 1, 1),
+                    IsActive = true,
+                    Remark = "Hợp đồng khung cung cấp thiết bị và dịch vụ định vị GPS Viettel 4G toàn quốc"
+                },
+                new UnitPriceGPS
+                {
+                    OrgId = TenantContext.DefaultOrgId,
+                    ContractNo = "HD-GPS-VNPT-TRACK",
+                    ProviderCode = "VNPT",
+                    ProviderName = "Tổng Công ty Dịch vụ Viễn thông VNPT (VNPT VinaPhone)",
+                    DailyPrice = 2_400,
+                    MonthlyRate = 72_000,
+                    EffectiveStartDate = new DateTime(2024, 1, 1),
+                    IsActive = true,
+                    Remark = "Hợp đồng thuê bao định vị vệ tinh VNPT Smart Motor & Fleet"
+                },
+                new UnitPriceGPS
+                {
+                    OrgId = TenantContext.DefaultOrgId,
+                    ContractNo = "HD-GPS-BINHANH",
+                    ProviderCode = "BAGPS",
+                    ProviderName = "Công ty TNHH Phát triển Công nghệ Điện tử Bình Anh (BA GPS)",
+                    DailyPrice = 2_300,
+                    MonthlyRate = 69_000,
+                    EffectiveStartDate = new DateTime(2024, 1, 1),
+                    IsActive = true,
+                    Remark = "Hợp đồng thiết bị giám sát hành trình hợp chuẩn BA-GPS"
+                },
+                new UnitPriceGPS
+                {
+                    OrgId = TenantContext.DefaultOrgId,
+                    ContractNo = "HD-GPS-BKAV-SMART",
+                    ProviderCode = "BKAV",
+                    ProviderName = "Tập đoàn Công nghệ BKAV - Smart Vehicle IoT Solutions",
+                    DailyPrice = 2_600,
+                    MonthlyRate = 78_000,
+                    EffectiveStartDate = new DateTime(2024, 1, 1),
+                    IsActive = true,
+                    Remark = "Hợp đồng giám sát thông minh IoT và an ninh dữ liệu vị trí xe BKAV"
+                }
+            );
+            await db.SaveChangesAsync();
+        }
+
+        // Dữ liệu mẫu Bảng kê thanh toán chi phí định vị GPS trên xe ô tô (Pmt_PaymentGPS & Pmt_PaymentGPSDetail / BizHTC.Payment)
+        if (!await db.PaymentGPSs.AnyAsync(p => p.OrgId == TenantContext.DefaultOrgId))
+        {
+            // 1. Bảng kê Tháng 04/2025 - ĐÃ QUYẾT TOÁN THANH TOÁN (Settled)
+            var gps1 = new PaymentGPS
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PaymentGPSNo = "GPS-202504-001",
+                PmtMonth = "2025-04",
+                ContractNo = "HD-GPS-VIETTEL-2024",
+                ProviderCode = "VIETTEL",
+                ProviderName = "Tổng Công ty Viễn thông Viettel (Viettel Telecom)",
+                TotalVehicles = 4,
+                TotalPlanDays = 107,
+                TotalDeductDays = 3,
+                TotalActualDays = 104,
+                AmountTotal = 260_000,
+                VATRate = 10.0m,
+                UnitPriceVAT = 26_000,
+                TotalAmountVAT = 286_000,
+                Status = PaymentGPSStatus.Settled,
+                HTVSignStatus = GPSSignCAStatus.Signed,
+                HTVSignUser = "TranVanHung_GiamDocVanTai_HTV",
+                HTVSignDTime = DateTime.Today.AddDays(-28),
+                TCMSSignStatus = GPSSignCAStatus.Signed,
+                TCMSSignUser = "NguyenVanQuan_GDKyThuat_TCMS",
+                TCMSSignDTime = DateTime.Today.AddDays(-29),
+                Appr1By = "TranVanHung_GiamDocVanTai_HTV",
+                Appr1DTime = DateTime.Today.AddDays(-30),
+                Appr2By = "DangThanhTung_KeToanTruong_TCMS",
+                Appr2DTime = DateTime.Today.AddDays(-29),
+                SettledBy = "PhamThiMai_KeToanThanhToan_HTV",
+                SettledAt = DateTime.Today.AddDays(-25),
+                BankTxnRef = "UNC-GPS-20250428-1122",
+                FilePath = "CR_Pmt_PaymentGPS_202504_001_Signed.pdf",
+                Remark = "Quyết toán thanh toán phí dịch vụ định vị GPS Viettel tháng 04/2025 cho lô xe kho Ninh Bình",
+                CreatedBy = "VuMinhTu_QuanLyXe",
+                CreatedAt = DateTime.Today.AddDays(-31)
+            };
+            db.PaymentGPSs.Add(gps1);
+            await db.SaveChangesAsync();
+
+            db.PaymentGPSDetails.AddRange(
+                new PaymentGPSDetail
+                {
+                    PaymentGPSId = gps1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentGPSNo = gps1.PaymentGPSNo,
+                    VIN = "KMHCT81EPHU950101",
+                    EngineNo = "G4KP-110101",
+                    CarID = "CAR-NB-101",
+                    ModelCode = "SANTAFE",
+                    ModelName = "Hyundai Santa Fe 2.5 HTRAC",
+                    SpecCode = "SF-2.5-GAS",
+                    SpecDescription = "Bản xăng cao cấp",
+                    GPSID = "GPS-VTT-950101",
+                    ContractGPS = gps1.ContractNo,
+                    GPSStartDate = new DateTime(2025, 3, 20),
+                    CostGPSStartDate = new DateTime(2025, 4, 1),
+                    CostGPSEndDate = new DateTime(2025, 4, 30),
+                    PlanCostGPSDate = 30,
+                    DeductDate = 0,
+                    ActualCostGPSDate = 30,
+                    PriceGPS = 2_500,
+                    AmountGPS = 75_000,
+                    Status = PaymentGPSDetailStatus.Approved,
+                    Remark = "Thiết bị phát sóng định vị GPS 4G chuẩn xác liên tục 24/7"
+                },
+                new PaymentGPSDetail
+                {
+                    PaymentGPSId = gps1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentGPSNo = gps1.PaymentGPSNo,
+                    VIN = "KMHCT81EPHU950102",
+                    EngineNo = "G4FJ-110102",
+                    CarID = "CAR-NB-102",
+                    ModelCode = "TUCSON",
+                    ModelName = "Hyundai Tucson 2.0 MPI",
+                    SpecCode = "TUC-2.0-AT",
+                    SpecDescription = "Bản đặc biệt máy xăng",
+                    GPSID = "GPS-VTT-950102",
+                    ContractGPS = gps1.ContractNo,
+                    GPSStartDate = new DateTime(2025, 3, 22),
+                    CostGPSStartDate = new DateTime(2025, 4, 1),
+                    CostGPSEndDate = new DateTime(2025, 4, 30),
+                    PlanCostGPSDate = 30,
+                    DeductDate = 2,
+                    ActualCostGPSDate = 28,
+                    PriceGPS = 2_500,
+                    AmountGPS = 70_000,
+                    Status = PaymentGPSDetailStatus.Adjusted,
+                    Remark = "Khấu trừ 2 ngày xe vào xưởng hiệu chỉnh ăng-ten ngưng phát sóng"
+                },
+                new PaymentGPSDetail
+                {
+                    PaymentGPSId = gps1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentGPSNo = gps1.PaymentGPSNo,
+                    VIN = "KMHCT81EPHU950103",
+                    EngineNo = "G4NL-110103",
+                    CarID = "CAR-NB-103",
+                    ModelCode = "CRETA",
+                    ModelName = "Hyundai Creta 1.5L Smart Stream",
+                    SpecCode = "CRT-1.5L-PREM",
+                    SpecDescription = "Bản cao cấp 2 tông màu",
+                    GPSID = "GPS-VTT-950103",
+                    ContractGPS = gps1.ContractNo,
+                    GPSStartDate = new DateTime(2025, 4, 5),
+                    CostGPSStartDate = new DateTime(2025, 4, 5),
+                    CostGPSEndDate = new DateTime(2025, 4, 30),
+                    PlanCostGPSDate = 26,
+                    DeductDate = 0,
+                    ActualCostGPSDate = 26,
+                    PriceGPS = 2_500,
+                    AmountGPS = 65_000,
+                    Status = PaymentGPSDetailStatus.Approved,
+                    Remark = "Kích hoạt giám sát định vị từ ngày hoàn tất kiểm tra xuất xưởng PDI"
+                },
+                new PaymentGPSDetail
+                {
+                    PaymentGPSId = gps1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentGPSNo = gps1.PaymentGPSNo,
+                    VIN = "KMHCT81EPHU950104",
+                    EngineNo = "G4LC-110104",
+                    CarID = "CAR-NB-104",
+                    ModelCode = "ACCENT",
+                    ModelName = "Hyundai Accent 1.5 AT",
+                    SpecCode = "ACC-1.5AT-PREM",
+                    SpecDescription = "Bản đặc biệt",
+                    GPSID = "GPS-VTT-950104",
+                    ContractGPS = gps1.ContractNo,
+                    GPSStartDate = new DateTime(2025, 4, 10),
+                    CostGPSStartDate = new DateTime(2025, 4, 10),
+                    CostGPSEndDate = new DateTime(2025, 4, 30),
+                    PlanCostGPSDate = 21,
+                    DeductDate = 1,
+                    ActualCostGPSDate = 20,
+                    PriceGPS = 2_500,
+                    AmountGPS = 50_000,
+                    Status = PaymentGPSDetailStatus.Adjusted,
+                    Remark = "Khấu trừ 1 ngày kiểm tra kỹ thuật định kỳ tại bãi"
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // 2. Bảng kê Tháng 05/2025 - ĐÃ KÝ SỐ CA HOÀN TẤT (Signed)
+            var gps2 = new PaymentGPS
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PaymentGPSNo = "GPS-202505-001",
+                PmtMonth = "2025-05",
+                ContractNo = "HD-GPS-VNPT-TRACK",
+                ProviderCode = "VNPT",
+                ProviderName = "Tổng Công ty Dịch vụ Viễn thông VNPT (VNPT VinaPhone)",
+                TotalVehicles = 3,
+                TotalPlanDays = 93,
+                TotalDeductDays = 1,
+                TotalActualDays = 92,
+                AmountTotal = 220_800,
+                VATRate = 10.0m,
+                UnitPriceVAT = 22_080,
+                TotalAmountVAT = 242_880,
+                Status = PaymentGPSStatus.Signed,
+                HTVSignStatus = GPSSignCAStatus.Signed,
+                HTVSignUser = "TranVanHung_GiamDocVanTai_HTV",
+                HTVSignDTime = DateTime.Today.AddDays(-3),
+                TCMSSignStatus = GPSSignCAStatus.Signed,
+                TCMSSignUser = "NguyenVanQuan_GDKyThuat_TCMS",
+                TCMSSignDTime = DateTime.Today.AddDays(-4),
+                Appr1By = "TranVanHung_GiamDocVanTai_HTV",
+                Appr1DTime = DateTime.Today.AddDays(-5),
+                Appr2By = "DangThanhTung_KeToanTruong_TCMS",
+                Appr2DTime = DateTime.Today.AddDays(-4),
+                FilePath = "CR_Pmt_PaymentGPS_202505_001_Signed.pdf",
+                Remark = "Bảng kê giám sát GPS xe nhập khẩu phân phối đợt 1 tháng 05/2025 - Chờ kế toán chuyển khoản UNC",
+                CreatedBy = "VuMinhTu_QuanLyXe",
+                CreatedAt = DateTime.Today.AddDays(-6)
+            };
+            db.PaymentGPSs.Add(gps2);
+            await db.SaveChangesAsync();
+
+            db.PaymentGPSDetails.AddRange(
+                new PaymentGPSDetail
+                {
+                    PaymentGPSId = gps2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentGPSNo = gps2.PaymentGPSNo,
+                    VIN = "KMHCT81EPHU950201",
+                    EngineNo = "G6DU-220201",
+                    CarID = "CAR-HP-201",
+                    ModelCode = "PALISADE",
+                    ModelName = "Hyundai Palisade 2.2 Diesel HTRAC",
+                    SpecCode = "PAL-2.2D-PREM",
+                    SpecDescription = "Bản 6 chỗ ngồi thương gia",
+                    GPSID = "GPS-VNP-950201",
+                    ContractGPS = gps2.ContractNo,
+                    GPSStartDate = new DateTime(2025, 4, 25),
+                    CostGPSStartDate = new DateTime(2025, 5, 1),
+                    CostGPSEndDate = new DateTime(2025, 5, 31),
+                    PlanCostGPSDate = 31,
+                    DeductDate = 0,
+                    ActualCostGPSDate = 31,
+                    PriceGPS = 2_400,
+                    AmountGPS = 74_400,
+                    Status = PaymentGPSDetailStatus.Approved,
+                    Remark = "Giám sát vị trí lưu kho tại tổng kho Hiệp Phước Nhà Bè"
+                },
+                new PaymentGPSDetail
+                {
+                    PaymentGPSId = gps2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentGPSNo = gps2.PaymentGPSNo,
+                    VIN = "KMHCT81EPHU950202",
+                    EngineNo = "G4KN-220202",
+                    CarID = "CAR-HP-202",
+                    ModelCode = "CUSTIN",
+                    ModelName = "Hyundai Custin 2.0 T-GDi Cao Cấp",
+                    SpecCode = "CST-2.0T-PREM",
+                    SpecDescription = "Bản cao cấp cửa lùa điện kép",
+                    GPSID = "GPS-VNP-950202",
+                    ContractGPS = gps2.ContractNo,
+                    GPSStartDate = new DateTime(2025, 4, 26),
+                    CostGPSStartDate = new DateTime(2025, 5, 1),
+                    CostGPSEndDate = new DateTime(2025, 5, 31),
+                    PlanCostGPSDate = 31,
+                    DeductDate = 1,
+                    ActualCostGPSDate = 30,
+                    PriceGPS = 2_400,
+                    AmountGPS = 72_000,
+                    Status = PaymentGPSDetailStatus.Adjusted,
+                    Remark = "Khấu trừ 1 ngày kiểm định môi trường khí thải xe"
+                },
+                new PaymentGPSDetail
+                {
+                    PaymentGPSId = gps2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentGPSNo = gps2.PaymentGPSNo,
+                    VIN = "KMHCT81EPHU950203",
+                    EngineNo = "EM07-220203",
+                    CarID = "CAR-HP-203",
+                    ModelCode = "IONIQ-5",
+                    ModelName = "Hyundai IONIQ 5 Exclusive EV",
+                    SpecCode = "IQ5-72KWH-EXC",
+                    SpecDescription = "Xe điện Pin 72.6 kWh công nghệ E-GMP",
+                    GPSID = "GPS-VNP-950203",
+                    ContractGPS = gps2.ContractNo,
+                    GPSStartDate = new DateTime(2025, 4, 28),
+                    CostGPSStartDate = new DateTime(2025, 5, 1),
+                    CostGPSEndDate = new DateTime(2025, 5, 31),
+                    PlanCostGPSDate = 31,
+                    DeductDate = 0,
+                    ActualCostGPSDate = 31,
+                    PriceGPS = 2_400,
+                    AmountGPS = 74_400,
+                    Status = PaymentGPSDetailStatus.Approved,
+                    Remark = "Giám sát trạng thái sạc Pin và vị trí xe an toàn 24/7"
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // 3. Bảng kê Tháng 05/2025 - HTV ĐÃ PHÊ DUYỆT CẤP 1 (HTVApproved)
+            var gps3 = new PaymentGPS
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PaymentGPSNo = "GPS-202505-002",
+                PmtMonth = "2025-05",
+                ContractNo = "HD-GPS-BINHANH",
+                ProviderCode = "BAGPS",
+                ProviderName = "Công ty TNHH Phát triển Công nghệ Điện tử Bình Anh (BA GPS)",
+                TotalVehicles = 3,
+                TotalPlanDays = 80,
+                TotalDeductDays = 2,
+                TotalActualDays = 78,
+                AmountTotal = 179_400,
+                VATRate = 10.0m,
+                UnitPriceVAT = 17_940,
+                TotalAmountVAT = 197_340,
+                Status = PaymentGPSStatus.HTVApproved,
+                HTVSignStatus = GPSSignCAStatus.Pending,
+                TCMSSignStatus = GPSSignCAStatus.Pending,
+                Appr1By = "TranVanHung_GiamDocVanTai_HTV",
+                Appr1DTime = DateTime.Today.AddDays(-2),
+                Remark = "Bảng kê đợt 2 tháng 05/2025: Thiết bị BA-GPS trên dòng xe sedan & MPV, chờ TCMS duyệt A2",
+                CreatedBy = "VuMinhTu_QuanLyXe",
+                CreatedAt = DateTime.Today.AddDays(-4)
+            };
+            db.PaymentGPSs.Add(gps3);
+            await db.SaveChangesAsync();
+
+            db.PaymentGPSDetails.AddRange(
+                new PaymentGPSDetail
+                {
+                    PaymentGPSId = gps3.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentGPSNo = gps3.PaymentGPSNo,
+                    VIN = "KMHCT81EPHU950301",
+                    EngineNo = "G4NL-330301",
+                    CarID = "CAR-DA-301",
+                    ModelCode = "ELANTRA",
+                    ModelName = "Hyundai Elantra 2.0 AT Cao Cấp",
+                    SpecCode = "ELN-2.0AT-PREM",
+                    SpecDescription = "Bản cao cấp thế hệ 7",
+                    GPSID = "GPS-BA-950301",
+                    ContractGPS = gps3.ContractNo,
+                    GPSStartDate = new DateTime(2025, 4, 30),
+                    CostGPSStartDate = new DateTime(2025, 5, 1),
+                    CostGPSEndDate = new DateTime(2025, 5, 31),
+                    PlanCostGPSDate = 31,
+                    DeductDate = 0,
+                    ActualCostGPSDate = 31,
+                    PriceGPS = 2_300,
+                    AmountGPS = 71_300,
+                    Status = PaymentGPSDetailStatus.Approved,
+                    Remark = "Kết nối hộp đen BA-GPS đạt chuẩn kỹ thuật QCVN 31:2014"
+                },
+                new PaymentGPSDetail
+                {
+                    PaymentGPSId = gps3.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentGPSNo = gps3.PaymentGPSNo,
+                    VIN = "KMHCT81EPHU950302",
+                    EngineNo = "G4FL-330302",
+                    CarID = "CAR-DA-302",
+                    ModelCode = "STARGAZER",
+                    ModelName = "Hyundai Stargazer X Cao Cấp",
+                    SpecCode = "SGZ-1.5L-PREM",
+                    SpecDescription = "Bản MPV phong cách SUV",
+                    GPSID = "GPS-BA-950302",
+                    ContractGPS = gps3.ContractNo,
+                    GPSStartDate = new DateTime(2025, 5, 4),
+                    CostGPSStartDate = new DateTime(2025, 5, 5),
+                    CostGPSEndDate = new DateTime(2025, 5, 31),
+                    PlanCostGPSDate = 27,
+                    DeductDate = 0,
+                    ActualCostGPSDate = 27,
+                    PriceGPS = 2_300,
+                    AmountGPS = 62_100,
+                    Status = PaymentGPSDetailStatus.Approved,
+                    Remark = "Truyền dữ liệu tốc độ và định vị máy chủ ổn định"
+                },
+                new PaymentGPSDetail
+                {
+                    PaymentGPSId = gps3.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentGPSNo = gps3.PaymentGPSNo,
+                    VIN = "KMHCT81EPHU950303",
+                    EngineNo = "G4FJ-330303",
+                    CarID = "CAR-DA-303",
+                    ModelCode = "ELANTRA-NLINE",
+                    ModelName = "Hyundai Elantra N Line 1.6 Turbo",
+                    SpecCode = "ELN-1.6T-NL",
+                    SpecDescription = "Bản thể thao Turbo",
+                    GPSID = "GPS-BA-950303",
+                    ContractGPS = gps3.ContractNo,
+                    GPSStartDate = new DateTime(2025, 5, 9),
+                    CostGPSStartDate = new DateTime(2025, 5, 10),
+                    CostGPSEndDate = new DateTime(2025, 5, 31),
+                    PlanCostGPSDate = 22,
+                    DeductDate = 2,
+                    ActualCostGPSDate = 20,
+                    PriceGPS = 2_300,
+                    AmountGPS = 46_000,
+                    Status = PaymentGPSDetailStatus.Adjusted,
+                    Remark = "Khấu trừ 2 ngày xe trưng bày sự kiện nội bộ không di chuyển"
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // 4. Bảng kê Tháng 05/2025 - DỰ THẢO (Draft)
+            var gps4 = new PaymentGPS
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PaymentGPSNo = "GPS-202505-003",
+                PmtMonth = "2025-05",
+                ContractNo = "HD-GPS-VIETTEL-2024",
+                ProviderCode = "VIETTEL",
+                ProviderName = "Tổng Công ty Viễn thông Viettel (Viettel Telecom)",
+                TotalVehicles = 2,
+                TotalPlanDays = 34,
+                TotalDeductDays = 0,
+                TotalActualDays = 34,
+                AmountTotal = 85_000,
+                VATRate = 10.0m,
+                UnitPriceVAT = 8_500,
+                TotalAmountVAT = 93_500,
+                Status = PaymentGPSStatus.Draft,
+                HTVSignStatus = GPSSignCAStatus.Pending,
+                TCMSSignStatus = GPSSignCAStatus.Pending,
+                Remark = "Dự thảo bảng kê thanh toán GPS đợt 3 tháng 05/2025 - Mới kích hoạt SIM và thiết bị",
+                CreatedBy = "VuMinhTu_QuanLyXe",
+                CreatedAt = DateTime.Today.AddDays(-1)
+            };
+            db.PaymentGPSs.Add(gps4);
+            await db.SaveChangesAsync();
+
+            db.PaymentGPSDetails.AddRange(
+                new PaymentGPSDetail
+                {
+                    PaymentGPSId = gps4.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentGPSNo = gps4.PaymentGPSNo,
+                    VIN = "KMHCT81EPHU950401",
+                    EngineNo = "G4KP-440401",
+                    CarID = "CAR-NB-401",
+                    ModelCode = "SANTAFE-CAL",
+                    ModelName = "Hyundai Santa Fe Calligraphy 2.5T",
+                    SpecCode = "SF-2.5T-CAL6",
+                    SpecDescription = "Bản cao cấp nhất 6 chỗ mâm 21 inch",
+                    GPSID = "GPS-VTT-950401",
+                    ContractGPS = gps4.ContractNo,
+                    GPSStartDate = new DateTime(2025, 5, 14),
+                    CostGPSStartDate = new DateTime(2025, 5, 15),
+                    CostGPSEndDate = new DateTime(2025, 5, 31),
+                    PlanCostGPSDate = 17,
+                    DeductDate = 0,
+                    ActualCostGPSDate = 17,
+                    PriceGPS = 2_500,
+                    AmountGPS = 42_500,
+                    Status = PaymentGPSDetailStatus.Pending,
+                    Remark = "Định vị 4G kết nối hệ thống viễn thông thông minh Bluelink"
+                },
+                new PaymentGPSDetail
+                {
+                    PaymentGPSId = gps4.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentGPSNo = gps4.PaymentGPSNo,
+                    VIN = "KMHCT81EPHU950402",
+                    EngineNo = "G4FJ-440402",
+                    CarID = "CAR-NB-402",
+                    ModelCode = "TUCSON-TURBO",
+                    ModelName = "Hyundai Tucson 1.6 T-GDi Turbo",
+                    SpecCode = "TUC-1.6T-PREM",
+                    SpecDescription = "Bản máy xăng tăng áp HTRAC",
+                    GPSID = "GPS-VTT-950402",
+                    ContractGPS = gps4.ContractNo,
+                    GPSStartDate = new DateTime(2025, 5, 14),
+                    CostGPSStartDate = new DateTime(2025, 5, 15),
+                    CostGPSEndDate = new DateTime(2025, 5, 31),
+                    PlanCostGPSDate = 17,
+                    DeductDate = 0,
+                    ActualCostGPSDate = 17,
+                    PriceGPS = 2_500,
+                    AmountGPS = 42_500,
+                    Status = PaymentGPSDetailStatus.Pending,
+                    Remark = "Cài đặt hàng rào điện tử cảnh báo rời kho tổng Ninh Bình"
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // 5. Bảng kê Tháng 03/2025 - ĐÃ HỦY (Cancelled)
+            var gps5 = new PaymentGPS
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PaymentGPSNo = "GPS-202503-099",
+                PmtMonth = "2025-03",
+                ContractNo = "HD-GPS-BKAV-SMART",
+                ProviderCode = "BKAV",
+                ProviderName = "Tập đoàn Công nghệ BKAV - Smart Vehicle IoT Solutions",
+                TotalVehicles = 2,
+                TotalPlanDays = 62,
+                TotalDeductDays = 0,
+                TotalActualDays = 62,
+                AmountTotal = 161_200,
+                VATRate = 10.0m,
+                UnitPriceVAT = 16_120,
+                TotalAmountVAT = 177_320,
+                Status = PaymentGPSStatus.Cancelled,
+                HTVSignStatus = GPSSignCAStatus.Pending,
+                TCMSSignStatus = GPSSignCAStatus.Pending,
+                CancelledAt = DateTime.Today.AddDays(-40),
+                RejectReason = "Hủy bảng kê do thay đổi phụ lục số 02 điều chỉnh đơn giá sang nhà mạng Viettel",
+                Remark = "Bảng kê thử nghiệm thiết bị BKAV bị hủy",
+                CreatedBy = "VuMinhTu_QuanLyXe",
+                CreatedAt = DateTime.Today.AddDays(-45)
+            };
+            db.PaymentGPSs.Add(gps5);
+            await db.SaveChangesAsync();
+
+            db.PaymentGPSDetails.AddRange(
+                new PaymentGPSDetail
+                {
+                    PaymentGPSId = gps5.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentGPSNo = gps5.PaymentGPSNo,
+                    VIN = "KMHCT81EPHU950501",
+                    EngineNo = "G4LC-550501",
+                    CarID = "CAR-BK-501",
+                    ModelCode = "ACCENT",
+                    ModelName = "Hyundai Accent 1.5 AT",
+                    SpecCode = "ACC-1.5AT-STD",
+                    SpecDescription = "Bản tiêu chuẩn",
+                    GPSID = "GPS-BKAV-550501",
+                    ContractGPS = gps5.ContractNo,
+                    GPSStartDate = new DateTime(2025, 3, 1),
+                    CostGPSStartDate = new DateTime(2025, 3, 1),
+                    CostGPSEndDate = new DateTime(2025, 3, 31),
+                    PlanCostGPSDate = 31,
+                    DeductDate = 0,
+                    ActualCostGPSDate = 31,
+                    PriceGPS = 2_600,
+                    AmountGPS = 80_600,
+                    Status = PaymentGPSDetailStatus.Cancelled,
+                    Remark = "Hủy do thay đổi phương án triển khai thiết bị thử nghiệm"
+                },
+                new PaymentGPSDetail
+                {
+                    PaymentGPSId = gps5.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    PaymentGPSNo = gps5.PaymentGPSNo,
+                    VIN = "KMHCT81EPHU950502",
+                    EngineNo = "G4LC-550502",
+                    CarID = "CAR-BK-502",
+                    ModelCode = "ACCENT",
+                    ModelName = "Hyundai Accent 1.5 AT",
+                    SpecCode = "ACC-1.5AT-STD",
+                    SpecDescription = "Bản tiêu chuẩn",
+                    GPSID = "GPS-BKAV-550502",
+                    ContractGPS = gps5.ContractNo,
+                    GPSStartDate = new DateTime(2025, 3, 1),
+                    CostGPSStartDate = new DateTime(2025, 3, 1),
+                    CostGPSEndDate = new DateTime(2025, 3, 31),
+                    PlanCostGPSDate = 31,
+                    DeductDate = 0,
+                    ActualCostGPSDate = 31,
+                    PriceGPS = 2_600,
+                    AmountGPS = 80_600,
+                    Status = PaymentGPSDetailStatus.Cancelled,
+                    Remark = "Hủy do thay đổi phương án triển khai thiết bị thử nghiệm"
                 }
             );
             await db.SaveChangesAsync();

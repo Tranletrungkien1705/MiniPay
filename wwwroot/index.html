@@ -100,6 +100,7 @@
     <button class="tab-btn" onclick="showTab('guaranteeExt')">Gia Hạn Bảo Lãnh (Guarantee Extension Dispatch)</button>
     <button class="tab-btn" onclick="showTab('guaranteeClaim')">Đòi Bảo Lãnh (Bank Guarantee Claim / CVĐBL)</button>
     <button class="tab-btn" onclick="showTab('paymentAVN')">Bảng Kê AVN Xe (AVN Payment)</button>
+    <button class="tab-btn" onclick="showTab('paymentGPS')">Bảng Kê GPS Xe (GPS Payment)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -115,6 +116,7 @@
     <button class="tab-btn" onclick="showTab('newGuaranteeExt')">+ Lập Công Văn Gia Hạn</button>
     <button class="tab-btn" onclick="showTab('newGuaranteeClaim')">+ Lập Công Văn Đòi BL</button>
     <button class="tab-btn" onclick="showTab('newPaymentAVN')">+ Lập Bảng Kê AVN</button>
+    <button class="tab-btn" onclick="showTab('newPaymentGPS')">+ Lập Bảng Kê GPS</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -1812,6 +1814,214 @@
     </div>
   </div>
 
+  <!-- TAB: Quản lý Bảng kê Thanh toán Thiết bị & Dịch vụ Định vị GPS (PaymentGPS / FrmQuanLyThanhToanGPS) -->
+  <div id="tab-paymentGPS" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div>
+          <h3 style="margin:0;">Bảng Kê Thanh Toán Thiết Bị &amp; Dịch Vụ Định Vị GPS Xe Ô Tô</h3>
+          <p class="muted" style="margin:2px 0 0;">Quy trình đối soát, thẩm định duyệt 2 cấp (HTV - TCMS) và ký số điện tử CA thanh toán cước thuê bao giám sát hành trình GPS (Pmt_PaymentGPS / CR_Pmt_PaymentGPS).</p>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="secondary" onclick="loadPaymentGPSs()">Làm mới</button>
+          <button onclick="showTab('newPaymentGPS')">+ Lập Bảng Kê Mới</button>
+        </div>
+      </div>
+
+      <!-- Bộ lọc tìm kiếm -->
+      <div class="row" style="margin-bottom:14px; background:rgba(127,127,127,.05); padding:10px; border-radius:6px; align-items:flex-end;">
+        <div class="col">
+          <label class="muted">Kỳ / Tháng Thanh Toán (PmtMonth):</label>
+          <input type="text" id="filterGpsMonth" placeholder="Ví dụ: 2025-05 hoặc 2025-04" onchange="loadPaymentGPSs()">
+        </div>
+        <div class="col">
+          <label class="muted">Trạng Thái Bảng Kê:</label>
+          <select id="filterGpsStatus" onchange="loadPaymentGPSs()">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="Draft">Mới tạo (Draft)</option>
+            <option value="HTVApproved">HTV Đã duyệt cấp 1 (A1)</option>
+            <option value="TCMSApproved">TCMS Đã duyệt cấp 2 (A2)</option>
+            <option value="Signed">Đã ký số CA hoàn tất (Signed)</option>
+            <option value="Settled">Đã quyết toán chuyển tiền (Settled)</option>
+            <option value="Rejected">Bị từ chối duyệt (Rejected)</option>
+            <option value="Cancelled">Đã hủy bảng kê (Cancelled)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Nhà Cung Cấp Dịch Vụ GPS:</label>
+          <select id="filterGpsProvider" onchange="loadPaymentGPSs()">
+            <option value="">-- Tất cả nhà cung cấp --</option>
+            <option value="VIETTEL">Viettel Telecom (VIETTEL)</option>
+            <option value="VNPT">VNPT VinaPhone (VNPT)</option>
+            <option value="BAGPS">Bình Anh (BA GPS)</option>
+            <option value="BKAV">BKAV Smart Vehicle</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Tìm VIN / Số Bảng Kê:</label>
+          <input type="text" id="filterGpsVin" placeholder="Nhập số khung VIN hoặc GPS-..." onkeyup="if(event.key==='Enter') loadPaymentGPSs()">
+        </div>
+        <div style="flex:0 0 auto;">
+          <button class="secondary" onclick="loadPaymentGPSs()">Lọc Dữ Liệu</button>
+        </div>
+      </div>
+
+      <!-- Bảng danh sách bảng kê GPS -->
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Bảng Kê</th>
+              <th>Kỳ TT</th>
+              <th>Nhà Cung Cấp</th>
+              <th>Số HĐ GPS</th>
+              <th>Số Xe</th>
+              <th>Tổng Ngày TT</th>
+              <th>Tổng Cước Trước VAT</th>
+              <th>Thuế VAT (10%)</th>
+              <th>Tổng Thanh Toán (Sau VAT)</th>
+              <th>Trạng Thái</th>
+              <th>Ký Số CA</th>
+              <th>Mã Bút Toán UNC</th>
+              <th>Ngày Tạo</th>
+              <th>Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="paymentGpsTableBody">
+            <tr><td colspan="14" class="muted" style="text-align:center;">Đang tải danh sách bảng kê GPS...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Card Chi Tiết 1 Bảng Kê GPS -->
+    <div class="card" id="cardPaymentGpsDetail" style="margin-top:18px; display:none;">
+      <div style="display:flex; justify-content:space-between; align-items:flex-start; border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:14px;">
+        <div>
+          <h3 id="dtlGpsTitle" style="margin:0; font-size:1.25em;">Chi Tiết Bảng Kê Thanh Toán GPS</h3>
+          <p class="muted" id="dtlGpsSubtitle" style="margin:4px 0 0;"></p>
+        </div>
+        <div style="display:flex; gap:6px; flex-wrap:wrap; justify-content:flex-end;">
+          <button id="btnGpsApprove1" onclick="htvApproveGPS(currentGpsDetailId)" style="display:none;">1️⃣ HTV Duyệt (A1)</button>
+          <button id="btnGpsApprove2" onclick="tcmsApproveGPS(currentGpsDetailId)" style="display:none;">2️⃣ TCMS Duyệt (A2)</button>
+          <button id="btnGpsHTVSign" class="secondary" onclick="htvSignGPS(currentGpsDetailId)" style="display:none;">✍️ Ký Số HTV</button>
+          <button id="btnGpsTCMSSign" onclick="tcmsSignGPS(currentGpsDetailId)" style="display:none;">✍️ Ký Số TCMS (Signed)</button>
+          <button id="btnGpsSettle" style="background:var(--success); color:#fff; display:none;" onclick="settleGPS(currentGpsDetailId)">💰 Quyết Toán UNC</button>
+          <button id="btnGpsReject" class="secondary" style="color:var(--danger); display:none;" onclick="rejectGPS(currentGpsDetailId)">❌ Từ Chối</button>
+          <button id="btnGpsCancel" class="secondary" onclick="cancelGPS(currentGpsDetailId)" style="display:none;">🚫 Hủy Bảng Kê</button>
+          <button id="btnGpsAddVehicle" class="secondary" onclick="openAddGPSVehiclesModal(currentGpsDetailId)" style="display:none;">+ Thêm Xe</button>
+          <button class="secondary" onclick="openPaymentGPSAdviceModal(currentGpsDetailId)">📄 In Bảng Kê (CR_Pmt_PaymentGPS)</button>
+          <button id="btnGpsDeleteDraft" class="secondary" style="color:var(--danger); display:none;" onclick="deleteDraftGPS(currentGpsDetailId)">🗑️ Xóa Nháp</button>
+          <button class="secondary" onclick="document.getElementById('cardPaymentGpsDetail').style.display='none'">Đóng</button>
+        </div>
+      </div>
+
+      <!-- Thông tin tổng quan bảng kê GPS -->
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <div class="muted">Số Bảng Kê:</div>
+          <div id="dtlGpsNo" style="font-size:1.1em; font-weight:700; color:var(--primary);">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">Kỳ / Tháng TT:</div>
+          <div id="dtlGpsMonth" style="font-weight:600;">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">Nhà Cung Cấp:</div>
+          <div id="dtlGpsProvider" style="font-weight:600;">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">Số Hợp Đồng:</div>
+          <div id="dtlGpsContract" style="font-weight:600;">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">Số Lượng Xe:</div>
+          <div id="dtlGpsTotalVehicles" style="font-weight:700;">-</div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <div class="muted">Tổng Ngày Dự Kiến:</div>
+          <div id="dtlGpsPlanDays" style="font-weight:600;">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">Ngày Khấu Trừ:</div>
+          <div id="dtlGpsDeductDays" style="font-weight:600; color:var(--warning);">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">Ngày Tính Phí Thực Tế:</div>
+          <div id="dtlGpsActualDays" style="font-weight:700; color:var(--primary);">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">Tổng Cước Trước VAT:</div>
+          <div id="dtlGpsAmountTotal" style="font-weight:600;">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">Thuế VAT (10%):</div>
+          <div id="dtlGpsAmountVAT" style="font-weight:600;">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">Tổng Thanh Toán Sau VAT:</div>
+          <div id="dtlGpsTotalAmountVAT" style="font-size:1.15em; font-weight:700; color:var(--success);">-</div>
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px; background:rgba(127,127,127,.05); padding:8px 12px; border-radius:6px; font-size:.88em;">
+        <div class="col">
+          <div class="muted">HTV Duyệt (A1):</div>
+          <div id="dtlGpsAppr1">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">TCMS Duyệt (A2):</div>
+          <div id="dtlGpsAppr2">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">HTV Ký Số CA:</div>
+          <div id="dtlGpsHTVSign">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">TCMS Ký Số CA:</div>
+          <div id="dtlGpsTCMSSign">-</div>
+        </div>
+        <div class="col">
+          <div class="muted">Quyết Toán UNC:</div>
+          <div id="dtlGpsSettled">-</div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px; font-size:.88em;">
+        <span class="muted">Ghi chú / Diễn giải:</span>
+        <span id="dtlGpsRemark" style="margin-left:6px; font-style:italic;">-</span>
+      </div>
+
+      <!-- Danh sách xe ô tô trong bảng kê GPS -->
+      <h4 style="margin:14px 0 8px;">Danh Sách Xe Ô Tô Tính Phí Dịch Vụ Định Vị GPS</h4>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Số Khung (VIN)</th>
+              <th>Dòng Xe</th>
+              <th>Mã Thiết Bị GPS</th>
+              <th>Từ Ngày</th>
+              <th>Đến Ngày</th>
+              <th>Ngày Dự Kiến</th>
+              <th>Ngày Khấu Trừ</th>
+              <th>Ngày Thực Tế</th>
+              <th>Đơn Giá (đ/ngày)</th>
+              <th>Thành Tiền (VND)</th>
+              <th>Trạng Thái</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="dtlGpsVehiclesTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <div id="tab-newBatch" style="display:none;">
     <div class="card">
       <h3>Nạp bảng sao kê ngân hàng &amp; Chạy đối soát tức thì</h3>
@@ -2833,6 +3043,60 @@
     </div>
   </div>
 
+  <!-- TAB: Lập Bảng Kê Thanh Toán Thiết Bị & Dịch Vụ Định Vị GPS Mới (FrmTaoThanhToanGPS) -->
+  <div id="tab-newPaymentGPS" style="display:none;">
+    <div class="card">
+      <h3>Lập Bảng Kê Thanh Toán Chi Phí Định Vị GPS Xe Mới (Pmt_PaymentGPS_Save)</h3>
+      <p class="muted">Khởi tạo bảng kê đối soát thanh toán cước thuê bao &amp; giám sát hành trình thiết bị GPS cho lô xe phân phối theo chuẩn BizHTC.Payment.</p>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Bảng Kê (để trống tự sinh):</label>
+          <input type="text" id="inpNewGpsNo" placeholder="Ví dụ: GPS-202505-008">
+        </div>
+        <div class="col">
+          <label class="muted">Kỳ / Tháng Thanh Toán (PmtMonth) (*):</label>
+          <input type="text" id="inpNewGpsMonth" value="2025-05" placeholder="YYYY-MM (ví dụ 2025-05)">
+        </div>
+        <div class="col">
+          <label class="muted">Nhà Cung Cấp Dịch Vụ GPS (*):</label>
+          <select id="inpNewGpsProvider" onchange="onNewGpsProviderChange()">
+            <option value="VIETTEL">Tổng Công ty Viễn thông Viettel (VIETTEL - 2.500 đ/ngày)</option>
+            <option value="VNPT">Tổng Công ty Dịch vụ Viễn thông VNPT (VNPT - 2.400 đ/ngày)</option>
+            <option value="BAGPS">Công ty TNHH PTCN Bình Anh (BA GPS - 2.300 đ/ngày)</option>
+            <option value="BKAV">Tập đoàn Công nghệ BKAV (BKAV - 2.600 đ/ngày)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Số Hợp Đồng Dịch Vụ:</label>
+          <input type="text" id="inpNewGpsContract" value="HD-GPS-VIETTEL-2024">
+        </div>
+        <div class="col">
+          <label class="muted">Thuế Suất VAT (%):</label>
+          <input type="number" id="inpNewGpsVATRate" value="10" step="0.5" min="0" max="20">
+        </div>
+      </div>
+
+      <div style="margin-top:12px;">
+        <label class="muted">Ghi Chú / Diễn Giải Bảng Kê:</label>
+        <input type="text" id="inpNewGpsRemark" value="Bảng kê thanh toán cước phí thiết bị định vị GPS giám sát hành trình xe hoàn thiện trong kỳ">
+      </div>
+
+      <div style="margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="muted">Danh sách xe ô tô tính phí định vị GPS [JSON]:</label>
+          <button class="secondary" type="button" onclick="loadSampleGPSData()">Nạp Dữ Liệu Xe Mẫu</button>
+        </div>
+        <textarea id="inpNewGpsVehiclesJson" rows="8" style="font-family:monospace; font-size:.85em;"></textarea>
+      </div>
+
+      <div style="margin-top:16px;">
+        <button type="button" onclick="submitCreatePaymentGPS()">Khởi Tạo Bảng Kê Thanh Toán GPS</button>
+        <span id="submitNewGpsMsg" style="margin-left:12px;" class="muted"></span>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Xem & In Mẫu Bảng Kê Quyết Toán Vận Tải & Bảo Hiểm Xe (Transport Statement Advice) -->
   <div id="modalTransportInsAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
     <div style="max-width:920px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
@@ -3246,6 +3510,135 @@
     </div>
   </div>
 
+  <!-- Modal Xem & In Mẫu Bảng Kê Quyết Toán Phí Định Vị GPS (CR_Pmt_PaymentGPS Advice) -->
+  <div id="modalPaymentGPSAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:960px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.25em;">BẢNG KÊ QUYẾT TOÁN CƯỚC THUÊ BAO ĐỊNH VỊ GPS (CR_Pmt_PaymentGPS)</h2>
+        <button class="secondary" onclick="closePaymentGPSAdviceModal()">Đóng [X]</button>
+      </div>
+      <div id="paymentGpsAdviceContent" style="margin-top:16px; font-size:.9em; line-height:1.6;"></div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('paymentGpsAdviceContent').innerText); alert('Đã sao chép nội dung Bảng kê GPS vào clipboard!');">Sao Chép Nội Dung</button>
+        <button onclick="window.print()">In Bảng Kê Quyết Toán</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Bổ Sung Xe Vào Bảng Kê GPS Nháp (FrmTaoThanhToanGPS_AddCar) -->
+  <div id="modalAddGPSVehicles" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:650px; margin:50px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <h3 style="margin:0;">Thêm Xe Ô Tô Vào Bảng Kê Định Vị GPS</h3>
+        <button class="secondary" onclick="closeAddGPSVehiclesModal()">Đóng [X]</button>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Khung Xe (VIN) (*):</label>
+          <input type="text" id="inpAddGpsVin" placeholder="17 ký tự VIN">
+        </div>
+        <div class="col">
+          <label class="muted">Số Máy (EngineNo):</label>
+          <input type="text" id="inpAddGpsEngineNo" placeholder="Số máy xe">
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Dòng Xe (ModelCode):</label>
+          <select id="inpAddGpsModel">
+            <option value="SANTAFE">Hyundai Santa Fe (SANTAFE)</option>
+            <option value="SANTAFE-CAL">Hyundai Santa Fe Calligraphy (SANTAFE-CAL)</option>
+            <option value="TUCSON">Hyundai Tucson (TUCSON)</option>
+            <option value="TUCSON-TURBO">Hyundai Tucson Turbo (TUCSON-TURBO)</option>
+            <option value="CRETA">Hyundai Creta (CRETA)</option>
+            <option value="CRETA-PRE">Hyundai Creta Premium (CRETA-PRE)</option>
+            <option value="ACCENT">Hyundai Accent (ACCENT)</option>
+            <option value="ACCENT-1.5AT">Hyundai Accent 1.5 AT (ACCENT-1.5AT)</option>
+            <option value="ELANTRA">Hyundai Elantra (ELANTRA)</option>
+            <option value="ELANTRA-NLINE">Hyundai Elantra N Line (ELANTRA-NLINE)</option>
+            <option value="STARGAZER">Hyundai Stargazer (STARGAZER)</option>
+            <option value="PALISADE">Hyundai Palisade (PALISADE)</option>
+            <option value="CUSTIN">Hyundai Custin (CUSTIN)</option>
+            <option value="IONIQ-5">Hyundai IONIQ 5 (IONIQ-5)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Mã / IMEI Thiết Bị GPS:</label>
+          <input type="text" id="inpAddGpsId" placeholder="Để trống tự sinh">
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Từ Ngày Tính Phí:</label>
+          <input type="date" id="inpAddGpsStartDate">
+        </div>
+        <div class="col">
+          <label class="muted">Đến Ngày Tính Phí:</label>
+          <input type="date" id="inpAddGpsEndDate">
+        </div>
+        <div class="col">
+          <label class="muted">Ngày Khấu Trừ:</label>
+          <input type="number" id="inpAddGpsDeduct" value="0" min="0">
+        </div>
+        <div class="col">
+          <label class="muted">Đơn Giá / Ngày (VND):</label>
+          <input type="number" id="inpAddGpsPrice" value="2500" step="100">
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <label class="muted">Ghi Chú Dòng Xe:</label>
+        <input type="text" id="inpAddGpsRemark" value="Kích hoạt SIM định vị 4G chuẩn kỹ thuật QCVN">
+      </div>
+      <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="closeAddGPSVehiclesModal()">Hủy</button>
+        <button onclick="submitAddGPSVehicle()">Thêm Xe Vào Bảng Kê</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Chỉnh Sửa Dòng Xe GPS (FrmTaoThanhToanGPS CellValueChanged) -->
+  <div id="modalEditGPSDetail" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:550px; margin:60px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <h3 style="margin:0;">Điều Chỉnh Dòng Xe GPS</h3>
+        <button class="secondary" onclick="closeEditGPSDetailModal()">Đóng [X]</button>
+      </div>
+      <input type="hidden" id="editGpsDetailId">
+      <div style="margin-top:12px;">
+        <label class="muted">Số Khung (VIN):</label>
+        <input type="text" id="editGpsVin" readonly style="background:rgba(127,127,127,.1);">
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Từ Ngày Tính Phí:</label>
+          <input type="date" id="editGpsStartDate">
+        </div>
+        <div class="col">
+          <label class="muted">Đến Ngày Tính Phí:</label>
+          <input type="date" id="editGpsEndDate">
+        </div>
+      </div>
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Ngày Khấu Trừ:</label>
+          <input type="number" id="editGpsDeductDate" min="0">
+        </div>
+        <div class="col">
+          <label class="muted">Đơn Giá / Ngày (VND):</label>
+          <input type="number" id="editGpsPrice" step="100">
+        </div>
+      </div>
+      <div style="margin-top:12px;">
+        <label class="muted">Ghi Chú Điều Chỉnh:</label>
+        <input type="text" id="editGpsRemark" placeholder="Lý do khấu trừ hoặc điều chỉnh">
+      </div>
+      <div style="margin-top:16px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="closeEditGPSDetailModal()">Hủy</button>
+        <button onclick="submitEditGPSDetail()">Lưu Điều Chỉnh</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB 5: API Docs -->
   <div id="tab-apiDocs" style="display:none;">
     <div class="card">
@@ -3470,6 +3863,26 @@
         <li><code>GET /api/payment-avn/summary</code> — Báo cáo tổng hợp số liệu bảng kê, số xe lắp đặt và tổng kinh phí AVN</li>
         <li><code>GET /api/payment-avn/prices</code> — Bảng giá thiết bị AVN tham chiếu theo từng dòng xe (Mst_UnitPriceAVN / FrmMst_AVNPrice)</li>
       </ul>
+      <h3>Nghiệp Vụ Bảng Kê Thanh Toán Thiết Bị &amp; Dịch Vụ Định Vị GPS (Vehicle GPS Tracking Payment - BizHTC.Payment / FrmQuanLyThanhToanGPS / CR_Pmt_PaymentGPS)</h3>
+      <ul>
+        <li><code>POST /api/payment-gps</code> — Lập bảng kê thanh toán chi phí định vị GPS mới (Pmt_PaymentGPS_Save / FrmTaoThanhToanGPS)</li>
+        <li><code>GET /api/payment-gps</code> — Danh sách bảng kê thanh toán GPS (Pmt_PaymentGPS_Get, lọc theo <code>pmtMonth</code>, <code>status</code>, <code>providerCode</code>, <code>vin</code>)</li>
+        <li><code>GET /api/payment-gps/{id}</code> — Chi tiết 1 bảng kê kèm danh mục xe gắn GPS, ngày tính phí và số ngày khấu trừ (FrmQuanLyThanhToanGPS)</li>
+        <li><code>POST /api/payment-gps/{id}/htv-approve</code> — HTV Ban Vận tải &amp; Quản lý xe duyệt thẩm định cấp 1 A1 (Pmt_PaymentGPS_Approve1)</li>
+        <li><code>POST /api/payment-gps/{id}/tcms-approve</code> — TCMS Ban Tài chính / Kế toán duyệt thẩm định cấp 2 A2 (Pmt_PaymentGPS_Approve2)</li>
+        <li><code>POST /api/payment-gps/{id}/htv-sign</code> — Ký số điện tử CA đại diện HTV (Pmt_PaymentGPS_HTVApproveAndSign)</li>
+        <li><code>POST /api/payment-gps/{id}/tcms-sign</code> — Ký số điện tử CA đại diện TCMS hoàn tất bảng kê (Pmt_PaymentGPS_TCMSApproveAndSign -> Signed)</li>
+        <li><code>POST /api/payment-gps/{id}/settle</code> — Kế toán lập UNC ngân hàng quyết toán chuyển tiền thanh toán cước định vị (Settled)</li>
+        <li><code>POST /api/payment-gps/{id}/reject</code> — Từ chối duyệt bảng kê thanh toán GPS kèm lý do giải trình (Pmt_PaymentGPS_Cancel / btnDeny)</li>
+        <li><code>POST /api/payment-gps/{id}/cancel</code> — Hủy bảng kê thanh toán GPS (Pmt_PaymentGPS_Cancel)</li>
+        <li><code>POST /api/payment-gps/{id}/vehicles</code> — Bổ sung xe vào bảng kê nháp (FrmTaoThanhToanGPS_AddCar)</li>
+        <li><code>DELETE /api/payment-gps/{id}/vehicles/{detailId}</code> — Xóa 1 xe khỏi bảng kê nháp (btnDeleteCar)</li>
+        <li><code>PUT /api/payment-gps/{id}/details</code> — Cập nhật chi tiết xe (ngày tính phí, số ngày khấu trừ, đơn giá) và tự động tái tính toán bảng kê (CellValueChanged / ValidatingEditor)</li>
+        <li><code>DELETE /api/payment-gps/{id}</code> — Xóa toàn bộ bản ghi bảng kê nháp chưa ký số</li>
+        <li><code>GET /api/payment-gps/{id}/advice</code> — Sinh dữ liệu mẫu in Bảng kê quyết toán CR_Pmt_PaymentGPS Advice kèm đọc số tiền bằng chữ tiếng Việt tài chính ngân hàng</li>
+        <li><code>GET /api/payment-gps/summary</code> — Báo cáo tổng hợp số liệu bảng kê, số xe giám sát, số ngày theo dõi và tổng cước GPS</li>
+        <li><code>GET /api/payment-gps/providers</code> — Bảng đơn giá định mức thuê bao dịch vụ GPS theo nhà cung cấp (Mst_UnitPriceGPS)</li>
+      </ul>
     </div>
   </div>
 
@@ -3494,6 +3907,7 @@
       document.getElementById('tab-guaranteeExt').style.display = tabName === 'guaranteeExt' ? 'block' : 'none';
       document.getElementById('tab-guaranteeClaim').style.display = tabName === 'guaranteeClaim' ? 'block' : 'none';
       document.getElementById('tab-paymentAVN').style.display = tabName === 'paymentAVN' ? 'block' : 'none';
+      document.getElementById('tab-paymentGPS').style.display = tabName === 'paymentGPS' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -3509,6 +3923,7 @@
       document.getElementById('tab-newGuaranteeExt').style.display = tabName === 'newGuaranteeExt' ? 'block' : 'none';
       document.getElementById('tab-newGuaranteeClaim').style.display = tabName === 'newGuaranteeClaim' ? 'block' : 'none';
       document.getElementById('tab-newPaymentAVN').style.display = tabName === 'newPaymentAVN' ? 'block' : 'none';
+      document.getElementById('tab-newPaymentGPS').style.display = tabName === 'newPaymentGPS' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
@@ -3527,22 +3942,24 @@
           (tabName === 'guaranteeExt' && i === 11) ||
           (tabName === 'guaranteeClaim' && i === 12) ||
           (tabName === 'paymentAVN' && i === 13) ||
-          (tabName === 'newBatch' && i === 14) ||
-          (tabName === 'newPayout' && i === 15) ||
-          (tabName === 'newDiscount' && i === 16) ||
-          (tabName === 'newGuarantee' && i === 17) ||
-          (tabName === 'newMortgage' && i === 18) ||
-          (tabName === 'newRedeem' && i === 19) ||
-          (tabName === 'newPaymentOrder' && i === 20) ||
-          (tabName === 'newBankBill' && i === 21) ||
-          (tabName === 'newPaymentPDI' && i === 22) ||
-          (tabName === 'newPenaltyDelay' && i === 23) ||
-          (tabName === 'newTransportIns' && i === 24) ||
-          (tabName === 'newPaymentStorage' && i === 25) ||
-          (tabName === 'newGuaranteeExt' && i === 26) ||
-          (tabName === 'newGuaranteeClaim' && i === 27) ||
-          (tabName === 'newPaymentAVN' && i === 28) ||
-          (tabName === 'apiDocs' && i === 29));
+          (tabName === 'paymentGPS' && i === 14) ||
+          (tabName === 'newBatch' && i === 15) ||
+          (tabName === 'newPayout' && i === 16) ||
+          (tabName === 'newDiscount' && i === 17) ||
+          (tabName === 'newGuarantee' && i === 18) ||
+          (tabName === 'newMortgage' && i === 19) ||
+          (tabName === 'newRedeem' && i === 20) ||
+          (tabName === 'newPaymentOrder' && i === 21) ||
+          (tabName === 'newBankBill' && i === 22) ||
+          (tabName === 'newPaymentPDI' && i === 23) ||
+          (tabName === 'newPenaltyDelay' && i === 24) ||
+          (tabName === 'newTransportIns' && i === 25) ||
+          (tabName === 'newPaymentStorage' && i === 26) ||
+          (tabName === 'newGuaranteeExt' && i === 27) ||
+          (tabName === 'newGuaranteeClaim' && i === 28) ||
+          (tabName === 'newPaymentAVN' && i === 29) ||
+          (tabName === 'newPaymentGPS' && i === 30) ||
+          (tabName === 'apiDocs' && i === 31));
       });
 
       if (tabName === 'reconcile') loadBatches();
@@ -3559,6 +3976,7 @@
       else if (tabName === 'guaranteeExt') { loadGuaranteeExtList(); loadGuaranteeExtSummary(); }
       else if (tabName === 'guaranteeClaim') { loadGuaranteeClaims(); loadGuaranteeClaimSummary(); }
       else if (tabName === 'paymentAVN') { loadPaymentAVNs(); loadPaymentAVNSummary(); }
+      else if (tabName === 'paymentGPS') { loadPaymentGPSs(); loadPaymentGPSSummary(); }
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====
@@ -10189,6 +10607,628 @@
       }
     }
 
+    // ===== TAB: BẢNG KÊ THANH TOÁN ĐỊNH VỊ GPS XE Ô TÔ (PAYMENT GPS) =====
+    let currentGpsDetailId = null;
+
+    async function loadPaymentGPSSummary() {
+      try {
+        const res = await fetch('/api/payment-gps/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng bảng kê GPS';
+        document.getElementById('stat1').textContent = `${d.totalStatements} (Đã ký: ${d.signedCount + d.settledCount})`;
+        document.getElementById('statLabel2').textContent = 'Tổng xe gắn định vị GPS';
+        document.getElementById('stat2').textContent = `${d.totalVehiclesTracked} xe (${d.totalTrackedDays} ngày)`;
+        document.getElementById('statLabel3').textContent = 'Tổng cước GPS trước thuế';
+        document.getElementById('stat3').textContent = (d.totalAmountBeforeVAT >= 1e9 ? (d.totalAmountBeforeVAT / 1e9).toFixed(2) + ' tỷ đ' : Number(d.totalAmountBeforeVAT).toLocaleString('vi-VN') + ' đ');
+        document.getElementById('statLabel4').textContent = 'Đã quyết toán chuyển tiền';
+        document.getElementById('stat4').textContent = (d.totalSettledAmount >= 1e9 ? (d.totalSettledAmount / 1e9).toFixed(2) + ' tỷ đ' : Number(d.totalSettledAmount).toLocaleString('vi-VN') + ' đ');
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadPaymentGPSs() {
+      await loadPaymentGPSSummary();
+      const pmtMonth = document.getElementById('filterGpsMonth').value.trim();
+      const status = document.getElementById('filterGpsStatus').value;
+      const provider = document.getElementById('filterGpsProvider').value;
+      const vin = document.getElementById('filterGpsVin').value.trim();
+
+      let url = '/api/payment-gps?';
+      if (pmtMonth) url += 'pmtMonth=' + encodeURIComponent(pmtMonth) + '&';
+      if (status) url += 'status=' + encodeURIComponent(status) + '&';
+      if (provider) url += 'providerCode=' + encodeURIComponent(provider) + '&';
+      if (vin) url += 'vin=' + encodeURIComponent(vin) + '&';
+
+      const tbody = document.getElementById('paymentGpsTableBody');
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) throw new Error(res.statusText);
+        const list = await res.json();
+
+        if (!list || list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="14" class="muted" style="text-align:center;">Không tìm thấy bảng kê thanh toán GPS nào.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(p => {
+          let badge = 'badge-info';
+          let stText = p.status;
+          if (p.status === 'Draft') { badge = 'badge-warning'; stText = 'Mới tạo (Draft)'; }
+          else if (p.status === 'HTVApproved') { badge = 'badge-info'; stText = 'HTV Duyệt A1'; }
+          else if (p.status === 'TCMSApproved') { badge = 'badge-info'; stText = 'TCMS Duyệt A2'; }
+          else if (p.status === 'Signed') { badge = 'badge-success'; stText = 'Đã Ký CA (Signed)'; }
+          else if (p.status === 'Settled') { badge = 'badge-success'; stText = 'Đã Quyết Toán (Settled)'; }
+          else if (p.status === 'Rejected') { badge = 'badge-danger'; stText = 'Từ Chối'; }
+          else if (p.status === 'Cancelled') { badge = 'badge-danger'; stText = 'Đã Hủy'; }
+
+          let signBadge = '<span class="badge badge-warning">P (Chưa ký)</span>';
+          if (p.tcmsSignStatus === 'Signed' && p.htvSignStatus === 'Signed') {
+            signBadge = '<span class="badge badge-success">A (HTV &amp; TCMS)</span>';
+          } else if (p.htvSignStatus === 'Signed') {
+            signBadge = '<span class="badge badge-info">A (HTV Ký)</span>';
+          } else if (p.tcmsSignStatus === 'Signed') {
+            signBadge = '<span class="badge badge-info">A (TCMS Ký)</span>';
+          }
+
+          return `
+            <tr>
+              <td><strong>${p.paymentGPSNo}</strong></td>
+              <td><span class="badge badge-info">${p.pmtMonth}</span></td>
+              <td><strong>${p.providerCode}</strong><br><small class="muted">${p.providerName}</small></td>
+              <td><code>${p.contractNo}</code></td>
+              <td style="text-align:center; font-weight:700;">${p.totalVehicles}</td>
+              <td style="text-align:center;">${p.totalActualDays} <small class="muted">(${p.totalPlanDays}-${p.totalDeductDays})</small></td>
+              <td style="text-align:right;">${Number(p.amountTotal).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right;">${Number(p.unitPriceVAT).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; font-weight:700; color:var(--success);">${Number(p.totalAmountVAT).toLocaleString('vi-VN')} đ</td>
+              <td><span class="badge ${badge}">${stText}</span></td>
+              <td>${signBadge}</td>
+              <td><code>${p.bankTxnRef || '-'}</code></td>
+              <td><small>${new Date(p.createdAt).toLocaleDateString('vi-VN')}</small></td>
+              <td>
+                <button class="secondary" style="padding:4px 8px; font-size:.82em;" onclick="viewPaymentGPSDetail(${p.id})">Chi Tiết</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) {
+        tbody.innerHTML = `<tr><td colspan="14" class="muted" style="text-align:center; color:var(--danger);">Lỗi tải danh sách: ${e.message}</td></tr>`;
+      }
+    }
+
+    async function viewPaymentGPSDetail(id) {
+      currentGpsDetailId = id;
+      const card = document.getElementById('cardPaymentGpsDetail');
+      card.style.display = 'block';
+
+      try {
+        const res = await fetch(`/api/payment-gps/${id}`, { headers });
+        if (!res.ok) throw new Error(res.statusText);
+        const p = await res.json();
+
+        document.getElementById('dtlGpsTitle').textContent = `Chi Tiết Bảng Kê Thanh Toán GPS #${p.paymentGPSNo}`;
+        document.getElementById('dtlGpsSubtitle').textContent = `Mã hồ sơ: #${p.id} | Kỳ thanh toán: ${p.pmtMonth} | Ngày lập: ${new Date(p.createdAt).toLocaleDateString('vi-VN')} | Người lập: ${p.createdBy || 'Chuyên viên giám sát GPS'}`;
+
+        document.getElementById('dtlGpsNo').textContent = p.paymentGPSNo;
+        document.getElementById('dtlGpsMonth').textContent = p.pmtMonth;
+        document.getElementById('dtlGpsProvider').textContent = `${p.providerName} (${p.providerCode})`;
+        document.getElementById('dtlGpsContract').textContent = p.contractNo;
+        document.getElementById('dtlGpsTotalVehicles').textContent = `${p.totalVehicles} xe`;
+
+        document.getElementById('dtlGpsPlanDays').textContent = `${p.totalPlanDays} ngày`;
+        document.getElementById('dtlGpsDeductDays').textContent = `${p.totalDeductDays} ngày`;
+        document.getElementById('dtlGpsActualDays').textContent = `${p.totalActualDays} ngày`;
+        document.getElementById('dtlGpsAmountTotal').textContent = Number(p.amountTotal).toLocaleString('vi-VN') + ' đ';
+        document.getElementById('dtlGpsAmountVAT').textContent = Number(p.unitPriceVAT).toLocaleString('vi-VN') + ` đ (${p.vatRate}%)`;
+        document.getElementById('dtlGpsTotalAmountVAT').textContent = Number(p.totalAmountVAT).toLocaleString('vi-VN') + ' đ';
+
+        let badge = 'badge-info';
+        let stText = p.status;
+        if (p.status === 'Draft') { badge = 'badge-warning'; stText = 'Mới tạo (Draft)'; }
+        else if (p.status === 'HTVApproved') { badge = 'badge-info'; stText = 'HTV Đã duyệt cấp 1 (A1)'; }
+        else if (p.status === 'TCMSApproved') { badge = 'badge-info'; stText = 'TCMS Đã duyệt cấp 2 (A2)'; }
+        else if (p.status === 'Signed') { badge = 'badge-success'; stText = 'Đã ký số CA hoàn tất (Signed)'; }
+        else if (p.status === 'Settled') { badge = 'badge-success'; stText = 'Đã quyết toán chuyển khoản (Settled)'; }
+        else if (p.status === 'Rejected') { badge = 'badge-danger'; stText = 'Từ chối duyệt (Rejected)'; }
+        else if (p.status === 'Cancelled') { badge = 'badge-danger'; stText = 'Đã hủy bảng kê (Cancelled)'; }
+        document.getElementById('dtlGpsStatus').innerHTML = `<span class="badge ${badge}">${stText}</span>`;
+
+        document.getElementById('dtlGpsAppr1').textContent = p.appr1By ? `${p.appr1By} (${new Date(p.appr1DTime).toLocaleDateString('vi-VN')})` : 'Chưa duyệt';
+        document.getElementById('dtlGpsAppr2').textContent = p.appr2By ? `${p.appr2By} (${new Date(p.appr2DTime).toLocaleDateString('vi-VN')})` : 'Chưa duyệt';
+        document.getElementById('dtlGpsHTVSign').innerHTML = p.htvSignStatus === 'Signed' ? `<span class="badge badge-success">✓ ${p.htvSignUser || 'HTV'}</span>` : '<span class="badge badge-warning">Chưa ký</span>';
+        document.getElementById('dtlGpsTCMSSign').innerHTML = p.tcmsSignStatus === 'Signed' ? `<span class="badge badge-success">✓ ${p.tcmsSignUser || 'TCMS'}</span>` : '<span class="badge badge-warning">Chưa ký</span>';
+        document.getElementById('dtlGpsSettled').textContent = p.status === 'Settled' ? `${p.settledBy || 'Kế toán'} (${p.bankTxnRef || '-'})` : 'Chưa quyết toán';
+        document.getElementById('dtlGpsRemark').textContent = p.remark || '(Không có ghi chú)';
+
+        // Điều khiển hiển thị các nút tác vụ
+        const isDraft = p.status === 'Draft';
+        const isA1 = p.status === 'HTVApproved';
+        const isA2 = p.status === 'TCMSApproved';
+        const isSigned = p.status === 'Signed';
+        const isSettled = p.status === 'Settled';
+        const isCancelled = p.status === 'Cancelled' || p.status === 'Rejected';
+
+        document.getElementById('btnGpsApprove1').style.display = isDraft ? 'inline-block' : 'none';
+        document.getElementById('btnGpsApprove2').style.display = isA1 ? 'inline-block' : 'none';
+        document.getElementById('btnGpsHTVSign').style.display = (!isSettled && !isCancelled && p.htvSignStatus !== 'Signed') ? 'inline-block' : 'none';
+        document.getElementById('btnGpsTCMSSign').style.display = (!isSettled && !isCancelled && p.tcmsSignStatus !== 'Signed') ? 'inline-block' : 'none';
+        document.getElementById('btnGpsSettle').style.display = isSigned ? 'inline-block' : 'none';
+        document.getElementById('btnGpsReject').style.display = (!isSettled && !isCancelled) ? 'inline-block' : 'none';
+        document.getElementById('btnGpsCancel').style.display = (!isSettled && !isCancelled) ? 'inline-block' : 'none';
+        document.getElementById('btnGpsAddVehicle').style.display = isDraft ? 'inline-block' : 'none';
+        document.getElementById('btnGpsDeleteDraft').style.display = (isDraft || (isCancelled && p.htvSignStatus !== 'Signed' && p.tcmsSignStatus !== 'Signed')) ? 'inline-block' : 'none';
+
+        // Render bảng xe
+        const tbody = document.getElementById('dtlGpsVehiclesTableBody');
+        tbody.innerHTML = (p.details || []).map((d, idx) => `
+          <tr>
+            <td>${idx + 1}</td>
+            <td><strong>${d.vin}</strong><br><small class="muted">${d.engineNo || '-'}</small></td>
+            <td><b>${d.modelCode}</b><br><small class="muted">${d.modelName || ''}</small></td>
+            <td><code>${d.gpsid}</code></td>
+            <td>${new Date(d.costGPSStartDate).toLocaleDateString('vi-VN')}</td>
+            <td>${new Date(d.costGPSEndDate).toLocaleDateString('vi-VN')}</td>
+            <td style="text-align:center;">${d.planCostGPSDate}</td>
+            <td style="text-align:center; color:var(--warning);">${d.deductDate}</td>
+            <td style="text-align:center; font-weight:700; color:var(--primary);">${d.actualCostGPSDate}</td>
+            <td style="text-align:right;">${Number(d.priceGPS).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; font-weight:700; color:var(--success);">${Number(d.amountGPS).toLocaleString('vi-VN')} đ</td>
+            <td><span class="badge ${d.status === 'Adjusted' ? 'badge-warning' : (d.status === 'Approved' ? 'badge-success' : 'badge-info')}">${d.status}</span></td>
+            <td>
+              ${(isDraft || isA1) ? `
+                <button class="secondary" style="padding:2px 6px; font-size:.78em;" onclick="openEditGPSDetailModal(${d.id}, '${d.vin}', '${d.costGPSStartDate.substring(0,10)}', '${d.costGPSEndDate.substring(0,10)}', ${d.deductDate}, ${d.priceGPS}, '${(d.remark||'').replace(/'/g, "\\'")}')">Sửa</button>
+              ` : ''}
+              ${isDraft ? `
+                <button class="secondary" style="padding:2px 6px; font-size:.78em; color:var(--danger);" onclick="deleteGPSVehicle(${p.id}, ${d.id})">Xóa</button>
+              ` : ''}
+            </td>
+          </tr>
+        `).join('');
+
+        card.scrollIntoView({ behavior: 'smooth' });
+      } catch(e) { console.error(e); }
+    }
+
+    async function htvApproveGPS(id) {
+      if (!confirm('Xác nhận HTV Thẩm định phê duyệt cấp 1 (A1) cho bảng kê GPS này?')) return;
+      try {
+        const res = await fetch(`/api/payment-gps/${id}/htv-approve`, {
+          method: 'POST', headers, body: JSON.stringify({ approverName: 'TranVanHung_GiamDocVanTai_HTV' })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('HTV đã thẩm định duyệt cấp 1 (A1) thành công!');
+        viewPaymentGPSDetail(id);
+        loadPaymentGPSs();
+      } catch(e) { console.error(e); }
+    }
+
+    async function tcmsApproveGPS(id) {
+      if (!confirm('Xác nhận TCMS Ban Tài chính phê duyệt cấp 2 (A2) cho bảng kê GPS này?')) return;
+      try {
+        const res = await fetch(`/api/payment-gps/${id}/tcms-approve`, {
+          method: 'POST', headers, body: JSON.stringify({ approverName: 'DangThanhTung_KeToanTruong_TCMS' })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('TCMS đã phê duyệt cấp 2 (A2) thành công!');
+        viewPaymentGPSDetail(id);
+        loadPaymentGPSs();
+      } catch(e) { console.error(e); }
+    }
+
+    async function htvSignGPS(id) {
+      if (!confirm('Xác nhận thực hiện Ký số điện tử CA đại diện HTV?')) return;
+      try {
+        const res = await fetch(`/api/payment-gps/${id}/htv-sign`, {
+          method: 'POST', headers, body: JSON.stringify({
+            signerName: 'TranVanHung_GiamDocVanTai_HTV',
+            filePath: `CR_Pmt_PaymentGPS_${id}_HTVSigned.pdf`
+          })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã ký số điện tử CA đại diện HTV thành công!');
+        viewPaymentGPSDetail(id);
+        loadPaymentGPSs();
+      } catch(e) { console.error(e); }
+    }
+
+    async function tcmsSignGPS(id) {
+      if (!confirm('Xác nhận thực hiện Ký số điện tử CA đại diện TCMS?')) return;
+      try {
+        const res = await fetch(`/api/payment-gps/${id}/tcms-sign`, {
+          method: 'POST', headers, body: JSON.stringify({
+            signerName: 'NguyenVanQuan_GDKyThuat_TCMS',
+            filePath: `CR_Pmt_PaymentGPS_${id}_Signed.pdf`
+          })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã ký số điện tử CA đại diện TCMS thành công!');
+        viewPaymentGPSDetail(id);
+        loadPaymentGPSs();
+      } catch(e) { console.error(e); }
+    }
+
+    async function settleGPS(id) {
+      const txnRef = prompt('Nhập số bút toán / số Ủy nhiệm chi UNC ngân hàng thanh toán:', `UNC-GPS-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(1000+Math.random()*9000)}`);
+      if (!txnRef) return;
+      try {
+        const res = await fetch(`/api/payment-gps/${id}/settle`, {
+          method: 'POST', headers, body: JSON.stringify({
+            bankTxnRef: txnRef,
+            settledBy: 'PhamThiMai_KeToanThanhToan_HTV'
+          })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã hoàn tất quyết toán chi trả chuyển khoản UNC ngân hàng!');
+        viewPaymentGPSDetail(id);
+        loadPaymentGPSs();
+      } catch(e) { console.error(e); }
+    }
+
+    async function rejectGPS(id) {
+      const reason = prompt('Nhập lý do từ chối bảng kê thanh toán GPS:');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/payment-gps/${id}/reject`, {
+          method: 'POST', headers, body: JSON.stringify({ reason: reason, rejecterName: 'GiamSatXe_HTV' })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã từ chối bảng kê.');
+        viewPaymentGPSDetail(id);
+        loadPaymentGPSs();
+      } catch(e) { console.error(e); }
+    }
+
+    async function cancelGPS(id) {
+      if (!confirm('Xác nhận hủy bảng kê thanh toán GPS này?')) return;
+      try {
+        const res = await fetch(`/api/payment-gps/${id}/cancel`, {
+          method: 'POST', headers, body: JSON.stringify({ reason: 'Hủy theo yêu cầu chuyên viên quản lý giám sát xe' })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã hủy bảng kê.');
+        viewPaymentGPSDetail(id);
+        loadPaymentGPSs();
+      } catch(e) { console.error(e); }
+    }
+
+    async function deleteDraftGPS(id) {
+      if (!confirm(`Xác nhận xóa vĩnh viễn bảng kê nháp #${id}?`)) return;
+      try {
+        const res = await fetch(`/api/payment-gps/${id}`, { method: 'DELETE', headers });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã xóa bảng kê nháp thành công!');
+        document.getElementById('cardPaymentGpsDetail').style.display = 'none';
+        loadPaymentGPSs();
+      } catch(e) { console.error(e); }
+    }
+
+    async function openPaymentGPSAdviceModal(id) {
+      try {
+        const res = await fetch(`/api/payment-gps/${id}/advice`, { headers });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        const adv = await res.json();
+
+        const content = document.getElementById('paymentGpsAdviceContent');
+        content.innerHTML = `
+          <div style="text-align:center; margin-bottom:16px;">
+            <h3 style="margin:0; text-transform:uppercase;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h3>
+            <p style="margin:2px 0;">Độc lập - Tự do - Hạnh phúc</p>
+            <p style="margin:8px 0 0; font-size:1.15em; font-weight:700; color:var(--primary);">BẢNG KÊ QUYẾT TOÁN CƯỚC THUÊ BAO DỊCH VỤ ĐỊNH VỊ GPS XE Ô TÔ</p>
+            <p style="margin:2px 0;"><em>(Kỳ thanh toán: Tháng ${adv.pmtMonthFormatted} — Mẫu CR_Pmt_PaymentGPS)</em></p>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+            <div>
+              <div><strong>Số Bảng Kê:</strong> <code>${adv.paymentGPSNo}</code></div>
+              <div><strong>Đơn Vị Cung Cấp:</strong> ${adv.providerName}</div>
+              <div><strong>Hợp Đồng Dịch Vụ:</strong> <code>${adv.contractNo}</code></div>
+              <div><strong>Trạng Thái Bảng Kê:</strong> <span class="badge badge-info">${adv.statusText}</span></div>
+            </div>
+            <div style="text-align:right;">
+              <div><strong>Ngày In Bảng Kê:</strong> ${adv.printDate}</div>
+              <div><strong>Số Lượng Xe Giám Sát:</strong> <span style="font-size:1.2em; font-weight:700;">${adv.totalVehicles} xe</span></div>
+              <div><strong>Tổng Ngày Tính Cước:</strong> <span style="font-weight:700;">${adv.totalActualDays} ngày</span> <small class="muted">(${adv.totalPlanDays} dự kiến - ${adv.totalDeductDays} khấu trừ)</small></div>
+              <div><strong>Mã Bút Toán UNC:</strong> <code>${adv.bankTxnRef || 'Chưa chi trả'}</code></div>
+            </div>
+          </div>
+
+          <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:.86em;">
+            <thead>
+              <tr style="background:rgba(127,127,127,.1);">
+                <th style="border:1px solid var(--border); padding:6px; text-align:center;">STT</th>
+                <th style="border:1px solid var(--border); padding:6px;">Số Khung (VIN)</th>
+                <th style="border:1px solid var(--border); padding:6px;">Dòng Xe</th>
+                <th style="border:1px solid var(--border); padding:6px;">Mã Thiết Bị GPS</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:center;">Từ Ngày</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:center;">Đến Ngày</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:center;">Dự Kiến</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:center;">Khấu Trừ</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:center;">Thực Tế</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:right;">Đơn Giá (đ/ngày)</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:right;">Thành Tiền (VND)</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${(adv.items || []).map(it => `
+                <tr>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:center;">${it.no}</td>
+                  <td style="border:1px solid var(--border); padding:6px;"><code>${it.vin}</code></td>
+                  <td style="border:1px solid var(--border); padding:6px;"><b>${it.modelCode}</b><br><small class="muted">${it.modelName}</small></td>
+                  <td style="border:1px solid var(--border); padding:6px;"><code>${it.gpsid}</code></td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:center;">${it.costGPSStartDate}</td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:center;">${it.costGPSEndDate}</td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:center;">${it.planCostGPSDate}</td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:center; color:var(--warning);">${it.deductDate}</td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:center; font-weight:700; color:var(--primary);">${it.actualCostGPSDate}</td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:right;">${Number(it.priceGPS).toLocaleString('vi-VN')} đ</td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:right; font-weight:700;">${Number(it.amountGPS).toLocaleString('vi-VN')} đ</td>
+                </tr>
+              `).join('')}
+            </tbody>
+            <tfoot>
+              <tr style="background:rgba(127,127,127,.05); font-weight:700;">
+                <td colspan="10" style="border:1px solid var(--border); padding:8px; text-align:right;">Tổng chi phí dịch vụ GPS trước thuế VAT:</td>
+                <td style="border:1px solid var(--border); padding:8px; text-align:right; color:var(--primary); font-size:1.05em;">${Number(adv.amountTotal).toLocaleString('vi-VN')} đ</td>
+              </tr>
+              <tr style="background:rgba(127,127,127,.05); font-weight:700;">
+                <td colspan="10" style="border:1px solid var(--border); padding:8px; text-align:right;">Thuế GTGT (${adv.vatRate}%):</td>
+                <td style="border:1px solid var(--border); padding:8px; text-align:right; color:var(--warning);">${Number(adv.unitPriceVAT).toLocaleString('vi-VN')} đ</td>
+              </tr>
+              <tr style="background:rgba(127,127,127,.1); font-weight:700;">
+                <td colspan="10" style="border:1px solid var(--border); padding:8px; text-align:right;">TỔNG THANH TOÁN (SAU THUẾ):</td>
+                <td style="border:1px solid var(--border); padding:8px; text-align:right; color:var(--success); font-size:1.15em;">${Number(adv.totalAmountVAT).toLocaleString('vi-VN')} đ</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <div style="margin-top:14px; padding:10px; background:rgba(127,127,127,.05); border-radius:6px;">
+            <strong>Số tiền bằng chữ:</strong> <em>${adv.amountInWords}</em>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; margin-top:24px; text-align:center;">
+            <div style="width:30%;">
+              <strong>ĐẠI DIỆN ĐỐI TÁC GPS</strong><br>
+              <small class="muted">(Ký, ghi rõ họ tên &amp; đóng dấu)</small>
+              <div style="margin-top:40px; font-weight:600;">${adv.providerName}</div>
+            </div>
+            <div style="width:30%;">
+              <strong>CÔNG TY LIÊN DOANH TCMS</strong><br>
+              <small class="muted">(Xác nhận &amp; Ký số điện tử CA)</small>
+              <div style="margin-top:40px; color:var(--primary); font-size:.9em;">${adv.tcmsSignInfo}</div>
+            </div>
+            <div style="width:30%;">
+              <strong>TẬP ĐOÀN HYUNDAI HTV</strong><br>
+              <small class="muted">(Phê duyệt &amp; Ký số điện tử CA)</small>
+              <div style="margin-top:40px; color:var(--primary); font-size:.9em;">${adv.htvSignInfo}</div>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('modalPaymentGPSAdvice').style.display = 'block';
+      } catch(e) { console.error(e); }
+    }
+
+    function closePaymentGPSAdviceModal() {
+      document.getElementById('modalPaymentGPSAdvice').style.display = 'none';
+    }
+
+    function openAddGPSVehiclesModal(id) {
+      currentGpsDetailId = id;
+      document.getElementById('inpAddGpsVin').value = `KMHCT81EPHU${Math.floor(100000+Math.random()*900000)}`;
+      document.getElementById('inpAddGpsEngineNo').value = `ENG-${Math.floor(100000+Math.random()*900000)}`;
+      document.getElementById('inpAddGpsId').value = `GPS-VTT-${Math.floor(100000+Math.random()*900000)}`;
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().slice(0, 10);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().slice(0, 10);
+      document.getElementById('inpAddGpsStartDate').value = firstDay;
+      document.getElementById('inpAddGpsEndDate').value = lastDay;
+      document.getElementById('inpAddGpsDeduct').value = 0;
+      document.getElementById('inpAddGpsPrice').value = 2500;
+      document.getElementById('modalAddGPSVehicles').style.display = 'block';
+    }
+
+    function closeAddGPSVehiclesModal() {
+      document.getElementById('modalAddGPSVehicles').style.display = 'none';
+    }
+
+    async function submitAddGPSVehicle() {
+      const vin = document.getElementById('inpAddGpsVin').value.trim();
+      if (!vin) { alert('Vui lòng nhập số khung xe (VIN).'); return; }
+
+      const startDate = document.getElementById('inpAddGpsStartDate').value;
+      const endDate = document.getElementById('inpAddGpsEndDate').value;
+      const modelCode = document.getElementById('inpAddGpsModel').value;
+
+      const vehicle = {
+        vin: vin,
+        engineNo: document.getElementById('inpAddGpsEngineNo').value.trim() || null,
+        modelCode: modelCode,
+        gpsid: document.getElementById('inpAddGpsId').value.trim(),
+        costGPSStartDate: startDate ? new Date(startDate).toISOString() : null,
+        costGPSEndDate: endDate ? new Date(endDate).toISOString() : null,
+        deductDate: parseInt(document.getElementById('inpAddGpsDeduct').value) || 0,
+        priceGPS: parseInt(document.getElementById('inpAddGpsPrice').value) || 2500,
+        remark: document.getElementById('inpAddGpsRemark').value.trim() || 'Bổ sung xe vào bảng kê'
+      };
+
+      try {
+        const res = await fetch(`/api/payment-gps/${currentGpsDetailId}/vehicles`, {
+          method: 'POST', headers, body: JSON.stringify({ items: [vehicle] })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert(`Đã thêm xe ${vin} vào bảng kê thành công!`);
+        closeAddGPSVehiclesModal();
+        viewPaymentGPSDetail(currentGpsDetailId);
+        loadPaymentGPSs();
+      } catch(e) { console.error(e); }
+    }
+
+    function openEditGPSDetailModal(detailId, vin, start, end, deduct, price, remark) {
+      document.getElementById('editGpsDetailId').value = detailId;
+      document.getElementById('editGpsVin').value = vin;
+      document.getElementById('editGpsStartDate').value = start;
+      document.getElementById('editGpsEndDate').value = end;
+      document.getElementById('editGpsDeductDate').value = deduct;
+      document.getElementById('editGpsPrice').value = price;
+      document.getElementById('editGpsRemark').value = remark;
+      document.getElementById('modalEditGPSDetail').style.display = 'block';
+    }
+
+    function closeEditGPSDetailModal() {
+      document.getElementById('modalEditGPSDetail').style.display = 'none';
+    }
+
+    async function submitEditGPSDetail() {
+      const detailId = parseInt(document.getElementById('editGpsDetailId').value);
+      const start = document.getElementById('editGpsStartDate').value;
+      const end = document.getElementById('editGpsEndDate').value;
+      const deduct = parseInt(document.getElementById('editGpsDeductDate').value) || 0;
+      const price = parseInt(document.getElementById('editGpsPrice').value) || 2500;
+      const remark = document.getElementById('editGpsRemark').value.trim();
+
+      const item = {
+        detailId: detailId,
+        costGPSStartDate: start ? new Date(start).toISOString() : null,
+        costGPSEndDate: end ? new Date(end).toISOString() : null,
+        deductDate: deduct,
+        priceGPS: price,
+        remark: remark
+      };
+
+      try {
+        const res = await fetch(`/api/payment-gps/${currentGpsDetailId}/details`, {
+          method: 'PUT', headers, body: JSON.stringify({ items: [item] })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã cập nhật chi tiết dòng xe và tự động tính toán lại bảng kê!');
+        closeEditGPSDetailModal();
+        viewPaymentGPSDetail(currentGpsDetailId);
+        loadPaymentGPSs();
+      } catch(e) { console.error(e); }
+    }
+
+    async function deleteGPSVehicle(paymentId, detailId) {
+      if (!confirm(`Xác nhận xóa xe #${detailId} khỏi bảng kê này?`)) return;
+      try {
+        const res = await fetch(`/api/payment-gps/${paymentId}/vehicles/${detailId}`, {
+          method: 'DELETE', headers
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã xóa dòng xe khỏi bảng kê.');
+        viewPaymentGPSDetail(paymentId);
+        loadPaymentGPSs();
+      } catch(e) { console.error(e); }
+    }
+
+    function onNewGpsProviderChange() {
+      const sel = document.getElementById('inpNewGpsProvider').value;
+      const contractInput = document.getElementById('inpNewGpsContract');
+      if (sel === 'VIETTEL') contractInput.value = 'HD-GPS-VIETTEL-2024';
+      else if (sel === 'VNPT') contractInput.value = 'HD-GPS-VNPT-TRACK';
+      else if (sel === 'BAGPS') contractInput.value = 'HD-GPS-BINHANH';
+      else if (sel === 'BKAV') contractInput.value = 'HD-GPS-BKAV-SMART';
+    }
+
+    function loadSampleGPSData() {
+      const sample = [
+        {
+          "vin": "KMHCT81EPHU960001",
+          "engineNo": "G4KP-660001",
+          "carID": "CAR-NB-601",
+          "modelCode": "SANTAFE-CAL",
+          "modelName": "Hyundai Santa Fe Calligraphy 2.5T",
+          "specCode": "SF-2.5T-CAL6",
+          "specDescription": "Bản 6 chỗ ngồi Turbo 2.5L",
+          "gpsid": "GPS-VTT-660001",
+          "costGPSStartDate": "2025-05-01",
+          "costGPSEndDate": "2025-05-31",
+          "deductDate": 0,
+          "priceGPS": 2500,
+          "remark": "Định vị vệ tinh GPS 4G hoạt động bình thường"
+        },
+        {
+          "vin": "KMHCT81EPHU960002",
+          "engineNo": "G4FJ-660002",
+          "carID": "CAR-NB-602",
+          "modelCode": "TUCSON-TURBO",
+          "modelName": "Hyundai Tucson 1.6 T-GDi Turbo",
+          "specCode": "TUC-1.6T-PREM",
+          "specDescription": "Bản thể thao 1.6 Turbo",
+          "gpsid": "GPS-VTT-660002",
+          "costGPSStartDate": "2025-05-01",
+          "costGPSEndDate": "2025-05-31",
+          "deductDate": 1,
+          "priceGPS": 2500,
+          "remark": "Khấu trừ 1 ngày bảo trì bộ thu tín hiệu GPS"
+        },
+        {
+          "vin": "KMHCT81EPHU960003",
+          "engineNo": "G4NL-660003",
+          "carID": "CAR-NB-603",
+          "modelCode": "CRETA",
+          "modelName": "Hyundai Creta 1.5L Smart Stream",
+          "specCode": "CRT-1.5L-PREM",
+          "specDescription": "Bản cao cấp",
+          "gpsid": "GPS-VTT-660003",
+          "costGPSStartDate": "2025-05-05",
+          "costGPSEndDate": "2025-05-31",
+          "deductDate": 0,
+          "priceGPS": 2500,
+          "remark": "Kích hoạt định vị xe từ ngày bàn giao bãi xuất xưởng"
+        }
+      ];
+
+      const el = document.getElementById('inpNewGpsVehiclesJson');
+      if (el) el.value = JSON.stringify(sample, null, 2);
+    }
+
+    async function submitCreatePaymentGPS() {
+      const msg = document.getElementById('submitNewGpsMsg');
+      try {
+        const rawJson = document.getElementById('inpNewGpsVehiclesJson').value.trim();
+        if (!rawJson) { alert('Vui lòng nhập danh sách xe hoặc nhấn Nạp Dữ Liệu Xe Mẫu.'); return; }
+        const items = JSON.parse(rawJson);
+
+        const providerSel = document.getElementById('inpNewGpsProvider');
+        const providerCode = providerSel.value;
+        const providerName = providerSel.options[providerSel.selectedIndex].text.split(' (')[0];
+
+        const payload = {
+          paymentGPSNo: document.getElementById('inpNewGpsNo').value.trim() || null,
+          pmtMonth: document.getElementById('inpNewGpsMonth').value.trim(),
+          contractNo: document.getElementById('inpNewGpsContract').value.trim(),
+          providerCode: providerCode,
+          providerName: providerName,
+          vatRate: parseFloat(document.getElementById('inpNewGpsVATRate').value) || 10.0,
+          remark: document.getElementById('inpNewGpsRemark').value.trim(),
+          createdBy: 'ChuyenVienGiamSatGPS',
+          items: items
+        };
+
+        if (!payload.pmtMonth) { alert('Vui lòng nhập kỳ thanh toán (PmtMonth, ví dụ: 2025-05).'); return; }
+
+        msg.textContent = 'Đang khởi tạo bảng kê GPS...';
+        const res = await fetch('/api/payment-gps', {
+          method: 'POST', headers, body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Bảng kê: ${data.paymentGPSNo} (Tổng thanh toán sau VAT: ${Number(data.totalAmountVAT).toLocaleString('vi-VN')} đ)`;
+        setTimeout(() => {
+          showTab('paymentGPS');
+          viewPaymentGPSDetail(data.id);
+        }, 800);
+      } catch(e) {
+        msg.textContent = 'Lỗi cú pháp JSON: ' + e.message;
+      }
+    }
+
     // Khởi tạo
     loadSampleData();
     loadSamplePayoutData();
@@ -10200,6 +11240,7 @@
     loadSampleGuaranteeExtData();
     loadSampleGuaranteeClaimData();
     loadSampleAVNData();
+    loadSampleGPSData();
     loadBatches();
   </script>
 </body>
