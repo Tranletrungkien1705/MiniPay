@@ -106,6 +106,7 @@
     <button class="tab-btn" onclick="showTab('cancelBankMD')">Hủy Gán Bảo Lãnh (Cancel Bank MD)</button>
     <button class="tab-btn" onclick="showTab('insurance')">Thu Bảo Hiểm Bồi Thường (Insurance Claim)</button>
     <button class="tab-btn" onclick="showTab('supplier')">Chi Trả NCC Phụ Tùng (Supplier Payment)</button>
+    <button class="tab-btn" onclick="showTab('customer')">Thu Tiền KH Dịch Vụ (Customer Payment)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -129,6 +130,8 @@
     <button class="tab-btn" onclick="showTab('newInsuranceDebit')">+ Lập Nợ Bồi Thường RO</button>
     <button class="tab-btn" onclick="showTab('newSupplierPayment')">+ Lập Phiếu Chi NCC</button>
     <button class="tab-btn" onclick="showTab('newSupplierDebit')">+ Lập Nợ Nhập Kho Mới</button>
+    <button class="tab-btn" onclick="showTab('newCustomerPayment')">+ Lập Phiếu Thu KH</button>
+    <button class="tab-btn" onclick="showTab('newCustomerDebit')">+ Lập Nợ Dịch Vụ Mới</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -5317,6 +5320,353 @@
     </div>
   </div>
 
+  <!-- TAB: QUẢN LÝ CÔNG NỢ & THU TIỀN KHÁCH HÀNG DỊCH VỤ SỬA CHỮA (Customer Payment & Settlement) -->
+  <div id="tab-customer" style="display:none;">
+    <!-- Thống kê KPI -->
+    <div class="row" style="margin-bottom:16px;">
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Tổng Lệnh Sửa Chữa (RO)</div>
+        <div id="cusStatTotalROs" style="font-size:1.4em; font-weight:bold; color:var(--primary); margin-top:4px;">0</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Tổng Tiền Dịch Vụ Sửa Chữa</div>
+        <div id="cusStatTotalDebitAmt" style="font-size:1.3em; font-weight:bold; color:var(--text); margin-top:4px;">0 đ</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Đã Thu Tiền Khách Hàng</div>
+        <div id="cusStatTotalPaidAmt" style="font-size:1.3em; font-weight:bold; color:var(--success); margin-top:4px;">0 đ</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Dư Nợ Còn Phải Thu</div>
+        <div id="cusStatRemainingDebt" style="font-size:1.3em; font-weight:bold; color:var(--danger); margin-top:4px;">0 đ</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Tỷ Lệ Thu Hồi Nợ</div>
+        <div id="cusStatCollectionRate" style="font-size:1.4em; font-weight:bold; color:var(--primary); margin-top:4px;">0%</div>
+      </div>
+    </div>
+
+    <!-- Bộ lọc & Thao tác -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <div>
+            <label class="muted" style="font-size:.85em; display:block;">Khách Hàng:</label>
+            <select id="filterCustomerCode" onchange="loadCustomerData()" style="padding:4px 8px;">
+              <option value="">-- Tất cả khách hàng --</option>
+              <option value="CUS-001">CUS-001 - Nguyễn Văn Hùng (Santa Fe 30H-889.92)</option>
+              <option value="CUS-002">CUS-002 - Taxi Mai Linh Bắc Trung Bộ (Grand i10 29E-551.24)</option>
+              <option value="CUS-003">CUS-003 - Trần Thị Mai Phương (Creta 30K-123.45)</option>
+              <option value="CUS-004">CUS-004 - Lê Hoàng Nam (Tucson 30G-678.90)</option>
+              <option value="CUS-005">CUS-005 - Vận Tải &amp; Du Lịch An Phú (Solati 29B-987.65)</option>
+              <option value="CUS-006">CUS-006 - Vũ Minh Trí (Accent 30H-246.80)</option>
+              <option value="CUS-007">CUS-007 - Hoàng Đức Mạnh (IONIQ 5 30K-999.88)</option>
+              <option value="CUS-008">CUS-008 - Phạm Thu Hương (Elantra 30F-333.66)</option>
+            </select>
+          </div>
+          <div>
+            <label class="muted" style="font-size:.85em; display:block;">Tìm kiếm (Biển số / Lệnh RO / Số khung / SĐT):</label>
+            <input type="text" id="filterCustomerKeyword" placeholder="Nhập biển số, RO, số khung..." onkeyup="if(event.key==='Enter') loadCustomerData()" style="padding:4px 8px; width:240px;">
+          </div>
+          <button class="secondary" onclick="loadCustomerData()" style="margin-top:16px;">Lọc Dữ Liệu</button>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="secondary" onclick="showTab('newCustomerDebit')">+ Lập Nợ Dịch Vụ Mới</button>
+          <button onclick="showTab('newCustomerPayment')">+ Lập Phiếu Thu KH</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Danh sách Phiếu Thu Tiền Dịch Vụ Khách Hàng -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="margin:0;">Lịch Sử Phiếu Thu Tiền Dịch Vụ Khách Hàng (Ser_Payment / FrmCusPaymentCreate)</h3>
+        <span class="muted" style="font-size:.85em;">Phân bổ tự động theo thuật toán FIFO vào các lệnh sửa chữa RO còn nợ</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Phiếu Thu</th>
+              <th>Ngày Thu</th>
+              <th>Khách Hàng</th>
+              <th>Biển Số Xe</th>
+              <th>Người Nộp Tiền</th>
+              <th>Số Tiền Thu</th>
+              <th>Hình Thức</th>
+              <th>Ngân Hàng / Mã GD</th>
+              <th>Đã Phân Bổ</th>
+              <th>Trạng Thái</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="customerPaymentTableBody">
+            <tr><td colspan="11" class="muted" style="text-align:center;">Đang tải danh sách phiếu thu...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Danh sách Hồ Sơ Nợ Theo Lệnh Sửa Chữa RO -->
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="margin:0;">Danh Sách Khoản Nợ Theo Lệnh Sửa Chữa (Ser_CusDebit / FrmCusDebitSearch)</h3>
+        <span class="muted" style="font-size:.85em;">Theo dõi công nợ dịch vụ sửa chữa chung, bảo dưỡng định kỳ, đồng sơn xưởng ô tô</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Mã Công Nợ</th>
+              <th>Lệnh Sửa Chữa (RO)</th>
+              <th>Ngày Mở Lệnh</th>
+              <th>Biển Số Xe</th>
+              <th>Dòng Xe (Model)</th>
+              <th>Số Khung (VIN)</th>
+              <th>Khách Hàng</th>
+              <th>Loại Dịch Vụ</th>
+              <th>Hạn Thanh Toán</th>
+              <th>Tiền Dịch Vụ</th>
+              <th>Đã Thanh Toán</th>
+              <th>Còn Phải Thu</th>
+              <th>Trạng Thái</th>
+            </tr>
+          </thead>
+          <tbody id="customerDebitTableBody">
+            <tr><td colspan="13" class="muted" style="text-align:center;">Đang tải danh sách nợ dịch vụ...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Lập Phiếu Thu Tiền Dịch Vụ Khách Hàng Mới -->
+  <div id="tab-newCustomerPayment" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <div>
+          <h3 style="margin:0;">Lập Phiếu Thu Tiền Dịch Vụ Khách Hàng Mới (Ser_Payment / FrmCusPaymentCreate)</h3>
+          <p class="muted" style="margin:2px 0 0;">Thu tiền thanh toán dịch vụ sửa chữa xe ô tô và tự động phân bổ FIFO trừ nợ các lệnh RO.</p>
+        </div>
+        <button class="secondary" onclick="showTab('customer')">Về Danh Sách</button>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Khách Hàng Thanh Toán *:</label>
+          <select id="inpNewCusPmtCode" onchange="loadEligibleDebitsForNewCustomerPayment()">
+            <option value="CUS-001">CUS-001 - Nguyễn Văn Hùng (Santa Fe 30H-889.92)</option>
+            <option value="CUS-002">CUS-002 - Công ty CP Taxi Mai Linh Bắc Trung Bộ (Grand i10 29E-551.24)</option>
+            <option value="CUS-003">CUS-003 - Trần Thị Mai Phương (Creta 30K-123.45)</option>
+            <option value="CUS-004">CUS-004 - Lê Hoàng Nam (Tucson 30G-678.90)</option>
+            <option value="CUS-005">CUS-005 - Công ty Vận tải &amp; Du lịch An Phú (Solati 29B-987.65)</option>
+            <option value="CUS-006">CUS-006 - Vũ Minh Trí (Accent 30H-246.80)</option>
+            <option value="CUS-007">CUS-007 - Hoàng Đức Mạnh (IONIQ 5 30K-999.88)</option>
+            <option value="CUS-008">CUS-008 - Phạm Thu Hương (Elantra 30F-333.66)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Số Tiền Thu (VND) *:</label>
+          <input type="number" id="inpNewCusPmtAmount" value="13000000" step="500000">
+        </div>
+        <div class="col">
+          <label class="muted">Ngày Thu Tiền *:</label>
+          <input type="date" id="inpNewCusPmtDate">
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Họ Tên Người Nộp Tiền *:</label>
+          <input type="text" id="inpNewCusPmtPersonName" value="Nguyễn Văn Hùng">
+        </div>
+        <div class="col">
+          <label class="muted">Số CMT/CCCD:</label>
+          <input type="text" id="inpNewCusPmtIDCard" value="001085002931">
+        </div>
+        <div class="col">
+          <label class="muted">Số Điện Thoại:</label>
+          <input type="text" id="inpNewCusPmtPhone" value="0912-345-678">
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Hình Thức Thu Tiền:</label>
+          <select id="inpNewCusPmtMethod">
+            <option value="0">Tiền mặt tại quầy thu ngân dịch vụ (Cash)</option>
+            <option value="1">Chuyển khoản ngân hàng (VietQR / UNC)</option>
+            <option value="2">Cổng thanh toán điện tử VNPay QR</option>
+            <option value="3">Ví điện tử MoMo Pay</option>
+            <option value="4">Bù trừ công nợ / Voucher VIP bảo dưỡng</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Ngân Hàng Nhận Tiền (nếu CK/QR):</label>
+          <select id="inpNewCusPmtBankCode">
+            <option value="CTG">VietinBank - Ngân hàng TMCP Công Thương Việt Nam</option>
+            <option value="TCB">Techcombank - Ngân hàng TMCP Kỹ Thương Việt Nam</option>
+            <option value="VCB">Vietcombank - Ngân hàng TMCP Ngoại Thương Việt Nam</option>
+            <option value="MBB">MBBank - Ngân hàng TMCP Quân Đội</option>
+            <option value="VPB">VPBank - Ngân hàng TMCP Việt Nam Thịnh Vượng</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Mã Giao Dịch / Số Bút Toán / Trace:</label>
+          <input type="text" id="inpNewCusPmtBankTxnRef" value="VQR-202505-883311">
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label class="muted">Ghi Chú Đợt Thu Tiền:</label>
+        <input type="text" id="inpNewCusPmtNote" value="Thu tiền thanh toán chi phí bảo dưỡng định kỳ và sửa chữa phụ tùng">
+      </div>
+
+      <!-- Danh sách lệnh sửa chữa RO còn nợ sẽ được phân bổ FIFO -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin:16px 0 8px;">
+        <h4 style="margin:0;">Lệnh Sửa Chữa (RO) Sẽ Được Tự Động Phân Bổ Trừ Nợ (FIFO: Cũ trước, Mới sau)</h4>
+        <button class="secondary" onclick="loadEligibleDebitsForNewCustomerPayment()">Tải Lại Danh Sách Nợ</button>
+      </div>
+
+      <div style="overflow-x:auto; margin-bottom:12px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Mã Khoản Nợ</th>
+              <th>Lệnh RO</th>
+              <th>Biển Số Xe</th>
+              <th>Dòng Xe</th>
+              <th>Loại Dịch Vụ</th>
+              <th>Ngày Mở Lệnh</th>
+              <th>Hạn Nợ</th>
+              <th>Tiền Lệnh RO</th>
+              <th>Đã Thu</th>
+              <th>Còn Phải Thu</th>
+            </tr>
+          </thead>
+          <tbody id="eligibleCustomerDebitsTableBody">
+            <tr><td colspan="10" class="muted" style="text-align:center;">Chọn khách hàng để xem danh sách lệnh RO còn nợ.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+        <span id="submitNewCusPmtMsg" style="margin-right:12px; align-self:center; color:var(--primary); font-weight:500;"></span>
+        <button class="secondary" onclick="showTab('customer')">Hủy Bỏ</button>
+        <button onclick="submitCreateCustomerPayment()">Tạo Phiếu Thu &amp; Tự Động Phân Bổ Nợ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Lập Hồ Sơ Nợ Dịch Vụ Sửa Chữa Mới -->
+  <div id="tab-newCustomerDebit" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <div>
+          <h3 style="margin:0;">Lập Hồ Sơ Công Nợ Dịch Vụ Sửa Chữa Mới (Ser_CusDebit / FrmCusDebitCreate)</h3>
+          <p class="muted" style="margin:2px 0 0;">Ghi nhận công nợ phải thu theo Lệnh sửa chữa RO khi xe xuất xưởng bàn giao cho khách hàng thanh toán sau.</p>
+        </div>
+        <button class="secondary" onclick="showTab('customer')">Về Danh Sách</button>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Mã Khách Hàng (CusId) *:</label>
+          <input type="text" id="inpNewCusDebId" value="CUS-009">
+        </div>
+        <div class="col">
+          <label class="muted">Tên Khách Hàng *:</label>
+          <input type="text" id="inpNewCusDebName" value="Đỗ Văn Thành">
+        </div>
+        <div class="col">
+          <label class="muted">Số Điện Thoại:</label>
+          <input type="text" id="inpNewCusDebPhone" value="0936-778-899">
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Địa Chỉ Khách Hàng:</label>
+          <input type="text" id="inpNewCusDebAddress" value="KĐT Ciputra, Tây Hồ, Hà Nội">
+        </div>
+        <div class="col">
+          <label class="muted">Số Lệnh Sửa Chữa (RONo) *:</label>
+          <input type="text" id="inpNewCusDebRONo" value="RO-202505-0901">
+        </div>
+        <div class="col">
+          <label class="muted">Ngày Mở Lệnh RO:</label>
+          <input type="date" id="inpNewCusDebRODate">
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Biển Số Xe (PlateNo) *:</label>
+          <input type="text" id="inpNewCusDebPlateNo" value="30K-789.66">
+        </div>
+        <div class="col">
+          <label class="muted">Số Khung Xe (VIN):</label>
+          <input type="text" id="inpNewCusDebVIN" value="KMHD841CANU991201">
+        </div>
+        <div class="col">
+          <label class="muted">Dòng Xe (ModelCode):</label>
+          <select id="inpNewCusDebModelCode">
+            <option value="SANTAFE">Hyundai Santa Fe</option>
+            <option value="TUCSON">Hyundai Tucson</option>
+            <option value="CRETA">Hyundai Creta</option>
+            <option value="ACCENT">Hyundai Accent</option>
+            <option value="ELANTRA">Hyundai Elantra</option>
+            <option value="PALISADE">Hyundai Palisade</option>
+            <option value="CUSTIN">Hyundai Custin</option>
+            <option value="IONIQ5">Hyundai IONIQ 5</option>
+            <option value="STARGAZER">Hyundai Stargazer</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Loại Dịch Vụ Sửa Chữa:</label>
+          <input type="text" id="inpNewCusDebServiceType" value="Bảo dưỡng định kỳ 6 vạn &amp; Thay lốc lạnh">
+        </div>
+        <div class="col">
+          <label class="muted">Số Tiền Công Nợ (VND) *:</label>
+          <input type="number" id="inpNewCusDebAmount" value="18500000" step="500000">
+        </div>
+        <div class="col">
+          <label class="muted">Hạn Thanh Toán Cam Kết:</label>
+          <input type="date" id="inpNewCusDebDueDate">
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label class="muted">Hạng Mục Công Việc &amp; Phụ Tùng Thay Thế:</label>
+        <input type="text" id="inpNewCusDebNote" value="Bảo dưỡng cấp lớn, thay lốc điều hòa chính hãng, nạp ga R134a và thay lọc gió điều hòa kháng khuẩn">
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+        <span id="submitNewCusDebMsg" style="margin-right:12px; align-self:center; color:var(--primary); font-weight:500;"></span>
+        <button class="secondary" onclick="showTab('customer')">Hủy Bỏ</button>
+        <button onclick="submitCreateCustomerDebit()">Ghi Nhận Công Nợ Lệnh RO</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal In Giấy Báo Thu Tiền Quyết Toán Dịch Vụ Sửa Chữa (SerPaymentPaperRpt Advice) -->
+  <div id="modalCustomerPaymentAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:960px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.2em;">PHIẾU THU TIỀN DỊCH VỤ SỬA CHỮA XE Ô TÔ (SerPaymentPaperRpt)</h2>
+        <button class="secondary" onclick="closeCustomerAdviceModal()">Đóng [X]</button>
+      </div>
+      <div id="customerAdviceContent" style="margin-top:16px; font-size:.9em; line-height:1.6;"></div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('customerAdviceContent').innerText); alert('Đã sao chép nội dung Phiếu thu vào clipboard!');">Sao Chép Nội Dung</button>
+        <button onclick="window.print()">In Phiếu Thu</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB 5: API Docs -->
   <div id="tab-apiDocs" style="display:none;">
     <div class="card">
@@ -5640,6 +5990,21 @@
         <li><code>GET /api/supplier-payments/{id}/advice</code> — Sinh dữ liệu mẫu in Phiếu Chi Thanh Toán Tiền Nhà Cung Cấp Phụ Tùng (SerPaymentPaperRpt Advice)</li>
         <li><code>GET /api/supplier-payments/summary</code> — Báo cáo tổng hợp Dashboard KPI công nợ &amp; thanh toán nhà cung cấp</li>
       </ul>
+      <h3>Nghiệp Vụ Quản Lý Công Nợ &amp; Thu Tiền Khách Hàng Dịch Vụ Sửa Chữa (Automotive Customer Service Debit &amp; Settlement Payment)</h3>
+      <ul>
+        <li><code>POST /api/customer-payments/debits</code> — Tạo hồ sơ công nợ theo Lệnh sửa chữa RO (Ser_CusDebit / FrmCusDebitCreate)</li>
+        <li><code>GET /api/customer-payments/debits</code> — Danh sách công nợ khách hàng (hỗ trợ lọc theo <code>cusId</code>, <code>status</code>, <code>keyword</code>, <code>fromDate</code>, <code>toDate</code>)</li>
+        <li><code>GET /api/customer-payments/debits/{id}</code> — Chi tiết 1 hồ sơ công nợ dịch vụ sửa chữa</li>
+        <li><code>GET /api/customer-payments/debits/eligible/{cusId}</code> — Danh sách các lệnh RO còn nợ của một khách hàng để phân bổ</li>
+        <li><code>POST /api/customer-payments</code> — Lập phiếu thu tiền dịch vụ khách hàng mới (Tự động phân bổ FIFO trừ nợ RO theo SerPaymentCreate)</li>
+        <li><code>GET /api/customer-payments</code> — Danh sách phiếu thu tiền dịch vụ khách hàng (lọc theo <code>cusId</code>, <code>status</code>, <code>method</code>)</li>
+        <li><code>GET /api/customer-payments/{id}</code> — Chi tiết phiếu thu thanh toán kèm bảng phân bổ từng lệnh sửa chữa RO</li>
+        <li><code>POST /api/customer-payments/{id}/confirm</code> — Thu ngân / Kế toán trưởng thẩm định xác nhận thu tiền (Draft &rarr; Confirmed)</li>
+        <li><code>POST /api/customer-payments/{id}/settle</code> — Đối soát chốt ca kế toán dịch vụ vào sổ quỹ (Confirmed &rarr; Settled)</li>
+        <li><code>POST /api/customer-payments/{id}/cancel</code> — Hủy phiếu thu và tự động HOÀN TÁC (ROLLBACK) nợ trên các lệnh RO</li>
+        <li><code>GET /api/customer-payments/{id}/advice</code> — Sinh dữ liệu mẫu in Phiếu Thu Tiền Quyết Toán Dịch Vụ Sửa Chữa (SerPaymentPaperRpt Advice)</li>
+        <li><code>GET /api/customer-payments/summary</code> — Báo cáo tổng hợp Dashboard KPI công nợ &amp; quyết toán thu tiền dịch vụ khách hàng</li>
+      </ul>
     </div>
   </div>
 
@@ -5670,6 +6035,7 @@
       document.getElementById('tab-cancelBankMD').style.display = tabName === 'cancelBankMD' ? 'block' : 'none';
       document.getElementById('tab-insurance').style.display = tabName === 'insurance' ? 'block' : 'none';
       document.getElementById('tab-supplier').style.display = tabName === 'supplier' ? 'block' : 'none';
+      document.getElementById('tab-customer').style.display = tabName === 'customer' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -5693,54 +6059,13 @@
       document.getElementById('tab-newInsuranceDebit').style.display = tabName === 'newInsuranceDebit' ? 'block' : 'none';
       document.getElementById('tab-newSupplierPayment').style.display = tabName === 'newSupplierPayment' ? 'block' : 'none';
       document.getElementById('tab-newSupplierDebit').style.display = tabName === 'newSupplierDebit' ? 'block' : 'none';
+      document.getElementById('tab-newCustomerPayment').style.display = tabName === 'newCustomerPayment' ? 'block' : 'none';
+      document.getElementById('tab-newCustomerDebit').style.display = tabName === 'newCustomerDebit' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
-      document.querySelectorAll('.tab-btn').forEach((b, i) => {
-        b.classList.toggle('active',
-          (tabName === 'reconcile' && i === 0) ||
-          (tabName === 'payout' && i === 1) ||
-          (tabName === 'discount' && i === 2) ||
-          (tabName === 'guarantee' && i === 3) ||
-          (tabName === 'mortgage' && i === 4) ||
-          (tabName === 'paymentOrder' && i === 5) ||
-          (tabName === 'bankBill' && i === 6) ||
-          (tabName === 'paymentPDI' && i === 7) ||
-          (tabName === 'penaltyDelay' && i === 8) ||
-          (tabName === 'transportIns' && i === 9) ||
-          (tabName === 'paymentStorage' && i === 10) ||
-          (tabName === 'guaranteeExt' && i === 11) ||
-          (tabName === 'guaranteeClaim' && i === 12) ||
-          (tabName === 'paymentAVN' && i === 13) ||
-          (tabName === 'paymentGPS' && i === 14) ||
-          (tabName === 'fnExp' && i === 15) ||
-          (tabName === 'disbursement' && i === 16) ||
-          (tabName === 'cancelBankMD' && i === 17) ||
-          (tabName === 'insurance' && i === 18) ||
-          (tabName === 'supplier' && i === 19) ||
-          (tabName === 'newBatch' && i === 20) ||
-          (tabName === 'newPayout' && i === 21) ||
-          (tabName === 'newDiscount' && i === 22) ||
-          (tabName === 'newGuarantee' && i === 23) ||
-          (tabName === 'newMortgage' && i === 24) ||
-          (tabName === 'newRedeem' && i === 25) ||
-          (tabName === 'newPaymentOrder' && i === 26) ||
-          (tabName === 'newBankBill' && i === 27) ||
-          (tabName === 'newPaymentPDI' && i === 28) ||
-          (tabName === 'newPenaltyDelay' && i === 29) ||
-          (tabName === 'newTransportIns' && i === 30) ||
-          (tabName === 'newPaymentStorage' && i === 31) ||
-          (tabName === 'newGuaranteeExt' && i === 32) ||
-          (tabName === 'newGuaranteeClaim' && i === 33) ||
-          (tabName === 'newPaymentAVN' && i === 34) ||
-          (tabName === 'newPaymentGPS' && i === 35) ||
-          (tabName === 'newFnExp' && i === 36) ||
-          (tabName === 'newDisbursement' && i === 37) ||
-          (tabName === 'newCancelBankMD' && i === 38) ||
-          (tabName === 'newInsurancePayment' && i === 39) ||
-          (tabName === 'newInsuranceDebit' && i === 40) ||
-          (tabName === 'newSupplierPayment' && i === 41) ||
-          (tabName === 'newSupplierDebit' && i === 42) ||
-          (tabName === 'apiDocs' && i === 43));
+      document.querySelectorAll('.tab-btn').forEach((b) => {
+        const oc = b.getAttribute('onclick') || '';
+        b.classList.toggle('active', oc.includes(`'${tabName}'`));
       });
 
       if (tabName === 'reconcile') loadBatches();
@@ -5765,6 +6090,8 @@
       else if (tabName === 'newInsurancePayment') { loadEligibleDebitsForNewPayment(); }
       else if (tabName === 'supplier') { loadSupplierData(); }
       else if (tabName === 'newSupplierPayment') { loadEligibleDebitsForNewSupplierPayment(); }
+      else if (tabName === 'customer') { loadCustomerData(); }
+      else if (tabName === 'newCustomerPayment') { loadEligibleDebitsForNewCustomerPayment(); }
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====
@@ -15569,6 +15896,482 @@
       }
     }
 
+    // ===== TAB: QUẢN LÝ CÔNG NỢ & THU TIỀN KHÁCH HÀNG DỊCH VỤ SỬA CHỮA (Customer Payment & Settlement) =====
+    async function loadCustomerSummary() {
+      try {
+        const res = await fetch('/api/customer-payments/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('cusStatTotalROs').textContent = d.totalROs;
+        document.getElementById('cusStatTotalDebitAmt').textContent = Number(d.totalDebitAmount).toLocaleString('vi-VN') + ' đ';
+        document.getElementById('cusStatTotalPaidAmt').textContent = Number(d.totalPaidAmount).toLocaleString('vi-VN') + ' đ';
+        document.getElementById('cusStatRemainingDebt').textContent = Number(d.totalRemainingDebt).toLocaleString('vi-VN') + ' đ';
+        document.getElementById('cusStatCollectionRate').textContent = d.collectionRate + '%';
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadCustomerPayments() {
+      const cusId = document.getElementById('filterCustomerCode').value;
+      let url = '/api/customer-payments?';
+      if (cusId) url += 'cusId=' + encodeURIComponent(cusId) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('customerPaymentTableBody');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="11" class="muted" style="text-align:center;">Chưa có phiếu thu tiền dịch vụ khách hàng nào.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(p => {
+          let badge = 'badge-info';
+          let stLabel = p.status;
+          if (p.status === 'Settled') { badge = 'badge-success'; stLabel = 'Đã Chốt Sổ Quỹ'; }
+          else if (p.status === 'Confirmed') { badge = 'badge-primary'; stLabel = 'Đã Thu Tiền'; }
+          else if (p.status === 'Draft') { badge = 'muted'; stLabel = 'Bản Nháp'; }
+          else if (p.status === 'Cancelled') { badge = 'badge-danger'; stLabel = 'Đã Hủy'; }
+
+          let methodText = p.paymentMethod === 0 ? 'Tiền mặt tại quầy' :
+                           p.paymentMethod === 1 ? 'Chuyển khoản VietQR' :
+                           p.paymentMethod === 2 ? 'VNPay QR' :
+                           p.paymentMethod === 3 ? 'MoMo Pay' : 'Bù trừ Voucher VIP';
+
+          let bankInfo = p.bankCode ? `<strong>${p.bankCode}</strong>` : 'Tiền mặt';
+          if (p.bankTxnRef) bankInfo += `<br><small class="muted">${p.bankTxnRef}</small>`;
+
+          return `
+            <tr>
+              <td><strong>${p.paymentNo}</strong></td>
+              <td>${p.payDate ? p.payDate.slice(0, 10) : '-'}</td>
+              <td><strong>${p.cusName}</strong><br><small class="muted">${p.cusId}</small></td>
+              <td><strong>${p.plateNo || '-'}</strong></td>
+              <td>${p.payPersonName}<br><small class="muted">${p.payPersonPhone || ''}</small></td>
+              <td style="text-align:right; font-weight:bold; color:var(--primary);">${Number(p.paymentAmount).toLocaleString('vi-VN')} đ</td>
+              <td><span class="badge badge-info">${methodText}</span></td>
+              <td>${bankInfo}</td>
+              <td style="text-align:right; color:var(--success); font-weight:600;">${Number(p.totalAllocated).toLocaleString('vi-VN')} đ</td>
+              <td><span class="badge ${badge}">${stLabel}</span></td>
+              <td>
+                <button class="secondary" style="padding:2px 6px; font-size:.8em;" onclick="viewCustomerPaymentAdvice(${p.id})">In Phiếu</button>
+                ${p.status === 'Draft' ? `<button style="padding:2px 6px; font-size:.8em;" onclick="confirmCustomerPayment(${p.id})">Xác Nhận</button>` : ''}
+                ${(p.status === 'Confirmed' || p.status === 'Draft') ? `<button class="secondary" style="padding:2px 6px; font-size:.8em; color:var(--success);" onclick="settleCustomerPayment(${p.id})">Chốt Quỹ</button>` : ''}
+                ${p.status !== 'Cancelled' ? `<button class="secondary" style="padding:2px 6px; font-size:.8em; color:var(--danger);" onclick="cancelCustomerPayment(${p.id})">Hủy</button>` : ''}
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadCustomerDebits() {
+      const cusId = document.getElementById('filterCustomerCode').value;
+      const kw = document.getElementById('filterCustomerKeyword').value.trim();
+      let url = '/api/customer-payments/debits?';
+      if (cusId) url += 'cusId=' + encodeURIComponent(cusId) + '&';
+      if (kw) url += 'keyword=' + encodeURIComponent(kw) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('customerDebitTableBody');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="13" class="muted" style="text-align:center;">Chưa có khoản nợ dịch vụ sửa chữa nào phù hợp.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(d => {
+          let badge = 'badge-info';
+          let stLabel = d.status;
+          if (d.status === 'Settled') { badge = 'badge-success'; stLabel = 'Đã Tất Toán'; }
+          else if (d.status === 'PartiallyPaid') { badge = 'badge-warning'; stLabel = 'Đã Trả Một Phần'; }
+          else if (d.status === 'Pending') { badge = 'badge-danger'; stLabel = 'Chưa Thanh Toán'; }
+          else if (d.status === 'Cancelled') { badge = 'muted'; stLabel = 'Đã Hủy'; }
+
+          return `
+            <tr>
+              <td><code>${d.debitNo}</code></td>
+              <td><strong>${d.roNo}</strong></td>
+              <td>${d.roDate ? d.roDate.slice(0, 10) : '-'}</td>
+              <td><strong>${d.plateNo}</strong></td>
+              <td><span class="badge badge-info">${d.modelCode || 'HYUNDAI'}</span></td>
+              <td><small><code>${d.vin ? d.vin.slice(-8) : '-'}</code></small></td>
+              <td><strong>${d.cusName}</strong></td>
+              <td style="font-size:.85em;">${d.serviceType || '-'}</td>
+              <td>${d.dueDate ? d.dueDate.slice(0, 10) : '-'}</td>
+              <td style="text-align:right;">${Number(d.debitAmount).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; color:var(--success);">${Number(d.paidAmount).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; font-weight:bold; color:${d.remainAmount === 0 ? 'var(--success)' : 'var(--danger)'};">${Number(d.remainAmount).toLocaleString('vi-VN')} đ</td>
+              <td><span class="badge ${badge}">${stLabel}</span></td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadCustomerData() {
+      await loadCustomerSummary();
+      await loadCustomerPayments();
+      await loadCustomerDebits();
+    }
+
+    async function confirmCustomerPayment(id) {
+      if (!confirm('Thu ngân xác nhận đã nhận đủ tiền thanh toán dịch vụ của khách hàng?')) return;
+      try {
+        const res = await fetch(`/api/customer-payments/${id}/confirm`, {
+          method: 'POST', headers, body: JSON.stringify({ confirmedBy: 'LeThiHuyen_ThuNgan' })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        await loadCustomerData();
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function settleCustomerPayment(id) {
+      const txnRef = prompt('Nhập số bút toán sổ quỹ / mã giao dịch đối soát ngân hàng:', `VQR-202505-${Math.floor(100000 + Math.random() * 900000)}`);
+      if (!txnRef) return;
+      try {
+        const res = await fetch(`/api/customer-payments/${id}/settle`, {
+          method: 'POST', headers, body: JSON.stringify({ settledBy: 'TranDinhTuan_KeToanTruong', bankTxnRef: txnRef })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        await loadCustomerData();
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function cancelCustomerPayment(id) {
+      const reason = prompt('Nhập lý do hủy phiếu thu (hệ thống sẽ tự động hoàn tác nợ trên các lệnh RO):', 'Khách hàng đổi hình thức thanh toán hoặc hóa đơn có điều chỉnh');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/customer-payments/${id}/cancel`, {
+          method: 'POST', headers, body: JSON.stringify({ reason: reason, cancelledBy: 'TranDinhTuan_KeToanTruong' })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã hủy phiếu thu và hoàn tác công nợ các lệnh RO thành công!');
+        await loadCustomerData();
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function viewCustomerPaymentAdvice(id) {
+      try {
+        const res = await fetch(`/api/customer-payments/${id}/advice`, { headers });
+        if (!res.ok) { alert('Không tìm thấy phiếu thu.'); return; }
+        const a = await res.json();
+
+        let detailsHtml = a.details.map(d => `
+          <tr>
+            <td style="text-align:center;">${d.no}</td>
+            <td><strong>${d.roNo}</strong></td>
+            <td><code>${d.debitNo}</code></td>
+            <td><strong>${d.plateNo}</strong></td>
+            <td><span class="badge badge-info">${d.modelCode}</span></td>
+            <td style="text-align:right;">${Number(d.debitAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right;">${Number(d.debitAmountBefore).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; font-weight:700; color:var(--primary);">${Number(d.paymentDetailAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; color:${d.debitAmountLeft === 0 ? 'var(--success)' : 'var(--danger)'}; font-weight:600;">${Number(d.debitAmountLeft).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:center;"><span class="badge ${d.debitAmountLeft === 0 ? 'badge-success' : 'badge-warning'}">${d.statusAfterPayment}</span></td>
+          </tr>
+        `).join('');
+
+        const html = `
+          <div style="border:2px solid var(--border); padding:20px; background:#fff; color:#000;">
+            <div style="display:flex; justify-content:space-between; border-bottom:2px solid #000; padding-bottom:12px; margin-bottom:16px;">
+              <div>
+                <h3 style="margin:0; text-transform:uppercase; color:#000;">CÔNG TY CỔ PHẦN LIÊN DOANH Ô TÔ HYUNDAI THÀNH CÔNG VIỆT NAM</h3>
+                <p style="margin:2px 0 0; font-size:.85em; color:#555;">Xưởng Dịch Vụ Ủy Quyền Chính Hãng Hyundai 3S</p>
+                <p style="margin:2px 0 0; font-size:.85em; color:#555;">Bộ phận Cố vấn Dịch vụ - Quầy Thu Ngân &amp; Kế Toán Dịch Vụ</p>
+              </div>
+              <div style="text-align:right;">
+                <h4 style="margin:0; color:#000;">Mẫu biểu: SerPaymentPaperRpt</h4>
+                <p style="margin:2px 0 0; font-size:.85em; color:#555;">Số phiếu: <strong>${a.paymentNo}</strong></p>
+                <p style="margin:2px 0 0; font-size:.85em; color:#555;">Ngày in: ${a.printDate}</p>
+              </div>
+            </div>
+
+            <div style="text-align:center; margin-bottom:20px;">
+              <h2 style="margin:0; text-transform:uppercase; letter-spacing:1px; color:#000;">PHIẾU THU TIỀN DỊCH VỤ SỬA CHỮA XE Ô TÔ</h2>
+              <p style="margin:4px 0 0; font-style:italic; font-size:.9em; color:#555;">(Thu tiền bảo dưỡng định kỳ, sửa chữa chung, phụ tùng và đồng sơn xe Hyundai)</p>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; font-size:.95em;">
+              <div><strong>Họ tên khách hàng:</strong> ${a.cusName} (<code>${a.cusId}</code>)</div>
+              <div><strong>Hình thức thu tiền:</strong> ${a.paymentMethodText}</div>
+              <div><strong>Số điện thoại:</strong> ${a.cusPhone || '-'}</div>
+              <div><strong>Ngân hàng / Cổng TT:</strong> ${a.bankName || a.bankCode || 'Quầy thu ngân tiền mặt'}</div>
+              <div><strong>Địa chỉ khách hàng:</strong> ${a.cusAddress || '-'}</div>
+              <div><strong>Tài khoản / Mã GD:</strong> ${a.bankTxnRef || a.bankAccountNo || '-'}</div>
+              <div><strong>Người nộp tiền:</strong> ${a.payPersonName} ${a.payPersonPhone ? '(' + a.payPersonPhone + ')' : ''}</div>
+              <div><strong>CMT/CCCD người nộp:</strong> ${a.payPersonIDCardNo || '-'}</div>
+              <div><strong>Biển số xe:</strong> <strong>${a.plateNo || '-'}</strong></div>
+              <div><strong>Trạng thái phiếu:</strong> <strong>${a.statusText}</strong></div>
+            </div>
+
+            <div style="margin:16px 0 6px;">
+              <strong>DANH SÁCH LỆNH SỬA CHỮA (RO) ĐƯỢC PHÂN BỔ TRỪ NỢ (FIFO):</strong>
+            </div>
+
+            <table style="width:100%; border-collapse:collapse; margin-bottom:14px; font-size:.9em;">
+              <thead>
+                <tr style="background:#f1f5f9; color:#000; border-top:1px solid #000; border-bottom:1px solid #000;">
+                  <th style="padding:6px; border:1px solid #ccc; text-align:center;">STT</th>
+                  <th style="padding:6px; border:1px solid #ccc;">Lệnh RO</th>
+                  <th style="padding:6px; border:1px solid #ccc;">Mã Công Nợ</th>
+                  <th style="padding:6px; border:1px solid #ccc;">Biển Số</th>
+                  <th style="padding:6px; border:1px solid #ccc;">Dòng Xe</th>
+                  <th style="padding:6px; border:1px solid #ccc; text-align:right;">Tiền Lệnh RO</th>
+                  <th style="padding:6px; border:1px solid #ccc; text-align:right;">Nợ Trước Thu</th>
+                  <th style="padding:6px; border:1px solid #ccc; text-align:right;">Thu Đợt Này</th>
+                  <th style="padding:6px; border:1px solid #ccc; text-align:right;">Nợ Còn Lại</th>
+                  <th style="padding:6px; border:1px solid #ccc; text-align:center;">Tình Trạng</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${detailsHtml}
+              </tbody>
+            </table>
+
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; padding:12px; margin-bottom:16px;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span>Tổng số tiền thu của khách hàng:</span>
+                <strong style="font-size:1.15em; color:#0284c7;">${Number(a.paymentAmount).toLocaleString('vi-VN')} VND</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span>Tổng số tiền đã phân bổ trừ nợ các lệnh RO:</span>
+                <strong style="color:#16a34a;">${Number(a.totalAllocated).toLocaleString('vi-VN')} VND</strong>
+              </div>
+              ${a.unallocatedAmount > 0 ? `
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span>Số tiền nộp thừa giữ lại làm cọc dịch vụ lần sau:</span>
+                <strong style="color:#d97706;">${Number(a.unallocatedAmount).toLocaleString('vi-VN')} VND</strong>
+              </div>` : ''}
+              <div style="margin-top:6px; font-style:italic;">
+                <strong>Bằng chữ:</strong> ${a.paymentAmountInWords}
+              </div>
+              <div style="margin-top:4px;">
+                <strong>Diễn giải / Ghi chú:</strong> ${a.note || '-'}
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; text-align:center; margin-top:24px; padding-top:10px;">
+              <div>
+                <strong>NGƯỜI NỘP TIỀN / KHÁCH HÀNG</strong><br>
+                <small style="color:#666;">(Ký, ghi rõ họ tên)</small><br><br><br><br>
+                <strong>${a.payPersonName}</strong>
+              </div>
+              <div>
+                <strong>THỦ QUỸ / THU NGÂN</strong><br>
+                <small style="color:#666;">(Ký, ghi rõ họ tên)</small><br><br><br><br>
+                <strong>${a.confirmedBy || a.createdBy || 'LeThiHuyen_ThuNgan'}</strong>
+              </div>
+              <div>
+                <strong>KẾ TOÁN TRƯỞNG / CHỦ CƠ SỞ</strong><br>
+                <small style="color:#666;">(Ký, đóng dấu)</small><br><br><br><br>
+                <strong>${a.settledBy || 'TranDinhTuan_KeToanTruong'}</strong>
+              </div>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('customerAdviceContent').innerHTML = html;
+        document.getElementById('modalCustomerPaymentAdvice').style.display = 'block';
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    function closeCustomerAdviceModal() {
+      document.getElementById('modalCustomerPaymentAdvice').style.display = 'none';
+    }
+
+    async function loadEligibleDebitsForNewCustomerPayment() {
+      const cusId = document.getElementById('inpNewCusPmtCode').value;
+      const tbody = document.getElementById('eligibleCustomerDebitsTableBody');
+      if (!cusId) {
+        tbody.innerHTML = '<tr><td colspan="10" class="muted" style="text-align:center;">Chọn khách hàng để xem các lệnh RO còn nợ.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = '<tr><td colspan="10" class="muted" style="text-align:center;">Đang tải danh sách nợ...</td></tr>';
+      try {
+        const res = await fetch(`/api/customer-payments/debits/eligible/${encodeURIComponent(cusId)}`, { headers });
+        if (!res.ok) {
+          tbody.innerHTML = '<tr><td colspan="10" class="muted" style="text-align:center;">Không thể tải danh sách nợ.</td></tr>';
+          return;
+        }
+        const list = await res.json();
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="10" class="muted" style="text-align:center; color:var(--success);">Khách hàng này hiện không có lệnh sửa chữa RO nào còn nợ!</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(d => `
+          <tr>
+            <td><code>${d.debitNo}</code></td>
+            <td><strong>${d.roNo}</strong></td>
+            <td><strong>${d.plateNo}</strong></td>
+            <td><span class="badge badge-info">${d.modelCode || 'HYUNDAI'}</span></td>
+            <td>${d.serviceType || '-'}</td>
+            <td>${d.debitDate ? d.debitDate.slice(0, 10) : '-'}</td>
+            <td>${d.dueDate ? d.dueDate.slice(0, 10) : '-'}</td>
+            <td style="text-align:right;">${Number(d.debitAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; color:var(--success);">${Number(d.paidAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; font-weight:bold; color:var(--danger);">${Number(d.remainAmount).toLocaleString('vi-VN')} đ</td>
+          </tr>
+        `).join('');
+      } catch(e) {
+        tbody.innerHTML = '<tr><td colspan="10" class="muted" style="text-align:center; color:var(--danger);">Lỗi tải dữ liệu.</td></tr>';
+      }
+    }
+
+    async function submitCreateCustomerPayment() {
+      const msg = document.getElementById('submitNewCusPmtMsg');
+      const cusId = document.getElementById('inpNewCusPmtCode').value;
+      const amount = parseInt(document.getElementById('inpNewCusPmtAmount').value) || 0;
+      const payDate = document.getElementById('inpNewCusPmtDate').value;
+      const personName = document.getElementById('inpNewCusPmtPersonName').value.trim();
+      const idCard = document.getElementById('inpNewCusPmtIDCard').value.trim();
+      const phone = document.getElementById('inpNewCusPmtPhone').value.trim();
+      const method = parseInt(document.getElementById('inpNewCusPmtMethod').value) || 0;
+      const bankCode = document.getElementById('inpNewCusPmtBankCode').value;
+      const bankTxnRef = document.getElementById('inpNewCusPmtBankTxnRef').value.trim();
+      const note = document.getElementById('inpNewCusPmtNote').value.trim();
+
+      if (amount <= 0) {
+        alert('Số tiền thu phải lớn hơn 0.');
+        return;
+      }
+      if (!personName) {
+        alert('Tên người nộp tiền không được để trống.');
+        return;
+      }
+
+      const payload = {
+        cusId: cusId,
+        paymentAmount: amount,
+        payDate: payDate ? new Date(payDate) : new Date(),
+        payPersonName: personName,
+        payPersonIDCardNo: idCard,
+        payPersonPhone: phone,
+        paymentMethod: method,
+        bankCode: bankCode,
+        bankTxnRef: bankTxnRef,
+        note: note
+      };
+
+      msg.textContent = 'Đang lập phiếu thu & tự động phân bổ nợ...';
+      try {
+        const res = await fetch('/api/customer-payments', {
+          method: 'POST', headers, body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Số phiếu thu: ${data.paymentNo} (Đã phân bổ: ${Number(data.totalAllocated).toLocaleString('vi-VN')} đ)`;
+        setTimeout(() => {
+          showTab('customer');
+          loadCustomerData();
+        }, 800);
+      } catch(e) { msg.textContent = 'Lỗi: ' + e.message; }
+    }
+
+    async function submitCreateCustomerDebit() {
+      const msg = document.getElementById('submitNewCusDebMsg');
+      const cusId = document.getElementById('inpNewCusDebId').value.trim();
+      const cusName = document.getElementById('inpNewCusDebName').value.trim();
+      const phone = document.getElementById('inpNewCusDebPhone').value.trim();
+      const address = document.getElementById('inpNewCusDebAddress').value.trim();
+      const roNo = document.getElementById('inpNewCusDebRONo').value.trim();
+      const roDate = document.getElementById('inpNewCusDebRODate').value;
+      const plateNo = document.getElementById('inpNewCusDebPlateNo').value.trim();
+      const vin = document.getElementById('inpNewCusDebVIN').value.trim();
+      const modelCode = document.getElementById('inpNewCusDebModelCode').value;
+      const serviceType = document.getElementById('inpNewCusDebServiceType').value.trim();
+      const amount = parseInt(document.getElementById('inpNewCusDebAmount').value) || 0;
+      const dueDate = document.getElementById('inpNewCusDebDueDate').value;
+      const note = document.getElementById('inpNewCusDebNote').value.trim();
+
+      if (!cusId || !cusName) {
+        alert('Mã và tên khách hàng không được để trống.');
+        return;
+      }
+      if (!roNo) {
+        alert('Số lệnh sửa chữa (RONo) không được để trống.');
+        return;
+      }
+      if (!plateNo) {
+        alert('Biển số xe không được để trống.');
+        return;
+      }
+      if (amount <= 0) {
+        alert('Số tiền công nợ dịch vụ phải lớn hơn 0.');
+        return;
+      }
+
+      const payload = {
+        cusId: cusId,
+        cusName: cusName,
+        phone: phone,
+        address: address,
+        roNo: roNo,
+        roDate: roDate ? new Date(roDate) : null,
+        plateNo: plateNo,
+        vin: vin,
+        modelCode: modelCode,
+        serviceType: serviceType,
+        debitAmount: amount,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        note: note
+      };
+
+      msg.textContent = 'Đang ghi nhận công nợ dịch vụ...';
+      try {
+        const res = await fetch('/api/customer-payments/debits', {
+          method: 'POST', headers, body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Mã nợ: ${data.debitNo} (Lệnh RO: ${data.roNo})`;
+        setTimeout(() => {
+          showTab('customer');
+          loadCustomerData();
+        }, 800);
+      } catch(e) { msg.textContent = 'Lỗi: ' + e.message; }
+    }
+
+    function loadSampleCustomerData() {
+      const today = new Date().toISOString().split('T')[0];
+      const inpDate = document.getElementById('inpNewCusPmtDate');
+      if (inpDate) inpDate.value = today;
+      const inpRODate = document.getElementById('inpNewCusDebRODate');
+      if (inpRODate) inpRODate.value = today;
+      const inpDueDate = document.getElementById('inpNewCusDebDueDate');
+      if (inpDueDate) {
+        const d = new Date();
+        d.setDate(d.getDate() + 15);
+        inpDueDate.value = d.toISOString().split('T')[0];
+      }
+    }
+
     // Khởi tạo
     loadSampleData();
     loadSamplePayoutData();
@@ -15586,6 +16389,7 @@
     loadSampleCancelBankMDData();
     loadSampleInsuranceData();
     loadSampleSupplierData();
+    loadSampleCustomerData();
     loadBatches();
   </script>
 </body>

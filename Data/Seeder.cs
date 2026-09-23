@@ -1308,6 +1308,92 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_SupplierPaymentDetails_PaymentId"" ON ""SupplierPaymentDetails"" (""PaymentId"");
                 CREATE INDEX IF NOT EXISTS ""IX_SupplierPaymentDetails_DebitId"" ON ""SupplierPaymentDetails"" (""DebitId"");
                 CREATE INDEX IF NOT EXISTS ""IX_SupplierPaymentDetails_OrgId_StockInNo"" ON ""SupplierPaymentDetails"" (""OrgId"", ""StockInNo"");
+
+                CREATE TABLE IF NOT EXISTS ""CustomerDebits"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""DebitNo"" TEXT NOT NULL,
+                    ""CusId"" TEXT NOT NULL,
+                    ""CusName"" TEXT NOT NULL,
+                    ""Phone"" TEXT NULL,
+                    ""Address"" TEXT NULL,
+                    ""RONo"" TEXT NOT NULL,
+                    ""RODate"" TEXT NULL,
+                    ""PlateNo"" TEXT NOT NULL,
+                    ""VIN"" TEXT NOT NULL,
+                    ""ModelCode"" TEXT NOT NULL,
+                    ""ServiceType"" TEXT NULL,
+                    ""DebitDate"" TEXT NOT NULL,
+                    ""DueDate"" TEXT NOT NULL,
+                    ""DebitAmount"" INTEGER NOT NULL,
+                    ""PaidAmount"" INTEGER NOT NULL,
+                    ""RemainAmount"" INTEGER NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""Note"" TEXT NULL,
+                    ""CreatedBy"" TEXT NULL,
+                    ""CreatedAt"" TEXT NOT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_CustomerDebits_OrgId_DebitNo"" ON ""CustomerDebits"" (""OrgId"", ""DebitNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_CustomerDebits_OrgId_CusId"" ON ""CustomerDebits"" (""OrgId"", ""CusId"");
+                CREATE INDEX IF NOT EXISTS ""IX_CustomerDebits_OrgId_RONo"" ON ""CustomerDebits"" (""OrgId"", ""RONo"");
+                CREATE INDEX IF NOT EXISTS ""IX_CustomerDebits_OrgId_PlateNo"" ON ""CustomerDebits"" (""OrgId"", ""PlateNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_CustomerDebits_OrgId_VIN"" ON ""CustomerDebits"" (""OrgId"", ""VIN"");
+
+                CREATE TABLE IF NOT EXISTS ""CustomerPayments"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""PaymentNo"" TEXT NOT NULL,
+                    ""CusId"" TEXT NOT NULL,
+                    ""CusName"" TEXT NOT NULL,
+                    ""CusPhone"" TEXT NULL,
+                    ""PlateNo"" TEXT NULL,
+                    ""PayDate"" TEXT NOT NULL,
+                    ""PayPersonName"" TEXT NOT NULL,
+                    ""PayPersonIDCardNo"" TEXT NULL,
+                    ""PayPersonPhone"" TEXT NULL,
+                    ""PaymentAmount"" INTEGER NOT NULL,
+                    ""PaymentMethod"" INTEGER NOT NULL,
+                    ""BankCode"" TEXT NULL,
+                    ""BankName"" TEXT NULL,
+                    ""BankAccountNo"" TEXT NULL,
+                    ""BankTxnRef"" TEXT NULL,
+                    ""TotalAllocated"" INTEGER NOT NULL,
+                    ""UnallocatedAmount"" INTEGER NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""Note"" TEXT NULL,
+                    ""CreatedBy"" TEXT NULL,
+                    ""CreatedAt"" TEXT NOT NULL,
+                    ""ConfirmedBy"" TEXT NULL,
+                    ""ConfirmedAt"" TEXT NULL,
+                    ""SettledBy"" TEXT NULL,
+                    ""SettledAt"" TEXT NULL,
+                    ""CancelledBy"" TEXT NULL,
+                    ""CancelledAt"" TEXT NULL,
+                    ""CancelReason"" TEXT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_CustomerPayments_OrgId_PaymentNo"" ON ""CustomerPayments"" (""OrgId"", ""PaymentNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_CustomerPayments_OrgId_CusId"" ON ""CustomerPayments"" (""OrgId"", ""CusId"");
+
+                CREATE TABLE IF NOT EXISTS ""CustomerPaymentDetails"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""PaymentId"" INTEGER NOT NULL,
+                    ""DebitId"" INTEGER NOT NULL,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""DebitNo"" TEXT NOT NULL,
+                    ""RONo"" TEXT NOT NULL,
+                    ""PlateNo"" TEXT NOT NULL,
+                    ""VIN"" TEXT NOT NULL,
+                    ""DebitAmount"" INTEGER NOT NULL,
+                    ""DebitAmountBefore"" INTEGER NOT NULL,
+                    ""PaymentDetailAmount"" INTEGER NOT NULL,
+                    ""DebitAmountLeft"" INTEGER NOT NULL,
+                    ""Remark"" TEXT NULL,
+                    CONSTRAINT ""FK_CustomerPaymentDetails_CustomerPayments_PaymentId"" FOREIGN KEY (""PaymentId"") REFERENCES ""CustomerPayments"" (""Id"") ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_CustomerPaymentDetails_PaymentId"" ON ""CustomerPaymentDetails"" (""PaymentId"");
+                CREATE INDEX IF NOT EXISTS ""IX_CustomerPaymentDetails_DebitId"" ON ""CustomerPaymentDetails"" (""DebitId"");
+                CREATE INDEX IF NOT EXISTS ""IX_CustomerPaymentDetails_OrgId_RONo"" ON ""CustomerPaymentDetails"" (""OrgId"", ""RONo"");
+                CREATE INDEX IF NOT EXISTS ""IX_CustomerPaymentDetails_OrgId_PlateNo"" ON ""CustomerPaymentDetails"" (""OrgId"", ""PlateNo"");
             ");
         }
         else if (db.Database.IsNpgsql())
@@ -2592,6 +2678,91 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_SupplierPaymentDetails_PaymentId"" ON ""SupplierPaymentDetails"" (""PaymentId"");
                 CREATE INDEX IF NOT EXISTS ""IX_SupplierPaymentDetails_DebitId"" ON ""SupplierPaymentDetails"" (""DebitId"");
                 CREATE INDEX IF NOT EXISTS ""IX_SupplierPaymentDetails_OrgId_StockInNo"" ON ""SupplierPaymentDetails"" (""OrgId"", ""StockInNo"");
+
+                CREATE TABLE IF NOT EXISTS ""CustomerDebits"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""OrgId"" uuid NOT NULL,
+                    ""DebitNo"" text NOT NULL,
+                    ""CusId"" text NOT NULL,
+                    ""CusName"" text NOT NULL,
+                    ""Phone"" text NULL,
+                    ""Address"" text NULL,
+                    ""RONo"" text NOT NULL,
+                    ""RODate"" timestamp without time zone NULL,
+                    ""PlateNo"" text NOT NULL,
+                    ""VIN"" text NOT NULL,
+                    ""ModelCode"" text NOT NULL,
+                    ""ServiceType"" text NULL,
+                    ""DebitDate"" timestamp without time zone NOT NULL,
+                    ""DueDate"" timestamp without time zone NOT NULL,
+                    ""DebitAmount"" bigint NOT NULL,
+                    ""PaidAmount"" bigint NOT NULL,
+                    ""RemainAmount"" bigint NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""Note"" text NULL,
+                    ""CreatedBy"" text NULL,
+                    ""CreatedAt"" timestamp without time zone NOT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_CustomerDebits_OrgId_DebitNo"" ON ""CustomerDebits"" (""OrgId"", ""DebitNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_CustomerDebits_OrgId_CusId"" ON ""CustomerDebits"" (""OrgId"", ""CusId"");
+                CREATE INDEX IF NOT EXISTS ""IX_CustomerDebits_OrgId_RONo"" ON ""CustomerDebits"" (""OrgId"", ""RONo"");
+                CREATE INDEX IF NOT EXISTS ""IX_CustomerDebits_OrgId_PlateNo"" ON ""CustomerDebits"" (""OrgId"", ""PlateNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_CustomerDebits_OrgId_VIN"" ON ""CustomerDebits"" (""OrgId"", ""VIN"");
+
+                CREATE TABLE IF NOT EXISTS ""CustomerPayments"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""OrgId"" uuid NOT NULL,
+                    ""PaymentNo"" text NOT NULL,
+                    ""CusId"" text NOT NULL,
+                    ""CusName"" text NOT NULL,
+                    ""CusPhone"" text NULL,
+                    ""PlateNo"" text NULL,
+                    ""PayDate"" timestamp without time zone NOT NULL,
+                    ""PayPersonName"" text NOT NULL,
+                    ""PayPersonIDCardNo"" text NULL,
+                    ""PayPersonPhone"" text NULL,
+                    ""PaymentAmount"" bigint NOT NULL,
+                    ""PaymentMethod"" integer NOT NULL,
+                    ""BankCode"" text NULL,
+                    ""BankName"" text NULL,
+                    ""BankAccountNo"" text NULL,
+                    ""BankTxnRef"" text NULL,
+                    ""TotalAllocated"" bigint NOT NULL,
+                    ""UnallocatedAmount"" bigint NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""Note"" text NULL,
+                    ""CreatedBy"" text NULL,
+                    ""CreatedAt"" timestamp without time zone NOT NULL,
+                    ""ConfirmedBy"" text NULL,
+                    ""ConfirmedAt"" timestamp without time zone NULL,
+                    ""SettledBy"" text NULL,
+                    ""SettledAt"" timestamp without time zone NULL,
+                    ""CancelledBy"" text NULL,
+                    ""CancelledAt"" timestamp without time zone NULL,
+                    ""CancelReason"" text NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_CustomerPayments_OrgId_PaymentNo"" ON ""CustomerPayments"" (""OrgId"", ""PaymentNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_CustomerPayments_OrgId_CusId"" ON ""CustomerPayments"" (""OrgId"", ""CusId"");
+
+                CREATE TABLE IF NOT EXISTS ""CustomerPaymentDetails"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""PaymentId"" bigint NOT NULL REFERENCES ""CustomerPayments"" (""Id"") ON DELETE CASCADE,
+                    ""DebitId"" bigint NOT NULL,
+                    ""OrgId"" uuid NOT NULL,
+                    ""DebitNo"" text NOT NULL,
+                    ""RONo"" text NOT NULL,
+                    ""PlateNo"" text NOT NULL,
+                    ""VIN"" text NOT NULL,
+                    ""DebitAmount"" bigint NOT NULL,
+                    ""DebitAmountBefore"" bigint NOT NULL,
+                    ""PaymentDetailAmount"" bigint NOT NULL,
+                    ""DebitAmountLeft"" bigint NOT NULL,
+                    ""Remark"" text NULL
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_CustomerPaymentDetails_PaymentId"" ON ""CustomerPaymentDetails"" (""PaymentId"");
+                CREATE INDEX IF NOT EXISTS ""IX_CustomerPaymentDetails_DebitId"" ON ""CustomerPaymentDetails"" (""DebitId"");
+                CREATE INDEX IF NOT EXISTS ""IX_CustomerPaymentDetails_OrgId_RONo"" ON ""CustomerPaymentDetails"" (""OrgId"", ""RONo"");
+                CREATE INDEX IF NOT EXISTS ""IX_CustomerPaymentDetails_OrgId_PlateNo"" ON ""CustomerPaymentDetails"" (""OrgId"", ""PlateNo"");
             ");
         }
 
@@ -9798,6 +9969,430 @@ public static class Seeder
                     PaymentDetailAmount = 32_000_000,
                     DebitAmountLeft = 0,
                     Remark = "Tất toán toàn bộ nợ phiếu nhập kho"
+                }
+            );
+
+            await db.SaveChangesAsync();
+        }
+
+        // ===== 21. Seed Dữ liệu mẫu Công Nợ & Thu Tiền Quyết Toán Khách Hàng Dịch Vụ Sửa Chữa (Customer Payment) =====
+        if (!await db.CustomerDebits.AnyAsync())
+        {
+            var cd1 = new CustomerDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-CUS-202505-001",
+                CusId = "CUS-001",
+                CusName = "Nguyễn Văn Hùng",
+                Phone = "0912-345-678",
+                Address = "Số 15 Phố Duy Tân, Cầu Giấy, Hà Nội",
+                RONo = "RO-202505-0101",
+                RODate = DateTime.Today.AddDays(-14),
+                PlateNo = "30H-889.92",
+                VIN = "KMHSH81WPPU102911",
+                ModelCode = "SANTAFE",
+                ServiceType = "Bảo dưỡng định kỳ cấp lớn 40.000km",
+                DebitDate = DateTime.Today.AddDays(-14),
+                DueDate = DateTime.Today.AddDays(1),
+                DebitAmount = 8_500_000,
+                PaidAmount = 8_500_000,
+                RemainAmount = 0,
+                Status = CustomerDebitStatus.Settled,
+                Note = "Bảo dưỡng cấp lớn 4 vạn: thay dầu động cơ, lọc dầu, lọc gió, dầu phanh và bugi",
+                CreatedBy = "VuMinhDuc_CoVanDichVu",
+                CreatedAt = DateTime.Today.AddDays(-14)
+            };
+
+            var cd2 = new CustomerDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-CUS-202505-002",
+                CusId = "CUS-001",
+                CusName = "Nguyễn Văn Hùng",
+                Phone = "0912-345-678",
+                Address = "Số 15 Phố Duy Tân, Cầu Giấy, Hà Nội",
+                RONo = "RO-202505-0205",
+                RODate = DateTime.Today.AddDays(-10),
+                PlateNo = "30H-889.92",
+                VIN = "KMHSH81WPPU102911",
+                ModelCode = "SANTAFE",
+                ServiceType = "Sửa chữa hệ thống phanh",
+                DebitDate = DateTime.Today.AddDays(-10),
+                DueDate = DateTime.Today.AddDays(5),
+                DebitAmount = 4_200_000,
+                PaidAmount = 4_200_000,
+                RemainAmount = 0,
+                Status = CustomerDebitStatus.Settled,
+                Note = "Thay má phanh đĩa gốm trước sau và láng đĩa phanh vi tính",
+                CreatedBy = "VuMinhDuc_CoVanDichVu",
+                CreatedAt = DateTime.Today.AddDays(-10)
+            };
+
+            var cd3 = new CustomerDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-CUS-202505-003",
+                CusId = "CUS-002",
+                CusName = "Công ty CP Taxi Mai Linh Bắc Trung Bộ",
+                Phone = "024-3833-3333",
+                Address = "Khu đô thị Trung Hòa - Nhân Chính, Thanh Xuân, Hà Nội",
+                RONo = "RO-202505-0112",
+                RODate = DateTime.Today.AddDays(-8),
+                PlateNo = "29E-023.45",
+                VIN = "KMHDH41CPPU298102",
+                ModelCode = "ACCENT",
+                ServiceType = "Đại tu hộp số & Côn ly hợp",
+                DebitDate = DateTime.Today.AddDays(-8),
+                DueDate = DateTime.Today.AddDays(7),
+                DebitAmount = 28_000_000,
+                PaidAmount = 15_000_000,
+                RemainAmount = 13_000_000,
+                Status = CustomerDebitStatus.PartiallyPaid,
+                Note = "Hạ hộp số thay bàn ép, lá côn, bi tê và bánh đà xe hợp đồng taxi",
+                CreatedBy = "NguyenTuanAnh_CoVanDichVu",
+                CreatedAt = DateTime.Today.AddDays(-8)
+            };
+
+            var cd4 = new CustomerDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-CUS-202505-004",
+                CusId = "CUS-002",
+                CusName = "Công ty CP Taxi Mai Linh Bắc Trung Bộ",
+                Phone = "024-3833-3333",
+                Address = "Khu đô thị Trung Hòa - Nhân Chính, Thanh Xuân, Hà Nội",
+                RONo = "RO-202505-0118",
+                RODate = DateTime.Today.AddDays(-6),
+                PlateNo = "29E-044.88",
+                VIN = "KMHDH41CPPU301984",
+                ModelCode = "ACCENT",
+                ServiceType = "Bảo dưỡng 80.000km & Thay lốp",
+                DebitDate = DateTime.Today.AddDays(-6),
+                DueDate = DateTime.Today.AddDays(9),
+                DebitAmount = 16_500_000,
+                PaidAmount = 0,
+                RemainAmount = 16_500_000,
+                Status = CustomerDebitStatus.Pending,
+                Note = "Bảo dưỡng tổng thể và thay 4 quả lốp Michelin 185/65R15 xe taxi",
+                CreatedBy = "NguyenTuanAnh_CoVanDichVu",
+                CreatedAt = DateTime.Today.AddDays(-6)
+            };
+
+            var cd5 = new CustomerDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-CUS-202505-005",
+                CusId = "CUS-003",
+                CusName = "Trần Thị Mai Phương",
+                Phone = "0988-123-456",
+                Address = "Biệt thự Vinhome Riverside, Long Biên, Hà Nội",
+                RONo = "RO-202505-0125",
+                RODate = DateTime.Today.AddDays(-5),
+                PlateNo = "30K-128.66",
+                VIN = "KMHTG81BAPU504123",
+                ModelCode = "CRETA",
+                ServiceType = "Sơn gò phục hồi thân vỏ",
+                DebitDate = DateTime.Today.AddDays(-5),
+                DueDate = DateTime.Today.AddDays(10),
+                DebitAmount = 6_800_000,
+                PaidAmount = 6_800_000,
+                RemainAmount = 0,
+                Status = CustomerDebitStatus.Settled,
+                Note = "Gò cản trước, sơn hấp buồng sấy ba đờ sốc và tai xe bên phụ",
+                CreatedBy = "PhamQuangHai_CoVanDichVu",
+                CreatedAt = DateTime.Today.AddDays(-5)
+            };
+
+            var cd6 = new CustomerDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-CUS-202505-006",
+                CusId = "CUS-004",
+                CusName = "Lê Hoàng Nam",
+                Phone = "0904-567-890",
+                Address = "Tòa nhà Keangnam Landmark 72, Phạm Hùng, Nam Từ Liêm, Hà Nội",
+                RONo = "RO-202505-0130",
+                RODate = DateTime.Today.AddDays(-4),
+                PlateNo = "30F-998.12",
+                VIN = "KMHT381CMPU612844",
+                ModelCode = "TUCSON",
+                ServiceType = "Sửa chữa điều hòa & Hệ thống làm mát",
+                DebitDate = DateTime.Today.AddDays(-4),
+                DueDate = DateTime.Today.AddDays(11),
+                DebitAmount = 14_500_000,
+                PaidAmount = 0,
+                RemainAmount = 14_500_000,
+                Status = CustomerDebitStatus.Pending,
+                Note = "Thay lốc điều hòa Hanon, vệ sinh dàn lạnh và nạp ga R134a chuẩn",
+                CreatedBy = "PhamQuangHai_CoVanDichVu",
+                CreatedAt = DateTime.Today.AddDays(-4)
+            };
+
+            var cd7 = new CustomerDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-CUS-202505-007",
+                CusId = "CUS-005",
+                CusName = "Công ty Vận tải & Du lịch An Phú",
+                Phone = "024-3999-8888",
+                Address = "Số 48 Hoàng Quốc Việt, Cầu Giấy, Hà Nội",
+                RONo = "RO-202505-0142",
+                RODate = DateTime.Today.AddDays(-3),
+                PlateNo = "29B-512.34",
+                VIN = "KMHTS81DAPU718290",
+                ModelCode = "STARGAZER",
+                ServiceType = "Bảo dưỡng gầm & Hệ thống treo",
+                DebitDate = DateTime.Today.AddDays(-3),
+                DueDate = DateTime.Today.AddDays(12),
+                DebitAmount = 12_000_000,
+                PaidAmount = 0,
+                RemainAmount = 12_000_000,
+                Status = CustomerDebitStatus.Pending,
+                Note = "Thay bộ giảm chấn trước sau, cao su cân bằng và rotuyn lái",
+                CreatedBy = "VuMinhDuc_CoVanDichVu",
+                CreatedAt = DateTime.Today.AddDays(-3)
+            };
+
+            var cd8 = new CustomerDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-CUS-202505-008",
+                CusId = "CUS-006",
+                CusName = "Vũ Minh Trí",
+                Phone = "0915-888-999",
+                Address = "Chung cư Mandarin Garden, Hoàng Minh Giám, Cầu Giấy, Hà Nội",
+                RONo = "RO-202505-0155",
+                RODate = DateTime.Today.AddDays(-2),
+                PlateNo = "30G-678.90",
+                VIN = "KMHC881EAPU823901",
+                ModelCode = "CUSTIN",
+                ServiceType = "Chăm sóc & Phụ kiện cao cấp",
+                DebitDate = DateTime.Today.AddDays(-2),
+                DueDate = DateTime.Today.AddDays(13),
+                DebitAmount = 18_200_000,
+                PaidAmount = 0,
+                RemainAmount = 18_200_000,
+                Status = CustomerDebitStatus.Pending,
+                Note = "Dán phim cách nhiệt quang học 3M Crystalline và phủ gầm chống rỉ cao cấp",
+                CreatedBy = "PhamQuangHai_CoVanDichVu",
+                CreatedAt = DateTime.Today.AddDays(-2)
+            };
+
+            var cd9 = new CustomerDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-CUS-202505-009",
+                CusId = "CUS-007",
+                CusName = "Hoàng Đức Mạnh",
+                Phone = "0936-777-222",
+                Address = "Khu đô thị Ecopark, Văn Giang, Hưng Yên",
+                RONo = "RO-202505-0160",
+                RODate = DateTime.Today.AddDays(-1),
+                PlateNo = "30H-456.78",
+                VIN = "KMHEE81EAPU901844",
+                ModelCode = "IONIQ5",
+                ServiceType = "Bảo dưỡng chuyên biệt xe điện EV",
+                DebitDate = DateTime.Today.AddDays(-1),
+                DueDate = DateTime.Today.AddDays(14),
+                DebitAmount = 5_500_000,
+                PaidAmount = 0,
+                RemainAmount = 5_500_000,
+                Status = CustomerDebitStatus.Pending,
+                Note = "Kiểm tra hệ thống quản lý pin BMS, cập nhật ECU và kiểm tra phanh hồi năng lượng",
+                CreatedBy = "NguyenTuanAnh_CoVanDichVu",
+                CreatedAt = DateTime.Today.AddDays(-1)
+            };
+
+            var cd10 = new CustomerDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-CUS-202505-010",
+                CusId = "CUS-008",
+                CusName = "Phạm Thu Hương",
+                Phone = "0979-333-555",
+                Address = "Số 88 Phố Huế, Hai Bà Trưng, Hà Nội",
+                RODate = DateTime.Today,
+                PlateNo = "30A-789.01",
+                VIN = "KMHDH41DPPU410294",
+                ModelCode = "ELANTRA",
+                RONo = "RO-202505-0175",
+                ServiceType = "Căn chỉnh thước lái & Lốp xe",
+                DebitDate = DateTime.Today,
+                DueDate = DateTime.Today.AddDays(15),
+                DebitAmount = 7_200_000,
+                PaidAmount = 0,
+                RemainAmount = 7_200_000,
+                Status = CustomerDebitStatus.Pending,
+                Note = "Cân chỉnh góc đặt bánh xe 3D và thay 2 quả lốp trước Bridgestone 205/55R16",
+                CreatedBy = "VuMinhDuc_CoVanDichVu",
+                CreatedAt = DateTime.Today
+            };
+
+            db.CustomerDebits.AddRange(cd1, cd2, cd3, cd4, cd5, cd6, cd7, cd8, cd9, cd10);
+            await db.SaveChangesAsync();
+
+            // Phiếu thu 1: Tất toán 2 lệnh sửa chữa cho anh Nguyễn Văn Hùng qua Chuyển khoản VietQR
+            var cp1 = new CustomerPayment
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PaymentNo = "PT-CUS-202505-001",
+                CusId = "CUS-001",
+                CusName = "Nguyễn Văn Hùng",
+                CusPhone = "0912-345-678",
+                PlateNo = "30H-889.92",
+                PayDate = DateTime.Today.AddDays(-9),
+                PayPersonName = "Nguyễn Văn Hùng",
+                PayPersonIDCardNo = "001085002931",
+                PayPersonPhone = "0912-345-678",
+                PaymentAmount = 12_700_000,
+                PaymentMethod = CustomerPaymentMethod.BankTransfer,
+                BankCode = "CTG",
+                BankName = "VietinBank - Chi nhánh Nam Thăng Long",
+                BankAccountNo = "113000889988",
+                BankTxnRef = "FT251299834211",
+                TotalAllocated = 12_700_000,
+                UnallocatedAmount = 0,
+                Status = CustomerPaymentStatus.Settled,
+                Note = "Thu tiền thanh toán dịch vụ bảo dưỡng và má phanh qua quét mã VietQR",
+                CreatedBy = "LeThiHuyen_ThuNgan",
+                ConfirmedBy = "LeThiHuyen_ThuNgan",
+                ConfirmedAt = DateTime.Today.AddDays(-9),
+                SettledBy = "TranDinhTuan_KeToanTruong",
+                SettledAt = DateTime.Today.AddDays(-9),
+                CreatedAt = DateTime.Today.AddDays(-9)
+            };
+            db.CustomerPayments.Add(cp1);
+            await db.SaveChangesAsync();
+
+            db.CustomerPaymentDetails.AddRange(
+                new CustomerPaymentDetail
+                {
+                    PaymentId = cp1.Id,
+                    DebitId = cd1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DebitNo = cd1.DebitNo,
+                    RONo = cd1.RONo,
+                    PlateNo = cd1.PlateNo,
+                    VIN = cd1.VIN,
+                    DebitAmount = 8_500_000,
+                    DebitAmountBefore = 8_500_000,
+                    PaymentDetailAmount = 8_500_000,
+                    DebitAmountLeft = 0,
+                    Remark = "Tất toán toàn bộ nợ lệnh sửa chữa RO-202505-0101"
+                },
+                new CustomerPaymentDetail
+                {
+                    PaymentId = cp1.Id,
+                    DebitId = cd2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DebitNo = cd2.DebitNo,
+                    RONo = cd2.RONo,
+                    PlateNo = cd2.PlateNo,
+                    VIN = cd2.VIN,
+                    DebitAmount = 4_200_000,
+                    DebitAmountBefore = 4_200_000,
+                    PaymentDetailAmount = 4_200_000,
+                    DebitAmountLeft = 0,
+                    Remark = "Tất toán toàn bộ nợ lệnh sửa chữa RO-202505-0205"
+                }
+            );
+
+            // Phiếu thu 2: Tất toán chi phí sơn gò cho chị Trần Thị Mai Phương qua VNPay QR
+            var cp2 = new CustomerPayment
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PaymentNo = "PT-CUS-202505-002",
+                CusId = "CUS-003",
+                CusName = "Trần Thị Mai Phương",
+                CusPhone = "0988-123-456",
+                PlateNo = "30K-128.66",
+                PayDate = DateTime.Today.AddDays(-5),
+                PayPersonName = "Trần Thị Mai Phương",
+                PayPersonIDCardNo = "001192004821",
+                PayPersonPhone = "0988-123-456",
+                PaymentAmount = 6_800_000,
+                PaymentMethod = CustomerPaymentMethod.VnPay,
+                BankCode = "VNPAY",
+                BankName = "Cổng thanh toán VNPay QR Pos",
+                BankTxnRef = "VNPAY-POS-202505-8831",
+                TotalAllocated = 6_800_000,
+                UnallocatedAmount = 0,
+                Status = CustomerPaymentStatus.Settled,
+                Note = "Khách hàng thanh toán qua cổng VNPay QR tại quầy thu ngân dịch vụ",
+                CreatedBy = "LeThiHuyen_ThuNgan",
+                ConfirmedBy = "LeThiHuyen_ThuNgan",
+                ConfirmedAt = DateTime.Today.AddDays(-5),
+                SettledBy = "TranDinhTuan_KeToanTruong",
+                SettledAt = DateTime.Today.AddDays(-5),
+                CreatedAt = DateTime.Today.AddDays(-5)
+            };
+            db.CustomerPayments.Add(cp2);
+            await db.SaveChangesAsync();
+
+            db.CustomerPaymentDetails.Add(
+                new CustomerPaymentDetail
+                {
+                    PaymentId = cp2.Id,
+                    DebitId = cd5.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DebitNo = cd5.DebitNo,
+                    RONo = cd5.RONo,
+                    PlateNo = cd5.PlateNo,
+                    VIN = cd5.VIN,
+                    DebitAmount = 6_800_000,
+                    DebitAmountBefore = 6_800_000,
+                    PaymentDetailAmount = 6_800_000,
+                    DebitAmountLeft = 0,
+                    Remark = "Tất toán toàn bộ nợ sơn cản trước lệnh RO-202505-0125"
+                }
+            );
+
+            // Phiếu thu 3: Thanh toán một phần cho Công ty Taxi Mai Linh Bắc Trung Bộ qua Techcombank UNC
+            var cp3 = new CustomerPayment
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PaymentNo = "PT-CUS-202505-003",
+                CusId = "CUS-002",
+                CusName = "Công ty CP Taxi Mai Linh Bắc Trung Bộ",
+                CusPhone = "024-3833-3333",
+                PlateNo = "29E-023.45",
+                PayDate = DateTime.Today,
+                PayPersonName = "Hoàng Kim Tuấn (Kế toán đội xe Mai Linh)",
+                PayPersonIDCardNo = "036087001294",
+                PayPersonPhone = "0903-222-111",
+                PaymentAmount = 15_000_000,
+                PaymentMethod = CustomerPaymentMethod.BankTransfer,
+                BankCode = "TCB",
+                BankName = "Techcombank - Hội Sở",
+                BankAccountNo = "19028833990011",
+                BankTxnRef = "UNC-TCB-CUS-202505-092",
+                TotalAllocated = 15_000_000,
+                UnallocatedAmount = 0,
+                Status = CustomerPaymentStatus.Confirmed,
+                Note = "Thu ngân xác nhận tiền nổi vào tài khoản Techcombank, trừ nợ đợt 1 lệnh đại tu hộp số RO-202505-0112",
+                CreatedBy = "LeThiHuyen_ThuNgan",
+                ConfirmedBy = "LeThiHuyen_ThuNgan",
+                ConfirmedAt = DateTime.Today,
+                CreatedAt = DateTime.Today
+            };
+            db.CustomerPayments.Add(cp3);
+            await db.SaveChangesAsync();
+
+            db.CustomerPaymentDetails.Add(
+                new CustomerPaymentDetail
+                {
+                    PaymentId = cp3.Id,
+                    DebitId = cd3.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DebitNo = cd3.DebitNo,
+                    RONo = cd3.RONo,
+                    PlateNo = cd3.PlateNo,
+                    VIN = cd3.VIN,
+                    DebitAmount = 28_000_000,
+                    DebitAmountBefore = 28_000_000,
+                    PaymentDetailAmount = 15_000_000,
+                    DebitAmountLeft = 13_000_000,
+                    Remark = "Trừ nợ đợt 1 (15 triệu / 28 triệu), còn nợ 13 triệu"
                 }
             );
 

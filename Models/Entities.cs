@@ -2459,3 +2459,277 @@ public sealed class EligibleSupplierDebitDto
     public long RemainAmount { get; set; }
     public string Status { get; set; } = "";
 }
+
+// ==========================================
+// Nghiệp vụ Quản lý Công Nợ Khách Hàng Sửa Chữa & Thu Tiền Quyết Toán Dịch Vụ Xe Ô Tô
+// (Automotive Customer Service Debit & Settlement Payment Management)
+// Tương ứng BizCarSv.Debit.cs (SerCusDebitCreate, SerCusDebitUpdate, SerCusDebitDelete, SerCusDebitDetailGet, SerCusDebitSearch,
+// SerPaymentCreate, SerPaymentUpdate, SerPaymentDelete, SerPaymentPaperRpt, TConst.SerDebitType.CusDebit = "1", TConst.SerPaymentType.CusPayment = "1")
+// và FrmCusDebitCreate, FrmCusDebitSearch, FrmCusPaymentCreate, FrmDebitShow trong TERP.HTCServiceClient/Views/Debit hệ nguồn HTC 2010.
+// ==========================================
+
+/// <summary>Trạng thái khoản công nợ dịch vụ sửa chữa của khách hàng — tương ứng Ser_CusDebit (DebitType='1' CusDebit).</summary>
+public enum CustomerDebitStatus
+{
+    Pending = 0,        // Chờ thu tiền (RemainAmount == DebitAmount)
+    PartiallyPaid = 1,  // Đã thu một phần (RemainAmount > 0 && PaidAmount > 0)
+    Settled = 2,        // Đã tất toán hoàn tất 100% (RemainAmount == 0)
+    Cancelled = 3       // Hủy khoản công nợ
+}
+
+/// <summary>Hình thức thu tiền thanh toán dịch vụ — tương ứng PaymentType trong Ser_Payment.</summary>
+public enum CustomerPaymentMethod
+{
+    Cash = 0,           // Tiền mặt tại quầy thu ngân dịch vụ
+    BankTransfer = 1,   // Chuyển khoản ngân hàng (VietinBank/MBBank/VCB/TCB...)
+    VnPay = 2,          // Cổng thanh toán trực tuyến VNPay QR
+    Momo = 3,           // Ví điện tử MoMo
+    Offset = 4          // Bù trừ công nợ / Voucher bảo dưỡng / Thẻ VIP thành viên
+}
+
+/// <summary>Trạng thái Phiếu thu tiền khách hàng — tương ứng Ser_Payment.</summary>
+public enum CustomerPaymentStatus
+{
+    Draft = 0,          // Mới tạo phiếu thu (nháp)
+    Confirmed = 1,      // Thu ngân quầy dịch vụ xác nhận đã thu đủ tiền
+    Settled = 2,        // Kế toán dịch vụ / Kế toán trưởng đối soát chốt ca quyết toán vào sổ quỹ
+    Cancelled = 3       // Hủy phiếu thu (hoàn tác rollback nợ trên các RO tương ứng)
+}
+
+/// <summary>Hồ sơ công nợ khách hàng dịch vụ sửa chữa xe — tương ứng Ser_CusDebit trong BizCarSv.</summary>
+public sealed class CustomerDebit
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string DebitNo { get; set; } = "";                    // Số hồ sơ công nợ (DEB-CUS-yyyyMM-xxx)
+    public string CusId { get; set; } = "";                      // Mã khách hàng (CusID)
+    public string CusName { get; set; } = "";                    // Tên khách hàng (CusName)
+    public string? Phone { get; set; }                           // Số điện thoại
+    public string? Address { get; set; }                         // Địa chỉ khách hàng
+    public string RONo { get; set; } = "";                       // Lệnh sửa chữa (RONo)
+    public DateTime? RODate { get; set; }                        // Ngày mở lệnh RO
+    public string PlateNo { get; set; } = "";                    // Biển số xe (PlateNo)
+    public string VIN { get; set; } = "";                        // Số khung xe (VIN)
+    public string ModelCode { get; set; } = "";                  // Mã model (SANTAFE, TUCSON, CRETA...)
+    public string? ServiceType { get; set; }                     // Loại dịch vụ: Bảo dưỡng định kỳ, Sửa chữa chung, Đồng sơn, Bảo hành...
+    public DateTime DebitDate { get; set; } = DateTime.Now;      // Ngày phát sinh nợ
+    public DateTime DueDate { get; set; }                        // Hạn thanh toán cam kết
+    public long DebitAmount { get; set; }                        // Số tiền công nợ dịch vụ (VND)
+    public long PaidAmount { get; set; }                         // Đã thu (VND)
+    public long RemainAmount { get; set; }                       // Còn phải thu (= DebitAmount - PaidAmount)
+    public CustomerDebitStatus Status { get; set; } = CustomerDebitStatus.Pending;
+    public string? Note { get; set; }                            // Ghi chú công nợ
+    public string? CreatedBy { get; set; }                       // Cố vấn dịch vụ / Thu ngân lập
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+}
+
+/// <summary>Phiếu thu tiền thanh toán dịch vụ sửa chữa xe — tương ứng Ser_Payment trong BizCarSv.</summary>
+public sealed class CustomerPayment
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string PaymentNo { get; set; } = "";                  // Số phiếu thu (PT-CUS-yyyyMM-xxx)
+    public string CusId { get; set; } = "";                      // Mã khách hàng
+    public string CusName { get; set; } = "";                    // Tên khách hàng
+    public string? CusPhone { get; set; }                        // Số điện thoại khách
+    public string? PlateNo { get; set; }                         // Biển số xe chính
+    public DateTime PayDate { get; set; } = DateTime.Now;        // Thời gian lập phiếu thu
+    public string PayPersonName { get; set; } = "";              // Họ tên người nộp tiền
+    public string? PayPersonIDCardNo { get; set; }               // CMT / CCCD người nộp
+    public string? PayPersonPhone { get; set; }                  // SĐT người nộp
+    public long PaymentAmount { get; set; }                      // Tổng số tiền thu (VND)
+    public CustomerPaymentMethod PaymentMethod { get; set; } = CustomerPaymentMethod.Cash;
+    public string? BankCode { get; set; }                        // Mã ngân hàng (nếu chuyển khoản hoặc VNPay)
+    public string? BankName { get; set; }                        // Tên ngân hàng
+    public string? BankAccountNo { get; set; }                   // Số tài khoản ngân hàng nhận tiền
+    public string? BankTxnRef { get; set; }                      // Số bút toán giao dịch ngân hàng / Trace VNPay / MoMo
+    public long TotalAllocated { get; set; }                     // Tổng tiền đã phân bổ nợ vào các RO
+    public long UnallocatedAmount { get; set; }                  // Tiền khách nộp thừa giữ lại cọc lần sau
+    public CustomerPaymentStatus Status { get; set; } = CustomerPaymentStatus.Draft;
+    public string? Note { get; set; }                            // Diễn giải thu tiền
+    public string? CreatedBy { get; set; }                       // Thu ngân lập phiếu
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public string? ConfirmedBy { get; set; }                     // Thu ngân trưởng / Kế toán quầy xác nhận
+    public DateTime? ConfirmedAt { get; set; }
+    public string? SettledBy { get; set; }                       // Kế toán trưởng đối soát chốt ca
+    public DateTime? SettledAt { get; set; }
+    public string? CancelledBy { get; set; }
+    public DateTime? CancelledAt { get; set; }
+    public string? CancelReason { get; set; }
+
+    public List<CustomerPaymentDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết dòng phân bổ phiếu thu vào hồ sơ nợ sửa chữa RO — tương ứng Ser_PaymentDetail trong BizCarSv.</summary>
+public sealed class CustomerPaymentDetail
+{
+    public long Id { get; set; }
+    public long PaymentId { get; set; }
+    public long DebitId { get; set; }
+    public Guid OrgId { get; set; }
+    public string DebitNo { get; set; } = "";                    // Mã công nợ
+    public string RONo { get; set; } = "";                       // Lệnh sửa chữa RO
+    public string PlateNo { get; set; } = "";                    // Biển số xe
+    public string VIN { get; set; } = "";                        // Số khung
+    public long DebitAmount { get; set; }                        // Tiền nợ ban đầu
+    public long DebitAmountBefore { get; set; }                  // Dư nợ trước khi thu phiếu này
+    public long PaymentDetailAmount { get; set; }                // Số tiền trừ nợ đợt này
+    public long DebitAmountLeft { get; set; }                    // Dư nợ còn lại sau khi thu
+    public string? Remark { get; set; }                          // Ghi chú dòng phân bổ
+}
+
+public sealed class CreateCustomerDebitDto
+{
+    public string? DebitNo { get; set; }
+    public string CusId { get; set; } = "";
+    public string CusName { get; set; } = "";
+    public string? Phone { get; set; }
+    public string? Address { get; set; }
+    public string RONo { get; set; } = "";
+    public DateTime? RODate { get; set; }
+    public string PlateNo { get; set; } = "";
+    public string VIN { get; set; } = "";
+    public string ModelCode { get; set; } = "";
+    public string? ServiceType { get; set; }
+    public DateTime? DebitDate { get; set; }
+    public DateTime? DueDate { get; set; }
+    public long DebitAmount { get; set; }
+    public string? Note { get; set; }
+    public string? CreatedBy { get; set; }
+}
+
+public sealed class CreateCustomerPaymentDto
+{
+    public string? PaymentNo { get; set; }
+    public string CusId { get; set; } = "";
+    public string? CusName { get; set; }
+    public string? CusPhone { get; set; }
+    public string? PlateNo { get; set; }
+    public DateTime? PayDate { get; set; }
+    public string PayPersonName { get; set; } = "";
+    public string? PayPersonIDCardNo { get; set; }
+    public string? PayPersonPhone { get; set; }
+    public long PaymentAmount { get; set; }
+    public CustomerPaymentMethod PaymentMethod { get; set; } = CustomerPaymentMethod.Cash;
+    public string? BankCode { get; set; }
+    public string? BankName { get; set; }
+    public string? BankAccountNo { get; set; }
+    public string? BankTxnRef { get; set; }
+    public string? Note { get; set; }
+    public string? CreatedBy { get; set; }
+    public List<ManualAllocationCusItemDto>? ManualAllocations { get; set; } // Phân bổ thủ công nếu không dùng FIFO
+}
+
+public sealed class ManualAllocationCusItemDto
+{
+    public long DebitId { get; set; }
+    public long Amount { get; set; }
+}
+
+public sealed class ConfirmCustomerPaymentDto
+{
+    public string? ConfirmedBy { get; set; } = "ThuNganTruong";
+}
+
+public sealed class SettleCustomerPaymentDto
+{
+    public string? SettledBy { get; set; } = "KeToanTruong";
+    public string? BankTxnRef { get; set; }
+}
+
+public sealed class CancelCustomerPaymentDto
+{
+    public string Reason { get; set; } = "";
+    public string? CancelledBy { get; set; }
+}
+
+public sealed class CustomerPaymentAdviceDto
+{
+    public string PaymentNo { get; set; } = "";
+    public string PrintDate { get; set; } = "";
+    public string CusId { get; set; } = "";
+    public string CusName { get; set; } = "";
+    public string? CusPhone { get; set; }
+    public string? CusAddress { get; set; }
+    public string PlateNo { get; set; } = "";
+    public string PayPersonName { get; set; } = "";
+    public string? PayPersonIDCardNo { get; set; }
+    public string? PayPersonPhone { get; set; }
+    public string PaymentMethodText { get; set; } = "";
+    public string? BankCode { get; set; }
+    public string? BankName { get; set; }
+    public string? BankAccountNo { get; set; }
+    public string? BankTxnRef { get; set; }
+    public long PaymentAmount { get; set; }
+    public string PaymentAmountInWords { get; set; } = "";
+    public long TotalAllocated { get; set; }
+    public long UnallocatedAmount { get; set; }
+    public string StatusText { get; set; } = "";
+    public string? Note { get; set; }
+    public string? CreatedBy { get; set; }
+    public string? ConfirmedBy { get; set; }
+    public string? SettledBy { get; set; }
+    public List<CustomerPaymentDetailAdviceDto> Details { get; set; } = [];
+}
+
+public sealed class CustomerPaymentDetailAdviceDto
+{
+    public int No { get; set; }
+    public string DebitNo { get; set; } = "";
+    public string RONo { get; set; } = "";
+    public string PlateNo { get; set; } = "";
+    public string VIN { get; set; } = "";
+    public string ModelCode { get; set; } = "";
+    public long DebitAmount { get; set; }
+    public long DebitAmountBefore { get; set; }
+    public long PaymentDetailAmount { get; set; }
+    public long DebitAmountLeft { get; set; }
+    public string StatusAfterPayment { get; set; } = "";
+}
+
+public sealed class CustomerDebitSummaryDto
+{
+    public int TotalROs { get; set; }
+    public int PendingROs { get; set; }
+    public int PartiallyPaidROs { get; set; }
+    public int SettledROs { get; set; }
+    public int CancelledROs { get; set; }
+    public long TotalDebitAmount { get; set; }
+    public long TotalPaidAmount { get; set; }
+    public long TotalRemainingDebt { get; set; }
+    public decimal CollectionRate { get; set; }
+    public int TotalPaymentReceipts { get; set; }
+    public long TotalReceiptsAmount { get; set; }
+    public List<CustomerStatDto> TopCustomerDebts { get; set; } = [];
+}
+
+public sealed class CustomerStatDto
+{
+    public string CusId { get; set; } = "";
+    public string CusName { get; set; } = "";
+    public string? Phone { get; set; }
+    public string? PlateNo { get; set; }
+    public int ROCount { get; set; }
+    public long TotalDebitAmount { get; set; }
+    public long TotalPaidAmount { get; set; }
+    public long RemainingDebt { get; set; }
+}
+
+public sealed class EligibleCustomerDebitDto
+{
+    public long Id { get; set; }
+    public string DebitNo { get; set; } = "";
+    public string CusId { get; set; } = "";
+    public string CusName { get; set; } = "";
+    public string RONo { get; set; } = "";
+    public string PlateNo { get; set; } = "";
+    public string VIN { get; set; } = "";
+    public string ModelCode { get; set; } = "";
+    public string? ServiceType { get; set; }
+    public DateTime DebitDate { get; set; }
+    public DateTime DueDate { get; set; }
+    public long DebitAmount { get; set; }
+    public long PaidAmount { get; set; }
+    public long RemainAmount { get; set; }
+    public string Status { get; set; } = "";
+}

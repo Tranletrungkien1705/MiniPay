@@ -47,6 +47,7 @@ builder.Services.AddScoped<BankingDisbursementService>();
 builder.Services.AddScoped<CancelBankMDService>();
 builder.Services.AddScoped<InsurancePaymentService>();
 builder.Services.AddScoped<SupplierPaymentService>();
+builder.Services.AddScoped<CustomerPaymentService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -6347,6 +6348,196 @@ app.MapGet("/api/supplier-payments/{id:long}/advice", async (long id, SupplierPa
 app.MapGet("/api/supplier-payments/summary", async (SupplierPaymentService suppService, ITenantContext tc) =>
 {
     var summary = await suppService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
+// ===== QUẢN LÝ CÔNG NỢ & THU TIỀN THANH TOÁN KHÁCH HÀNG DỊCH VỤ SỬA CHỮA (Customer Service Debit & Settlement Payment) =====
+// Tương ứng BizCarSv.Debit.cs (SerCusDebitCreate, SerCusDebitSearch, SerCusDebitDetailGet, SerPaymentCreate, SerPaymentGet, SerPaymentDelete, SerPaymentPaperRpt)
+// và FrmCusDebitCreate, FrmCusDebitSearch, FrmCusPaymentCreate trong TERP.HTCServiceClient/Views/Debit hệ nguồn HTC 2010.
+
+// 1) Lập hồ sơ công nợ dịch vụ sửa chữa mới theo Lệnh RO
+app.MapPost("/api/customer-payments/debits", async (CreateCustomerDebitDto dto, CustomerPaymentService cusService, ITenantContext tc) =>
+{
+    try
+    {
+        var debit = await cusService.CreateDebitAsync(tc.OrgId, dto);
+        return Results.Created($"/api/customer-payments/debits/{debit.Id}", debit);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 2) Tìm kiếm danh sách công nợ dịch vụ khách hàng (SerCusDebitSearch)
+app.MapGet("/api/customer-payments/debits", async (
+    string? cusId,
+    string? status,
+    string? keyword,
+    DateTime? fromDate,
+    DateTime? toDate,
+    CustomerPaymentService cusService,
+    ITenantContext tc) =>
+{
+    CustomerDebitStatus? st = null;
+    if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<CustomerDebitStatus>(status, true, out var parsedSt))
+        st = parsedSt;
+
+    var list = await cusService.GetDebitsAsync(tc.OrgId, cusId, st, keyword, fromDate, toDate);
+    return Results.Ok(list);
+});
+
+// 3) Chi tiết 1 hồ sơ công nợ dịch vụ sửa chữa (SerCusDebitDetailGet)
+app.MapGet("/api/customer-payments/debits/{id:long}", async (long id, CustomerPaymentService cusService, ITenantContext tc) =>
+{
+    var debit = await cusService.GetDebitByIdAsync(id, tc.OrgId);
+    if (debit == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ công nợ dịch vụ #{id}." });
+    return Results.Ok(debit);
+});
+
+// 4) Lấy danh sách các lệnh RO còn nợ của một khách hàng (để lập phiếu thu & phân bổ)
+app.MapGet("/api/customer-payments/debits/eligible/{cusId}", async (string cusId, CustomerPaymentService cusService, ITenantContext tc) =>
+{
+    var list = await cusService.GetEligibleDebitsAsync(tc.OrgId, cusId);
+    return Results.Ok(list);
+});
+
+// 5) Lập phiếu thu tiền thanh toán dịch vụ khách hàng mới (Tự động phân bổ FIFO trừ nợ RO)
+app.MapPost("/api/customer-payments", async (CreateCustomerPaymentDto dto, CustomerPaymentService cusService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await cusService.CreatePaymentAsync(tc.OrgId, dto);
+        return Results.Created($"/api/customer-payments/{payment.Id}", payment);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Tìm kiếm danh sách phiếu thu tiền dịch vụ của khách hàng (SerPaymentGet)
+app.MapGet("/api/customer-payments", async (
+    string? cusId,
+    string? status,
+    string? method,
+    DateTime? fromDate,
+    DateTime? toDate,
+    CustomerPaymentService cusService,
+    ITenantContext tc) =>
+{
+    CustomerPaymentStatus? st = null;
+    if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<CustomerPaymentStatus>(status, true, out var parsedSt))
+        st = parsedSt;
+
+    CustomerPaymentMethod? m = null;
+    if (!string.IsNullOrWhiteSpace(method) && Enum.TryParse<CustomerPaymentMethod>(method, true, out var parsedM))
+        m = parsedM;
+
+    var list = await cusService.GetPaymentsAsync(tc.OrgId, cusId, st, m, fromDate, toDate);
+    return Results.Ok(list);
+});
+
+// 7) Chi tiết 1 phiếu thu thanh toán dịch vụ kèm danh sách phân bổ RO (SerPaymentGet)
+app.MapGet("/api/customer-payments/{id:long}", async (long id, CustomerPaymentService cusService, ITenantContext tc) =>
+{
+    var payment = await cusService.GetPaymentByIdAsync(id, tc.OrgId);
+    if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy phiếu thu #{id}." });
+    return Results.Ok(payment);
+});
+
+// 8) Thu ngân / Kế toán xác nhận phiếu thu tiền dịch vụ (Draft -> Confirmed)
+app.MapPost("/api/customer-payments/{id:long}/confirm", async (long id, ConfirmCustomerPaymentDto? dto, CustomerPaymentService cusService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await cusService.ConfirmPaymentAsync(id, tc.OrgId, dto);
+        return Results.Ok(new
+        {
+            message = $"Đã xác nhận phiếu thu #{payment.PaymentNo} thành công.",
+            payment.Id,
+            payment.PaymentNo,
+            Status = payment.Status.ToString(),
+            payment.ConfirmedBy,
+            payment.ConfirmedAt
+        });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 9) Quyết toán chốt ca kế toán dịch vụ vào sổ quỹ (Confirmed -> Settled)
+app.MapPost("/api/customer-payments/{id:long}/settle", async (long id, SettleCustomerPaymentDto? dto, CustomerPaymentService cusService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await cusService.SettlePaymentAsync(id, tc.OrgId, dto);
+        return Results.Ok(new
+        {
+            message = $"Đã quyết toán hoàn tất phiếu thu #{payment.PaymentNo} vào sổ quỹ.",
+            payment.Id,
+            payment.PaymentNo,
+            Status = payment.Status.ToString(),
+            payment.SettledBy,
+            payment.SettledAt,
+            payment.BankTxnRef
+        });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 10) Hủy phiếu thu tiền dịch vụ và HOÀN TÁC ROLLBACK nợ trên các lệnh RO (SerPaymentDelete)
+app.MapPost("/api/customer-payments/{id:long}/cancel", async (long id, CancelCustomerPaymentDto dto, CustomerPaymentService cusService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await cusService.CancelPaymentAsync(id, tc.OrgId, dto);
+        return Results.Ok(new
+        {
+            message = $"Đã hủy phiếu thu #{payment.PaymentNo} và hoàn tác nợ trên các lệnh sửa chữa RO thành công.",
+            payment.Id,
+            payment.PaymentNo,
+            Status = payment.Status.ToString(),
+            payment.CancelledBy,
+            payment.CancelledAt,
+            payment.CancelReason
+        });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 11) Sinh dữ liệu mẫu in Phiếu Thu Tiền Quyết Toán Dịch Vụ Sửa Chữa (SerPaymentPaperRpt / FrmDebitShow Advice)
+app.MapGet("/api/customer-payments/{id:long}/advice", async (long id, CustomerPaymentService cusService, ITenantContext tc) =>
+{
+    var advice = await cusService.GenerateAdviceAsync(id, tc.OrgId);
+    if (advice == null) return Results.NotFound(new { error = $"Không tìm thấy phiếu thu #{id}." });
+    return Results.Ok(advice);
+});
+
+// 12) Dashboard KPI tổng hợp công nợ và quyết toán thu tiền dịch vụ khách hàng
+app.MapGet("/api/customer-payments/summary", async (CustomerPaymentService cusService, ITenantContext tc) =>
+{
+    var summary = await cusService.GetSummaryAsync(tc.OrgId);
     return Results.Ok(summary);
 });
 

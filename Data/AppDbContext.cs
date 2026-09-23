@@ -53,6 +53,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<SupplierDebit> SupplierDebits => Set<SupplierDebit>();
     public DbSet<SupplierPayment> SupplierPayments => Set<SupplierPayment>();
     public DbSet<SupplierPaymentDetail> SupplierPaymentDetails => Set<SupplierPaymentDetail>();
+    public DbSet<CustomerDebit> CustomerDebits => Set<CustomerDebit>();
+    public DbSet<CustomerPayment> CustomerPayments => Set<CustomerPayment>();
+    public DbSet<CustomerPaymentDetail> CustomerPaymentDetails => Set<CustomerPaymentDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -292,5 +295,23 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<SupplierPaymentDetail>().HasIndex(x => x.PaymentId);
         b.Entity<SupplierPaymentDetail>().HasIndex(x => x.DebitId);
         b.Entity<SupplierPaymentDetail>().HasIndex(x => new { x.OrgId, x.StockInNo });
+
+        b.Entity<CustomerDebit>().HasIndex(x => new { x.OrgId, x.DebitNo }).IsUnique();
+        b.Entity<CustomerDebit>().HasIndex(x => new { x.OrgId, x.CusId });
+        b.Entity<CustomerDebit>().HasIndex(x => new { x.OrgId, x.RONo });
+        b.Entity<CustomerDebit>().HasIndex(x => new { x.OrgId, x.PlateNo });
+        b.Entity<CustomerDebit>().HasIndex(x => new { x.OrgId, x.VIN });
+        b.Entity<CustomerDebit>().Property(x => x.Status).HasConversion<int>();
+
+        b.Entity<CustomerPayment>().HasIndex(x => new { x.OrgId, x.PaymentNo }).IsUnique();
+        b.Entity<CustomerPayment>().HasIndex(x => new { x.OrgId, x.CusId });
+        b.Entity<CustomerPayment>().Property(x => x.PaymentMethod).HasConversion<int>();
+        b.Entity<CustomerPayment>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<CustomerPayment>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.PaymentId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<CustomerPaymentDetail>().HasIndex(x => x.PaymentId);
+        b.Entity<CustomerPaymentDetail>().HasIndex(x => x.DebitId);
+        b.Entity<CustomerPaymentDetail>().HasIndex(x => new { x.OrgId, x.RONo });
+        b.Entity<CustomerPaymentDetail>().HasIndex(x => new { x.OrgId, x.PlateNo });
     }
 }
