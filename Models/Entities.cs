@@ -127,6 +127,8 @@ public enum CancelBankMDReasonType { ChangeBank = 0, SwitchToOwnCapital = 1, Con
 
 public enum CancelBankMDDetailStatus { Pending = 0, Approved = 1, Finished = 2, Cancelled = 3 }
 
+public enum BankDealerStatus { Active = 0, Inactive = 1 }
+
 /// <summary>Ý định thanh toán (payment intent) — 1 dòng / 1 lần khởi tạo cổng.</summary>
 public sealed class PaymentIntent
 {
@@ -3816,4 +3818,91 @@ public sealed class BankLetterOfCreditStatDto
     public decimal TotalLCAmount { get; set; }
     public decimal UtilizedAmount { get; set; }
     public decimal RemainingAmount { get; set; }
+}
+
+/// <summary>
+/// Danh mục Ngân hàng - Đại lý (Bank-Dealer authorization master data).
+/// Tương ứng bảng Mst_BankDealer trong hệ nguồn 2010.HTC (Biz.HTC.WH.cs:
+/// Mst_BankDealer_Get / Mst_BankDealer_Create / Mst_BankDealer_Update / Mst_BankDealer_Delete,
+/// màn hình FrmDealerBank trong TERP.HTCClient/Views/Admin/Product).
+/// Quản lý việc đại lý được phép dùng ngân hàng nào cho BẢO LÃNH (FlagBankGrt) và THANH TOÁN (FlagBankPmt),
+/// kèm thông tin hợp đồng tín dụng (số HĐ, ngày HĐ, hạn mức) và chi nhánh ngân hàng.
+/// </summary>
+public sealed class BankDealer
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string DealerCode { get; set; } = "";                 // Mã đại lý (Mst_Dealer.DealerCode)
+    public string? DealerName { get; set; }                      // Tên đại lý (denormalized để hiển thị)
+    public string BankCode { get; set; } = "";                   // Mã ngân hàng (Mst_Bank.BankCode: VCB, TCB, MBB, CTG, VPB...)
+    public string? BankName { get; set; }                        // Tên ngân hàng (denormalized)
+    public string? CreditContractNo { get; set; }                // Số hợp đồng tín dụng (CreditContractNo)
+    public DateTime? CreditContractDate { get; set; }            // Ngày hợp đồng tín dụng (CreditContractDate)
+    public decimal? CreditAmount { get; set; }                   // Hạn mức tín dụng (CreditAmount)
+    public string? BankBranchCode { get; set; }                  // Mã chi nhánh ngân hàng (BankBranchCode)
+    public string? BankBranchName { get; set; }                  // Tên chi nhánh ngân hàng (BankBranchName)
+    public bool FlagBankGrt { get; set; }                        // Cho phép dùng ngân hàng cho BẢO LÃNH (FlagBankGrt)
+    public bool FlagBankPmt { get; set; }                        // Cho phép dùng ngân hàng cho THANH TOÁN (FlagBankPmt)
+    public BankDealerStatus Status { get; set; } = BankDealerStatus.Active; // Trạng thái (FlagActive)
+    public string? Remark { get; set; }                          // Ghi chú (Remark)
+    public string? CreatedBy { get; set; }                       // Người tạo (LogLUBy)
+    public DateTime CreatedAt { get; set; } = DateTime.Now;      // Ngày tạo (LogLUDateTime)
+    public string? UpdatedBy { get; set; }                       // Người cập nhật cuối
+    public DateTime? UpdatedAt { get; set; }                     // Ngày cập nhật cuối
+}
+
+public sealed class CreateBankDealerDto
+{
+    public string DealerCode { get; set; } = "";
+    public string? DealerName { get; set; }
+    public string BankCode { get; set; } = "";
+    public string? BankName { get; set; }
+    public string? CreditContractNo { get; set; }
+    public DateTime? CreditContractDate { get; set; }
+    public decimal? CreditAmount { get; set; }
+    public string? BankBranchCode { get; set; }
+    public string? BankBranchName { get; set; }
+    public bool FlagBankGrt { get; set; }
+    public bool FlagBankPmt { get; set; }
+    public string? Remark { get; set; }
+    public string? CreatedBy { get; set; }
+}
+
+public sealed class UpdateBankDealerDto
+{
+    public string? DealerName { get; set; }
+    public string? BankName { get; set; }
+    public string? CreditContractNo { get; set; }
+    public DateTime? CreditContractDate { get; set; }
+    public decimal? CreditAmount { get; set; }
+    public string? BankBranchCode { get; set; }
+    public string? BankBranchName { get; set; }
+    public bool? FlagBankGrt { get; set; }
+    public bool? FlagBankPmt { get; set; }
+    public BankDealerStatus? Status { get; set; }
+    public string? Remark { get; set; }
+    public string? UpdatedBy { get; set; }
+}
+
+public sealed class BankDealerSummaryDto
+{
+    public int TotalRecords { get; set; }
+    public int ActiveCount { get; set; }
+    public int InactiveCount { get; set; }
+    public int GrtEnabledCount { get; set; }
+    public int PmtEnabledCount { get; set; }
+    public int DealerCount { get; set; }
+    public int BankCount { get; set; }
+    public decimal TotalCreditAmount { get; set; }
+    public List<BankDealerBankStatDto> ByBank { get; set; } = [];
+}
+
+public sealed class BankDealerBankStatDto
+{
+    public string BankCode { get; set; } = "";
+    public string? BankName { get; set; }
+    public int DealerCount { get; set; }
+    public int GrtEnabledCount { get; set; }
+    public int PmtEnabledCount { get; set; }
+    public decimal TotalCreditAmount { get; set; }
 }

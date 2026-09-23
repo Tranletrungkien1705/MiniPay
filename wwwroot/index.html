@@ -110,6 +110,7 @@
     <button class="tab-btn" onclick="showTab('contractCancel')">Hủy HĐ &amp; Quyết Toán Cọc (Contract Cancel)</button>
     <button class="tab-btn" onclick="showTab('carDocReq')">Hồ Sơ Gốc Xe (Car Doc Request / DNGT)</button>
     <button class="tab-btn" onclick="showTab('htcInvoice')">Hóa Đơn VAT Bán Buôn (VAT E-Invoice)</button>
+    <button class="tab-btn" onclick="showTab('bankDealer')">Danh Mục Ngân Hàng - Đại Lý (Bank-Dealer)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -6283,6 +6284,74 @@
     </div>
   </div>
 
+  <!-- TAB: Danh Mục Ngân Hàng - Đại Lý (Bank-Dealer authorization master data) -->
+  <div id="tab-bankDealer" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="margin:0;">Danh mục Ngân hàng - Đại lý (Mst_BankDealer)</h3>
+        <button class="secondary" onclick="loadBankDealers(); loadBankDealerSummary();">Làm mới</button>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+        <input id="bdFilterDealer" placeholder="Mã đại lý..." style="max-width:180px;" />
+        <input id="bdFilterBank" placeholder="Mã ngân hàng..." style="max-width:160px;" />
+        <select id="bdFilterStatus" style="max-width:160px;">
+          <option value="">-- Trạng thái --</option>
+          <option value="Active">Đang hoạt động</option>
+          <option value="Inactive">Ngừng hoạt động</option>
+        </select>
+        <input id="bdFilterQuery" placeholder="Từ khóa (tên ĐL, HĐ tín dụng...)" style="max-width:240px;" />
+        <button onclick="loadBankDealers()">Tìm kiếm</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Mã Đại Lý</th>
+              <th>Tên Đại Lý</th>
+              <th>Ngân Hàng</th>
+              <th>Số HĐ Tín Dụng</th>
+              <th>Ngày HĐ</th>
+              <th>Hạn Mức</th>
+              <th>Chi Nhánh</th>
+              <th>Bảo Lãnh</th>
+              <th>Thanh Toán</th>
+              <th>Trạng Thái</th>
+              <th>Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="tblBankDealersBody">
+            <tr><td colspan="11" style="text-align:center; padding:20px;" class="muted">Đang tải danh mục Ngân hàng - Đại lý...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Form thêm mới Ngân hàng - Đại lý -->
+    <div class="card" style="margin-top:18px;">
+      <h3 style="margin-top:0;">Thêm mới Ngân hàng - Đại lý</h3>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+        <div><label>Mã đại lý *</label><input id="bdDealerCode" placeholder="DL-HYUNDAI-..." /></div>
+        <div><label>Tên đại lý</label><input id="bdDealerName" placeholder="Công ty..." /></div>
+        <div><label>Mã ngân hàng *</label><input id="bdBankCode" placeholder="VCB, TCB, MBB, CTG, VPB..." /></div>
+        <div><label>Tên ngân hàng</label><input id="bdBankName" placeholder="Vietcombank..." /></div>
+        <div><label>Số HĐ tín dụng</label><input id="bdCreditContractNo" placeholder="HĐTD-..." /></div>
+        <div><label>Ngày HĐ tín dụng</label><input id="bdCreditContractDate" type="date" /></div>
+        <div><label>Hạn mức tín dụng (VND)</label><input id="bdCreditAmount" type="number" placeholder="0" /></div>
+        <div><label>Mã chi nhánh</label><input id="bdBankBranchCode" placeholder="VCB-SGD" /></div>
+        <div><label>Tên chi nhánh</label><input id="bdBankBranchName" placeholder="Vietcombank - CN..." /></div>
+        <div><label>Ghi chú</label><input id="bdRemark" placeholder="Ghi chú..." /></div>
+      </div>
+      <div style="display:flex; gap:20px; margin-top:12px;">
+        <label style="display:flex; align-items:center; gap:6px;"><input type="checkbox" id="bdFlagBankGrt" /> Cho phép Bảo lãnh (FlagBankGrt)</label>
+        <label style="display:flex; align-items:center; gap:6px;"><input type="checkbox" id="bdFlagBankPmt" /> Cho phép Thanh toán (FlagBankPmt)</label>
+      </div>
+      <div style="margin-top:14px;">
+        <span id="bdCreateMsg" style="margin-right:12px; color:var(--primary); font-weight:500;"></span>
+        <button onclick="submitCreateBankDealer()">Thêm Ngân hàng - Đại lý</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB: Lập Hóa Đơn GTGT Bán Buôn Xe Mới (+ Lập Hóa Đơn VAT) -->
   <div id="tab-newHtcInvoice" style="display:none;">
     <div class="card">
@@ -7298,6 +7367,7 @@
       document.getElementById('tab-contractCancel').style.display = tabName === 'contractCancel' ? 'block' : 'none';
       document.getElementById('tab-carDocReq').style.display = tabName === 'carDocReq' ? 'block' : 'none';
       document.getElementById('tab-htcInvoice').style.display = tabName === 'htcInvoice' ? 'block' : 'none';
+      document.getElementById('tab-bankDealer').style.display = tabName === 'bankDealer' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -7361,6 +7431,7 @@
       else if (tabName === 'carDocReq') { loadCarDocRequests(); loadCarDocReqSummary(); }
       else if (tabName === 'newCarDocReq') { loadSampleCarDocReqData(); }
       else if (tabName === 'htcInvoice') { loadHtcInvoices(); loadHtcInvoiceSummary(); }
+      else if (tabName === 'bankDealer') { loadBankDealers(); loadBankDealerSummary(); }
       else if (tabName === 'newHtcInvoice') { loadSampleHtcInvoiceFormData(); }
     }
 
@@ -19076,6 +19147,104 @@
     loadSampleContractCancelData();
     loadSampleCarDocReqData();
     loadBatches();
+
+    // ===== TAB: DANH MỤC NGÂN HÀNG - ĐẠI LÝ (Mst_BankDealer) =====
+    async function loadBankDealers() {
+      const body = document.getElementById('tblBankDealersBody');
+      if (!body) return;
+      body.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:20px;" class="muted">Đang tải...</td></tr>';
+      try {
+        const params = new URLSearchParams();
+        const dealer = document.getElementById('bdFilterDealer')?.value?.trim();
+        const bank = document.getElementById('bdFilterBank')?.value?.trim();
+        const status = document.getElementById('bdFilterStatus')?.value;
+        const query = document.getElementById('bdFilterQuery')?.value?.trim();
+        if (dealer) params.set('dealerCode', dealer);
+        if (bank) params.set('bankCode', bank);
+        if (status) params.set('status', status);
+        if (query) params.set('query', query);
+        const res = await fetch('/api/bank-dealers?' + params.toString(), { headers });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const list = await res.json();
+        if (!list.length) {
+          body.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:20px;" class="muted">Chưa có dữ liệu Ngân hàng - Đại lý.</td></tr>';
+          return;
+        }
+        body.innerHTML = list.map(x => `
+          <tr>
+            <td><strong>${x.dealerCode || ''}</strong></td>
+            <td>${x.dealerName || ''}</td>
+            <td>${x.bankCode || ''}${x.bankName ? ' - ' + x.bankName : ''}</td>
+            <td>${x.creditContractNo || ''}</td>
+            <td>${x.creditContractDate ? new Date(x.creditContractDate).toLocaleDateString('vi-VN') : ''}</td>
+            <td>${x.creditAmount != null ? Number(x.creditAmount).toLocaleString('vi-VN') + ' đ' : ''}</td>
+            <td>${x.bankBranchName || x.bankBranchCode || ''}</td>
+            <td>${x.flagBankGrt ? '✔' : '—'}</td>
+            <td>${x.flagBankPmt ? '✔' : '—'}</td>
+            <td>${x.status === 'Active' ? '<span style="color:green;">Đang HĐ</span>' : '<span class="muted">Ngừng HĐ</span>'}</td>
+            <td><button class="secondary" onclick="deleteBankDealer(${x.id})">Xóa</button></td>
+          </tr>`).join('');
+      } catch (e) {
+        body.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:20px; color:red;">Lỗi tải dữ liệu: ' + e.message + '</td></tr>';
+      }
+    }
+
+    async function loadBankDealerSummary() {
+      try {
+        const res = await fetch('/api/bank-dealers/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng dòng Ngân hàng - Đại lý';
+        document.getElementById('stat1').textContent = d.totalRecords;
+        document.getElementById('statLabel2').textContent = 'Số đại lý / ngân hàng';
+        document.getElementById('stat2').textContent = d.dealerCount + ' / ' + d.bankCount;
+        document.getElementById('statLabel3').textContent = 'Cho phép bảo lãnh / thanh toán';
+        document.getElementById('stat3').textContent = d.grtEnabledCount + ' / ' + d.pmtEnabledCount;
+        document.getElementById('statLabel4').textContent = 'Tổng hạn mức tín dụng';
+        document.getElementById('stat4').textContent = Number(d.totalCreditAmount).toLocaleString('vi-VN') + ' đ';
+      } catch (e) { console.error(e); }
+    }
+
+    async function submitCreateBankDealer() {
+      const msg = document.getElementById('bdCreateMsg');
+      msg.textContent = '';
+      const payload = {
+        dealerCode: document.getElementById('bdDealerCode').value.trim(),
+        dealerName: document.getElementById('bdDealerName').value.trim() || null,
+        bankCode: document.getElementById('bdBankCode').value.trim(),
+        bankName: document.getElementById('bdBankName').value.trim() || null,
+        creditContractNo: document.getElementById('bdCreditContractNo').value.trim() || null,
+        creditContractDate: document.getElementById('bdCreditContractDate').value || null,
+        creditAmount: document.getElementById('bdCreditAmount').value ? Number(document.getElementById('bdCreditAmount').value) : null,
+        bankBranchCode: document.getElementById('bdBankBranchCode').value.trim() || null,
+        bankBranchName: document.getElementById('bdBankBranchName').value.trim() || null,
+        flagBankGrt: document.getElementById('bdFlagBankGrt').checked,
+        flagBankPmt: document.getElementById('bdFlagBankPmt').checked,
+        remark: document.getElementById('bdRemark').value.trim() || null,
+        createdBy: 'Admin_HTC'
+      };
+      if (!payload.dealerCode || !payload.bankCode) { msg.style.color = 'red'; msg.textContent = 'Cần nhập Mã đại lý và Mã ngân hàng.'; return; }
+      if (!payload.flagBankGrt && !payload.flagBankPmt) { msg.style.color = 'red'; msg.textContent = 'Phải chọn ít nhất một quyền: Bảo lãnh hoặc Thanh toán.'; return; }
+      try {
+        const res = await fetch('/api/bank-dealers', { method: 'POST', headers, body: JSON.stringify(payload) });
+        const d = await res.json();
+        if (!res.ok) { msg.style.color = 'red'; msg.textContent = d.error || 'Lỗi tạo mới.'; return; }
+        msg.style.color = 'green'; msg.textContent = 'Đã thêm Ngân hàng - Đại lý thành công.';
+        ['bdDealerCode','bdDealerName','bdBankCode','bdBankName','bdCreditContractNo','bdCreditContractDate','bdCreditAmount','bdBankBranchCode','bdBankBranchName','bdRemark'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('bdFlagBankGrt').checked = false;
+        document.getElementById('bdFlagBankPmt').checked = false;
+        loadBankDealers(); loadBankDealerSummary();
+      } catch (e) { msg.style.color = 'red'; msg.textContent = 'Lỗi: ' + e.message; }
+    }
+
+    async function deleteBankDealer(id) {
+      if (!confirm('Xóa dòng Ngân hàng - Đại lý #' + id + '?')) return;
+      try {
+        const res = await fetch('/api/bank-dealers/' + id, { method: 'DELETE', headers });
+        if (!res.ok) { const d = await res.json(); alert(d.error || 'Lỗi xóa.'); return; }
+        loadBankDealers(); loadBankDealerSummary();
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
   </script>
 </body>
 </html>

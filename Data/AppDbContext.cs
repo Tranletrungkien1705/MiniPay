@@ -64,6 +64,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<HTCInvoiceDetail> HTCInvoiceDetails => Set<HTCInvoiceDetail>();
     public DbSet<LetterOfCredit> LettersOfCredit => Set<LetterOfCredit>();
     public DbSet<LetterOfCreditDetail> LetterOfCreditDetails => Set<LetterOfCreditDetail>();
+    public DbSet<BankDealer> BankDealers => Set<BankDealer>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -370,5 +371,10 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<LetterOfCreditDetail>().HasIndex(x => x.LCId);
         b.Entity<LetterOfCreditDetail>().HasIndex(x => new { x.OrgId, x.VIN });
         b.Entity<LetterOfCreditDetail>().HasIndex(x => new { x.OrgId, x.LCNo });
+
+        b.Entity<BankDealer>().HasIndex(x => new { x.OrgId, x.DealerCode, x.BankCode }).IsUnique();
+        b.Entity<BankDealer>().HasIndex(x => new { x.OrgId, x.DealerCode });
+        b.Entity<BankDealer>().HasIndex(x => new { x.OrgId, x.BankCode });
+        b.Entity<BankDealer>().Property(x => x.Status).HasConversion<int>();
     }
 }

@@ -52,6 +52,7 @@ builder.Services.AddScoped<ContractCancellationService>();
 builder.Services.AddScoped<CarDocReqService>();
 builder.Services.AddScoped<HTCInvoiceService>();
 builder.Services.AddScoped<LetterOfCreditService>();
+builder.Services.AddScoped<BankDealerService>();
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
     o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
@@ -7351,6 +7352,91 @@ app.MapPost("/api/letters-of-credit/{id:long}/cancel", async (long id, CancelLet
     catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
     catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
     catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+});
+
+// ===== Quản lý Danh mục Ngân hàng - Đại lý (Bank-Dealer authorization master data) =====
+// Tương ứng Mst_BankDealer trong hệ nguồn 2010.HTC (Biz.HTC.WH.cs) và màn hình FrmDealerBank.
+
+// 1) Lấy danh sách Ngân hàng - Đại lý kèm bộ lọc (Mst_BankDealer_Get)
+app.MapGet("/api/bank-dealers", async (
+    string? dealerCode,
+    string? bankCode,
+    string? status,
+    bool? flagBankGrt,
+    bool? flagBankPmt,
+    string? query,
+    BankDealerService svc,
+    ITenantContext tc) =>
+{
+    var list = await svc.GetListAsync(tc.OrgId, dealerCode, bankCode, status, flagBankGrt, flagBankPmt, query);
+    return Results.Ok(list.Select(x => new
+    {
+        x.Id,
+        x.DealerCode,
+        x.DealerName,
+        x.BankCode,
+        x.BankName,
+        x.CreditContractNo,
+        x.CreditContractDate,
+        x.CreditAmount,
+        x.BankBranchCode,
+        x.BankBranchName,
+        x.FlagBankGrt,
+        x.FlagBankPmt,
+        status = x.Status.ToString(),
+        x.Remark,
+        x.CreatedBy,
+        x.CreatedAt,
+        x.UpdatedBy,
+        x.UpdatedAt
+    }));
+});
+
+// 2) Báo cáo dashboard tổng hợp danh mục Ngân hàng - Đại lý
+app.MapGet("/api/bank-dealers/summary", async (BankDealerService svc, ITenantContext tc) =>
+{
+    var summary = await svc.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
+// 3) Chi tiết 1 dòng Ngân hàng - Đại lý theo ID
+app.MapGet("/api/bank-dealers/{id:long}", async (long id, BankDealerService svc, ITenantContext tc) =>
+{
+    var entity = await svc.GetByIdAsync(tc.OrgId, id);
+    if (entity == null) return Results.NotFound(new { error = $"Không tìm thấy dòng Ngân hàng - Đại lý #{id}." });
+    return Results.Ok(entity);
+});
+
+// 4) Tạo mới 1 dòng Ngân hàng - Đại lý (Mst_BankDealer_Create)
+app.MapPost("/api/bank-dealers", async (CreateBankDealerDto dto, BankDealerService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.CreateAsync(tc.OrgId, dto);
+        return Results.Created($"/api/bank-dealers/{entity.Id}", entity);
+    }
+    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 5) Cập nhật 1 dòng Ngân hàng - Đại lý (Mst_BankDealer_Update)
+app.MapPut("/api/bank-dealers/{id:long}", async (long id, UpdateBankDealerDto dto, BankDealerService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.UpdateAsync(tc.OrgId, id, dto);
+        return Results.Ok(entity);
+    }
+    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+});
+
+// 6) Xóa 1 dòng Ngân hàng - Đại lý (Mst_BankDealer_Delete)
+app.MapDelete("/api/bank-dealers/{id:long}", async (long id, BankDealerService svc, ITenantContext tc) =>
+{
+    var ok = await svc.DeleteAsync(tc.OrgId, id);
+    if (!ok) return Results.NotFound(new { error = $"Không tìm thấy dòng Ngân hàng - Đại lý #{id}." });
+    return Results.Ok(new { deleted = true, id });
 });
 
 app.Run();
