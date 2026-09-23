@@ -109,6 +109,7 @@
     <button class="tab-btn" onclick="showTab('customer')">Thu Tiền KH Dịch Vụ (Customer Payment)</button>
     <button class="tab-btn" onclick="showTab('contractCancel')">Hủy HĐ &amp; Quyết Toán Cọc (Contract Cancel)</button>
     <button class="tab-btn" onclick="showTab('carDocReq')">Hồ Sơ Gốc Xe (Car Doc Request / DNGT)</button>
+    <button class="tab-btn" onclick="showTab('htcInvoice')">Hóa Đơn VAT Bán Buôn (VAT E-Invoice)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -136,6 +137,7 @@
     <button class="tab-btn" onclick="showTab('newCustomerDebit')">+ Lập Nợ Dịch Vụ Mới</button>
     <button class="tab-btn" onclick="showTab('newContractCancel')">+ Lập Thỏa Thuận Hủy HĐ</button>
     <button class="tab-btn" onclick="showTab('newCarDocReq')">+ Lập Đề Nghị Giấy Tờ Xe</button>
+    <button class="tab-btn" onclick="showTab('newHtcInvoice')">+ Lập Hóa Đơn VAT Mới</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -6152,6 +6154,255 @@
     </div>
   </div>
 
+  <!-- TAB: Quản lý Hóa Đơn GTGT Bán Buôn Xe Ô Tô Cho Đại Lý (VAT_HTCInvoice / PrintVAT) -->
+  <div id="tab-htcInvoice" style="display:none;">
+    <!-- Thống kê KPI -->
+    <div class="row" style="margin-bottom:16px;">
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Tổng Hóa Đơn VAT</div>
+        <div id="invStatTotal" style="font-size:1.4em; font-weight:bold; color:var(--primary); margin-top:4px;">0</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Dự Thảo (Chờ Duyệt)</div>
+        <div id="invStatDraft" style="font-size:1.4em; font-weight:bold; color:var(--warning); margin-top:4px;">0</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Đã Duyệt (Chờ Phát Hành)</div>
+        <div id="invStatApproved" style="font-size:1.4em; font-weight:bold; color:#0284c7; margin-top:4px;">0</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Đã Phát Hành HĐĐT</div>
+        <div id="invStatIssued" style="font-size:1.4em; font-weight:bold; color:var(--success); margin-top:4px;">0</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Đã Quyết Toán Đủ</div>
+        <div id="invStatSettled" style="font-size:1.4em; font-weight:bold; color:#059669; margin-top:4px;">0</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Tổng Doanh Thu Hóa Đơn</div>
+        <div id="invStatTotalPayment" style="font-size:1.3em; font-weight:bold; color:var(--primary); margin-top:4px;">0 đ</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Tổng Thuế GTGT (10%)</div>
+        <div id="invStatTotalVAT" style="font-size:1.3em; font-weight:bold; color:#b45309; margin-top:4px;">0 đ</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Nợ Hóa Đơn Phải Thu</div>
+        <div id="invStatTotalRemain" style="font-size:1.3em; font-weight:bold; color:var(--danger); margin-top:4px;">0 đ</div>
+      </div>
+    </div>
+
+    <!-- Bộ lọc & Thao tác -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <div>
+            <label class="muted" style="font-size:.85em; display:block;">Đại Lý Nhận HĐ:</label>
+            <select id="filterInvoiceDealer" onchange="loadHtcInvoices()" style="padding:4px 8px;">
+              <option value="">-- Tất cả đại lý --</option>
+              <option value="HADONG">Hyundai Hà Đông</option>
+              <option value="SAIGON">Hyundai Sài Gòn</option>
+              <option value="DONGDO">Hyundai Đông Đô</option>
+              <option value="DANANG">Hyundai Đà Nẵng</option>
+              <option value="CANTHO">Hyundai Cần Thơ</option>
+              <option value="LONGBIEN">Hyundai Long Biên</option>
+            </select>
+          </div>
+          <div>
+            <label class="muted" style="font-size:.85em; display:block;">Trạng Thái HĐ:</label>
+            <select id="filterInvoiceStatus" onchange="loadHtcInvoices()" style="padding:4px 8px;">
+              <option value="">-- Tất cả trạng thái --</option>
+              <option value="Draft">Draft (Dự thảo)</option>
+              <option value="Approved">Approved (Đã duyệt KT)</option>
+              <option value="Issued">Issued (Đã phát hành CA)</option>
+              <option value="PartiallyPaid">PartiallyPaid (Trả 1 phần)</option>
+              <option value="Settled">Settled (Đã tất toán 100%)</option>
+              <option value="Cancelled">Cancelled (Đã thu hồi hủy)</option>
+            </select>
+          </div>
+          <div>
+            <label class="muted" style="font-size:.85em; display:block;">Ngân Hàng:</label>
+            <select id="filterInvoiceBank" onchange="loadHtcInvoices()" style="padding:4px 8px;">
+              <option value="">-- Tất cả ngân hàng --</option>
+              <option value="CTG">VietinBank</option>
+              <option value="VCB">Vietcombank</option>
+              <option value="MBB">MBBank</option>
+              <option value="VPB">VPBank</option>
+              <option value="TCB">Techcombank</option>
+            </select>
+          </div>
+          <div>
+            <label class="muted" style="font-size:.85em; display:block;">Loại Hóa Đơn:</label>
+            <select id="filterInvoiceSource" onchange="loadHtcInvoices()" style="padding:4px 8px;">
+              <option value="">-- Tất cả loại --</option>
+              <option value="Root">Hóa đơn gốc (INVOICEROOT)</option>
+              <option value="Adjust">Hóa đơn điều chỉnh</option>
+              <option value="Replace">Hóa đơn thay thế</option>
+            </select>
+          </div>
+          <div>
+            <label class="muted" style="font-size:.85em; display:block;">Tìm Kiếm (Mã/Số HĐ/VIN/MST):</label>
+            <input type="text" id="filterInvoiceKeyword" placeholder="Nhập mã, số HĐ, VIN, MST..." onkeyup="if(event.key==='Enter') loadHtcInvoices()" style="padding:4px 8px; width:220px;" />
+          </div>
+          <div style="align-self:flex-end;">
+            <button onclick="loadHtcInvoices()" style="padding:5px 12px;">Tìm Kiếm</button>
+            <button class="secondary" onclick="resetInvoiceFilters()" style="padding:5px 10px;">Làm Mới</button>
+          </div>
+        </div>
+
+        <div style="display:flex; gap:8px;">
+          <button onclick="showTab('newHtcInvoice')" style="padding:6px 14px; font-weight:bold;">+ Lập Hóa Đơn VAT Mới</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bảng danh sách hóa đơn -->
+    <div class="card" style="overflow-x:auto;">
+      <table style="width:100%; font-size:.9em; border-collapse:collapse;">
+        <thead>
+          <tr style="background:#f1f5f9; text-align:left;">
+            <th style="padding:8px;">Mã HĐ / Ký Hiệu</th>
+            <th style="padding:8px;">Số HĐ GTGT / Tra Cứu HĐĐT</th>
+            <th style="padding:8px;">Ngày Lập</th>
+            <th style="padding:8px;">Đại Lý Mua Xe / MST</th>
+            <th style="padding:8px;">Ngân Hàng Thụ Hưởng</th>
+            <th style="padding:8px; text-align:center;">Số Xe</th>
+            <th style="padding:8px; text-align:right;">Tiền Hàng (VNĐ)</th>
+            <th style="padding:8px; text-align:right;">Thuế GTGT (10%)</th>
+            <th style="padding:8px; text-align:right;">Tổng TT (VNĐ)</th>
+            <th style="padding:8px; text-align:right;">Đã Thu UNC</th>
+            <th style="padding:8px; text-align:right;">Còn Phải Thu</th>
+            <th style="padding:8px; text-align:center;">Trạng Thái</th>
+            <th style="padding:8px; text-align:center;">Thao Tác</th>
+          </tr>
+        </thead>
+        <tbody id="tblHtcInvoicesBody">
+          <tr><td colspan="13" style="text-align:center; padding:20px;" class="muted">Đang tải danh sách hóa đơn GTGT...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- TAB: Lập Hóa Đơn GTGT Bán Buôn Xe Mới (+ Lập Hóa Đơn VAT) -->
+  <div id="tab-newHtcInvoice" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:16px;">
+        <h3 style="margin:0;">LẬP HÓA ĐƠN GIÁ TRỊ GIA TĂNG (VAT E-INVOICE) BÁN BUÔN XE Ô TÔ</h3>
+        <button class="secondary" onclick="loadSampleHtcInvoiceFormData()">Nạp Dữ Liệu Mẫu Nhanh</button>
+      </div>
+
+      <!-- Thông tin chung hóa đơn -->
+      <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:16px; margin-bottom:16px;">
+        <h4 style="margin:0 0 12px; color:var(--primary);">1. Thông Tin Bên Mua Hàng (Đại Lý Phân Phối) &amp; Tài Khoản Thanh Toán</h4>
+        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; font-size:.9em;">
+          <div>
+            <label class="muted" style="display:block;">Mã Đại Lý (*):</label>
+            <input type="text" id="newInvDealerCode" placeholder="VD: DL-HYUNDAI-HADONG" style="width:100%; padding:5px;" onchange="onSelectNewInvDealerPreset(this.value)" />
+          </div>
+          <div>
+            <label class="muted" style="display:block;">Tên Đại Lý (*):</label>
+            <input type="text" id="newInvDealerName" placeholder="Tên công ty / đại lý xuất HĐ" style="width:100%; padding:5px;" />
+          </div>
+          <div>
+            <label class="muted" style="display:block;">Mã Số Thuế (MST) (*):</label>
+            <input type="text" id="newInvBuyerTaxCode" placeholder="0105882910" style="width:100%; padding:5px;" />
+          </div>
+          <div style="grid-column:span 2;">
+            <label class="muted" style="display:block;">Địa Chỉ Đăng Ký Kinh Doanh Xuất HĐ (*):</label>
+            <input type="text" id="newInvBuyerAddress" placeholder="Địa chỉ theo GPKD của đại lý" style="width:100%; padding:5px;" />
+          </div>
+          <div>
+            <label class="muted" style="display:block;">Người Đại Diện Pháp Luật:</label>
+            <input type="text" id="newInvBuyerRep" placeholder="Họ tên - Chức vụ" style="width:100%; padding:5px;" />
+          </div>
+          <div>
+            <label class="muted" style="display:block;">Ký Hiệu Mẫu Số HĐĐT (TT78):</label>
+            <input type="text" id="newInvSymbol" value="1C25THC" style="width:100%; padding:5px;" />
+          </div>
+          <div>
+            <label class="muted" style="display:block;">Ngày Lập Hóa Đơn:</label>
+            <input type="date" id="newInvDate" style="width:100%; padding:5px;" />
+          </div>
+          <div>
+            <label class="muted" style="display:block;">Hình Thức Thanh Toán:</label>
+            <select id="newInvPaymentMethod" style="width:100%; padding:5px;">
+              <option value="CK">Chuyển khoản (CK)</option>
+              <option value="TM/CK">Tiền mặt / Chuyển khoản</option>
+              <option value="Bù trừ công nợ">Bù trừ công nợ</option>
+            </select>
+          </div>
+          <div>
+            <label class="muted" style="display:block;">Ngân Hàng Thụ Hưởng Của HTC:</label>
+            <select id="newInvBankCode" style="width:100%; padding:5px;" onchange="onSelectNewInvBankPreset(this.value)">
+              <option value="CTG">VietinBank - CN Đô Thành</option>
+              <option value="VCB">Vietcombank - CN Sở Giao Dịch</option>
+              <option value="MBB">MBBank - CN Sở Giao Dịch</option>
+              <option value="TCB">Techcombank - Hội Sở</option>
+              <option value="VPB">VPBank - Hội Sở</option>
+            </select>
+          </div>
+          <div>
+            <label class="muted" style="display:block;">Số Tài Khoản Ngân Hàng Thụ Hưởng:</label>
+            <input type="text" id="newInvBankAccountNo" value="118000293849" style="width:100%; padding:5px;" />
+          </div>
+          <div>
+            <label class="muted" style="display:block;">Loại Hóa Đơn:</label>
+            <select id="newInvSourceCode" style="width:100%; padding:5px;">
+              <option value="Root">INVOICEROOT - Hóa đơn gốc</option>
+              <option value="Adjust">INVOICEADJUST - Hóa đơn điều chỉnh</option>
+              <option value="Replace">INVOICEREPLACE - Hóa đơn thay thế</option>
+            </select>
+          </div>
+          <div style="grid-column:span 3;">
+            <label class="muted" style="display:block;">Ghi Chú Hóa Đơn:</label>
+            <input type="text" id="newInvRemark" placeholder="Ghi chú phân bổ hợp đồng xe, đợt giao..." style="width:100%; padding:5px;" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Danh sách xe ô tô -->
+      <div style="margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h4 style="margin:0; color:var(--primary);">2. Danh Mục Xe Ô Tô Xuất Bán (Chi Tiết Hàng Hóa)</h4>
+          <div style="display:flex; gap:8px;">
+            <button class="secondary" type="button" onclick="addHtcInvoiceFormCarRow()" style="font-size:.85em;">+ Thêm Dòng Xe</button>
+            <button class="secondary" type="button" onclick="loadSampleHtcInvoiceFormData()" style="font-size:.85em;">Nạp Mẫu 2 Xe Nhanh</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table style="width:100%; font-size:.9em; border-collapse:collapse;">
+            <thead>
+              <tr style="background:#f1f5f9;">
+                <th style="padding:6px;">Số Khung (VIN) (*)</th>
+                <th style="padding:6px;">Dòng Xe / Model</th>
+                <th style="padding:6px;">Mã Phiên Bản</th>
+                <th style="padding:6px;">Số Máy</th>
+                <th style="padding:6px;">Màu Ngoại Thất</th>
+                <th style="padding:6px;">Năm SX</th>
+                <th style="padding:6px;">Số CO Gốc</th>
+                <th style="padding:6px;">Số CQ</th>
+                <th style="padding:6px;">Số Đơn SO</th>
+                <th style="padding:6px;">Đơn Giá Chưa Thuế (VNĐ)</th>
+                <th style="padding:6px;">Thuế Suất</th>
+                <th style="padding:6px;">Xóa</th>
+              </tr>
+            </thead>
+            <tbody id="tblNewInvCarsBody">
+              <!-- Render bằng JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Nút thao tác lập HĐ -->
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:20px;">
+        <span id="submitNewInvMsg" style="margin-right:12px; align-self:center; color:var(--primary); font-weight:500;"></span>
+        <button class="secondary" onclick="showTab('htcInvoice')">Hủy Bỏ</button>
+        <button onclick="submitCreateHtcInvoice()">Lập Hóa Đơn GTGT Bán Buôn</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Xem Chi Tiết Biên Bản Thỏa Thuận Hủy & Quản Lý Dòng Xe -->
   <div id="modalContractCancelDetail" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
     <div style="max-width:1050px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
@@ -6409,6 +6660,218 @@
       </div>
     </div>
   </div>
+
+  <!-- Modal 1: Chi Tiết Hóa Đơn GTGT Bán Buôn & Quản Lý Dòng Xe (modalHtcInvoiceDetail) -->
+  <div id="modalHtcInvoiceDetail" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:1050px; margin:25px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.2em;" id="modalInvDetailTitle">CHI TIẾT HÓA ĐƠN GIÁ TRỊ GIA TĂNG (VAT E-INVOICE)</h2>
+        <button class="secondary" onclick="closeHtcInvoiceDetailModal()">Đóng [X]</button>
+      </div>
+
+      <div id="modalInvDetailContent" style="margin-top:16px;">
+        <!-- Render Header thông tin HĐ -->
+      </div>
+
+      <!-- Danh sách xe ô tô -->
+      <div style="margin-top:20px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h4 style="margin:0; color:var(--primary);">Danh Mục Xe Ô Tô Trên Hóa Đơn</h4>
+          <span id="invDetailDraftActions" style="display:none;">
+            <button class="secondary" onclick="toggleAddCarInInvoiceModal()" style="font-size:.85em;">+ Thêm Xe Vào Hóa Đơn</button>
+          </span>
+        </div>
+
+        <!-- Form thêm xe nhanh khi hóa đơn Draft -->
+        <div id="divModalAddInvCarForm" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; padding:12px; margin-bottom:12px; border-radius:6px;">
+          <h5 style="margin:0 0 8px;">Bổ Sung Xe Ô Tô Mới Vào Hóa Đơn (Draft):</h5>
+          <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; font-size:.9em;">
+            <div>
+              <label class="muted">Số Khung (VIN) (*):</label>
+              <input type="text" id="modalAddInvVIN" placeholder="KMH..." style="width:100%; padding:4px;">
+            </div>
+            <div>
+              <label class="muted">Dòng Xe / Model:</label>
+              <select id="modalAddInvModel" style="width:100%; padding:4px;">
+                <option value="SANTAFE">Santa Fe</option>
+                <option value="TUCSON">Tucson</option>
+                <option value="CRETA">Creta</option>
+                <option value="ACCENT">Accent</option>
+                <option value="ELANTRA">Elantra</option>
+                <option value="PALISADE">Palisade</option>
+                <option value="CUSTIN">Custin</option>
+                <option value="IONIQ5">Ioniq 5</option>
+                <option value="STARGAZER">Stargazer</option>
+              </select>
+            </div>
+            <div>
+              <label class="muted">Mã Phiên Bản:</label>
+              <input type="text" id="modalAddInvSpec" placeholder="VD: 2.0D-SPE" style="width:100%; padding:4px;">
+            </div>
+            <div>
+              <label class="muted">Số Máy Động Cơ:</label>
+              <input type="text" id="modalAddInvEngine" placeholder="D4HD-..." style="width:100%; padding:4px;">
+            </div>
+            <div>
+              <label class="muted">Màu Ngoại Thất:</label>
+              <input type="text" id="modalAddInvColor" placeholder="Trắng / Đen..." style="width:100%; padding:4px;">
+            </div>
+            <div>
+              <label class="muted">Năm Sản Xuất:</label>
+              <input type="text" id="modalAddInvYear" value="2025" style="width:100%; padding:4px;">
+            </div>
+            <div>
+              <label class="muted">Đơn Giá Chưa Thuế (VNĐ) (*):</label>
+              <input type="number" id="modalAddInvPrice" value="950000000" style="width:100%; padding:4px;">
+            </div>
+            <div>
+              <label class="muted">Thuế Suất GTGT (%):</label>
+              <input type="number" id="modalAddInvVATRate" value="10" style="width:100%; padding:4px;">
+            </div>
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+            <button class="secondary" onclick="toggleAddCarInInvoiceModal()">Hủy</button>
+            <button onclick="submitAddCarToInvoice()">Lưu Xe Vào Hóa Đơn</button>
+          </div>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table style="width:100%; font-size:.9em; border-collapse:collapse;">
+            <thead>
+              <tr style="background:#f1f5f9;">
+                <th style="padding:6px;">STT</th>
+                <th style="padding:6px;">Số Khung (VIN)</th>
+                <th style="padding:6px;">Dòng Xe / Model</th>
+                <th style="padding:6px;">Bản Kỹ Thuật</th>
+                <th style="padding:6px;">Số Máy</th>
+                <th style="padding:6px;">Màu Xe</th>
+                <th style="padding:6px;">Năm SX</th>
+                <th style="padding:6px; text-align:right;">Đơn Giá Chưa VAT</th>
+                <th style="padding:6px; text-align:right;">Thuế VAT (10%)</th>
+                <th style="padding:6px; text-align:right;">Thành Tiền Sau Thuế</th>
+                <th style="padding:6px; text-align:center;">Trạng Thái</th>
+                <th style="padding:6px; text-align:center;" class="col-inv-action">Xóa</th>
+              </tr>
+            </thead>
+            <tbody id="tblInvModalCarsBody">
+              <!-- Render bằng JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Khu vực nút nghiệp vụ theo trạng thái -->
+      <div id="modalInvActions" style="margin-top:24px; display:flex; justify-content:flex-end; gap:8px; border-top:1px solid var(--border); padding-top:16px;">
+        <!-- Render các nút nghiệp vụ bằng JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 2: Ghi Nhận Thanh Toán Tiền Qua UNC Ngân Hàng (modalHtcInvoicePayment) -->
+  <div id="modalHtcInvoicePayment" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:550px; margin:50px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h3 style="margin:0; font-size:1.15em;">GHI NHẬN THANH TOÁN TIỀN HÓA ĐƠN GTGT</h3>
+        <button class="secondary" onclick="closeHtcInvoicePaymentModal()">Đóng [X]</button>
+      </div>
+      <div style="margin-top:16px; font-size:.9em;">
+        <input type="hidden" id="payInvId" />
+        <div style="margin-bottom:12px;">
+          <label class="muted" style="display:block;">Mã Hóa Đơn:</label>
+          <input type="text" id="payInvCode" readonly style="width:100%; padding:6px; background:#f1f5f9; font-weight:bold;" />
+        </div>
+        <div style="margin-bottom:12px;">
+          <label class="muted" style="display:block;">Đại Lý Thanh Toán:</label>
+          <input type="text" id="payInvDealer" readonly style="width:100%; padding:6px; background:#f1f5f9;" />
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+          <div>
+            <label class="muted" style="display:block;">Tổng Tiền Hóa Đơn:</label>
+            <input type="text" id="payInvTotal" readonly style="width:100%; padding:6px; background:#f1f5f9; color:var(--primary); font-weight:bold;" />
+          </div>
+          <div>
+            <label class="muted" style="display:block;">Số Nợ Còn Lại:</label>
+            <input type="text" id="payInvRemain" readonly style="width:100%; padding:6px; background:#fef2f2; color:var(--danger); font-weight:bold;" />
+          </div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label class="muted" style="display:block;">Số Tiền Thanh Toán (VNĐ) (*):</label>
+          <input type="number" id="payInvAmount" style="width:100%; padding:6px; font-size:1.1em; font-weight:bold; color:var(--success);" />
+        </div>
+        <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px;">
+          <div>
+            <label class="muted" style="display:block;">Số UNC / Bút Toán NH (*):</label>
+            <input type="text" id="payInvRef" placeholder="VD: UNC-CTG-9821" style="width:100%; padding:6px;" />
+          </div>
+          <div>
+            <label class="muted" style="display:block;">Ngân Hàng Trích Nợ:</label>
+            <input type="text" id="payInvBank" placeholder="VD: VietinBank" style="width:100%; padding:6px;" />
+          </div>
+        </div>
+        <div style="margin-bottom:12px;">
+          <label class="muted" style="display:block;">Người Nộp / Chuyên Viên Công Nợ:</label>
+          <input type="text" id="payInvOperator" value="KeToanCongNo_HTC" style="width:100%; padding:6px;" />
+        </div>
+        <div style="margin-bottom:16px;">
+          <label class="muted" style="display:block;">Ghi Chú Thanh Toán:</label>
+          <input type="text" id="payInvRemark" placeholder="Ghi chú đợt thanh toán xe..." style="width:100%; padding:6px;" />
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button class="secondary" onclick="closeHtcInvoicePaymentModal()">Hủy Bỏ</button>
+          <button onclick="submitHtcInvoicePayment()" style="background:var(--success); border-color:var(--success); font-weight:bold;">Xác Nhận Thu Tiền UNC</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 3: Thu Hồi / Hủy Hóa Đơn GTGT (modalHtcInvoiceRevoke) -->
+  <div id="modalHtcInvoiceRevoke" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:550px; margin:50px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h3 style="margin:0; font-size:1.15em; color:var(--danger);">THU HỒI / HỦY HÓA ĐƠN GTGT (FrmThuHoiHDHTC)</h3>
+        <button class="secondary" onclick="closeHtcInvoiceRevokeModal()">Đóng [X]</button>
+      </div>
+      <div style="margin-top:16px; font-size:.9em;">
+        <input type="hidden" id="revokeInvId" />
+        <div style="margin-bottom:12px;">
+          <label class="muted" style="display:block;">Mã &amp; Số Hóa Đơn Cần Hủy:</label>
+          <input type="text" id="revokeInvCode" readonly style="width:100%; padding:6px; background:#f1f5f9; font-weight:bold;" />
+        </div>
+        <div style="margin-bottom:12px;">
+          <label class="muted" style="display:block;">Số Biên Bản Thỏa Thuận Thu Hồi HĐ (*):</label>
+          <input type="text" id="revokeInvMinutesNo" placeholder="VD: 15/BBTH-2025/HTC-HADONG" style="width:100%; padding:6px;" />
+        </div>
+        <div style="margin-bottom:12px;">
+          <label class="muted" style="display:block;">Lý Do Thu Hồi / Hủy Hóa Đơn (*):</label>
+          <textarea id="revokeInvReason" rows="3" placeholder="Nhập căn cứ thu hồi: Hủy đơn hàng / Đổi sang dòng xe khác / Sai sót thông tin kỹ thuật xe..." style="width:100%; padding:6px;"></textarea>
+        </div>
+        <div style="margin-bottom:16px;">
+          <label class="muted" style="display:block;">Người Thực Hiện Thu Hồi:</label>
+          <input type="text" id="revokeInvUser" value="KeToanTruong_HTC" style="width:100%; padding:6px;" />
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button class="secondary" onclick="closeHtcInvoiceRevokeModal()">Bỏ Qua</button>
+          <button onclick="submitHtcInvoiceRevoke()" style="background:var(--danger); border-color:var(--danger); color:#fff; font-weight:bold;">Xác Nhận Hủy Hóa Đơn</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal 4: Xem & In Hóa Đơn GTGT Điện Tử (TT78/2021/TT-BTC) (modalHtcInvoiceAdvice) -->
+  <div id="modalHtcInvoiceAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:980px; margin:25px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.2em;">HÓA ĐƠN GIÁ TRỊ GIA TĂNG (VAT E-INVOICE ADVICE)</h2>
+        <button class="secondary" onclick="closeHtcInvoiceAdviceModal()">Đóng [X]</button>
+      </div>
+      <div id="htcInvoiceAdviceContent" style="margin-top:16px; font-size:.9em; line-height:1.6;"></div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('htcInvoiceAdviceContent').innerText); alert('Đã sao chép nội dung Hóa đơn điện tử vào clipboard!');">Sao Chép Văn Bản</button>
+        <button onclick="window.print()">In Hóa Đơn GTGT (Print)</button>
+      </div>
+    </div>
+  </div>
+
   <div id="tab-apiDocs" style="display:none;">
     <div class="card">
       <h3>Cổng Thanh Toán (VNPay &amp; MoMo)</h3>
@@ -6786,6 +7249,21 @@
         <li><code>GET /api/car-doc-requests/{id}/advice</code> — Sinh dữ liệu mẫu in Biên Bản Bàn Giao Chứng Từ Gốc Xe Ô Tô (Mẫu CRCarDocReq) kèm đọc số tiền bằng chữ tiếng Việt chuẩn tài chính</li>
         <li><code>GET /api/car-doc-requests/summary</code> — Báo cáo tổng hợp Dashboard KPI đề nghị giao chứng từ gốc xe ô tô</li>
       </ul>
+      <h3>Nghiệp Vụ Hóa Đơn GTGT Bán Buôn Xe Ô Tô (VAT E-Invoice - VAT_HTCInvoice / PrintVATService)</h3>
+      <ul>
+        <li><code>POST /api/htc-invoices</code> — Lập hóa đơn GTGT bán buôn xe ô tô mới ở trạng thái dự thảo Draft (FrmNewHTCInvoice)</li>
+        <li><code>GET /api/htc-invoices</code> — Danh sách hóa đơn GTGT bán buôn (hỗ trợ lọc theo <code>status</code>, <code>dealer</code>, <code>bank</code>, <code>source</code>, <code>query</code>, <code>fromDate</code>, <code>toDate</code>)</li>
+        <li><code>GET /api/htc-invoices/{id}</code> — Chi tiết 1 hóa đơn GTGT kèm toàn bộ danh sách xe ô tô VIN xuất bán</li>
+        <li><code>GET /api/htc-invoices/by-code/{code}</code> — Chi tiết hóa đơn GTGT theo mã hóa đơn hệ thống (HD-HTC-yyyyMM-xxx)</li>
+        <li><code>POST /api/htc-invoices/{id}/cars</code> — Bổ sung xe vào hóa đơn khi còn ở trạng thái Draft</li>
+        <li><code>DELETE /api/htc-invoices/{id}/cars/{detailId}</code> — Xóa xe khỏi hóa đơn Draft và tự động tái tính toán tiền hàng &amp; thuế VAT</li>
+        <li><code>POST /api/htc-invoices/{id}/approve</code> — Kế toán trưởng thẩm định &amp; phê duyệt hóa đơn (Draft &rarr; Approved)</li>
+        <li><code>POST /api/htc-invoices/{id}/issue</code> — Phát hành hóa đơn GTGT điện tử chính thức, cấp số hóa đơn 7 chữ số, mã tra cứu Cục Thuế và ký số CA (Approved &rarr; Issued)</li>
+        <li><code>POST /api/htc-invoices/{id}/record-payment</code> — Ghi nhận thanh toán tiền từ đại lý qua UNC ngân hàng, cập nhật nợ còn lại (Issued &rarr; PartiallyPaid / Settled)</li>
+        <li><code>POST /api/htc-invoices/{id}/revoke</code> — Thu hồi / Hủy hóa đơn GTGT theo biên bản thỏa thuận 2 bên (FrmThuHoiHDHTC.cs &rarr; Cancelled)</li>
+        <li><code>GET /api/htc-invoices/{id}/advice</code> — Sinh dữ liệu mẫu in Hóa Đơn Giá Trị Gia Tăng Điện Tử (Electronic VAT Invoice Advice TT78) kèm thuật toán đọc tiền bằng chữ tiếng Việt</li>
+        <li><code>GET /api/htc-invoices/summary</code> — Báo cáo thống kê tổng hợp số lượng hóa đơn, phân bố trạng thái, tổng doanh thu xuất bán, thuế VAT và top đại lý</li>
+      </ul>
     </div>
   </div>
 
@@ -6819,6 +7297,7 @@
       document.getElementById('tab-customer').style.display = tabName === 'customer' ? 'block' : 'none';
       document.getElementById('tab-contractCancel').style.display = tabName === 'contractCancel' ? 'block' : 'none';
       document.getElementById('tab-carDocReq').style.display = tabName === 'carDocReq' ? 'block' : 'none';
+      document.getElementById('tab-htcInvoice').style.display = tabName === 'htcInvoice' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -6846,6 +7325,7 @@
       document.getElementById('tab-newCustomerDebit').style.display = tabName === 'newCustomerDebit' ? 'block' : 'none';
       document.getElementById('tab-newContractCancel').style.display = tabName === 'newContractCancel' ? 'block' : 'none';
       document.getElementById('tab-newCarDocReq').style.display = tabName === 'newCarDocReq' ? 'block' : 'none';
+      document.getElementById('tab-newHtcInvoice').style.display = tabName === 'newHtcInvoice' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
       document.querySelectorAll('.tab-btn').forEach((b) => {
@@ -6880,6 +7360,8 @@
       else if (tabName === 'contractCancel') { loadContractCancels(); loadContractCancelSummary(); }
       else if (tabName === 'carDocReq') { loadCarDocRequests(); loadCarDocReqSummary(); }
       else if (tabName === 'newCarDocReq') { loadSampleCarDocReqData(); }
+      else if (tabName === 'htcInvoice') { loadHtcInvoices(); loadHtcInvoiceSummary(); }
+      else if (tabName === 'newHtcInvoice') { loadSampleHtcInvoiceFormData(); }
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====

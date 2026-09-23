@@ -50,6 +50,7 @@ builder.Services.AddScoped<SupplierPaymentService>();
 builder.Services.AddScoped<CustomerPaymentService>();
 builder.Services.AddScoped<ContractCancellationService>();
 builder.Services.AddScoped<CarDocReqService>();
+builder.Services.AddScoped<HTCInvoiceService>();
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
     o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
@@ -7017,6 +7018,199 @@ app.MapGet("/api/car-doc-requests/summary", async (CarDocReqService docReqServic
 {
     var summary = await docReqService.GetSummaryAsync(tc.OrgId);
     return Results.Ok(summary);
+});
+
+// ===== Quản lý Bảng kê Hóa đơn Giá trị Gia tăng (VAT E-Invoice) Bán Buôn Xe Ô Tô Cho Đại Lý (VAT_HTCInvoice / PrintVATService) =====
+
+// 1) Lấy danh sách hóa đơn GTGT bán buôn xe kèm bộ lọc
+app.MapGet("/api/htc-invoices", async (
+    string? status,
+    string? dealer,
+    string? bank,
+    string? source,
+    string? query,
+    DateTime? fromDate,
+    DateTime? toDate,
+    HTCInvoiceService invoiceService,
+    ITenantContext tc) =>
+{
+    var list = await invoiceService.GetListAsync(tc.OrgId, status, dealer, bank, source, query, fromDate, toDate);
+    return Results.Ok(list);
+});
+
+// 2) Báo cáo dashboard tổng hợp số liệu hóa đơn bán buôn
+app.MapGet("/api/htc-invoices/summary", async (HTCInvoiceService invoiceService, ITenantContext tc) =>
+{
+    var summary = await invoiceService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
+// 3) Chi tiết 1 hóa đơn GTGT theo ID
+app.MapGet("/api/htc-invoices/{id:long}", async (long id, HTCInvoiceService invoiceService, ITenantContext tc) =>
+{
+    var invoice = await invoiceService.GetByIdAsync(tc.OrgId, id);
+    if (invoice == null) return Results.NotFound(new { error = $"Không tìm thấy hóa đơn #{id}." });
+    return Results.Ok(invoice);
+});
+
+// 4) Chi tiết 1 hóa đơn GTGT theo mã hóa đơn hệ thống
+app.MapGet("/api/htc-invoices/by-code/{code}", async (string code, HTCInvoiceService invoiceService, ITenantContext tc) =>
+{
+    var invoice = await invoiceService.GetByCodeAsync(tc.OrgId, code);
+    if (invoice == null) return Results.NotFound(new { error = $"Không tìm thấy hóa đơn mã {code}." });
+    return Results.Ok(invoice);
+});
+
+// 5) Lập hóa đơn GTGT bán buôn xe mới (Draft)
+app.MapPost("/api/htc-invoices", async (CreateHTCInvoiceDto dto, HTCInvoiceService invoiceService, ITenantContext tc) =>
+{
+    try
+    {
+        var invoice = await invoiceService.CreateInvoiceAsync(tc.OrgId, dto);
+        return Results.Created($"/api/htc-invoices/{invoice.Id}", invoice);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Bổ sung xe vào hóa đơn Draft
+app.MapPost("/api/htc-invoices/{id:long}/cars", async (long id, AddCarToHTCInvoiceDto dto, HTCInvoiceService invoiceService, ITenantContext tc) =>
+{
+    try
+    {
+        var invoice = await invoiceService.AddCarToInvoiceAsync(tc.OrgId, id, dto);
+        return Results.Ok(invoice);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return Results.NotFound(new { error = ex.Message });
+    }
+});
+
+// 7) Xóa xe khỏi hóa đơn Draft
+app.MapDelete("/api/htc-invoices/{id:long}/cars/{detailId:long}", async (long id, long detailId, HTCInvoiceService invoiceService, ITenantContext tc) =>
+{
+    try
+    {
+        var invoice = await invoiceService.RemoveCarFromInvoiceAsync(tc.OrgId, id, detailId);
+        return Results.Ok(invoice);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return Results.NotFound(new { error = ex.Message });
+    }
+});
+
+// 8) Kế toán trưởng thẩm định & phê duyệt hóa đơn (Draft -> Approved)
+app.MapPost("/api/htc-invoices/{id:long}/approve", async (long id, ApproveHTCInvoiceDto? dto, HTCInvoiceService invoiceService, ITenantContext tc) =>
+{
+    try
+    {
+        var invoice = await invoiceService.ApproveInvoiceAsync(tc.OrgId, id, dto ?? new ApproveHTCInvoiceDto());
+        return Results.Ok(invoice);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return Results.NotFound(new { error = ex.Message });
+    }
+});
+
+// 9) Phát hành hóa đơn GTGT điện tử chính thức & ký số CA (Approved -> Issued)
+app.MapPost("/api/htc-invoices/{id:long}/issue", async (long id, IssueHTCInvoiceDto? dto, HTCInvoiceService invoiceService, ITenantContext tc) =>
+{
+    try
+    {
+        var invoice = await invoiceService.IssueInvoiceAsync(tc.OrgId, id, dto ?? new IssueHTCInvoiceDto());
+        return Results.Ok(invoice);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return Results.NotFound(new { error = ex.Message });
+    }
+});
+
+// 10) Ghi nhận thanh toán tiền từ đại lý qua UNC ngân hàng
+app.MapPost("/api/htc-invoices/{id:long}/record-payment", async (long id, RecordHTCInvoicePaymentDto dto, HTCInvoiceService invoiceService, ITenantContext tc) =>
+{
+    try
+    {
+        var invoice = await invoiceService.RecordPaymentAsync(tc.OrgId, id, dto);
+        return Results.Ok(invoice);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return Results.NotFound(new { error = ex.Message });
+    }
+});
+
+// 11) Thu hồi / Hủy hóa đơn GTGT theo thỏa thuận 2 bên (FrmThuHoiHDHTC)
+app.MapPost("/api/htc-invoices/{id:long}/revoke", async (long id, RevokeHTCInvoiceDto dto, HTCInvoiceService invoiceService, ITenantContext tc) =>
+{
+    try
+    {
+        var invoice = await invoiceService.RevokeInvoiceAsync(tc.OrgId, id, dto);
+        return Results.Ok(invoice);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return Results.NotFound(new { error = ex.Message });
+    }
+});
+
+// 12) Sinh dữ liệu mẫu in Hóa Đơn Giá Trị Gia Tăng Điện Tử (Advice TT78/2021/TT-BTC)
+app.MapGet("/api/htc-invoices/{id:long}/advice", async (long id, HTCInvoiceService invoiceService, ITenantContext tc) =>
+{
+    try
+    {
+        var advice = await invoiceService.GenerateInvoiceAdviceAsync(tc.OrgId, id);
+        return Results.Ok(advice);
+    }
+    catch (KeyNotFoundException ex)
+    {
+        return Results.NotFound(new { error = ex.Message });
+    }
 });
 
 app.Run();

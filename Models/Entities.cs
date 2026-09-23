@@ -3352,3 +3352,261 @@ public sealed class DealerDocReqStatDto
     public long TotalCarAmount { get; set; }
     public int HandedOverCount { get; set; }
 }
+
+// ==========================================
+// QUẢN LÝ HÓA ĐƠN GTGT (VAT E-INVOICE) BÁN BUÔN XE Ô TÔ (VAT_HTCInvoice)
+// ==========================================
+
+public enum HTCInvoiceStatus
+{
+    Draft = 0,         // P - Dự thảo / Chờ thẩm định kế toán
+    Approved = 1,      // A - Kế toán trưởng phê duyệt
+    Issued = 2,        // F - Đã phát hành / Ký số điện tử CA
+    PartiallyPaid = 3, // Đã thanh toán một phần
+    Settled = 4,       // Đã quyết toán / Thanh toán đủ 100%
+    Adjusted = 5,      // E - Đã điều chỉnh
+    Cancelled = 6      // C - Đã thu hồi / Hủy bỏ
+}
+
+public enum HTCInvoiceSource
+{
+    Root = 0,    // INVOICEROOT - Hóa đơn gốc
+    Adjust = 1,  // INVOICEADJUST - Hóa đơn điều chỉnh
+    Replace = 2  // INVOICEREPLACE - Hóa đơn thay thế
+}
+
+public enum HTCInvoiceDetailStatus
+{
+    Active = 0,    // Đang hiệu lực
+    Adjusted = 1,  // Đã điều chỉnh giá/thuế
+    Cancelled = 2  // Đã hủy / Gỡ bỏ
+}
+
+public sealed class HTCInvoice
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string HTCInvoiceCode { get; set; } = "";             // Mã hóa đơn hệ thống (VD: HD-HTC-202505-001)
+    public string? HTCInvoiceNo { get; set; }                    // Số hóa đơn GTGT chính thức (7 chữ số: 0012891)
+    public string InvoiceSymbol { get; set; } = "1C25THC";        // Ký hiệu mẫu số & ký hiệu hóa đơn theo TT78
+    public DateTime InvoiceDate { get; set; }                    // Ngày lập hóa đơn
+    public string DealerCode { get; set; } = "";                 // Mã đại lý nhận hóa đơn (VD: DL-HYUNDAI-HANOI)
+    public string DealerName { get; set; } = "";                 // Tên đại lý mua xe
+    public string BuyerTaxCode { get; set; } = "";               // Mã số thuế đại lý
+    public string BuyerAddress { get; set; } = "";               // Địa chỉ đại lý xuất hóa đơn
+    public string? BuyerLegalRepresentative { get; set; }        // Đại diện pháp luật
+    public string PaymentMethod { get; set; } = "CK";            // Hình thức thanh toán (CK, TM/CK, Bù trừ)
+    public string? BankCode { get; set; }                        // Mã ngân hàng thụ hưởng (CTG, VCB, MBB, TCB, VPB)
+    public string? BankName { get; set; }                        // Tên ngân hàng thụ hưởng
+    public string? BankAccountNo { get; set; }                   // Số tài khoản ngân hàng thụ hưởng
+    public int TotalVehicles { get; set; }                       // Tổng số lượng xe xuất hóa đơn
+    public long TotalAmount { get; set; }                        // Tổng tiền hàng trước thuế (VNĐ)
+    public decimal VATRate { get; set; } = 10.0m;                // Thuế suất GTGT (10%)
+    public long VATAmount { get; set; }                          // Tổng tiền thuế GTGT (VNĐ)
+    public long TotalPayment { get; set; }                       // Tổng tiền thanh toán sau thuế (= TotalAmount + VATAmount)
+    public long PaidAmount { get; set; }                         // Số tiền đại lý đã thanh toán qua UNC
+    public long RemainAmount { get; set; }                       // Công nợ còn phải thu (= TotalPayment - PaidAmount)
+    public string? OS_HDDT_InvoiceCode { get; set; }             // Mã tra cứu hóa đơn điện tử cấp bởi Cục Thuế / TVAN
+    public HTCInvoiceSource SourceInvoiceCode { get; set; } = HTCInvoiceSource.Root; // Loại hóa đơn
+    public HTCInvoiceStatus Status { get; set; } = HTCInvoiceStatus.Draft;           // Trạng thái hóa đơn
+    public string? Root_HTCInvoiceNo { get; set; }               // Số HĐ gốc nếu là HĐ điều chỉnh hoặc thay thế
+    public string? Adj_DeleteReason { get; set; }                // Lý do điều chỉnh / Biên bản thu hồi hủy HĐ
+    public string? ApprovedBy { get; set; }                      // Người duyệt (Kế toán trưởng)
+    public DateTime? ApprovedDate { get; set; }                  // Ngày duyệt
+    public string? IssuedBy { get; set; }                        // Người phát hành ký số CA
+    public DateTime? IssuedDate { get; set; }                    // Ngày phát hành
+    public string CreatedBy { get; set; } = "System";            // Người tạo
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;   // Ngày tạo
+    public string? UpdatedBy { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public string? Remark { get; set; }                          // Ghi chú
+    public ICollection<HTCInvoiceDetail> Details { get; set; } = [];
+}
+
+public sealed class HTCInvoiceDetail
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public long InvoiceId { get; set; }                          // FK -> HTCInvoice.Id
+    public string HTCInvoiceCode { get; set; } = "";             // Mã hóa đơn
+    public int ItemNo { get; set; }                              // Số thứ tự dòng
+    public string? CarId { get; set; }                           // Mã định danh xe kho
+    public string VIN { get; set; } = "";                        // Số khung VIN (17 ký tự)
+    public string ModelCode { get; set; } = "";                  // Mã model dòng xe (SANTAFE, TUCSON, CRETA...)
+    public string ModelName { get; set; } = "";                  // Tên thương mại
+    public string? SpecCode { get; set; }                        // Mã phiên bản đặc tả kỹ thuật
+    public string? EngineNo { get; set; }                        // Số máy
+    public string? ColorVN { get; set; }                         // Màu xe tiếng Việt
+    public string ProductionYear { get; set; } = "2025";         // Năm sản xuất
+    public string? CabinCONo { get; set; }                       // Số giấy chứng nhận xuất xưởng CO
+    public string? CQNo { get; set; }                            // Số kiểm định CQ
+    public string? CustomsDeclarationNo { get; set; }            // Số tờ khai hải quan (xe nhập CBU)
+    public string? SOCode { get; set; }                          // Số đơn đặt hàng bán buôn
+    public long UnitPrice { get; set; }                          // Đơn giá bán trước thuế
+    public decimal VATRate { get; set; } = 10.0m;                // Thuế suất GTGT dòng xe (%)
+    public long VATAmount { get; set; }                          // Tiền thuế GTGT dòng xe
+    public long TotalPrice { get; set; }                         // Thành tiền sau thuế (= UnitPrice + VATAmount)
+    public HTCInvoiceDetailStatus Status { get; set; } = HTCInvoiceDetailStatus.Active;
+    public string? Remark { get; set; }                          // Ghi chú
+}
+
+public sealed class CreateHTCInvoiceDto
+{
+    public string DealerCode { get; set; } = "";
+    public string DealerName { get; set; } = "";
+    public string BuyerTaxCode { get; set; } = "";
+    public string BuyerAddress { get; set; } = "";
+    public string? BuyerLegalRepresentative { get; set; }
+    public string PaymentMethod { get; set; } = "CK";
+    public string? BankCode { get; set; } = "CTG";
+    public string? BankName { get; set; } = "VietinBank - CN Hà Nội";
+    public string? BankAccountNo { get; set; } = "118000293849";
+    public string InvoiceSymbol { get; set; } = "1C25THC";
+    public DateTime? InvoiceDate { get; set; }
+    public HTCInvoiceSource SourceInvoiceCode { get; set; } = HTCInvoiceSource.Root;
+    public string? Root_HTCInvoiceNo { get; set; }
+    public string? Remark { get; set; }
+    public string? CreatedBy { get; set; } = "KeToanBanHang_HTC";
+    public List<HTCInvoiceItemInputDto> Items { get; set; } = [];
+}
+
+public sealed class HTCInvoiceItemInputDto
+{
+    public string VIN { get; set; } = "";
+    public string? CarId { get; set; }
+    public string ModelCode { get; set; } = "";
+    public string? ModelName { get; set; }
+    public string? SpecCode { get; set; }
+    public string? EngineNo { get; set; }
+    public string? ColorVN { get; set; }
+    public string? ProductionYear { get; set; } = "2025";
+    public string? CabinCONo { get; set; }
+    public string? CQNo { get; set; }
+    public string? CustomsDeclarationNo { get; set; }
+    public string? SOCode { get; set; }
+    public long UnitPrice { get; set; }
+    public decimal? VATRate { get; set; } = 10.0m;
+    public string? Remark { get; set; }
+}
+
+public sealed class AddCarToHTCInvoiceDto
+{
+    public HTCInvoiceItemInputDto Item { get; set; } = new();
+}
+
+public sealed class ApproveHTCInvoiceDto
+{
+    public string? ApproverName { get; set; } = "KeToanTruong_HTC";
+    public string? Remark { get; set; }
+}
+
+public sealed class IssueHTCInvoiceDto
+{
+    public string? IssuerName { get; set; } = "GiamDocTaiChinh_HTC";
+    public string? CustomInvoiceNo { get; set; } // Nếu chỉ định số HĐ hoặc null để sinh tự động
+    public string? Remark { get; set; }
+}
+
+public sealed class RecordHTCInvoicePaymentDto
+{
+    public long Amount { get; set; }
+    public string PaymentRef { get; set; } = ""; // Số UNC hoặc phiếu thanh toán
+    public string? BankCode { get; set; }
+    public string? PayerName { get; set; }
+    public string? OperatorName { get; set; } = "KeToanCongNo_HTC";
+    public string? Remark { get; set; }
+}
+
+public sealed class RevokeHTCInvoiceDto
+{
+    public string CancellationMinutesNo { get; set; } = ""; // Số biên bản hủy / thỏa thuận thu hồi
+    public string Reason { get; set; } = "";               // Lý do thu hồi hóa đơn
+    public string? RevokedBy { get; set; } = "KeToanTruong_HTC";
+}
+
+public sealed class HTCInvoiceAdviceDto
+{
+    public string HTCInvoiceCode { get; set; } = "";
+    public string? HTCInvoiceNo { get; set; }
+    public string InvoiceSymbol { get; set; } = "";
+    public string InvoiceDateStr { get; set; } = "";
+    public string SellerName { get; set; } = "CÔNG TY CỔ PHẦN HYUNDAI THÀNH CÔNG VIỆT NAM (HTC)";
+    public string SellerTaxCode { get; set; } = "0102654321";
+    public string SellerAddress { get; set; } = "Tòa nhà Thành Công Tower, D8 Phố Dịch Vọng Hậu, Cầu Giấy, Hà Nội";
+    public string SellerPhone { get; set; } = "1900 561 212";
+    public string SellerBankAccount { get; set; } = "";
+    public string DealerCode { get; set; } = "";
+    public string DealerName { get; set; } = "";
+    public string BuyerTaxCode { get; set; } = "";
+    public string BuyerAddress { get; set; } = "";
+    public string? BuyerLegalRepresentative { get; set; }
+    public string PaymentMethod { get; set; } = "";
+    public int TotalVehicles { get; set; }
+    public long TotalAmount { get; set; }
+    public string TotalAmountInWords { get; set; } = "";
+    public decimal VATRate { get; set; }
+    public long VATAmount { get; set; }
+    public string VATAmountInWords { get; set; } = "";
+    public long TotalPayment { get; set; }
+    public string TotalPaymentInWords { get; set; } = "";
+    public long PaidAmount { get; set; }
+    public long RemainAmount { get; set; }
+    public string? OS_HDDT_InvoiceCode { get; set; }
+    public string StatusText { get; set; } = "";
+    public string? ApprovedBy { get; set; }
+    public string? ApprovedDateStr { get; set; }
+    public string? IssuedBy { get; set; }
+    public string? IssuedDateStr { get; set; }
+    public string? DigitalSignatureHTV { get; set; }
+    public string? Remark { get; set; }
+    public List<HTCInvoiceDetailAdviceDto> Items { get; set; } = [];
+}
+
+public sealed class HTCInvoiceDetailAdviceDto
+{
+    public int ItemNo { get; set; }
+    public string VIN { get; set; } = "";
+    public string? CarId { get; set; }
+    public string ModelName { get; set; } = "";
+    public string? SpecCode { get; set; }
+    public string? EngineNo { get; set; }
+    public string? ColorVN { get; set; }
+    public string ProductionYear { get; set; } = "";
+    public string? CabinCONo { get; set; }
+    public string? CQNo { get; set; }
+    public string? SOCode { get; set; }
+    public long UnitPrice { get; set; }
+    public decimal VATRate { get; set; }
+    public long VATAmount { get; set; }
+    public long TotalPrice { get; set; }
+    public string StatusText { get; set; } = "";
+}
+
+public sealed class HTCInvoiceSummaryDto
+{
+    public int TotalInvoices { get; set; }
+    public int DraftCount { get; set; }
+    public int ApprovedCount { get; set; }
+    public int IssuedCount { get; set; }
+    public int PartiallyPaidCount { get; set; }
+    public int SettledCount { get; set; }
+    public int CancelledCount { get; set; }
+    public int TotalVehicles { get; set; }
+    public long TotalAmount { get; set; }
+    public long TotalVATAmount { get; set; }
+    public long TotalPayment { get; set; }
+    public long TotalPaidAmount { get; set; }
+    public long TotalRemainAmount { get; set; }
+    public List<DealerHTCInvoiceStatDto> TopDealers { get; set; } = [];
+}
+
+public sealed class DealerHTCInvoiceStatDto
+{
+    public string DealerCode { get; set; } = "";
+    public string DealerName { get; set; } = "";
+    public int InvoiceCount { get; set; }
+    public int VehicleCount { get; set; }
+    public long TotalPayment { get; set; }
+    public long PaidAmount { get; set; }
+    public long RemainAmount { get; set; }
+}

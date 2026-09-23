@@ -1538,6 +1538,78 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_CarDocRequestDetails_DocReqId"" ON ""CarDocRequestDetails"" (""DocReqId"");
                 CREATE INDEX IF NOT EXISTS ""IX_CarDocRequestDetails_OrgId_VIN"" ON ""CarDocRequestDetails"" (""OrgId"", ""VIN"");
                 CREATE INDEX IF NOT EXISTS ""IX_CarDocRequestDetails_OrgId_DRListCode"" ON ""CarDocRequestDetails"" (""OrgId"", ""DRListCode"");
+
+                CREATE TABLE IF NOT EXISTS ""HTCInvoices"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""HTCInvoiceCode"" TEXT NOT NULL,
+                    ""HTCInvoiceNo"" TEXT NULL,
+                    ""InvoiceSymbol"" TEXT NOT NULL,
+                    ""InvoiceDate"" TEXT NOT NULL,
+                    ""DealerCode"" TEXT NOT NULL,
+                    ""DealerName"" TEXT NOT NULL,
+                    ""BuyerTaxCode"" TEXT NOT NULL,
+                    ""BuyerAddress"" TEXT NOT NULL,
+                    ""BuyerLegalRepresentative"" TEXT NULL,
+                    ""PaymentMethod"" TEXT NOT NULL,
+                    ""BankCode"" TEXT NULL,
+                    ""BankName"" TEXT NULL,
+                    ""BankAccountNo"" TEXT NULL,
+                    ""TotalVehicles"" INTEGER NOT NULL,
+                    ""TotalAmount"" INTEGER NOT NULL,
+                    ""VATRate"" REAL NOT NULL,
+                    ""VATAmount"" INTEGER NOT NULL,
+                    ""TotalPayment"" INTEGER NOT NULL,
+                    ""PaidAmount"" INTEGER NOT NULL,
+                    ""RemainAmount"" INTEGER NOT NULL,
+                    ""OS_HDDT_InvoiceCode"" TEXT NULL,
+                    ""SourceInvoiceCode"" INTEGER NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""Root_HTCInvoiceNo"" TEXT NULL,
+                    ""Adj_DeleteReason"" TEXT NULL,
+                    ""ApprovedBy"" TEXT NULL,
+                    ""ApprovedDate"" TEXT NULL,
+                    ""IssuedBy"" TEXT NULL,
+                    ""IssuedDate"" TEXT NULL,
+                    ""CreatedBy"" TEXT NOT NULL,
+                    ""CreatedAt"" TEXT NOT NULL,
+                    ""UpdatedBy"" TEXT NULL,
+                    ""UpdatedAt"" TEXT NULL,
+                    ""Remark"" TEXT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_HTCInvoices_OrgId_HTCInvoiceCode"" ON ""HTCInvoices"" (""OrgId"", ""HTCInvoiceCode"");
+                CREATE INDEX IF NOT EXISTS ""IX_HTCInvoices_OrgId_HTCInvoiceNo"" ON ""HTCInvoices"" (""OrgId"", ""HTCInvoiceNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_HTCInvoices_OrgId_DealerCode"" ON ""HTCInvoices"" (""OrgId"", ""DealerCode"");
+
+                CREATE TABLE IF NOT EXISTS ""HTCInvoiceDetails"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""InvoiceId"" INTEGER NOT NULL,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""HTCInvoiceCode"" TEXT NOT NULL,
+                    ""ItemNo"" INTEGER NOT NULL,
+                    ""CarId"" TEXT NULL,
+                    ""VIN"" TEXT NOT NULL,
+                    ""ModelCode"" TEXT NOT NULL,
+                    ""ModelName"" TEXT NOT NULL,
+                    ""SpecCode"" TEXT NULL,
+                    ""EngineNo"" TEXT NULL,
+                    ""ColorVN"" TEXT NULL,
+                    ""ProductionYear"" TEXT NOT NULL,
+                    ""CabinCONo"" TEXT NULL,
+                    ""CQNo"" TEXT NULL,
+                    ""CustomsDeclarationNo"" TEXT NULL,
+                    ""SOCode"" TEXT NULL,
+                    ""UnitPrice"" INTEGER NOT NULL,
+                    ""VATRate"" REAL NOT NULL,
+                    ""VATAmount"" INTEGER NOT NULL,
+                    ""TotalPrice"" INTEGER NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""Remark"" TEXT NULL,
+                    CONSTRAINT ""FK_HTCInvoiceDetails_HTCInvoices_InvoiceId"" FOREIGN KEY (""InvoiceId"") REFERENCES ""HTCInvoices"" (""Id"") ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_HTCInvoiceDetails_InvoiceId"" ON ""HTCInvoiceDetails"" (""InvoiceId"");
+                CREATE INDEX IF NOT EXISTS ""IX_HTCInvoiceDetails_OrgId_VIN"" ON ""HTCInvoiceDetails"" (""OrgId"", ""VIN"");
+                CREATE INDEX IF NOT EXISTS ""IX_HTCInvoiceDetails_OrgId_HTCInvoiceCode"" ON ""HTCInvoiceDetails"" (""OrgId"", ""HTCInvoiceCode"");
             ");
         }
         else if (db.Database.IsNpgsql())
@@ -3049,6 +3121,77 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_CarDocRequestDetails_DocReqId"" ON ""CarDocRequestDetails"" (""DocReqId"");
                 CREATE INDEX IF NOT EXISTS ""IX_CarDocRequestDetails_OrgId_VIN"" ON ""CarDocRequestDetails"" (""OrgId"", ""VIN"");
                 CREATE INDEX IF NOT EXISTS ""IX_CarDocRequestDetails_OrgId_DRListCode"" ON ""CarDocRequestDetails"" (""OrgId"", ""DRListCode"");
+
+                CREATE TABLE IF NOT EXISTS ""HTCInvoices"" (
+                    ""Id"" bigserial PRIMARY KEY,
+                    ""OrgId"" uuid NOT NULL,
+                    ""HTCInvoiceCode"" text NOT NULL,
+                    ""HTCInvoiceNo"" text NULL,
+                    ""InvoiceSymbol"" text NOT NULL,
+                    ""InvoiceDate"" timestamp with time zone NOT NULL,
+                    ""DealerCode"" text NOT NULL,
+                    ""DealerName"" text NOT NULL,
+                    ""BuyerTaxCode"" text NOT NULL,
+                    ""BuyerAddress"" text NOT NULL,
+                    ""BuyerLegalRepresentative"" text NULL,
+                    ""PaymentMethod"" text NOT NULL,
+                    ""BankCode"" text NULL,
+                    ""BankName"" text NULL,
+                    ""BankAccountNo"" text NULL,
+                    ""TotalVehicles"" integer NOT NULL,
+                    ""TotalAmount"" bigint NOT NULL,
+                    ""VATRate"" numeric NOT NULL,
+                    ""VATAmount"" bigint NOT NULL,
+                    ""TotalPayment"" bigint NOT NULL,
+                    ""PaidAmount"" bigint NOT NULL,
+                    ""RemainAmount"" bigint NOT NULL,
+                    ""OS_HDDT_InvoiceCode"" text NULL,
+                    ""SourceInvoiceCode"" integer NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""Root_HTCInvoiceNo"" text NULL,
+                    ""Adj_DeleteReason"" text NULL,
+                    ""ApprovedBy"" text NULL,
+                    ""ApprovedDate"" timestamp with time zone NULL,
+                    ""IssuedBy"" text NULL,
+                    ""IssuedDate"" timestamp with time zone NULL,
+                    ""CreatedBy"" text NOT NULL,
+                    ""CreatedAt"" timestamp with time zone NOT NULL,
+                    ""UpdatedBy"" text NULL,
+                    ""UpdatedAt"" timestamp with time zone NULL,
+                    ""Remark"" text NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_HTCInvoices_OrgId_HTCInvoiceCode"" ON ""HTCInvoices"" (""OrgId"", ""HTCInvoiceCode"");
+                CREATE INDEX IF NOT EXISTS ""IX_HTCInvoices_OrgId_HTCInvoiceNo"" ON ""HTCInvoices"" (""OrgId"", ""HTCInvoiceNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_HTCInvoices_OrgId_DealerCode"" ON ""HTCInvoices"" (""OrgId"", ""DealerCode"");
+
+                CREATE TABLE IF NOT EXISTS ""HTCInvoiceDetails"" (
+                    ""Id"" bigserial PRIMARY KEY,
+                    ""InvoiceId"" bigint NOT NULL REFERENCES ""HTCInvoices""(""Id"") ON DELETE CASCADE,
+                    ""OrgId"" uuid NOT NULL,
+                    ""HTCInvoiceCode"" text NOT NULL,
+                    ""ItemNo"" integer NOT NULL,
+                    ""CarId"" text NULL,
+                    ""VIN"" text NOT NULL,
+                    ""ModelCode"" text NOT NULL,
+                    ""ModelName"" text NOT NULL,
+                    ""SpecCode"" text NULL,
+                    ""EngineNo"" text NULL,
+                    ""ColorVN"" text NULL,
+                    ""ProductionYear"" text NOT NULL,
+                    ""CabinCONo"" text NULL,
+                    ""CQNo"" text NULL,
+                    ""CustomsDeclarationNo"" text NULL,
+                    ""SOCode"" text NULL,
+                    ""UnitPrice"" bigint NOT NULL,
+                    ""VATRate"" numeric NOT NULL,
+                    ""VATAmount"" bigint NOT NULL,
+                    ""TotalPrice"" bigint NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""Remark"" text NULL
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_HTCInvoiceDetails_InvoiceId"" ON ""HTCInvoiceDetails"" (""InvoiceId"");
+                CREATE INDEX IF NOT EXISTS ""IX_HTCInvoiceDetails_OrgId_VIN"" ON ""HTCInvoiceDetails"" (""OrgId"", ""VIN"");
+                CREATE INDEX IF NOT EXISTS ""IX_HTCInvoiceDetails_OrgId_HTCInvoiceCode"" ON ""HTCInvoiceDetails"" (""OrgId"", ""HTCInvoiceCode"");
             ");
         }
 
@@ -11285,6 +11428,507 @@ public static class Seeder
                 }
             );
 
+            await db.SaveChangesAsync();
+        }
+
+        // Dữ liệu mẫu Hóa đơn GTGT (VAT E-Invoice) bán buôn xe ô tô (VAT_HTCInvoice / PrintVAT)
+        if (!await db.HTCInvoices.AnyAsync(x => x.OrgId == TenantContext.DefaultOrgId))
+        {
+            // Hóa đơn 1: Đã phát hành, Đã thanh toán 1 phần (PartiallyPaid)
+            var inv1 = new HTCInvoice
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                HTCInvoiceCode = "HD-HTC-202505-001",
+                HTCInvoiceNo = "0012891",
+                InvoiceSymbol = "1C25THC",
+                InvoiceDate = DateTime.Today.AddDays(-6),
+                DealerCode = "DL-HYUNDAI-HADONG",
+                DealerName = "Công ty Cổ phần Ô tô Hyundai Hà Đông",
+                BuyerTaxCode = "0105882910",
+                BuyerAddress = "Tổ 17 Phường Yên Nghĩa, Quận Hà Đông, TP. Hà Nội",
+                BuyerLegalRepresentative = "Nguyễn Văn Tuấn - Tổng Giám Đốc",
+                PaymentMethod = "CK",
+                BankCode = "CTG",
+                BankName = "VietinBank - CN Đô Thành",
+                BankAccountNo = "118000293849",
+                TotalVehicles = 2,
+                TotalAmount = 2_228_000_000,
+                VATRate = 10.0m,
+                VATAmount = 222_800_000,
+                TotalPayment = 2_450_800_000,
+                PaidAmount = 1_500_000_000,
+                RemainAmount = 950_800_000,
+                OS_HDDT_InvoiceCode = "EINV-202505-HTC-9B2144F1",
+                SourceInvoiceCode = HTCInvoiceSource.Root,
+                Status = HTCInvoiceStatus.PartiallyPaid,
+                ApprovedBy = "KeToanTruong_HTC",
+                ApprovedDate = DateTime.Today.AddDays(-6).AddHours(2),
+                IssuedBy = "GiamDocTaiChinh_HTC",
+                IssuedDate = DateTime.Today.AddDays(-6).AddHours(4),
+                CreatedBy = "KeToanBanHang_HTC",
+                CreatedAt = DateTime.Today.AddDays(-6),
+                Remark = "TT 1,500,000,000 đ qua UNC MBB-8921 ngày 10/05/2025"
+            };
+            db.HTCInvoices.Add(inv1);
+            await db.SaveChangesAsync();
+
+            db.HTCInvoiceDetails.AddRange(
+                new HTCInvoiceDetail
+                {
+                    InvoiceId = inv1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    HTCInvoiceCode = inv1.HTCInvoiceCode,
+                    ItemNo = 1,
+                    CarId = "CAR-SAN-881023",
+                    VIN = "KMHEN41LBCU881023",
+                    ModelCode = "SANTAFE",
+                    ModelName = "Hyundai Santa Fe 2.5 H-Trac Xăng Cao Cấp",
+                    SpecCode = "SAN-2.5-GAS-PRE",
+                    EngineNo = "G4KM-CU881023",
+                    ColorVN = "Đen Sang Trọng",
+                    ProductionYear = "2025",
+                    CabinCONo = "CO-2025-SAN-1023",
+                    CQNo = "CQ-2025-SAN-1023",
+                    SOCode = "SO-202505-HD01",
+                    UnitPrice = 1_269_000_000,
+                    VATRate = 10.0m,
+                    VATAmount = 126_900_000,
+                    TotalPrice = 1_395_900_000,
+                    Status = HTCInvoiceDetailStatus.Active,
+                    Remark = "Xe giao đợt 1 tháng 5/2025 theo HĐ đại lý"
+                },
+                new HTCInvoiceDetail
+                {
+                    InvoiceId = inv1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    HTCInvoiceCode = inv1.HTCInvoiceCode,
+                    ItemNo = 2,
+                    CarId = "CAR-TUC-881024",
+                    VIN = "KMHEN41LBCU881024",
+                    ModelCode = "TUCSON",
+                    ModelName = "Hyundai Tucson 2.0 Dầu Đặc Biệt",
+                    SpecCode = "TUC-2.0D-SPE",
+                    EngineNo = "D4HD-CU881024",
+                    ColorVN = "Trắng Tinh Khôi",
+                    ProductionYear = "2025",
+                    CabinCONo = "CO-2025-TUC-1024",
+                    CQNo = "CQ-2025-TUC-1024",
+                    SOCode = "SO-202505-HD02",
+                    UnitPrice = 959_000_000,
+                    VATRate = 10.0m,
+                    VATAmount = 95_900_000,
+                    TotalPrice = 1_054_900_000,
+                    Status = HTCInvoiceDetailStatus.Active,
+                    Remark = "Xe giao đợt 1 tháng 5/2025 theo HĐ đại lý"
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // Hóa đơn 2: Đã phát hành, Đã quyết toán 100% (Settled)
+            var inv2 = new HTCInvoice
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                HTCInvoiceCode = "HD-HTC-202505-002",
+                HTCInvoiceNo = "0012892",
+                InvoiceSymbol = "1C25THC",
+                InvoiceDate = DateTime.Today.AddDays(-5),
+                DealerCode = "DL-HYUNDAI-SAIGON",
+                DealerName = "Công ty Cổ phần Ô tô Hyundai Sài Gòn",
+                BuyerTaxCode = "0304991823",
+                BuyerAddress = "Số 70 Lương Định Của, Phường An Phú, TP. Thủ Đức, TP. Hồ Chí Minh",
+                BuyerLegalRepresentative = "Lê Hoàng Nam - Giám Đốc",
+                PaymentMethod = "CK",
+                BankCode = "VCB",
+                BankName = "Vietcombank - CN TP.HCM",
+                BankAccountNo = "0071000881923",
+                TotalVehicles = 3,
+                TotalAmount = 1_878_000_000,
+                VATRate = 10.0m,
+                VATAmount = 187_800_000,
+                TotalPayment = 2_065_800_000,
+                PaidAmount = 2_065_800_000,
+                RemainAmount = 0,
+                OS_HDDT_InvoiceCode = "EINV-202505-HTC-4C8821EE",
+                SourceInvoiceCode = HTCInvoiceSource.Root,
+                Status = HTCInvoiceStatus.Settled,
+                ApprovedBy = "KeToanTruong_HTC",
+                ApprovedDate = DateTime.Today.AddDays(-5).AddHours(1),
+                IssuedBy = "GiamDocTaiChinh_HTC",
+                IssuedDate = DateTime.Today.AddDays(-5).AddHours(3),
+                CreatedBy = "KeToanBanHang_HTC",
+                CreatedAt = DateTime.Today.AddDays(-5),
+                Remark = "TT 2,065,800,000 đ qua UNC VCB-3498 ngày 08/05/2025"
+            };
+            db.HTCInvoices.Add(inv2);
+            await db.SaveChangesAsync();
+
+            db.HTCInvoiceDetails.AddRange(
+                new HTCInvoiceDetail
+                {
+                    InvoiceId = inv2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    HTCInvoiceCode = inv2.HTCInvoiceCode,
+                    ItemNo = 1,
+                    CarId = "CAR-CRE-102941",
+                    VIN = "KMHEC41ABNU102941",
+                    ModelCode = "CRETA",
+                    ModelName = "Hyundai Creta 1.5 Cao Cấp",
+                    SpecCode = "CRE-1.5-PRE",
+                    EngineNo = "G4FL-NU102941",
+                    ColorVN = "Đỏ Mận",
+                    ProductionYear = "2025",
+                    CabinCONo = "CO-2025-CRE-2941",
+                    CQNo = "CQ-2025-CRE-2941",
+                    SOCode = "SO-202505-SG01",
+                    UnitPrice = 699_000_000,
+                    VATRate = 10.0m,
+                    VATAmount = 69_900_000,
+                    TotalPrice = 768_900_000,
+                    Status = HTCInvoiceDetailStatus.Active
+                },
+                new HTCInvoiceDetail
+                {
+                    InvoiceId = inv2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    HTCInvoiceCode = inv2.HTCInvoiceCode,
+                    ItemNo = 2,
+                    CarId = "CAR-CRE-102942",
+                    VIN = "KMHEC41ABNU102942",
+                    ModelCode = "CRETA",
+                    ModelName = "Hyundai Creta 1.5 Đặc Biệt",
+                    SpecCode = "CRE-1.5-SPE",
+                    EngineNo = "G4FL-NU102942",
+                    ColorVN = "Trắng Tuyết",
+                    ProductionYear = "2025",
+                    CabinCONo = "CO-2025-CRE-2942",
+                    CQNo = "CQ-2025-CRE-2942",
+                    SOCode = "SO-202505-SG02",
+                    UnitPrice = 650_000_000,
+                    VATRate = 10.0m,
+                    VATAmount = 65_000_000,
+                    TotalPrice = 715_000_000,
+                    Status = HTCInvoiceDetailStatus.Active
+                },
+                new HTCInvoiceDetail
+                {
+                    InvoiceId = inv2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    HTCInvoiceCode = inv2.HTCInvoiceCode,
+                    ItemNo = 3,
+                    CarId = "CAR-ACC-332190",
+                    VIN = "KMHBA41BBNU332190",
+                    ModelCode = "ACCENT",
+                    ModelName = "Hyundai Accent 1.5 AT Đặc Biệt All New",
+                    SpecCode = "ACC-1.5-AT-SPE",
+                    EngineNo = "G4LC-NU332190",
+                    ColorVN = "Bạc Ánh Kim",
+                    ProductionYear = "2025",
+                    CabinCONo = "CO-2025-ACC-2190",
+                    CQNo = "CQ-2025-ACC-2190",
+                    SOCode = "SO-202505-SG03",
+                    UnitPrice = 529_000_000,
+                    VATRate = 10.0m,
+                    VATAmount = 52_900_000,
+                    TotalPrice = 581_900_000,
+                    Status = HTCInvoiceDetailStatus.Active
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // Hóa đơn 3: Đã phát hành, Chưa thanh toán (Issued)
+            var inv3 = new HTCInvoice
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                HTCInvoiceCode = "HD-HTC-202505-003",
+                HTCInvoiceNo = "0012893",
+                InvoiceSymbol = "1C25THC",
+                InvoiceDate = DateTime.Today.AddDays(-3),
+                DealerCode = "DL-HYUNDAI-DONGDO",
+                DealerName = "Công ty Cổ phần Hyundai Đông Đô",
+                BuyerTaxCode = "0106771890",
+                BuyerAddress = "Số 98 Phố Phùng Hưng, Quận Hoàn Kiếm, TP. Hà Nội",
+                BuyerLegalRepresentative = "Trần Mạnh Cường - Chủ Tịch HĐQT",
+                PaymentMethod = "CK",
+                BankCode = "MBB",
+                BankName = "MBBank - CN Sở Giao Dịch",
+                BankAccountNo = "0581100982734",
+                TotalVehicles = 2,
+                TotalAmount = 3_058_000_000,
+                VATRate = 10.0m,
+                VATAmount = 305_800_000,
+                TotalPayment = 3_363_800_000,
+                PaidAmount = 0,
+                RemainAmount = 3_363_800_000,
+                OS_HDDT_InvoiceCode = "EINV-202505-HTC-8A7129CC",
+                SourceInvoiceCode = HTCInvoiceSource.Root,
+                Status = HTCInvoiceStatus.Issued,
+                ApprovedBy = "KeToanTruong_HTC",
+                ApprovedDate = DateTime.Today.AddDays(-3).AddHours(2),
+                IssuedBy = "GiamDocTaiChinh_HTC",
+                IssuedDate = DateTime.Today.AddDays(-3).AddHours(4),
+                CreatedBy = "KeToanBanHang_HTC",
+                CreatedAt = DateTime.Today.AddDays(-3),
+                Remark = "Đã gửi hóa đơn điện tử cho đại lý, chờ kế toán đại lý ủy nhiệm chi"
+            };
+            db.HTCInvoices.Add(inv3);
+            await db.SaveChangesAsync();
+
+            db.HTCInvoiceDetails.AddRange(
+                new HTCInvoiceDetail
+                {
+                    InvoiceId = inv3.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    HTCInvoiceCode = inv3.HTCInvoiceCode,
+                    ItemNo = 1,
+                    CarId = "CAR-PAL-091822",
+                    VIN = "KMHPL41ABRU091822",
+                    ModelCode = "PALISADE",
+                    ModelName = "Hyundai Palisade 2.2D Prestige 6 chỗ",
+                    SpecCode = "PAL-2.2D-PRE-6S",
+                    EngineNo = "D4HB-RU091822",
+                    ColorVN = "Xanh Bóng Đêm",
+                    ProductionYear = "2025",
+                    CabinCONo = "CO-2025-PAL-1822",
+                    CQNo = "CQ-2025-PAL-1822",
+                    SOCode = "SO-202505-DD01",
+                    UnitPrice = 1_589_000_000,
+                    VATRate = 10.0m,
+                    VATAmount = 158_900_000,
+                    TotalPrice = 1_747_900_000,
+                    Status = HTCInvoiceDetailStatus.Active
+                },
+                new HTCInvoiceDetail
+                {
+                    InvoiceId = inv3.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    HTCInvoiceCode = inv3.HTCInvoiceCode,
+                    ItemNo = 2,
+                    CarId = "CAR-PAL-091823",
+                    VIN = "KMHPL41ABRU091823",
+                    ModelCode = "PALISADE",
+                    ModelName = "Hyundai Palisade 2.2D Exclusive 7 chỗ",
+                    SpecCode = "PAL-2.2D-EXC-7S",
+                    EngineNo = "D4HB-RU091823",
+                    ColorVN = "Trắng Ngọc Trai",
+                    ProductionYear = "2025",
+                    CabinCONo = "CO-2025-PAL-1823",
+                    CQNo = "CQ-2025-PAL-1823",
+                    SOCode = "SO-202505-DD02",
+                    UnitPrice = 1_469_000_000,
+                    VATRate = 10.0m,
+                    VATAmount = 146_900_000,
+                    TotalPrice = 1_615_900_000,
+                    Status = HTCInvoiceDetailStatus.Active
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // Hóa đơn 4: Đã duyệt, Chờ phát hành (Approved)
+            var inv4 = new HTCInvoice
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                HTCInvoiceCode = "HD-HTC-202505-004",
+                InvoiceSymbol = "1C25THC",
+                InvoiceDate = DateTime.Today.AddDays(-1),
+                DealerCode = "DL-HYUNDAI-DANANG",
+                DealerName = "Công ty Cổ phần Ô tô Hyundai Đà Nẵng",
+                BuyerTaxCode = "0401882716",
+                BuyerAddress = "Số 86 Duy Tân, Phường Hòa Thuận Tây, Quận Hải Châu, TP. Đà Nẵng",
+                BuyerLegalRepresentative = "Võ Văn Hùng - Giám Đốc",
+                PaymentMethod = "CK",
+                BankCode = "VPB",
+                BankName = "VPBank - CN Đà Nẵng",
+                BankAccountNo = "192837465012",
+                TotalVehicles = 2,
+                TotalAmount = 1_828_000_000,
+                VATRate = 10.0m,
+                VATAmount = 182_800_000,
+                TotalPayment = 2_010_800_000,
+                PaidAmount = 0,
+                RemainAmount = 2_010_800_000,
+                SourceInvoiceCode = HTCInvoiceSource.Root,
+                Status = HTCInvoiceStatus.Approved,
+                ApprovedBy = "KeToanTruong_HTC",
+                ApprovedDate = DateTime.Today.AddDays(-1).AddHours(3),
+                CreatedBy = "KeToanBanHang_HTC",
+                CreatedAt = DateTime.Today.AddDays(-1),
+                Remark = "Kế toán trưởng đã duyệt, sẵn sàng ký số CA phát hành"
+            };
+            db.HTCInvoices.Add(inv4);
+            await db.SaveChangesAsync();
+
+            db.HTCInvoiceDetails.AddRange(
+                new HTCInvoiceDetail
+                {
+                    InvoiceId = inv4.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    HTCInvoiceCode = inv4.HTCInvoiceCode,
+                    ItemNo = 1,
+                    CarId = "CAR-CUS-055209",
+                    VIN = "KMHCU81NBPU055209",
+                    ModelCode = "CUSTIN",
+                    ModelName = "Hyundai Custin 2.0T Cao Cấp MPV",
+                    SpecCode = "CUS-2.0T-PRE",
+                    EngineNo = "G4NN-PU055209",
+                    ColorVN = "Xanh Lục Bảo",
+                    ProductionYear = "2025",
+                    CabinCONo = "CO-2025-CUS-5209",
+                    CQNo = "CQ-2025-CUS-5209",
+                    SOCode = "SO-202505-DN01",
+                    UnitPrice = 1_029_000_000,
+                    VATRate = 10.0m,
+                    VATAmount = 102_900_000,
+                    TotalPrice = 1_131_900_000,
+                    Status = HTCInvoiceDetailStatus.Active
+                },
+                new HTCInvoiceDetail
+                {
+                    InvoiceId = inv4.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    HTCInvoiceCode = inv4.HTCInvoiceCode,
+                    ItemNo = 2,
+                    CarId = "CAR-ELA-033100",
+                    VIN = "KMHEL41ABPU033100",
+                    ModelCode = "ELANTRA",
+                    ModelName = "Hyundai Elantra N-Line 1.6 Turbo",
+                    SpecCode = "ELA-1.6T-NLINE",
+                    EngineNo = "G4FP-PU033100",
+                    ColorVN = "Xám Xi Măng",
+                    ProductionYear = "2025",
+                    CabinCONo = "CO-2025-ELA-3100",
+                    CQNo = "CQ-2025-ELA-3100",
+                    SOCode = "SO-202505-DN02",
+                    UnitPrice = 799_000_000,
+                    VATRate = 10.0m,
+                    VATAmount = 79_900_000,
+                    TotalPrice = 878_900_000,
+                    Status = HTCInvoiceDetailStatus.Active
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // Hóa đơn 5: Dự thảo (Draft)
+            var inv5 = new HTCInvoice
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                HTCInvoiceCode = "HD-HTC-202505-005",
+                InvoiceSymbol = "1C25THC",
+                InvoiceDate = DateTime.Today,
+                DealerCode = "DL-HYUNDAI-CANTHO",
+                DealerName = "Công ty TNHH MTV Hyundai Cần Thơ",
+                BuyerTaxCode = "1801293810",
+                BuyerAddress = "Quốc Lộ 91B, Phường An Khánh, Quận Ninh Kiều, TP. Cần Thơ",
+                BuyerLegalRepresentative = "Phạm Thị Mai - Giám Đốc",
+                PaymentMethod = "CK",
+                BankCode = "TCB",
+                BankName = "Techcombank - CN Cần Thơ",
+                BankAccountNo = "19034455667788",
+                TotalVehicles = 1,
+                TotalAmount = 1_450_000_000,
+                VATRate = 10.0m,
+                VATAmount = 145_000_000,
+                TotalPayment = 1_595_000_000,
+                PaidAmount = 0,
+                RemainAmount = 1_595_000_000,
+                SourceInvoiceCode = HTCInvoiceSource.Root,
+                Status = HTCInvoiceStatus.Draft,
+                CreatedBy = "KeToanBanHang_HTC",
+                CreatedAt = DateTime.Today,
+                Remark = "Dự thảo hóa đơn xe điện Ioniq 5 phân bổ về đại lý Cần Thơ"
+            };
+            db.HTCInvoices.Add(inv5);
+            await db.SaveChangesAsync();
+
+            db.HTCInvoiceDetails.Add(
+                new HTCInvoiceDetail
+                {
+                    InvoiceId = inv5.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    HTCInvoiceCode = inv5.HTCInvoiceCode,
+                    ItemNo = 1,
+                    CarId = "CAR-IQ5-012899",
+                    VIN = "KMHIQ51EBPU012899",
+                    ModelCode = "IONIQ5",
+                    ModelName = "Hyundai Ioniq 5 Prestige Điện AWD",
+                    SpecCode = "IQ5-PRE-AWD",
+                    EngineNo = "EM17-PU012899",
+                    ColorVN = "Vàng Cát Gravity Gold",
+                    ProductionYear = "2025",
+                    CabinCONo = "CO-2025-IQ5-2899",
+                    CQNo = "CQ-2025-IQ5-2899",
+                    SOCode = "SO-202505-CT01",
+                    UnitPrice = 1_450_000_000,
+                    VATRate = 10.0m,
+                    VATAmount = 145_000_000,
+                    TotalPrice = 1_595_000_000,
+                    Status = HTCInvoiceDetailStatus.Active,
+                    Remark = "Dòng xe thuần điện EV cao cấp phân phối đại lý"
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // Hóa đơn 6: Thu hồi / Hủy (Cancelled)
+            var inv6 = new HTCInvoice
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                HTCInvoiceCode = "HD-HTC-202505-006",
+                HTCInvoiceNo = "0012890",
+                InvoiceSymbol = "1C25THC",
+                InvoiceDate = DateTime.Today.AddDays(-10),
+                DealerCode = "DL-HYUNDAI-LONGBIEN",
+                DealerName = "Công ty Cổ phần Ô tô Hyundai Long Biên",
+                BuyerTaxCode = "0107883921",
+                BuyerAddress = "Số 3-5 Nguyễn Văn Linh, Phường Gia Thụy, Quận Long Biên, TP. Hà Nội",
+                PaymentMethod = "CK",
+                BankCode = "CTG",
+                BankName = "VietinBank - CN Đông Hà Nội",
+                BankAccountNo = "119000188293",
+                TotalVehicles = 1,
+                TotalAmount = 599_000_000,
+                VATRate = 10.0m,
+                VATAmount = 59_900_000,
+                TotalPayment = 658_900_000,
+                PaidAmount = 0,
+                RemainAmount = 658_900_000,
+                OS_HDDT_InvoiceCode = "EINV-202505-HTC-1109AACC",
+                SourceInvoiceCode = HTCInvoiceSource.Root,
+                Status = HTCInvoiceStatus.Cancelled,
+                Adj_DeleteReason = "BB số 14/BBTH-2025: Khách hàng đổi sang hợp đồng xe Santa Fe mới, thu hồi hóa đơn nhầm phiên bản.",
+                ApprovedBy = "KeToanTruong_HTC",
+                ApprovedDate = DateTime.Today.AddDays(-10).AddHours(2),
+                IssuedBy = "GiamDocTaiChinh_HTC",
+                IssuedDate = DateTime.Today.AddDays(-10).AddHours(4),
+                CreatedBy = "KeToanBanHang_HTC",
+                CreatedAt = DateTime.Today.AddDays(-10),
+                Remark = "Đã lập biên bản thu hồi hóa đơn theo quy định của Cục Thuế"
+            };
+            db.HTCInvoices.Add(inv6);
+            await db.SaveChangesAsync();
+
+            db.HTCInvoiceDetails.Add(
+                new HTCInvoiceDetail
+                {
+                    InvoiceId = inv6.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    HTCInvoiceCode = inv6.HTCInvoiceCode,
+                    ItemNo = 1,
+                    CarId = "CAR-STG-011999",
+                    VIN = "KMHST41ABPU011999",
+                    ModelCode = "STARGAZER",
+                    ModelName = "Hyundai Stargazer X Cao Cấp 1.5 AT",
+                    SpecCode = "STG-X-PRE",
+                    EngineNo = "G4FL-PU011999",
+                    ColorVN = "Trắng Mờ",
+                    ProductionYear = "2025",
+                    SOCode = "SO-202505-LB01",
+                    UnitPrice = 599_000_000,
+                    VATRate = 10.0m,
+                    VATAmount = 59_900_000,
+                    TotalPrice = 658_900_000,
+                    Status = HTCInvoiceDetailStatus.Cancelled,
+                    Remark = "Xe thu hồi do đổi sang hợp đồng xe Santa Fe"
+                }
+            );
             await db.SaveChangesAsync();
         }
     }

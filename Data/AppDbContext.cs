@@ -60,6 +60,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<ContractCancelDetail> ContractCancelDetails => Set<ContractCancelDetail>();
     public DbSet<CarDocReqList> CarDocRequests => Set<CarDocReqList>();
     public DbSet<CarDocReqDetail> CarDocRequestDetails => Set<CarDocReqDetail>();
+    public DbSet<HTCInvoice> HTCInvoices => Set<HTCInvoice>();
+    public DbSet<HTCInvoiceDetail> HTCInvoiceDetails => Set<HTCInvoiceDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -342,5 +344,17 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<CarDocReqDetail>().HasIndex(x => x.DocReqId);
         b.Entity<CarDocReqDetail>().HasIndex(x => new { x.OrgId, x.VIN });
         b.Entity<CarDocReqDetail>().HasIndex(x => new { x.OrgId, x.DRListCode });
+
+        b.Entity<HTCInvoice>().HasIndex(x => new { x.OrgId, x.HTCInvoiceCode }).IsUnique();
+        b.Entity<HTCInvoice>().HasIndex(x => new { x.OrgId, x.HTCInvoiceNo });
+        b.Entity<HTCInvoice>().HasIndex(x => new { x.OrgId, x.DealerCode });
+        b.Entity<HTCInvoice>().Property(x => x.SourceInvoiceCode).HasConversion<int>();
+        b.Entity<HTCInvoice>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<HTCInvoice>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.InvoiceId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<HTCInvoiceDetail>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<HTCInvoiceDetail>().HasIndex(x => x.InvoiceId);
+        b.Entity<HTCInvoiceDetail>().HasIndex(x => new { x.OrgId, x.VIN });
+        b.Entity<HTCInvoiceDetail>().HasIndex(x => new { x.OrgId, x.HTCInvoiceCode });
     }
 }
