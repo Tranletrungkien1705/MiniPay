@@ -4490,3 +4490,130 @@ public sealed class StorageRearrangeStorageStatDto
     public int RequestCount { get; set; }
     public int VehicleCount { get; set; }
 }
+// ==========================================
+// Nghiệp vụ Quản lý Phiên bản Cước phí Vận tải (Transport Fee Version Master Data)
+// (Mst_TranspFeeVer / Mst_TranspFee / Mst_TranspFeeHist)
+// Tương ứng TERP.BizHTC/BizHTC.MasterData.cs:
+//   Mst_TranspFeeVerGet / Mst_TranspFeeVerGet_Hist / Mst_TranspFeeVerGetCreate / Mst_TranspFeeVerDel
+// và màn hình quản lý cước vận tải trong TERP.HTCClient hệ nguồn HTC 2010.
+// ==========================================
+
+/// <summary>Trạng thái phiên bản cước phí vận tải — tương ứng Mst_TranspFeeVer.FlagActive.</summary>
+public enum TransportFeeVersionStatus
+{
+    Draft = 0,      // Nháp (chưa áp dụng)
+    Active = 1,     // Đang áp dụng (FlagActive = '1')
+    Inactive = 2,   // Ngừng áp dụng (FlagActive = '0')
+    Cancelled = 3   // Đã hủy
+}
+
+/// <summary>
+/// Phiên bản bảng cước phí vận tải (Mst_TranspFeeVer).
+/// Mỗi phiên bản (TFVCode) gom nhiều dòng cước (Mst_TranspFee) theo tuyến đường
+/// (tỉnh/huyện đi → tỉnh/huyện đến), nhà vận tải và dòng xe.
+/// </summary>
+public sealed class TransportFeeVersion
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string TFVCode { get; set; } = "";                  // Mã phiên bản cước (TFVCode, ví dụ: TFV-2025-01)
+    public string? Description { get; set; }                   // Diễn giải phiên bản
+    public TransportFeeVersionStatus Status { get; set; } = TransportFeeVersionStatus.Draft; // Trạng thái (FlagActive)
+    public DateTime CreatedDate { get; set; } = DateTime.Today; // Ngày tạo phiên bản (CreatedDate)
+    public DateTime? AppliedDate { get; set; }                 // Ngày áp dụng (khi chuyển Active)
+    public string? CreatedBy { get; set; }                     // Người lập (LogLUBy)
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public string? UpdatedBy { get; set; }
+    public DateTime? UpdatedAt { get; set; }
+    public string? Remark { get; set; }                        // Ghi chú
+
+    public List<TransportFeeRate> Rates { get; set; } = [];
+}
+
+/// <summary>
+/// Dòng cước phí vận tải theo tuyến đường (Mst_TranspFee).
+/// Khóa nghiệp vụ: (TFVCode, ProvinceCodeFrom, DistrictCodeFrom, ProvinceCodeTo, DistrictCodeTo, TransporterCode, ModelCode).
+/// </summary>
+public sealed class TransportFeeRate
+{
+    public long Id { get; set; }
+    public long VersionId { get; set; }
+    public Guid OrgId { get; set; }
+    public string TFVCode { get; set; } = "";                  // Mã phiên bản cước (denormalized)
+    public string ProvinceCodeFrom { get; set; } = "";         // Mã tỉnh/thành đi (ProvinceCodeFrom)
+    public string? ProvinceNameFrom { get; set; }              // Tên tỉnh/thành đi
+    public string DistrictCodeFrom { get; set; } = "";         // Mã quận/huyện đi (DistrictCodeFrom)
+    public string? DistrictNameFrom { get; set; }              // Tên quận/huyện đi
+    public string ProvinceCodeTo { get; set; } = "";           // Mã tỉnh/thành đến (ProvinceCodeTo)
+    public string? ProvinceNameTo { get; set; }                // Tên tỉnh/thành đến
+    public string DistrictCodeTo { get; set; } = "";           // Mã quận/huyện đến (DistrictCodeTo)
+    public string? DistrictNameTo { get; set; }                // Tên quận/huyện đến
+    public string TransporterCode { get; set; } = "";          // Mã nhà vận tải (TransporterCode)
+    public string? TransporterName { get; set; }               // Tên nhà vận tải
+    public string ModelCode { get; set; } = "";                // Mã dòng xe (ModelCode)
+    public string? ModelName { get; set; }                     // Tên dòng xe
+    public long ValFee { get; set; }                           // Giá trị cước phí (ValFee, VND)
+    public int ExpectedDays { get; set; }                      // Số ngày vận chuyển định mức (ExpectedDays)
+    public string? Remark { get; set; }                        // Ghi chú dòng
+}
+
+public sealed class CreateTransportFeeVersionDto
+{
+    public string? TFVCode { get; set; }
+    public string? Description { get; set; }
+    public DateTime? CreatedDate { get; set; }
+    public string? Remark { get; set; }
+    public string? CreatedBy { get; set; }
+    public List<TransportFeeRateInputDto> Items { get; set; } = [];
+}
+
+/// <summary>
+/// Dòng cước đầu vào khi lập phiên bản. ModelCode và TransporterCode có thể chứa nhiều mã
+/// phân tách bằng dấu phẩy (hệ nguồn tự tách và nhân bản thành tích Đề-các).
+/// </summary>
+public sealed class TransportFeeRateInputDto
+{
+    public string ProvinceCodeFrom { get; set; } = "";
+    public string? ProvinceNameFrom { get; set; }
+    public string DistrictCodeFrom { get; set; } = "";
+    public string? DistrictNameFrom { get; set; }
+    public string ProvinceCodeTo { get; set; } = "";
+    public string? ProvinceNameTo { get; set; }
+    public string DistrictCodeTo { get; set; } = "";
+    public string? DistrictNameTo { get; set; }
+    public string TransporterCode { get; set; } = "";          // Có thể là danh sách mã phân tách bằng dấu phẩy
+    public string? TransporterName { get; set; }
+    public string ModelCode { get; set; } = "";                // Có thể là danh sách mã phân tách bằng dấu phẩy
+    public string? ModelName { get; set; }
+    public long ValFee { get; set; }
+    public int ExpectedDays { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class UpdateTransportFeeVersionDto
+{
+    public string? Description { get; set; }
+    public string? Remark { get; set; }
+    public string? UpdatedBy { get; set; }
+}
+
+public sealed class TransportFeeVersionSummaryDto
+{
+    public int TotalVersions { get; set; }
+    public int DraftCount { get; set; }
+    public int ActiveCount { get; set; }
+    public int InactiveCount { get; set; }
+    public int CancelledCount { get; set; }
+    public int TotalRates { get; set; }
+    public long TotalFeeValue { get; set; }
+    public List<TransportFeeVersionStatDto> ByTransporter { get; set; } = [];
+}
+
+public sealed class TransportFeeVersionStatDto
+{
+    public string TransporterCode { get; set; } = "";
+    public string? TransporterName { get; set; }
+    public int RateCount { get; set; }
+    public long TotalFeeValue { get; set; }
+    public decimal AvgFeeValue { get; set; }
+}

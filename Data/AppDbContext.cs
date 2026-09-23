@@ -74,6 +74,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<DealerContractDetail> DealerContractDetails => Set<DealerContractDetail>();
     public DbSet<StorageRearrange> StorageRearranges => Set<StorageRearrange>();
     public DbSet<StorageRearrangeDetail> StorageRearrangeDetails => Set<StorageRearrangeDetail>();
+    public DbSet<TransportFeeVersion> TransportFeeVersions => Set<TransportFeeVersion>();
+    public DbSet<TransportFeeRate> TransportFeeRates => Set<TransportFeeRate>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -432,5 +434,14 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<StorageRearrangeDetail>().HasIndex(x => x.StorageRearrangeId);
         b.Entity<StorageRearrangeDetail>().HasIndex(x => new { x.OrgId, x.VIN });
         b.Entity<StorageRearrangeDetail>().HasIndex(x => new { x.OrgId, x.StorageRearrangeNo });
+
+        b.Entity<TransportFeeVersion>().HasIndex(x => new { x.OrgId, x.TFVCode }).IsUnique();
+        b.Entity<TransportFeeVersion>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<TransportFeeVersion>().HasMany(x => x.Rates).WithOne().HasForeignKey(x => x.VersionId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<TransportFeeRate>().HasIndex(x => x.VersionId);
+        b.Entity<TransportFeeRate>().HasIndex(x => new { x.OrgId, x.TFVCode });
+        b.Entity<TransportFeeRate>().HasIndex(x => new { x.OrgId, x.TransporterCode });
+        b.Entity<TransportFeeRate>().HasIndex(x => new { x.OrgId, x.ProvinceCodeFrom, x.DistrictCodeFrom, x.ProvinceCodeTo, x.DistrictCodeTo });
     }
 }

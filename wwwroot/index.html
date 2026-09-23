@@ -114,6 +114,7 @@
     <button class="tab-btn" onclick="showTab('accountingVoucher')">Cập Nhật Chứng Từ Kế Toán (CTKT)</button>
     <button class="tab-btn" onclick="showTab('calendar')">Lịch Làm Việc &amp; Hạn Nộp Cọc (Mst_Calendar)</button>
     <button class="tab-btn" onclick="showTab('dealerContract')">Hợp Đồng Mua Bán Xe Đại Lý (DMS40_CT_DealerContract)</button>
+    <button class="tab-btn" onclick="showTab('transportFee')">Phiên Bản Cước Phí Vận Tải (Mst_TranspFeeVer)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -6355,6 +6356,72 @@
     </div>
   </div>
 
+  <!-- TAB: Phiên Bản Cước Phí Vận Tải (Transport Fee Version - Mst_TranspFeeVer / Mst_TranspFee) -->
+  <div id="tab-transportFee" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="margin:0;">Phiên Bản Cước Phí Vận Tải (Mst_TranspFeeVer)</h3>
+        <button class="secondary" onclick="loadTransportFeeVersions(); loadTransportFeeSummary();">Làm mới</button>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+        <input id="tfvFilterCode" placeholder="Mã phiên bản (TFV-...)" style="max-width:200px;" />
+        <select id="tfvFilterStatus" style="max-width:180px;">
+          <option value="">-- Trạng thái --</option>
+          <option value="Draft">Nháp</option>
+          <option value="Active">Đang áp dụng</option>
+          <option value="Inactive">Ngừng áp dụng</option>
+          <option value="Cancelled">Đã hủy</option>
+        </select>
+        <input id="tfvFilterTransporter" placeholder="Nhà vận tải..." style="max-width:180px;" />
+        <input id="tfvFilterModel" placeholder="Dòng xe..." style="max-width:160px;" />
+        <input id="tfvFilterQuery" placeholder="Từ khóa..." style="max-width:200px;" />
+        <button onclick="loadTransportFeeVersions()">Tìm kiếm</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Mã Phiên Bản</th>
+              <th>Diễn Giải</th>
+              <th>Trạng Thái</th>
+              <th>Ngày Tạo</th>
+              <th>Ngày Áp Dụng</th>
+              <th>Số Dòng Cước</th>
+              <th>Tổng Cước</th>
+              <th>Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="tblTransportFeeVersionsBody">
+            <tr><td colspan="8" style="text-align:center; padding:20px;" class="muted">Đang tải phiên bản cước phí vận tải...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Form lập phiên bản cước phí mới -->
+    <div class="card" style="margin-top:18px;">
+      <h3 style="margin-top:0;">Lập Phiên Bản Cước Phí Vận Tải Mới</h3>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+        <div><label>Mã phiên bản (bỏ trống tự sinh)</label><input id="tfvCode" placeholder="TFV-2025-03" /></div>
+        <div><label>Diễn giải</label><input id="tfvDescription" placeholder="Bảng cước phí..." /></div>
+        <div><label>Ngày tạo</label><input id="tfvCreatedDate" type="date" /></div>
+        <div><label>Ghi chú</label><input id="tfvRemark" placeholder="Ghi chú..." /></div>
+      </div>
+      <div style="margin-top:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>Danh sách dòng cước (Mst_TranspFee)</strong>
+          <button class="secondary" onclick="addTfvRateRow()">+ Thêm dòng cước</button>
+        </div>
+        <p class="muted" style="margin:6px 0;">Mẹo: ô Nhà vận tải và Dòng xe có thể nhập nhiều mã phân tách bằng dấu phẩy (ví dụ: NEWWAY,DATDUC) — hệ thống tự tách thành tích Đề-các.</p>
+        <div id="tfvRates" style="display:flex; flex-direction:column; gap:8px; margin-top:8px;"></div>
+      </div>
+      <div style="margin-top:14px;">
+        <span id="tfvCreateMsg" style="margin-right:12px; color:var(--primary); font-weight:500;"></span>
+        <button onclick="submitCreateTransportFeeVersion()">Lập Phiên Bản Cước Phí</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB: Hợp Đồng Mua Bán Xe Đại Lý (Dealer Sales Contract - DMS40_CT_DealerContract) -->
   <div id="tab-dealerContract" style="display:none;">
     <div class="card">
@@ -7673,6 +7740,7 @@
       else if (tabName === 'accountingVoucher') { loadAccountingVouchers(); loadAccountingVoucherSummary(); }
       else if (tabName === 'calendar') { loadCalendar(); loadCalendarSummary(); }
       else if (tabName === 'dealerContract') { loadDealerContracts(); loadDealerContractSummary(); }
+      else if (tabName === 'transportFee') { loadTransportFeeVersions(); loadTransportFeeSummary(); }
       else if (tabName === 'newHtcInvoice') { loadSampleHtcInvoiceFormData(); }
     }
 
@@ -19485,6 +19553,166 @@
         if (!res.ok) { const d = await res.json(); alert(d.error || 'Lỗi xóa.'); return; }
         loadBankDealers(); loadBankDealerSummary();
       } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    // ===== TAB: PHIÊN BẢN CƯỚC PHÍ VẬN TẢI (Mst_TranspFeeVer / Mst_TranspFee) =====
+    function addTfvRateRow() {
+      const wrap = document.getElementById('tfvRates');
+      if (!wrap) return;
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex; gap:8px; align-items:center; flex-wrap:wrap;';
+      row.innerHTML = `
+        <input class="tfv-pfrom" placeholder="Tỉnh đi (HN) *" style="max-width:110px;" />
+        <input class="tfv-dfrom" placeholder="Huyện đi (HN-DA) *" style="max-width:130px;" />
+        <input class="tfv-pto" placeholder="Tỉnh đến (HCM) *" style="max-width:110px;" />
+        <input class="tfv-dto" placeholder="Huyện đến (HCM-HP) *" style="max-width:130px;" />
+        <input class="tfv-transporter" placeholder="Nhà vận tải (NEWWAY,DATDUC) *" style="max-width:200px;" />
+        <input class="tfv-model" placeholder="Dòng xe (SANTAFE,TUCSON) *" style="max-width:200px;" />
+        <input class="tfv-valfee" type="number" placeholder="Cước phí (VND) *" style="max-width:150px;" />
+        <input class="tfv-days" type="number" placeholder="Ngày ĐM" style="max-width:100px;" />
+        <button class="secondary" onclick="this.parentElement.remove()">Xóa</button>`;
+      wrap.appendChild(row);
+    }
+
+    async function loadTransportFeeVersions() {
+      const body = document.getElementById('tblTransportFeeVersionsBody');
+      if (!body) return;
+      body.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px;" class="muted">Đang tải...</td></tr>';
+      try {
+        const params = new URLSearchParams();
+        const code = document.getElementById('tfvFilterCode')?.value?.trim();
+        const status = document.getElementById('tfvFilterStatus')?.value;
+        const transporter = document.getElementById('tfvFilterTransporter')?.value?.trim();
+        const model = document.getElementById('tfvFilterModel')?.value?.trim();
+        const query = document.getElementById('tfvFilterQuery')?.value?.trim();
+        if (code) params.set('tfvCode', code);
+        if (status) params.set('status', status);
+        if (transporter) params.set('transporterCode', transporter);
+        if (model) params.set('modelCode', model);
+        if (query) params.set('query', query);
+        const res = await fetch('/api/transport-fee-versions?' + params.toString(), { headers });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const list = await res.json();
+        if (!list.length) {
+          body.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px;" class="muted">Chưa có phiên bản cước phí vận tải.</td></tr>';
+          return;
+        }
+        const statusBadge = (s) => {
+          if (s === 'Active') return '<span class="badge badge-success">Đang áp dụng</span>';
+          if (s === 'Draft') return '<span class="badge badge-warning">Nháp</span>';
+          if (s === 'Inactive') return '<span class="badge badge-info">Ngừng áp dụng</span>';
+          return '<span class="badge badge-danger">' + s + '</span>';
+        };
+        body.innerHTML = list.map(x => `
+          <tr>
+            <td><strong>${x.tfvCode || ''}</strong></td>
+            <td>${x.description || ''}</td>
+            <td>${statusBadge(x.status)}</td>
+            <td>${x.createdDate ? new Date(x.createdDate).toLocaleDateString('vi-VN') : ''}</td>
+            <td>${x.appliedDate ? new Date(x.appliedDate).toLocaleDateString('vi-VN') : '—'}</td>
+            <td>${x.rateCount}</td>
+            <td>${Number(x.totalFeeValue).toLocaleString('vi-VN')} đ</td>
+            <td>
+              <button class="secondary" onclick="viewTransportFeeVersion(${x.id})">Chi tiết</button>
+              ${x.status === 'Draft' ? `<button onclick="applyTransportFeeVersion(${x.id})">Áp dụng</button>` : ''}
+              ${x.status === 'Active' ? `<button class="secondary" onclick="deactivateTransportFeeVersion(${x.id})">Ngừng</button>` : ''}
+              ${x.status !== 'Active' ? `<button class="secondary" onclick="deleteTransportFeeVersion(${x.id})">Xóa</button>` : ''}
+            </td>
+          </tr>`).join('');
+      } catch (e) {
+        body.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:red;">Lỗi tải dữ liệu: ' + e.message + '</td></tr>';
+      }
+    }
+
+    async function loadTransportFeeSummary() {
+      try {
+        const res = await fetch('/api/transport-fee-versions/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng phiên bản cước';
+        document.getElementById('stat1').textContent = d.totalVersions;
+        document.getElementById('statLabel2').textContent = 'Đang áp dụng / Nháp';
+        document.getElementById('stat2').textContent = d.activeCount + ' / ' + d.draftCount;
+        document.getElementById('statLabel3').textContent = 'Tổng dòng cước';
+        document.getElementById('stat3').textContent = d.totalRates;
+        document.getElementById('statLabel4').textContent = 'Tổng giá trị cước';
+        document.getElementById('stat4').textContent = Number(d.totalFeeValue).toLocaleString('vi-VN') + ' đ';
+      } catch (e) { console.error(e); }
+    }
+
+    async function viewTransportFeeVersion(id) {
+      try {
+        const res = await fetch('/api/transport-fee-versions/' + id, { headers });
+        const d = await res.json();
+        if (!res.ok) { alert(d.error || 'Lỗi tải chi tiết.'); return; }
+        const lines = d.rates.map(r =>
+          `${r.provinceCodeFrom}/${r.districtCodeFrom} → ${r.provinceCodeTo}/${r.districtCodeTo} | ${r.transporterCode} | ${r.modelCode} | ${Number(r.valFee).toLocaleString('vi-VN')} đ | ${r.expectedDays} ngày`
+        ).join('\n');
+        alert(`Phiên bản ${d.tfvCode} (${d.status})\n${d.description || ''}\n\n${d.rateCount} dòng cước:\n${lines}`);
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function applyTransportFeeVersion(id) {
+      if (!confirm('Áp dụng phiên bản cước #' + id + '?')) return;
+      try {
+        const res = await fetch('/api/transport-fee-versions/' + id + '/apply', { method: 'POST', headers, body: JSON.stringify({ appliedBy: 'Admin_HTC' }) });
+        const d = await res.json();
+        if (!res.ok) { alert(d.error || 'Lỗi áp dụng.'); return; }
+        loadTransportFeeVersions(); loadTransportFeeSummary();
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function deactivateTransportFeeVersion(id) {
+      if (!confirm('Ngừng áp dụng phiên bản cước #' + id + '?')) return;
+      try {
+        const res = await fetch('/api/transport-fee-versions/' + id + '/deactivate', { method: 'POST', headers, body: JSON.stringify({ appliedBy: 'Admin_HTC' }) });
+        const d = await res.json();
+        if (!res.ok) { alert(d.error || 'Lỗi ngừng áp dụng.'); return; }
+        loadTransportFeeVersions(); loadTransportFeeSummary();
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function deleteTransportFeeVersion(id) {
+      if (!confirm('Xóa phiên bản cước #' + id + '?')) return;
+      try {
+        const res = await fetch('/api/transport-fee-versions/' + id, { method: 'DELETE', headers });
+        if (!res.ok) { const d = await res.json(); alert(d.error || 'Lỗi xóa.'); return; }
+        loadTransportFeeVersions(); loadTransportFeeSummary();
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function submitCreateTransportFeeVersion() {
+      const msg = document.getElementById('tfvCreateMsg');
+      msg.textContent = '';
+      const rows = Array.from(document.querySelectorAll('#tfvRates > div'));
+      const items = rows.map(r => ({
+        provinceCodeFrom: r.querySelector('.tfv-pfrom').value.trim(),
+        districtCodeFrom: r.querySelector('.tfv-dfrom').value.trim(),
+        provinceCodeTo: r.querySelector('.tfv-pto').value.trim(),
+        districtCodeTo: r.querySelector('.tfv-dto').value.trim(),
+        transporterCode: r.querySelector('.tfv-transporter').value.trim(),
+        modelCode: r.querySelector('.tfv-model').value.trim(),
+        valFee: r.querySelector('.tfv-valfee').value ? Number(r.querySelector('.tfv-valfee').value) : 0,
+        expectedDays: r.querySelector('.tfv-days').value ? Number(r.querySelector('.tfv-days').value) : 0
+      })).filter(x => x.provinceCodeFrom || x.districtCodeFrom || x.provinceCodeTo || x.districtCodeTo || x.transporterCode || x.modelCode);
+      if (!items.length) { msg.style.color = 'red'; msg.textContent = 'Cần ít nhất 1 dòng cước.'; return; }
+      const payload = {
+        tfvCode: document.getElementById('tfvCode').value.trim() || null,
+        description: document.getElementById('tfvDescription').value.trim() || null,
+        createdDate: document.getElementById('tfvCreatedDate').value || null,
+        remark: document.getElementById('tfvRemark').value.trim() || null,
+        createdBy: 'Admin_HTC',
+        items
+      };
+      try {
+        const res = await fetch('/api/transport-fee-versions', { method: 'POST', headers, body: JSON.stringify(payload) });
+        const d = await res.json();
+        if (!res.ok) { msg.style.color = 'red'; msg.textContent = d.error || 'Lỗi lập phiên bản.'; return; }
+        msg.style.color = 'green'; msg.textContent = 'Đã lập phiên bản ' + d.tfvCode + ' với ' + d.rateCount + ' dòng cước.';
+        ['tfvCode','tfvDescription','tfvCreatedDate','tfvRemark'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('tfvRates').innerHTML = '';
+        loadTransportFeeVersions(); loadTransportFeeSummary();
+      } catch (e) { msg.style.color = 'red'; msg.textContent = 'Lỗi: ' + e.message; }
     }
 
     // ===== TAB: HỢP ĐỒNG MUA BÁN XE ĐẠI LÝ (DMS40_CT_DealerContract / FrmMngDC) =====

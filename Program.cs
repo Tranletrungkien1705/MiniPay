@@ -58,6 +58,7 @@ builder.Services.AddScoped<BankStatementAutoApproveService>();
 builder.Services.AddScoped<PaymentCalendarService>();
 builder.Services.AddScoped<DealerContractService>();
 builder.Services.AddScoped<StorageRearrangeService>();
+builder.Services.AddScoped<TransportFeeVersionService>();
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
     o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
@@ -8194,6 +8195,178 @@ app.MapPost("/api/storage-rearranges/{id:long}/update-detail", async (long id, U
     catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
 });
 
+// ===== Phiên bản Cước phí Vận tải (Transport Fee Version - Mst_TranspFeeVer / Mst_TranspFee) =====
+
+// 1) Lập phiên bản cước phí vận tải mới (Mst_TranspFeeVerGetCreate)
+app.MapPost("/api/transport-fee-versions", async (CreateTransportFeeVersionDto dto, TransportFeeVersionService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.CreateAsync(tc.OrgId, dto);
+        return Results.Created($"/api/transport-fee-versions/{entity.Id}", new
+        {
+            entity.Id,
+            entity.TFVCode,
+            entity.Description,
+            status = entity.Status.ToString(),
+            entity.CreatedDate,
+            entity.Remark,
+            entity.CreatedBy,
+            entity.CreatedAt,
+            rateCount = entity.Rates.Count,
+            totalFeeValue = entity.Rates.Sum(r => r.ValFee)
+        });
+    }
+    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 2) Danh sách phiên bản cước phí vận tải (Mst_TranspFeeVerGet)
+app.MapGet("/api/transport-fee-versions", async (
+    string? tfvCode,
+    string? status,
+    string? transporterCode,
+    string? modelCode,
+    string? query,
+    TransportFeeVersionService svc,
+    ITenantContext tc) =>
+{
+    var list = await svc.GetListAsync(tc.OrgId, tfvCode, status, transporterCode, modelCode, query);
+    return Results.Ok(list.Select(x => new
+    {
+        x.Id,
+        x.TFVCode,
+        x.Description,
+        status = x.Status.ToString(),
+        x.CreatedDate,
+        x.AppliedDate,
+        x.Remark,
+        x.CreatedBy,
+        x.CreatedAt,
+        rateCount = x.Rates.Count,
+        totalFeeValue = x.Rates.Sum(r => r.ValFee)
+    }));
+});
+
+// 3) Báo cáo dashboard tổng hợp phiên bản cước phí vận tải
+app.MapGet("/api/transport-fee-versions/summary", async (TransportFeeVersionService svc, ITenantContext tc) =>
+{
+    return Results.Ok(await svc.GetSummaryAsync(tc.OrgId));
+});
+
+// 4) Chi tiết 1 phiên bản cước phí kèm danh sách dòng cước (Mst_TranspFeeVerGet + Mst_TranspFee)
+app.MapGet("/api/transport-fee-versions/{id:long}", async (long id, TransportFeeVersionService svc, ITenantContext tc) =>
+{
+    var entity = await svc.GetByIdAsync(tc.OrgId, id);
+    if (entity == null) return Results.NotFound(new { error = $"Không tìm thấy phiên bản cước phí #{id}." });
+    return Results.Ok(new
+    {
+        entity.Id,
+        entity.TFVCode,
+        entity.Description,
+        status = entity.Status.ToString(),
+        entity.CreatedDate,
+        entity.AppliedDate,
+        entity.Remark,
+        entity.CreatedBy,
+        entity.CreatedAt,
+        entity.UpdatedBy,
+        entity.UpdatedAt,
+        rateCount = entity.Rates.Count,
+        totalFeeValue = entity.Rates.Sum(r => r.ValFee),
+        rates = entity.Rates.OrderBy(r => r.ProvinceCodeFrom).ThenBy(r => r.TransporterCode).ThenBy(r => r.ModelCode).Select(r => new
+        {
+            r.Id,
+            r.ProvinceCodeFrom,
+            r.ProvinceNameFrom,
+            r.DistrictCodeFrom,
+            r.DistrictNameFrom,
+            r.ProvinceCodeTo,
+            r.ProvinceNameTo,
+            r.DistrictCodeTo,
+            r.DistrictNameTo,
+            r.TransporterCode,
+            r.TransporterName,
+            r.ModelCode,
+            r.ModelName,
+            r.ValFee,
+            r.ExpectedDays,
+            r.Remark
+        })
+    });
+});
+
+// 5) Cập nhật mô tả / ghi chú phiên bản cước (chỉ khi Draft)
+app.MapPut("/api/transport-fee-versions/{id:long}", async (long id, UpdateTransportFeeVersionDto dto, TransportFeeVersionService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.UpdateAsync(tc.OrgId, id, dto);
+        return Results.Ok(new
+        {
+            entity.Id,
+            entity.TFVCode,
+            entity.Description,
+            status = entity.Status.ToString(),
+            entity.Remark,
+            entity.UpdatedBy,
+            entity.UpdatedAt
+        });
+    }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 6) Áp dụng phiên bản cước (Draft -> Active)
+app.MapPost("/api/transport-fee-versions/{id:long}/apply", async (long id, ApplyTransportFeeVersionDto? dto, TransportFeeVersionService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.ApplyAsync(tc.OrgId, id, dto?.AppliedBy);
+        return Results.Ok(new
+        {
+            entity.Id,
+            entity.TFVCode,
+            status = entity.Status.ToString(),
+            entity.AppliedDate,
+            entity.UpdatedBy
+        });
+    }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 7) Ngừng áp dụng phiên bản cước (Active -> Inactive)
+app.MapPost("/api/transport-fee-versions/{id:long}/deactivate", async (long id, ApplyTransportFeeVersionDto? dto, TransportFeeVersionService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.DeactivateAsync(tc.OrgId, id, dto?.AppliedBy);
+        return Results.Ok(new
+        {
+            entity.Id,
+            entity.TFVCode,
+            status = entity.Status.ToString(),
+            entity.UpdatedBy,
+            entity.UpdatedAt
+        });
+    }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 8) Xóa phiên bản cước phí (Mst_TranspFeeVerDel)
+app.MapDelete("/api/transport-fee-versions/{id:long}", async (long id, TransportFeeVersionService svc, ITenantContext tc) =>
+{
+    try
+    {
+        bool ok = await svc.DeleteAsync(tc.OrgId, id);
+        if (!ok) return Results.NotFound(new { error = $"Không tìm thấy phiên bản cước phí #{id}." });
+        return Results.Ok(new { deleted = true, id });
+    }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
 app.Run();
 
 record CreatePayDto(long Amount, string? OrderId, string? OrderInfo, string? BankCode);
@@ -8440,4 +8613,6 @@ record SettleFnExpDto(string? BankTxnRef, string? SettledBy);
 record CancelFnExpDto(string? Reason, string? CancelledBy);
 record UpdateFnExpDetailsRequestDto(List<UpdateFnExpDetailItemDto>? Items);
 record ImportFnExpVehiclesDto(List<FinancialExpenseItemInputDto>? Items);
+
+record ApplyTransportFeeVersionDto(string? AppliedBy);
 
