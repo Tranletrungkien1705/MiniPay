@@ -1149,6 +1149,87 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_CancelBankMDDetails_CancelBankMDId"" ON ""CancelBankMDDetails"" (""CancelBankMDId"");
                 CREATE INDEX IF NOT EXISTS ""IX_CancelBankMDDetails_OrgId_VIN"" ON ""CancelBankMDDetails"" (""OrgId"", ""VIN"");
                 CREATE INDEX IF NOT EXISTS ""IX_CancelBankMDDetails_OrgId_CancelBankMDNo"" ON ""CancelBankMDDetails"" (""OrgId"", ""CancelBankMDNo"");
+
+                CREATE TABLE IF NOT EXISTS ""InsuranceClaimDebits"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""DebitNo"" TEXT NOT NULL,
+                    ""InsNo"" TEXT NOT NULL,
+                    ""InsName"" TEXT NOT NULL,
+                    ""RONo"" TEXT NOT NULL,
+                    ""VIN"" TEXT NOT NULL,
+                    ""PlateNo"" TEXT NOT NULL,
+                    ""ModelCode"" TEXT NOT NULL,
+                    ""ModelName"" TEXT NULL,
+                    ""CustomerName"" TEXT NULL,
+                    ""CustomerPhone"" TEXT NULL,
+                    ""DebitDate"" TEXT NOT NULL,
+                    ""DueDate"" TEXT NOT NULL,
+                    ""DebitAmount"" INTEGER NOT NULL,
+                    ""PaidAmount"" INTEGER NOT NULL,
+                    ""RemainAmount"" INTEGER NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""Note"" TEXT NULL,
+                    ""CreatedBy"" TEXT NULL,
+                    ""CreatedAt"" TEXT NOT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_InsuranceClaimDebits_OrgId_DebitNo"" ON ""InsuranceClaimDebits"" (""OrgId"", ""DebitNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_InsuranceClaimDebits_OrgId_InsNo"" ON ""InsuranceClaimDebits"" (""OrgId"", ""InsNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_InsuranceClaimDebits_OrgId_RONo"" ON ""InsuranceClaimDebits"" (""OrgId"", ""RONo"");
+                CREATE INDEX IF NOT EXISTS ""IX_InsuranceClaimDebits_OrgId_VIN"" ON ""InsuranceClaimDebits"" (""OrgId"", ""VIN"");
+
+                CREATE TABLE IF NOT EXISTS ""InsurancePayments"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""PaymentNo"" TEXT NOT NULL,
+                    ""InsNo"" TEXT NOT NULL,
+                    ""InsName"" TEXT NOT NULL,
+                    ""PayDate"" TEXT NOT NULL,
+                    ""PayPersonName"" TEXT NOT NULL,
+                    ""PayPersonIDCardNo"" TEXT NULL,
+                    ""PayPersonPhone"" TEXT NULL,
+                    ""PaymentAmount"" INTEGER NOT NULL,
+                    ""PaymentMethod"" INTEGER NOT NULL,
+                    ""BankCode"" TEXT NULL,
+                    ""BankName"" TEXT NULL,
+                    ""BankAccountNo"" TEXT NULL,
+                    ""BankTxnRef"" TEXT NULL,
+                    ""TotalAllocated"" INTEGER NOT NULL,
+                    ""UnallocatedAmount"" INTEGER NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""Note"" TEXT NULL,
+                    ""CreatedBy"" TEXT NULL,
+                    ""CreatedAt"" TEXT NOT NULL,
+                    ""ConfirmedBy"" TEXT NULL,
+                    ""ConfirmedAt"" TEXT NULL,
+                    ""SettledBy"" TEXT NULL,
+                    ""SettledAt"" TEXT NULL,
+                    ""CancelledBy"" TEXT NULL,
+                    ""CancelledAt"" TEXT NULL,
+                    ""CancelReason"" TEXT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_InsurancePayments_OrgId_PaymentNo"" ON ""InsurancePayments"" (""OrgId"", ""PaymentNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_InsurancePayments_OrgId_InsNo"" ON ""InsurancePayments"" (""OrgId"", ""InsNo"");
+
+                CREATE TABLE IF NOT EXISTS ""InsurancePaymentDetails"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""PaymentId"" INTEGER NOT NULL,
+                    ""DebitId"" INTEGER NOT NULL,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""DebitNo"" TEXT NOT NULL,
+                    ""RONo"" TEXT NOT NULL,
+                    ""VIN"" TEXT NOT NULL,
+                    ""PlateNo"" TEXT NOT NULL,
+                    ""DebitAmount"" INTEGER NOT NULL,
+                    ""DebitAmountBefore"" INTEGER NOT NULL,
+                    ""PaymentDetailAmount"" INTEGER NOT NULL,
+                    ""DebitAmountLeft"" INTEGER NOT NULL,
+                    ""Remark"" TEXT NULL,
+                    CONSTRAINT ""FK_InsurancePaymentDetails_InsurancePayments_PaymentId"" FOREIGN KEY (""PaymentId"") REFERENCES ""InsurancePayments"" (""Id"") ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_InsurancePaymentDetails_PaymentId"" ON ""InsurancePaymentDetails"" (""PaymentId"");
+                CREATE INDEX IF NOT EXISTS ""IX_InsurancePaymentDetails_DebitId"" ON ""InsurancePaymentDetails"" (""DebitId"");
+                CREATE INDEX IF NOT EXISTS ""IX_InsurancePaymentDetails_OrgId_RONo"" ON ""InsurancePaymentDetails"" (""OrgId"", ""RONo"");
             ");
         }
         else if (db.Database.IsNpgsql())
@@ -2276,6 +2357,86 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_CancelBankMDDetails_CancelBankMDId"" ON ""CancelBankMDDetails"" (""CancelBankMDId"");
                 CREATE INDEX IF NOT EXISTS ""IX_CancelBankMDDetails_OrgId_VIN"" ON ""CancelBankMDDetails"" (""OrgId"", ""VIN"");
                 CREATE INDEX IF NOT EXISTS ""IX_CancelBankMDDetails_OrgId_CancelBankMDNo"" ON ""CancelBankMDDetails"" (""OrgId"", ""CancelBankMDNo"");
+
+                CREATE TABLE IF NOT EXISTS ""InsuranceClaimDebits"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""OrgId"" uuid NOT NULL,
+                    ""DebitNo"" text NOT NULL,
+                    ""InsNo"" text NOT NULL,
+                    ""InsName"" text NOT NULL,
+                    ""RONo"" text NOT NULL,
+                    ""VIN"" text NOT NULL,
+                    ""PlateNo"" text NOT NULL,
+                    ""ModelCode"" text NOT NULL,
+                    ""ModelName"" text NULL,
+                    ""CustomerName"" text NULL,
+                    ""CustomerPhone"" text NULL,
+                    ""DebitDate"" timestamp without time zone NOT NULL,
+                    ""DueDate"" timestamp without time zone NOT NULL,
+                    ""DebitAmount"" bigint NOT NULL,
+                    ""PaidAmount"" bigint NOT NULL,
+                    ""RemainAmount"" bigint NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""Note"" text NULL,
+                    ""CreatedBy"" text NULL,
+                    ""CreatedAt"" timestamp without time zone NOT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_InsuranceClaimDebits_OrgId_DebitNo"" ON ""InsuranceClaimDebits"" (""OrgId"", ""DebitNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_InsuranceClaimDebits_OrgId_InsNo"" ON ""InsuranceClaimDebits"" (""OrgId"", ""InsNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_InsuranceClaimDebits_OrgId_RONo"" ON ""InsuranceClaimDebits"" (""OrgId"", ""RONo"");
+                CREATE INDEX IF NOT EXISTS ""IX_InsuranceClaimDebits_OrgId_VIN"" ON ""InsuranceClaimDebits"" (""OrgId"", ""VIN"");
+
+                CREATE TABLE IF NOT EXISTS ""InsurancePayments"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""OrgId"" uuid NOT NULL,
+                    ""PaymentNo"" text NOT NULL,
+                    ""InsNo"" text NOT NULL,
+                    ""InsName"" text NOT NULL,
+                    ""PayDate"" timestamp without time zone NOT NULL,
+                    ""PayPersonName"" text NOT NULL,
+                    ""PayPersonIDCardNo"" text NULL,
+                    ""PayPersonPhone"" text NULL,
+                    ""PaymentAmount"" bigint NOT NULL,
+                    ""PaymentMethod"" integer NOT NULL,
+                    ""BankCode"" text NULL,
+                    ""BankName"" text NULL,
+                    ""BankAccountNo"" text NULL,
+                    ""BankTxnRef"" text NULL,
+                    ""TotalAllocated"" bigint NOT NULL,
+                    ""UnallocatedAmount"" bigint NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""Note"" text NULL,
+                    ""CreatedBy"" text NULL,
+                    ""CreatedAt"" timestamp without time zone NOT NULL,
+                    ""ConfirmedBy"" text NULL,
+                    ""ConfirmedAt"" timestamp without time zone NULL,
+                    ""SettledBy"" text NULL,
+                    ""SettledAt"" timestamp without time zone NULL,
+                    ""CancelledBy"" text NULL,
+                    ""CancelledAt"" timestamp without time zone NULL,
+                    ""CancelReason"" text NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_InsurancePayments_OrgId_PaymentNo"" ON ""InsurancePayments"" (""OrgId"", ""PaymentNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_InsurancePayments_OrgId_InsNo"" ON ""InsurancePayments"" (""OrgId"", ""InsNo"");
+
+                CREATE TABLE IF NOT EXISTS ""InsurancePaymentDetails"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""PaymentId"" bigint NOT NULL REFERENCES ""InsurancePayments"" (""Id"") ON DELETE CASCADE,
+                    ""DebitId"" bigint NOT NULL,
+                    ""OrgId"" uuid NOT NULL,
+                    ""DebitNo"" text NOT NULL,
+                    ""RONo"" text NOT NULL,
+                    ""VIN"" text NOT NULL,
+                    ""PlateNo"" text NOT NULL,
+                    ""DebitAmount"" bigint NOT NULL,
+                    ""DebitAmountBefore"" bigint NOT NULL,
+                    ""PaymentDetailAmount"" bigint NOT NULL,
+                    ""DebitAmountLeft"" bigint NOT NULL,
+                    ""Remark"" text NULL
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_InsurancePaymentDetails_PaymentId"" ON ""InsurancePaymentDetails"" (""PaymentId"");
+                CREATE INDEX IF NOT EXISTS ""IX_InsurancePaymentDetails_DebitId"" ON ""InsurancePaymentDetails"" (""DebitId"");
+                CREATE INDEX IF NOT EXISTS ""IX_InsurancePaymentDetails_OrgId_RONo"" ON ""InsurancePaymentDetails"" (""OrgId"", ""RONo"");
             ");
         }
 
@@ -8633,6 +8794,445 @@ public static class Seeder
                     GuaranteeAmount = 1_450_000_000,
                     Status = CancelBankMDDetailStatus.Cancelled,
                     Remark = "Từ chối do xe đã vận chuyển đi"
+                }
+            );
+
+            await db.SaveChangesAsync();
+        }
+
+        // ===== 19. Seed Dữ liệu mẫu Thu Tiền Thanh Toán & Quyết Toán Bồi Thường Bảo Hiểm Xe Ô Tô (Insurance Claim Payment) =====
+        if (!await db.InsuranceClaimDebits.AnyAsync())
+        {
+            var d1 = new InsuranceClaimDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-INS-202505-001",
+                InsNo = "INS-PTI",
+                InsName = "Tổng Công ty Cổ phần Bảo hiểm Bưu điện (PTI)",
+                RONo = "RO-2025-0501",
+                VIN = "KMHCT81EPHU990101",
+                PlateNo = "30H-889.99",
+                ModelCode = "SANTAFE",
+                ModelName = "Hyundai Santa Fe 2.5 HTRAC",
+                CustomerName = "Trần Đình Trọng",
+                CustomerPhone = "0912345678",
+                DebitDate = DateTime.Today.AddDays(-20),
+                DueDate = DateTime.Today.AddDays(10),
+                DebitAmount = 28_500_000,
+                PaidAmount = 28_500_000,
+                RemainAmount = 0,
+                Status = InsuranceDebitStatus.Settled,
+                Note = "Sơn sấy cản trước và thay cụm đèn pha LED bên lái sau va quẹt",
+                CreatedBy = "VuVanChien_CVDV",
+                CreatedAt = DateTime.Today.AddDays(-20)
+            };
+
+            var d2 = new InsuranceClaimDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-INS-202505-002",
+                InsNo = "INS-PTI",
+                InsName = "Tổng Công ty Cổ phần Bảo hiểm Bưu điện (PTI)",
+                RONo = "RO-2025-0502",
+                VIN = "KMHCT81EPHU990102",
+                PlateNo = "30G-668.88",
+                ModelCode = "TUCSON",
+                ModelName = "Hyundai Tucson 2.0 AT",
+                CustomerName = "Nguyễn Thị Mai",
+                CustomerPhone = "0987654321",
+                DebitDate = DateTime.Today.AddDays(-18),
+                DueDate = DateTime.Today.AddDays(12),
+                DebitAmount = 16_200_000,
+                PaidAmount = 16_200_000,
+                RemainAmount = 0,
+                Status = InsuranceDebitStatus.Settled,
+                Note = "Gò nắn tai xe bên phụ và sơn phủ bóng 2 lớp",
+                CreatedBy = "VuVanChien_CVDV",
+                CreatedAt = DateTime.Today.AddDays(-18)
+            };
+
+            var d3 = new InsuranceClaimDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-INS-202505-003",
+                InsNo = "INS-PTI",
+                InsName = "Tổng Công ty Cổ phần Bảo hiểm Bưu điện (PTI)",
+                RONo = "RO-2025-0503",
+                VIN = "KMHCT81EPHU990103",
+                PlateNo = "29A-995.12",
+                ModelCode = "CRETA",
+                ModelName = "Hyundai Creta 1.5 Cao Cấp",
+                CustomerName = "Lê Hoàng Long",
+                CustomerPhone = "0903112233",
+                DebitDate = DateTime.Today.AddDays(-15),
+                DueDate = DateTime.Today.AddDays(15),
+                DebitAmount = 19_800_000,
+                PaidAmount = 10_300_000,
+                RemainAmount = 9_500_000,
+                Status = InsuranceDebitStatus.PartiallyPaid,
+                Note = "Thay kính chắn gió trước chính hãng và sơn sườn xe",
+                CreatedBy = "NguyenVanHieu_CVDV",
+                CreatedAt = DateTime.Today.AddDays(-15)
+            };
+
+            var d4 = new InsuranceClaimDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-INS-202505-004",
+                InsNo = "INS-PTI",
+                InsName = "Tổng Công ty Cổ phần Bảo hiểm Bưu điện (PTI)",
+                RONo = "RO-2025-0504",
+                VIN = "KMHCT81EPHU990104",
+                PlateNo = "30F-334.56",
+                ModelCode = "ACCENT",
+                ModelName = "Hyundai Accent 1.5 AT Đặc Biệt",
+                CustomerName = "Đặng Quang Huy",
+                CustomerPhone = "0945678901",
+                DebitDate = DateTime.Today.AddDays(-5),
+                DueDate = DateTime.Today.AddDays(25),
+                DebitAmount = 7_500_000,
+                PaidAmount = 0,
+                RemainAmount = 7_500_000,
+                Status = InsuranceDebitStatus.Pending,
+                Note = "Sơn phục hồi trầy xước nắp capo và cản sau",
+                CreatedBy = "NguyenVanHieu_CVDV",
+                CreatedAt = DateTime.Today.AddDays(-5)
+            };
+
+            var d5 = new InsuranceClaimDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-INS-202505-005",
+                InsNo = "INS-BV",
+                InsName = "Tổng Công ty Bảo hiểm Bảo Việt",
+                RONo = "RO-2025-0505",
+                VIN = "KMHCT81EPHU990201",
+                PlateNo = "30E-778.90",
+                ModelCode = "SANTAFE",
+                ModelName = "Hyundai Santa Fe 2.5 HTRAC",
+                CustomerName = "Phạm Hồng Quân",
+                CustomerPhone = "0934567890",
+                DebitDate = DateTime.Today.AddDays(-12),
+                DueDate = DateTime.Today.AddDays(18),
+                DebitAmount = 34_000_000,
+                PaidAmount = 34_000_000,
+                RemainAmount = 0,
+                Status = InsuranceDebitStatus.Settled,
+                Note = "Thay thế thước lái điện tử và bảo dưỡng phục hồi giảm xóc trước",
+                CreatedBy = "VuVanChien_CVDV",
+                CreatedAt = DateTime.Today.AddDays(-12)
+            };
+
+            var d6 = new InsuranceClaimDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-INS-202505-006",
+                InsNo = "INS-BV",
+                InsName = "Tổng Công ty Bảo hiểm Bảo Việt",
+                RONo = "RO-2025-0506",
+                VIN = "KMHCT81EPHU990202",
+                PlateNo = "30K-112.33",
+                ModelCode = "PALISADE",
+                ModelName = "Hyundai Palisade 2.2D Prestige",
+                CustomerName = "Hoàng Thu Trang",
+                CustomerPhone = "0967890123",
+                DebitDate = DateTime.Today.AddDays(-3),
+                DueDate = DateTime.Today.AddDays(27),
+                DebitAmount = 42_500_000,
+                PaidAmount = 0,
+                RemainAmount = 42_500_000,
+                Status = InsuranceDebitStatus.Pending,
+                Note = "Phục hồi cánh cửa sau bên phụ và sơn phủ bóng cốp điện",
+                CreatedBy = "NguyenVanHieu_CVDV",
+                CreatedAt = DateTime.Today.AddDays(-3)
+            };
+
+            var d7 = new InsuranceClaimDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-INS-202505-007",
+                InsNo = "INS-PJICO",
+                InsName = "Tổng Công ty Cổ phần Bảo hiểm Petrolimex (PJICO)",
+                RONo = "RO-2025-0507",
+                VIN = "KMHCT81EPHU990301",
+                PlateNo = "29B-445.67",
+                ModelCode = "CRETA",
+                ModelName = "Hyundai Creta 1.5 Cao Cấp",
+                CustomerName = "Đỗ Đức Toàn",
+                CustomerPhone = "0978901234",
+                DebitDate = DateTime.Today.AddDays(-10),
+                DueDate = DateTime.Today.AddDays(20),
+                DebitAmount = 21_000_000,
+                PaidAmount = 21_000_000,
+                RemainAmount = 0,
+                Status = InsuranceDebitStatus.Settled,
+                Note = "Sửa chữa hệ thống giải nhiệt két nước và cản trước",
+                CreatedBy = "VuVanChien_CVDV",
+                CreatedAt = DateTime.Today.AddDays(-10)
+            };
+
+            var d8 = new InsuranceClaimDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-INS-202505-008",
+                InsNo = "INS-PJICO",
+                InsName = "Tổng Công ty Cổ phần Bảo hiểm Petrolimex (PJICO)",
+                RONo = "RO-2025-0508",
+                VIN = "KMHCT81EPHU990302",
+                PlateNo = "30A-556.78",
+                ModelCode = "ELANTRA",
+                ModelName = "Hyundai Elantra N-Line 1.6 Turbo",
+                CustomerName = "Bùi Anh Tuấn",
+                CustomerPhone = "0923456789",
+                DebitDate = DateTime.Today.AddDays(-7),
+                DueDate = DateTime.Today.AddDays(23),
+                DebitAmount = 12_800_000,
+                PaidAmount = 6_000_000,
+                RemainAmount = 6_800_000,
+                Status = InsuranceDebitStatus.PartiallyPaid,
+                Note = "Sơn sấy hông trái và cửa trước",
+                CreatedBy = "NguyenVanHieu_CVDV",
+                CreatedAt = DateTime.Today.AddDays(-7)
+            };
+
+            var d9 = new InsuranceClaimDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-INS-202505-009",
+                InsNo = "INS-PVI",
+                InsName = "Tổng Công ty Bảo hiểm PVI (Dầu khí)",
+                RONo = "RO-2025-0509",
+                VIN = "KMHCT81EPHU990401",
+                PlateNo = "30H-223.45",
+                ModelCode = "TUCSON",
+                ModelName = "Hyundai Tucson 2.0 AT",
+                CustomerName = "Ngô Minh Khang",
+                CustomerPhone = "0918765432",
+                DebitDate = DateTime.Today.AddDays(-2),
+                DueDate = DateTime.Today.AddDays(28),
+                DebitAmount = 38_000_000,
+                PaidAmount = 0,
+                RemainAmount = 38_000_000,
+                Status = InsuranceDebitStatus.Pending,
+                Note = "Bảo dưỡng đại tu gầm và sơn ba-đờ-sốc sau",
+                CreatedBy = "VuVanChien_CVDV",
+                CreatedAt = DateTime.Today.AddDays(-2)
+            };
+
+            var d10 = new InsuranceClaimDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-INS-202505-010",
+                InsNo = "INS-MIC",
+                InsName = "Tổng Công ty Cổ phần Bảo hiểm Quân đội (MIC)",
+                RONo = "RO-2025-0510",
+                VIN = "KMHCT81EPHU990501",
+                PlateNo = "29D-889.01",
+                ModelCode = "ACCENT",
+                ModelName = "Hyundai Accent 1.5 AT Đặc Biệt",
+                CustomerName = "Vũ Đình Nam",
+                CustomerPhone = "0909876543",
+                DebitDate = DateTime.Today.AddDays(-1),
+                DueDate = DateTime.Today.AddDays(29),
+                DebitAmount = 9_600_000,
+                PaidAmount = 0,
+                RemainAmount = 9_600_000,
+                Status = InsuranceDebitStatus.Pending,
+                Note = "Thay cụm gương chiếu hậu có camera 360 và sơn cánh cửa",
+                CreatedBy = "NguyenVanHieu_CVDV",
+                CreatedAt = DateTime.Today.AddDays(-1)
+            };
+
+            db.InsuranceClaimDebits.AddRange(d1, d2, d3, d4, d5, d6, d7, d8, d9, d10);
+            await db.SaveChangesAsync();
+
+            // Phiếu thu 1: PTI thanh toán gộp 55,000,000 VND (chuyển khoản VietinBank)
+            var p1 = new InsurancePayment
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PaymentNo = "PM-INS-202505-001",
+                InsNo = "INS-PTI",
+                InsName = "Tổng Công ty Cổ phần Bảo hiểm Bưu điện (PTI)",
+                PayDate = DateTime.Today.AddDays(-8),
+                PayPersonName = "Nguyễn Văn Tuấn (Giám định viên PTI)",
+                PayPersonIDCardNo = "001089012345",
+                PayPersonPhone = "0911223344",
+                PaymentAmount = 55_000_000,
+                PaymentMethod = InsurancePaymentMethod.BankTransfer,
+                BankCode = "CTG",
+                BankName = "VietinBank - CN Đống Đa",
+                BankAccountNo = "113000088999",
+                BankTxnRef = "FT250508001882",
+                TotalAllocated = 55_000_000,
+                UnallocatedAmount = 0,
+                Status = InsurancePaymentStatus.Settled,
+                Note = "PTI thanh toán bồi thường đợt 1 tháng 05/2025 cho 3 xe",
+                CreatedBy = "NguyenThiThu_KeToanThuNgan",
+                ConfirmedBy = "TranDinhTuan_KeToanTruong",
+                ConfirmedAt = DateTime.Today.AddDays(-8),
+                SettledBy = "TranDinhTuan_KeToanTruong",
+                SettledAt = DateTime.Today.AddDays(-8),
+                CreatedAt = DateTime.Today.AddDays(-8)
+            };
+            db.InsurancePayments.Add(p1);
+            await db.SaveChangesAsync();
+
+            db.InsurancePaymentDetails.AddRange(
+                new InsurancePaymentDetail
+                {
+                    PaymentId = p1.Id,
+                    DebitId = d1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DebitNo = d1.DebitNo,
+                    RONo = d1.RONo,
+                    VIN = d1.VIN,
+                    PlateNo = d1.PlateNo,
+                    DebitAmount = 28_500_000,
+                    DebitAmountBefore = 28_500_000,
+                    PaymentDetailAmount = 28_500_000,
+                    DebitAmountLeft = 0,
+                    Remark = "Tất toán toàn bộ lệnh RO"
+                },
+                new InsurancePaymentDetail
+                {
+                    PaymentId = p1.Id,
+                    DebitId = d2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DebitNo = d2.DebitNo,
+                    RONo = d2.RONo,
+                    VIN = d2.VIN,
+                    PlateNo = d2.PlateNo,
+                    DebitAmount = 16_200_000,
+                    DebitAmountBefore = 16_200_000,
+                    PaymentDetailAmount = 16_200_000,
+                    DebitAmountLeft = 0,
+                    Remark = "Tất toán toàn bộ lệnh RO"
+                },
+                new InsurancePaymentDetail
+                {
+                    PaymentId = p1.Id,
+                    DebitId = d3.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DebitNo = d3.DebitNo,
+                    RONo = d3.RONo,
+                    VIN = d3.VIN,
+                    PlateNo = d3.PlateNo,
+                    DebitAmount = 19_800_000,
+                    DebitAmountBefore = 19_800_000,
+                    PaymentDetailAmount = 10_300_000,
+                    DebitAmountLeft = 9_500_000,
+                    Remark = "Thanh toán một phần nợ RO"
+                }
+            );
+
+            // Phiếu thu 2: Bảo Việt thanh toán 34,000,000 VND qua Cổng VNPay QR
+            var p2 = new InsurancePayment
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PaymentNo = "PM-INS-202505-002",
+                InsNo = "INS-BV",
+                InsName = "Tổng Công ty Bảo hiểm Bảo Việt",
+                PayDate = DateTime.Today.AddDays(-4),
+                PayPersonName = "Lê Thị Hồng (Kế toán Bồi thường Bảo Việt)",
+                PayPersonIDCardNo = "001192034567",
+                PayPersonPhone = "0988776655",
+                PaymentAmount = 34_000_000,
+                PaymentMethod = InsurancePaymentMethod.VnPay,
+                BankCode = "VCB",
+                BankName = "Vietcombank",
+                BankAccountNo = "0011004123456",
+                BankTxnRef = "VNPAY-QR-20250512-8871",
+                TotalAllocated = 34_000_000,
+                UnallocatedAmount = 0,
+                Status = InsurancePaymentStatus.Settled,
+                Note = "Bảo Việt chuyển khoản quét mã QR VNPay thanh toán lệnh RO-2025-0505",
+                CreatedBy = "NguyenThiThu_KeToanThuNgan",
+                ConfirmedBy = "TranDinhTuan_KeToanTruong",
+                ConfirmedAt = DateTime.Today.AddDays(-4),
+                SettledBy = "TranDinhTuan_KeToanTruong",
+                SettledAt = DateTime.Today.AddDays(-4),
+                CreatedAt = DateTime.Today.AddDays(-4)
+            };
+            db.InsurancePayments.Add(p2);
+            await db.SaveChangesAsync();
+
+            db.InsurancePaymentDetails.Add(
+                new InsurancePaymentDetail
+                {
+                    PaymentId = p2.Id,
+                    DebitId = d5.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DebitNo = d5.DebitNo,
+                    RONo = d5.RONo,
+                    VIN = d5.VIN,
+                    PlateNo = d5.PlateNo,
+                    DebitAmount = 34_000_000,
+                    DebitAmountBefore = 34_000_000,
+                    PaymentDetailAmount = 34_000_000,
+                    DebitAmountLeft = 0,
+                    Remark = "Tất toán toàn bộ lệnh RO qua cổng VNPay"
+                }
+            );
+
+            // Phiếu thu 3: PJICO thanh toán 27,000,000 VND (chuyển khoản MBBank)
+            var p3 = new InsurancePayment
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PaymentNo = "PM-INS-202505-003",
+                InsNo = "INS-PJICO",
+                InsName = "Tổng Công ty Cổ phần Bảo hiểm Petrolimex (PJICO)",
+                PayDate = DateTime.Today.AddDays(-1),
+                PayPersonName = "Hoàng Trọng Nghĩa (Giám định viên PJICO)",
+                PayPersonIDCardNo = "001095067890",
+                PayPersonPhone = "0933445566",
+                PaymentAmount = 27_000_000,
+                PaymentMethod = InsurancePaymentMethod.BankTransfer,
+                BankCode = "MBB",
+                BankName = "MBBank - CN Sở Giao Dịch",
+                BankAccountNo = "0880112345678",
+                BankTxnRef = "MB-TRANS-9908123",
+                TotalAllocated = 27_000_000,
+                UnallocatedAmount = 0,
+                Status = InsurancePaymentStatus.Confirmed,
+                Note = "PJICO chuyển tiền thanh toán theo thỏa thuận bồi thường xe Hyundai",
+                CreatedBy = "NguyenThiThu_KeToanThuNgan",
+                ConfirmedBy = "TranDinhTuan_KeToanTruong",
+                ConfirmedAt = DateTime.Today.AddDays(-1),
+                CreatedAt = DateTime.Today.AddDays(-1)
+            };
+            db.InsurancePayments.Add(p3);
+            await db.SaveChangesAsync();
+
+            db.InsurancePaymentDetails.AddRange(
+                new InsurancePaymentDetail
+                {
+                    PaymentId = p3.Id,
+                    DebitId = d7.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DebitNo = d7.DebitNo,
+                    RONo = d7.RONo,
+                    VIN = d7.VIN,
+                    PlateNo = d7.PlateNo,
+                    DebitAmount = 21_000_000,
+                    DebitAmountBefore = 21_000_000,
+                    PaymentDetailAmount = 21_000_000,
+                    DebitAmountLeft = 0,
+                    Remark = "Tất toán toàn bộ lệnh RO"
+                },
+                new InsurancePaymentDetail
+                {
+                    PaymentId = p3.Id,
+                    DebitId = d8.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DebitNo = d8.DebitNo,
+                    RONo = d8.RONo,
+                    VIN = d8.VIN,
+                    PlateNo = d8.PlateNo,
+                    DebitAmount = 12_800_000,
+                    DebitAmountBefore = 12_800_000,
+                    PaymentDetailAmount = 6_000_000,
+                    DebitAmountLeft = 6_800_000,
+                    Remark = "Thanh toán một phần nợ RO"
                 }
             );
 

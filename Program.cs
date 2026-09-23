@@ -45,6 +45,7 @@ builder.Services.AddScoped<PaymentGPSService>();
 builder.Services.AddScoped<FinancialExpenseService>();
 builder.Services.AddScoped<BankingDisbursementService>();
 builder.Services.AddScoped<CancelBankMDService>();
+builder.Services.AddScoped<InsurancePaymentService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -5967,6 +5968,197 @@ app.MapGet("/api/cancel-bank-md/candidates", (CancelBankMDService cancelService,
 {
     var candidates = cancelService.GetCandidateContracts(dealerCode);
     return Results.Ok(candidates);
+});
+
+// ===== Quản lý Thu Tiền Thanh Toán & Quyết Toán Bồi Thường Bảo Hiểm Xe Ô Tô (Insurance Claim Payment & Settlement - BizCarSv.Debit.cs / FrmInsPaymentCreate) =====
+
+// 1) Tạo hồ sơ công nợ bồi thường bảo hiểm mới theo Lệnh sửa chữa RO
+app.MapPost("/api/insurance-payments/debits", async (CreateInsuranceDebitDto dto, InsurancePaymentService insService, ITenantContext tc) =>
+{
+    try
+    {
+        var debit = await insService.CreateDebitAsync(tc.OrgId, dto);
+        return Results.Created($"/api/insurance-payments/debits/{debit.Id}", debit);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 2) Tìm kiếm danh sách công nợ bồi thường bảo hiểm
+app.MapGet("/api/insurance-payments/debits", async (
+    string? insNo,
+    string? status,
+    string? keyword,
+    DateTime? fromDate,
+    DateTime? toDate,
+    InsurancePaymentService insService,
+    ITenantContext tc) =>
+{
+    InsuranceDebitStatus? st = null;
+    if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<InsuranceDebitStatus>(status, true, out var parsedSt))
+        st = parsedSt;
+
+    var list = await insService.GetDebitsAsync(tc.OrgId, insNo, st, keyword, fromDate, toDate);
+    return Results.Ok(list);
+});
+
+// 3) Chi tiết 1 hồ sơ công nợ bồi thường bảo hiểm
+app.MapGet("/api/insurance-payments/debits/{id:long}", async (long id, InsurancePaymentService insService, ITenantContext tc) =>
+{
+    var debit = await insService.GetDebitByIdAsync(id, tc.OrgId);
+    if (debit == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ nợ #{id}." });
+    return Results.Ok(debit);
+});
+
+// 4) Lấy danh sách hồ sơ còn nợ của một công ty bảo hiểm (để phân bổ thanh toán)
+app.MapGet("/api/insurance-payments/debits/eligible/{insNo}", async (string insNo, InsurancePaymentService insService, ITenantContext tc) =>
+{
+    var list = await insService.GetEligibleDebitsAsync(tc.OrgId, insNo);
+    return Results.Ok(list);
+});
+
+// 5) Lập phiếu thu thanh toán bảo hiểm mới (Tự động phân bổ FIFO trừ nợ RO)
+app.MapPost("/api/insurance-payments", async (CreateInsurancePaymentDto dto, InsurancePaymentService insService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await insService.CreatePaymentAsync(tc.OrgId, dto);
+        return Results.Created($"/api/insurance-payments/{payment.Id}", payment);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Tìm kiếm danh sách phiếu thu thanh toán bảo hiểm
+app.MapGet("/api/insurance-payments", async (
+    string? insNo,
+    string? status,
+    string? method,
+    DateTime? fromDate,
+    DateTime? toDate,
+    InsurancePaymentService insService,
+    ITenantContext tc) =>
+{
+    InsurancePaymentStatus? st = null;
+    if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<InsurancePaymentStatus>(status, true, out var parsedSt))
+        st = parsedSt;
+
+    InsurancePaymentMethod? m = null;
+    if (!string.IsNullOrWhiteSpace(method) && Enum.TryParse<InsurancePaymentMethod>(method, true, out var parsedM))
+        m = parsedM;
+
+    var list = await insService.GetPaymentsAsync(tc.OrgId, insNo, st, m, fromDate, toDate);
+    return Results.Ok(list);
+});
+
+// 7) Chi tiết 1 phiếu thu thanh toán bảo hiểm kèm danh sách phân bổ RO
+app.MapGet("/api/insurance-payments/{id:long}", async (long id, InsurancePaymentService insService, ITenantContext tc) =>
+{
+    var payment = await insService.GetPaymentByIdAsync(id, tc.OrgId);
+    if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy phiếu thu #{id}." });
+    return Results.Ok(payment);
+});
+
+// 8) Kế toán xác nhận phiếu thu thanh toán bảo hiểm (Draft -> Confirmed)
+app.MapPost("/api/insurance-payments/{id:long}/confirm", async (long id, ConfirmInsurancePaymentDto? dto, InsurancePaymentService insService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await insService.ConfirmPaymentAsync(id, tc.OrgId, dto);
+        return Results.Ok(new
+        {
+            message = $"Đã xác nhận phiếu thu #{payment.PaymentNo} thành công.",
+            payment.Id,
+            payment.PaymentNo,
+            Status = payment.Status.ToString(),
+            payment.ConfirmedBy,
+            payment.ConfirmedAt
+        });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 9) Hoàn tất quyết toán công nợ và chốt sổ kế toán (Confirmed -> Settled)
+app.MapPost("/api/insurance-payments/{id:long}/settle", async (long id, SettleInsurancePaymentDto? dto, InsurancePaymentService insService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await insService.SettlePaymentAsync(id, tc.OrgId, dto);
+        return Results.Ok(new
+        {
+            message = $"Đã quyết toán hoàn tất phiếu thu #{payment.PaymentNo}.",
+            payment.Id,
+            payment.PaymentNo,
+            Status = payment.Status.ToString(),
+            payment.SettledBy,
+            payment.SettledAt
+        });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 10) Hủy phiếu thu thanh toán bảo hiểm và HOÀN TÁC (ROLLBACK) nợ trên các hồ sơ RO
+app.MapPost("/api/insurance-payments/{id:long}/cancel", async (long id, CancelInsurancePaymentDto dto, InsurancePaymentService insService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await insService.CancelPaymentAsync(id, tc.OrgId, dto);
+        return Results.Ok(new
+        {
+            message = $"Đã hủy phiếu thu #{payment.PaymentNo} và hoàn tác nợ trên các lệnh RO thành công.",
+            payment.Id,
+            payment.PaymentNo,
+            Status = payment.Status.ToString(),
+            payment.CancelledBy,
+            payment.CancelledAt,
+            payment.CancelReason
+        });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 11) Sinh dữ liệu mẫu in Giấy Báo Thu Tiền Quyết Toán Bảo Hiểm (Advice)
+app.MapGet("/api/insurance-payments/{id:long}/advice", async (long id, InsurancePaymentService insService, ITenantContext tc) =>
+{
+    var advice = await insService.GenerateAdviceAsync(id, tc.OrgId);
+    if (advice == null) return Results.NotFound(new { error = $"Không tìm thấy phiếu thu #{id}." });
+    return Results.Ok(advice);
+});
+
+// 12) Dashboard KPI tổng hợp công nợ và quyết toán bảo hiểm
+app.MapGet("/api/insurance-payments/summary", async (InsurancePaymentService insService, ITenantContext tc) =>
+{
+    var summary = await insService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
 });
 
 app.Run();

@@ -1938,3 +1938,269 @@ public sealed class CandidateContractForCancelBankMDDto
     public int VehicleCount { get; set; }
     public List<CancelBankMDItemInputDto> CandidateVehicles { get; set; } = [];
 }
+
+// ==========================================
+// Nghiệp vụ Quản lý Thu Tiền Thanh Toán & Quyết Toán Bồi Thường Bảo Hiểm Xe Ô Tô (Vehicle Insurance Claim Payment & Settlement)
+// Tương ứng BizCarSv.Debit.cs (SerInsuranceDebitSearch, SerInsuranceDebitDetailGet, SerPaymentCreate, SerPaymentPaperRpt)
+// và FrmInsPaymentCreate trong TERP.HTCServiceClient/Views/Debit.
+// ==========================================
+
+/// <summary>Trạng thái khoản công nợ bồi thường bảo hiểm xe — tương ứng Ser_InsuranceDebit trong BizCarSv.</summary>
+public enum InsuranceDebitStatus
+{
+    Pending = 0,        // Chờ thanh toán (chưa thanh toán đồng nào)
+    PartiallyPaid = 1,  // Đã thanh toán một phần (RemainAmount > 0)
+    Settled = 2,        // Đã tất toán hoàn tất 100% (RemainAmount == 0)
+    Cancelled = 3       // Hủy hồ sơ bồi thường
+}
+
+/// <summary>Hình thức thanh toán bồi thường bảo hiểm — tương ứng PaymentType trong Ser_Payment.</summary>
+public enum InsurancePaymentMethod
+{
+    BankTransfer = 0,   // Chuyển khoản ngân hàng (UNC)
+    VnPay = 1,          // Cổng thanh toán điện tử VNPay QR
+    Momo = 2,           // Ví điện tử MoMo
+    Cash = 3,           // Tiền mặt tại quầy thu ngân
+    Offset = 4          // Bù trừ công nợ đối ứng
+}
+
+/// <summary>Trạng thái Phiếu thu thanh toán bảo hiểm — tương ứng Ser_Payment.</summary>
+public enum InsurancePaymentStatus
+{
+    Draft = 0,          // Nháp (chưa xác nhận tiền về)
+    Confirmed = 1,      // Kế toán đã xác nhận thu tiền
+    Settled = 2,        // Đã quyết toán trừ nợ hoàn tất
+    Cancelled = 3       // Hủy phiếu thu (hoàn tác trừ nợ RO)
+}
+
+/// <summary>
+/// Hồ sơ công nợ bảo hiểm bồi thường sửa chữa xe — tương ứng Ser_InsuranceDebit &amp; Ser_CusDebit trong BizCarSv.
+/// Mỗi dòng tương ứng một Lệnh sửa chữa RO được hãng bảo hiểm duyệt bồi thường.
+/// </summary>
+public sealed class InsuranceClaimDebit
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string DebitNo { get; set; } = "";                      // Số công nợ bồi thường (ví dụ: DEB-INS-202505-001)
+    public string InsNo { get; set; } = "";                        // Mã công ty bảo hiểm (INS-PTI, INS-BV, INS-PJICO, INS-PVI, INS-MIC...)
+    public string InsName { get; set; } = "";                      // Tên công ty bảo hiểm
+    public string RONo { get; set; } = "";                         // Số Lệnh sửa chữa xưởng dịch vụ (RO-2025-0501)
+    public string VIN { get; set; } = "";                          // Số khung xe (17 ký tự VIN)
+    public string PlateNo { get; set; } = "";                      // Biển số xe (ví dụ: 30H-889.99)
+    public string ModelCode { get; set; } = "";                    // Dòng xe (SANTAFE, TUCSON, CRETA, ACCENT, PALISADE...)
+    public string? ModelName { get; set; }                         // Tên thương mại mẫu xe
+    public string? CustomerName { get; set; }                      // Tên chủ xe / khách hàng
+    public string? CustomerPhone { get; set; }                     // Số điện thoại khách hàng
+    public DateTime DebitDate { get; set; } = DateTime.Now;        // Ngày phê duyệt bồi thường phát sinh nợ
+    public DateTime DueDate { get; set; }                          // Hạn thanh toán cam kết
+    public long DebitAmount { get; set; }                          // Số tiền bảo hiểm bồi thường được duyệt (VND)
+    public long PaidAmount { get; set; }                           // Số tiền bảo hiểm đã thanh toán lũy kế (VND)
+    public long RemainAmount { get; set; }                         // Số tiền nợ còn lại (= DebitAmount - PaidAmount)
+    public InsuranceDebitStatus Status { get; set; } = InsuranceDebitStatus.Pending; // Trạng thái nợ
+    public string? Note { get; set; }                              // Ghi chú chi tiết bồi thường (hạng mục sửa chữa)
+    public string? CreatedBy { get; set; }                         // Người lập hồ sơ (Cố vấn dịch vụ)
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+}
+
+/// <summary>
+/// Phiếu thu thanh toán bảo hiểm — tương ứng Ser_Payment trong BizCarSv.
+/// Ghi nhận 1 đợt chuyển khoản/thanh toán tiền bồi thường của công ty bảo hiểm và tự động phân bổ FIFO trừ nợ các hồ sơ RO.
+/// </summary>
+public sealed class InsurancePayment
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string PaymentNo { get; set; } = "";                    // Số phiếu thu (format: PM-INS-yyyyMM-xxx)
+    public string InsNo { get; set; } = "";                        // Mã công ty bảo hiểm nộp tiền
+    public string InsName { get; set; } = "";                      // Tên công ty bảo hiểm
+    public DateTime PayDate { get; set; } = DateTime.Now;          // Ngày nộp / chuyển tiền
+    public string PayPersonName { get; set; } = "";                // Đại diện bảo hiểm thanh toán / Giám định viên
+    public string? PayPersonIDCardNo { get; set; }                 // Số CMT/CCCD người đại diện nộp
+    public string? PayPersonPhone { get; set; }                    // Số điện thoại người nộp
+    public long PaymentAmount { get; set; }                        // Tổng số tiền bảo hiểm thanh toán đợt này (VND)
+    public InsurancePaymentMethod PaymentMethod { get; set; } = InsurancePaymentMethod.BankTransfer; // Phương thức thanh toán
+    public string? BankCode { get; set; }                          // Mã ngân hàng thanh toán (CTG, MBB, VCB, TCB, VPB)
+    public string? BankName { get; set; }                          // Tên ngân hàng
+    public string? BankAccountNo { get; set; }                     // Số tài khoản nhận tiền
+    public string? BankTxnRef { get; set; }                        // Mã giao dịch ngân hàng / Cổng điện tử
+    public long TotalAllocated { get; set; }                       // Tổng tiền đã phân bổ trừ nợ các lệnh RO
+    public long UnallocatedAmount { get; set; }                    // Tiền thừa chưa phân bổ hết (nếu có)
+    public InsurancePaymentStatus Status { get; set; } = InsurancePaymentStatus.Draft; // Trạng thái phiếu thu
+    public string? Note { get; set; }                              // Ghi chú đợt thanh toán
+    public string? CreatedBy { get; set; }                         // Kế toán lập phiếu thu
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public string? ConfirmedBy { get; set; }                       // Kế toán trưởng xác nhận
+    public DateTime? ConfirmedAt { get; set; }
+    public string? SettledBy { get; set; }                         // Kế toán hoàn tất quyết toán
+    public DateTime? SettledAt { get; set; }
+    public string? CancelledBy { get; set; }                       // Người hủy
+    public DateTime? CancelledAt { get; set; }
+    public string? CancelReason { get; set; }                      // Lý do hủy phiếu thu
+
+    public List<InsurancePaymentDetail> Details { get; set; } = [];
+}
+
+/// <summary>
+/// Chi tiết phân bổ thanh toán cho từng Lệnh RO — tương ứng Ser_PaymentDetail trong BizCarSv.
+/// </summary>
+public sealed class InsurancePaymentDetail
+{
+    public long Id { get; set; }
+    public long PaymentId { get; set; }
+    public long DebitId { get; set; }
+    public Guid OrgId { get; set; }
+    public string DebitNo { get; set; } = "";                      // Số công nợ bồi thường
+    public string RONo { get; set; } = "";                         // Số Lệnh sửa chữa
+    public string VIN { get; set; } = "";                          // Số khung xe
+    public string PlateNo { get; set; } = "";                      // Biển số xe
+    public long DebitAmount { get; set; }                          // Tiền bồi thường gốc ban đầu
+    public long DebitAmountBefore { get; set; }                    // Nợ còn lại trước khi trừ khoản thanh toán này
+    public long PaymentDetailAmount { get; set; }                  // Số tiền thực tế phân bổ trừ nợ đợt này
+    public long DebitAmountLeft { get; set; }                      // Nợ còn lại sau phân bổ (= DebitAmountBefore - PaymentDetailAmount)
+    public string? Remark { get; set; }                            // Ghi chú phân bổ dòng
+}
+
+public sealed class CreateInsuranceDebitDto
+{
+    public string? DebitNo { get; set; }
+    public string InsNo { get; set; } = "";
+    public string? InsName { get; set; }
+    public string RONo { get; set; } = "";
+    public string VIN { get; set; } = "";
+    public string PlateNo { get; set; } = "";
+    public string ModelCode { get; set; } = "";
+    public string? ModelName { get; set; }
+    public string? CustomerName { get; set; }
+    public string? CustomerPhone { get; set; }
+    public DateTime? DebitDate { get; set; }
+    public DateTime? DueDate { get; set; }
+    public long DebitAmount { get; set; }
+    public string? Note { get; set; }
+    public string? CreatedBy { get; set; }
+}
+
+public sealed class CreateInsurancePaymentDto
+{
+    public string? PaymentNo { get; set; }
+    public string InsNo { get; set; } = "";
+    public string? InsName { get; set; }
+    public DateTime? PayDate { get; set; }
+    public string PayPersonName { get; set; } = "";
+    public string? PayPersonIDCardNo { get; set; }
+    public string? PayPersonPhone { get; set; }
+    public long PaymentAmount { get; set; }
+    public InsurancePaymentMethod? PaymentMethod { get; set; }
+    public string? BankCode { get; set; }
+    public string? BankName { get; set; }
+    public string? BankAccountNo { get; set; }
+    public string? BankTxnRef { get; set; }
+    public string? Note { get; set; }
+    public string? CreatedBy { get; set; }
+    public bool AutoAllocateFifo { get; set; } = true;             // Tự động phân bổ nợ theo thứ tự FIFO
+    public List<ManualAllocationItemDto>? ManualAllocations { get; set; } // Phân bổ thủ công (nếu không dùng FIFO)
+}
+
+public sealed class ManualAllocationItemDto
+{
+    public long DebitId { get; set; }
+    public long Amount { get; set; }
+}
+
+public sealed class ConfirmInsurancePaymentDto
+{
+    public string? ConfirmedBy { get; set; } = "KeToanTruong";
+}
+
+public sealed class SettleInsurancePaymentDto
+{
+    public string? SettledBy { get; set; } = "KeToanThanhToan";
+}
+
+public sealed class CancelInsurancePaymentDto
+{
+    public string Reason { get; set; } = "";
+    public string? CancelledBy { get; set; }
+}
+
+public sealed class InsurancePaymentAdviceDto
+{
+    public string PaymentNo { get; set; } = "";
+    public string PrintDate { get; set; } = "";
+    public string InsNo { get; set; } = "";
+    public string InsName { get; set; } = "";
+    public string PayPersonName { get; set; } = "";
+    public string? PayPersonIDCardNo { get; set; }
+    public string? PayPersonPhone { get; set; }
+    public string PaymentMethodText { get; set; } = "";
+    public string? BankCode { get; set; }
+    public string? BankName { get; set; }
+    public string? BankAccountNo { get; set; }
+    public string? BankTxnRef { get; set; }
+    public long PaymentAmount { get; set; }
+    public string PaymentAmountInWords { get; set; } = "";
+    public long TotalAllocated { get; set; }
+    public long UnallocatedAmount { get; set; }
+    public string StatusText { get; set; } = "";
+    public string? Note { get; set; }
+    public string? CreatedBy { get; set; }
+    public string? ConfirmedBy { get; set; }
+    public string? SettledBy { get; set; }
+    public List<InsurancePaymentDetailAdviceDto> Details { get; set; } = [];
+}
+
+public sealed class InsurancePaymentDetailAdviceDto
+{
+    public int No { get; set; }
+    public string DebitNo { get; set; } = "";
+    public string RONo { get; set; } = "";
+    public string PlateNo { get; set; } = "";
+    public string VIN { get; set; } = "";
+    public long DebitAmount { get; set; }
+    public long DebitAmountBefore { get; set; }
+    public long PaymentDetailAmount { get; set; }
+    public long DebitAmountLeft { get; set; }
+    public string StatusAfterPayment { get; set; } = "";
+}
+
+public sealed class InsuranceDebitSummaryDto
+{
+    public int TotalClaims { get; set; }
+    public int PendingClaims { get; set; }
+    public int PartiallyPaidClaims { get; set; }
+    public int SettledClaims { get; set; }
+    public int CancelledClaims { get; set; }
+    public long TotalClaimAmount { get; set; }
+    public long TotalPaidAmount { get; set; }
+    public long TotalRemainingDebt { get; set; }
+    public decimal SettlementRate { get; set; }
+    public int TotalPaymentReceipts { get; set; }
+    public long TotalReceiptsAmount { get; set; }
+    public List<InsuranceCompanyStatDto> CompanyStats { get; set; } = [];
+}
+
+public sealed class InsuranceCompanyStatDto
+{
+    public string InsNo { get; set; } = "";
+    public string InsName { get; set; } = "";
+    public int ClaimCount { get; set; }
+    public long TotalClaimAmount { get; set; }
+    public long TotalPaidAmount { get; set; }
+    public long RemainingDebt { get; set; }
+}
+
+public sealed class EligibleDebitForPaymentDto
+{
+    public long Id { get; set; }
+    public string DebitNo { get; set; } = "";
+    public string RONo { get; set; } = "";
+    public string VIN { get; set; } = "";
+    public string PlateNo { get; set; } = "";
+    public string ModelCode { get; set; } = "";
+    public string? CustomerName { get; set; }
+    public DateTime DebitDate { get; set; }
+    public DateTime DueDate { get; set; }
+    public long DebitAmount { get; set; }
+    public long PaidAmount { get; set; }
+    public long RemainAmount { get; set; }
+    public string Status { get; set; } = "";
+}

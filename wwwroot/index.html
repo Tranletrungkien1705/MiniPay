@@ -104,6 +104,7 @@
     <button class="tab-btn" onclick="showTab('fnExp')">Hỗ Trợ CPTC &amp; CKTT Đại Lý (FnExp)</button>
     <button class="tab-btn" onclick="showTab('disbursement')">Đề Nghị GD Ngân Hàng (Disbursement)</button>
     <button class="tab-btn" onclick="showTab('cancelBankMD')">Hủy Gán Bảo Lãnh (Cancel Bank MD)</button>
+    <button class="tab-btn" onclick="showTab('insurance')">Thu Bảo Hiểm Bồi Thường (Insurance Claim)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -123,6 +124,8 @@
     <button class="tab-btn" onclick="showTab('newFnExp')">+ Lập Bảng Tính CPTC</button>
     <button class="tab-btn" onclick="showTab('newDisbursement')">+ Lập Đề Nghị GD Ngân Hàng</button>
     <button class="tab-btn" onclick="showTab('newCancelBankMD')">+ Lập Đề Nghị Hủy Gán NHBL</button>
+    <button class="tab-btn" onclick="showTab('newInsurancePayment')">+ Lập Phiếu Thu Bảo Hiểm</button>
+    <button class="tab-btn" onclick="showTab('newInsuranceDebit')">+ Lập Nợ Bồi Thường RO</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -4672,6 +4675,336 @@
     </div>
   </div>
 
+  <!-- TAB: Quản lý Thu Tiền Thanh Toán & Quyết Toán Bồi Thường Bảo Hiểm Xe Ô Tô (Insurance Claim Payment & Settlement) -->
+  <div id="tab-insurance" style="display:none;">
+    <!-- Thống kê KPI -->
+    <div class="row" style="margin-bottom:16px;">
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Tổng Hồ Sơ Bồi Thường</div>
+        <div id="insStatTotalClaims" style="font-size:1.4em; font-weight:bold; color:var(--primary); margin-top:4px;">0</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Tổng Tiền Bồi Thường</div>
+        <div id="insStatTotalClaimAmt" style="font-size:1.3em; font-weight:bold; color:var(--text); margin-top:4px;">0 đ</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Đã Thu Thanh Toán</div>
+        <div id="insStatTotalPaidAmt" style="font-size:1.3em; font-weight:bold; color:var(--success); margin-top:4px;">0 đ</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Dư Nợ Còn Phải Thu</div>
+        <div id="insStatRemainingDebt" style="font-size:1.3em; font-weight:bold; color:var(--danger); margin-top:4px;">0 đ</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Tỷ Lệ Quyết Toán</div>
+        <div id="insStatSettlementRate" style="font-size:1.4em; font-weight:bold; color:var(--primary); margin-top:4px;">0%</div>
+      </div>
+    </div>
+
+    <!-- Bộ lọc & Thao tác -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <div>
+            <label class="muted" style="font-size:.85em; display:block;">Công ty Bảo hiểm:</label>
+            <select id="filterInsNo" onchange="loadInsuranceData()" style="padding:4px 8px;">
+              <option value="">-- Tất cả công ty bảo hiểm --</option>
+              <option value="INS-PTI">PTI - Bảo hiểm Bưu điện</option>
+              <option value="INS-BV">Bảo Việt - Bảo hiểm Bảo Việt</option>
+              <option value="INS-PJICO">PJICO - Bảo hiểm Petrolimex</option>
+              <option value="INS-PVI">PVI - Bảo hiểm Dầu khí</option>
+              <option value="INS-MIC">MIC - Bảo hiểm Quân đội</option>
+            </select>
+          </div>
+          <div>
+            <label class="muted" style="font-size:.85em; display:block;">Tìm kiếm (RO / Biển số / VIN / Số phiếu):</label>
+            <input type="text" id="filterInsKeyword" placeholder="Nhập từ khóa..." onkeyup="if(event.key==='Enter') loadInsuranceData()" style="padding:4px 8px; width:200px;">
+          </div>
+          <button class="secondary" onclick="loadInsuranceData()" style="margin-top:16px;">Lọc Dữ Liệu</button>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="secondary" onclick="showTab('newInsuranceDebit')">+ Lập Nợ Bồi Thường RO</button>
+          <button onclick="showTab('newInsurancePayment')">+ Lập Phiếu Thu Bảo Hiểm</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Danh sách Phiếu Thu Thanh Toán Bảo Hiểm -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="margin:0;">Lịch Sử Phiếu Thu Thanh Toán Bảo Hiểm (Ser_Payment)</h3>
+        <span class="muted" style="font-size:.85em;">Phân bổ tự động theo thuật toán FIFO vào các hồ sơ bồi thường còn nợ</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Phiếu Thu</th>
+              <th>Ngày Thu</th>
+              <th>Công Ty Bảo Hiểm</th>
+              <th>Người Đại Diện Nộp</th>
+              <th>Số Tiền Thu</th>
+              <th>Hình Thức</th>
+              <th>Ngân Hàng / GD</th>
+              <th>Đã Phân Bổ</th>
+              <th>Trạng Thái</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="insPaymentTableBody">
+            <tr><td colspan="10" class="muted" style="text-align:center;">Đang tải danh sách phiếu thu...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Danh sách Hồ Sơ Nợ Bồi Thường RO -->
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="margin:0;">Danh Sách Khoản Nợ Bồi Thường Theo Lệnh RO (Ser_InsuranceDebit)</h3>
+        <span class="muted" style="font-size:.85em;">Khoản phải thu từ các đơn vị bảo hiểm theo hồ sơ duyệt bồi thường sửa chữa xe</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Mã Công Nợ</th>
+              <th>Số Lệnh RO</th>
+              <th>Biển Số Xe</th>
+              <th>Số Khung (VIN)</th>
+              <th>Dòng Xe</th>
+              <th>Bảo Hiểm</th>
+              <th>Khách Hàng</th>
+              <th>Ngày Duyệt</th>
+              <th>Tiền Bồi Thường</th>
+              <th>Đã Thu</th>
+              <th>Còn Phải Thu</th>
+              <th>Trạng Thái</th>
+            </tr>
+          </thead>
+          <tbody id="insDebitTableBody">
+            <tr><td colspan="12" class="muted" style="text-align:center;">Đang tải danh sách nợ bồi thường...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Lập Phiếu Thu Thanh Toán Bảo Hiểm Mới -->
+  <div id="tab-newInsurancePayment" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <div>
+          <h3 style="margin:0;">Lập Phiếu Thu Thanh Toán Bảo Hiểm Mới (Ser_Payment / FrmInsPaymentCreate)</h3>
+          <p class="muted" style="margin:2px 0 0;">Thu tiền thanh toán bồi thường sửa chữa xe từ đơn vị bảo hiểm và tự động phân bổ FIFO trừ nợ các hồ sơ Lệnh sửa chữa RO.</p>
+        </div>
+        <button class="secondary" onclick="showTab('insurance')">Về Danh Sách</button>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Công Ty Bảo Hiểm Thanh Toán *:</label>
+          <select id="inpNewInsPmtInsNo" onchange="loadEligibleDebitsForNewPayment()">
+            <option value="INS-PTI">Tổng Công ty Cổ phần Bảo hiểm Bưu điện (PTI)</option>
+            <option value="INS-BV">Tổng Công ty Bảo hiểm Bảo Việt</option>
+            <option value="INS-PJICO">Tổng Công ty Cổ phần Bảo hiểm Petrolimex (PJICO)</option>
+            <option value="INS-PVI">Tổng Công ty Bảo hiểm PVI (Dầu khí)</option>
+            <option value="INS-MIC">Tổng Công ty Cổ phần Bảo hiểm Quân đội (MIC)</option>
+            <option value="INS-BIC">Tổng Công ty Bảo hiểm BIDV (BIC)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Số Tiền Bảo Hiểm Nộp / Chuyển Khoản (VND) *:</label>
+          <input type="number" id="inpNewInsPmtAmount" value="25000000" step="500000">
+        </div>
+        <div class="col">
+          <label class="muted">Ngày Nộp / Chuyển Tiền *:</label>
+          <input type="date" id="inpNewInsPmtDate">
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Đại Diện Bảo Hiểm / Giám Định Viên Nộp Tiền *:</label>
+          <input type="text" id="inpNewInsPmtPersonName" value="Nguyễn Văn Đại (GĐV Bảo hiểm)">
+        </div>
+        <div class="col">
+          <label class="muted">Số CMT/CCCD Người Nộp:</label>
+          <input type="text" id="inpNewInsPmtIDCard" value="001091012345">
+        </div>
+        <div class="col">
+          <label class="muted">Số Điện Thoại:</label>
+          <input type="text" id="inpNewInsPmtPhone" value="0912888999">
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Phương Thức Thanh Toán:</label>
+          <select id="inpNewInsPmtMethod">
+            <option value="0">Chuyển khoản ngân hàng (BankTransfer)</option>
+            <option value="1">Cổng thanh toán điện tử VNPay QR</option>
+            <option value="2">Ví điện tử MoMo</option>
+            <option value="3">Tiền mặt tại quầy thu ngân</option>
+            <option value="4">Bù trừ công nợ đối ứng</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Ngân Hàng Nhận Tiền:</label>
+          <select id="inpNewInsPmtBankCode">
+            <option value="CTG">VietinBank - Ngân hàng TMCP Công Thương Việt Nam</option>
+            <option value="MBB">MBBank - Ngân hàng TMCP Quân Đội</option>
+            <option value="VCB">Vietcombank - Ngân hàng TMCP Ngoại Thương</option>
+            <option value="TCB">Techcombank - Ngân hàng TMCP Kỹ Thương</option>
+            <option value="VPB">VPBank - Ngân hàng TMCP Việt Nam Thịnh Vượng</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Mã Giao Dịch Ngân Hàng / Mã QR Cổng:</label>
+          <input type="text" id="inpNewInsPmtBankTxnRef" value="FT2505149982">
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label class="muted">Ghi Chú Đợt Thu Tiền:</label>
+        <input type="text" id="inpNewInsPmtNote" value="Thanh toán quyết toán bồi thường sửa chữa xe theo thỏa thuận liên kết">
+      </div>
+
+      <!-- Danh sách hồ sơ RO còn nợ sẽ được phân bổ FIFO -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin:16px 0 8px;">
+        <h4 style="margin:0;">Hồ Sơ Nợ Bồi Thường RO Sẽ Được Tự Động Phân Bổ (FIFO: Nợ cũ trừ trước)</h4>
+        <button class="secondary" onclick="loadEligibleDebitsForNewPayment()">Tải Lại Danh Sách Nợ</button>
+      </div>
+
+      <div style="overflow-x:auto; margin-bottom:12px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Mã Khoản Nợ</th>
+              <th>Số Lệnh RO</th>
+              <th>Biển Số Xe</th>
+              <th>Dòng Xe</th>
+              <th>Khách Hàng</th>
+              <th>Ngày Duyệt Nợ</th>
+              <th>Tiền Bồi Thường</th>
+              <th>Đã Thu</th>
+              <th>Còn Phải Thu</th>
+            </tr>
+          </thead>
+          <tbody id="eligibleDebitsTableBody">
+            <tr><td colspan="9" class="muted" style="text-align:center;">Chọn công ty bảo hiểm để xem các hồ sơ nợ cần phân bổ.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+        <span id="submitNewInsPmtMsg" style="margin-right:12px; align-self:center; color:var(--primary); font-weight:500;"></span>
+        <button class="secondary" onclick="showTab('insurance')">Hủy Bỏ</button>
+        <button onclick="submitCreateInsurancePayment()">Tạo Phiếu Thu &amp; Tự Động Phân Bổ Nợ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Lập Nợ Bồi Thường Bảo Hiểm Mới (Theo Lệnh Sửa Chữa RO) -->
+  <div id="tab-newInsuranceDebit" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <div>
+          <h3 style="margin:0;">Lập Hồ Sơ Công Nợ Bồi Thường Bảo Hiểm RO Mới (Ser_InsuranceDebit)</h3>
+          <p class="muted" style="margin:2px 0 0;">Ghi nhận hồ sơ duyệt bồi thường sửa chữa thân vỏ / sơn gò xe từ công ty bảo hiểm theo Lệnh sửa chữa xưởng dịch vụ.</p>
+        </div>
+        <button class="secondary" onclick="showTab('insurance')">Về Danh Sách</button>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Công Ty Bảo Hiểm Bồi Thường *:</label>
+          <select id="inpNewInsDebInsNo">
+            <option value="INS-PTI">Tổng Công ty Cổ phần Bảo hiểm Bưu điện (PTI)</option>
+            <option value="INS-BV">Tổng Công ty Bảo hiểm Bảo Việt</option>
+            <option value="INS-PJICO">Tổng Công ty Cổ phần Bảo hiểm Petrolimex (PJICO)</option>
+            <option value="INS-PVI">Tổng Công ty Bảo hiểm PVI (Dầu khí)</option>
+            <option value="INS-MIC">Tổng Công ty Cổ phần Bảo hiểm Quân đội (MIC)</option>
+            <option value="INS-BIC">Tổng Công ty Bảo hiểm BIDV (BIC)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Số Lệnh Sửa Chữa (RONo) *:</label>
+          <input type="text" id="inpNewInsDebRONo" value="RO-2025-0515">
+        </div>
+        <div class="col">
+          <label class="muted">Biển Số Xe *:</label>
+          <input type="text" id="inpNewInsDebPlateNo" value="30H-998.12">
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Số Khung Xe (VIN - 17 ký tự) *:</label>
+          <input type="text" id="inpNewInsDebVIN" value="KMHCT81EPHU990515">
+        </div>
+        <div class="col">
+          <label class="muted">Dòng Xe (ModelCode):</label>
+          <select id="inpNewInsDebModelCode">
+            <option value="SANTAFE">Hyundai Santa Fe</option>
+            <option value="TUCSON">Hyundai Tucson</option>
+            <option value="CRETA">Hyundai Creta</option>
+            <option value="ACCENT">Hyundai Accent</option>
+            <option value="ELANTRA">Hyundai Elantra</option>
+            <option value="PALISADE">Hyundai Palisade</option>
+            <option value="CUSTIN">Hyundai Custin</option>
+            <option value="IONIQ5">Hyundai IONIQ 5</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Số Tiền Duyệt Bồi Thường (VND) *:</label>
+          <input type="number" id="inpNewInsDebAmount" value="22500000" step="500000">
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Tên Khách Hàng / Chủ Xe:</label>
+          <input type="text" id="inpNewInsDebCustName" value="Phạm Quốc Anh">
+        </div>
+        <div class="col">
+          <label class="muted">Số Điện Thoại:</label>
+          <input type="text" id="inpNewInsDebCustPhone" value="0988112233">
+        </div>
+        <div class="col">
+          <label class="muted">Hạn Thanh Toán Cam Kết:</label>
+          <input type="date" id="inpNewInsDebDueDate">
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label class="muted">Hạng Mục Sửa Chữa Bồi Thường / Diễn Giải:</label>
+        <input type="text" id="inpNewInsDebNote" value="Gò nắn nắp cốp sau, sơn phủ bóng và thay ốp cản sau chính hãng">
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+        <span id="submitNewInsDebMsg" style="margin-right:12px; align-self:center; color:var(--primary); font-weight:500;"></span>
+        <button class="secondary" onclick="showTab('insurance')">Hủy Bỏ</button>
+        <button onclick="submitCreateInsuranceDebit()">Ghi Nhận Khoản Nợ Bồi Thường</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal In Giấy Báo Thu Tiền Quyết Toán Bảo Hiểm (SerPaymentPaperRpt Advice) -->
+  <div id="modalInsurancePaymentAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:960px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.2em;">PHIẾU THU TIỀN THANH TOÁN BỒI THƯỜNG BẢO HIỂM (SerPaymentPaperRpt)</h2>
+        <button class="secondary" onclick="closeInsuranceAdviceModal()">Đóng [X]</button>
+      </div>
+      <div id="insuranceAdviceContent" style="margin-top:16px; font-size:.9em; line-height:1.6;"></div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('insuranceAdviceContent').innerText); alert('Đã sao chép nội dung Phiếu thu vào clipboard!');">Sao Chép Nội Dung</button>
+        <button onclick="window.print()">In Phiếu Thu</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB 5: API Docs -->
   <div id="tab-apiDocs" style="display:none;">
     <div class="card">
@@ -4965,6 +5298,21 @@
         <li><code>GET /api/cancel-bank-md/summary</code> — Báo cáo tổng hợp Dashboard KPI đề nghị hủy gán ngân hàng bảo lãnh</li>
         <li><code>GET /api/cancel-bank-md/candidates</code> — Danh sách hợp đồng đại lý mẫu đang gán ngân hàng bảo lãnh phục vụ lập nhanh đề nghị</li>
       </ul>
+      <h3>Nghiệp Vụ Thu Tiền Thanh Toán &amp; Quyết Toán Bồi Thường Bảo Hiểm Xe Ô Tô (Insurance Claim Payment &amp; Settlement - BizCarSv.Debit.cs / FrmInsPaymentCreate)</h3>
+      <ul>
+        <li><code>POST /api/insurance-payments/debits</code> — Tạo hồ sơ công nợ bồi thường bảo hiểm theo Lệnh sửa chữa RO xưởng dịch vụ</li>
+        <li><code>GET /api/insurance-payments/debits</code> — Danh sách công nợ bồi thường bảo hiểm (hỗ trợ lọc theo <code>insNo</code>, <code>status</code>, <code>keyword</code>, <code>fromDate</code>, <code>toDate</code>)</li>
+        <li><code>GET /api/insurance-payments/debits/{id}</code> — Chi tiết 1 hồ sơ công nợ bồi thường</li>
+        <li><code>GET /api/insurance-payments/debits/eligible/{insNo}</code> — Danh sách hồ sơ RO còn nợ của một công ty bảo hiểm để phân bổ</li>
+        <li><code>POST /api/insurance-payments</code> — Lập phiếu thu thanh toán bảo hiểm mới (Tự động phân bổ FIFO trừ nợ RO theo SerPaymentCreate)</li>
+        <li><code>GET /api/insurance-payments</code> — Danh sách phiếu thu thanh toán bảo hiểm (lọc theo <code>insNo</code>, <code>status</code>, <code>method</code>)</li>
+        <li><code>GET /api/insurance-payments/{id}</code> — Chi tiết phiếu thu thanh toán kèm bảng phân bổ từng dòng lệnh RO</li>
+        <li><code>POST /api/insurance-payments/{id}/confirm</code> — Kế toán xác nhận thu tiền (Draft &rarr; Confirmed)</li>
+        <li><code>POST /api/insurance-payments/{id}/settle</code> — Hoàn tất quyết toán công nợ và chốt sổ kế toán (Confirmed &rarr; Settled)</li>
+        <li><code>POST /api/insurance-payments/{id}/cancel</code> — Hủy phiếu thu và tự động HOÀN TÁC (ROLLBACK) nợ trên các lệnh RO</li>
+        <li><code>GET /api/insurance-payments/{id}/advice</code> — Sinh dữ liệu mẫu in Phiếu Thu Tiền Quyết Toán Bồi Thường Bảo Hiểm (SerPaymentPaperRpt Advice)</li>
+        <li><code>GET /api/insurance-payments/summary</code> — Báo cáo tổng hợp Dashboard KPI công nợ &amp; thanh toán bảo hiểm</li>
+      </ul>
     </div>
   </div>
 
@@ -4993,6 +5341,7 @@
       document.getElementById('tab-fnExp').style.display = tabName === 'fnExp' ? 'block' : 'none';
       document.getElementById('tab-disbursement').style.display = tabName === 'disbursement' ? 'block' : 'none';
       document.getElementById('tab-cancelBankMD').style.display = tabName === 'cancelBankMD' ? 'block' : 'none';
+      document.getElementById('tab-insurance').style.display = tabName === 'insurance' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -5012,6 +5361,8 @@
       document.getElementById('tab-newFnExp').style.display = tabName === 'newFnExp' ? 'block' : 'none';
       document.getElementById('tab-newDisbursement').style.display = tabName === 'newDisbursement' ? 'block' : 'none';
       document.getElementById('tab-newCancelBankMD').style.display = tabName === 'newCancelBankMD' ? 'block' : 'none';
+      document.getElementById('tab-newInsurancePayment').style.display = tabName === 'newInsurancePayment' ? 'block' : 'none';
+      document.getElementById('tab-newInsuranceDebit').style.display = tabName === 'newInsuranceDebit' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
@@ -5034,26 +5385,29 @@
           (tabName === 'fnExp' && i === 15) ||
           (tabName === 'disbursement' && i === 16) ||
           (tabName === 'cancelBankMD' && i === 17) ||
-          (tabName === 'newBatch' && i === 18) ||
-          (tabName === 'newPayout' && i === 19) ||
-          (tabName === 'newDiscount' && i === 20) ||
-          (tabName === 'newGuarantee' && i === 21) ||
-          (tabName === 'newMortgage' && i === 22) ||
-          (tabName === 'newRedeem' && i === 23) ||
-          (tabName === 'newPaymentOrder' && i === 24) ||
-          (tabName === 'newBankBill' && i === 25) ||
-          (tabName === 'newPaymentPDI' && i === 26) ||
-          (tabName === 'newPenaltyDelay' && i === 27) ||
-          (tabName === 'newTransportIns' && i === 28) ||
-          (tabName === 'newPaymentStorage' && i === 29) ||
-          (tabName === 'newGuaranteeExt' && i === 30) ||
-          (tabName === 'newGuaranteeClaim' && i === 31) ||
-          (tabName === 'newPaymentAVN' && i === 32) ||
-          (tabName === 'newPaymentGPS' && i === 33) ||
-          (tabName === 'newFnExp' && i === 34) ||
-          (tabName === 'newDisbursement' && i === 35) ||
-          (tabName === 'newCancelBankMD' && i === 36) ||
-          (tabName === 'apiDocs' && i === 37));
+          (tabName === 'insurance' && i === 18) ||
+          (tabName === 'newBatch' && i === 19) ||
+          (tabName === 'newPayout' && i === 20) ||
+          (tabName === 'newDiscount' && i === 21) ||
+          (tabName === 'newGuarantee' && i === 22) ||
+          (tabName === 'newMortgage' && i === 23) ||
+          (tabName === 'newRedeem' && i === 24) ||
+          (tabName === 'newPaymentOrder' && i === 25) ||
+          (tabName === 'newBankBill' && i === 26) ||
+          (tabName === 'newPaymentPDI' && i === 27) ||
+          (tabName === 'newPenaltyDelay' && i === 28) ||
+          (tabName === 'newTransportIns' && i === 29) ||
+          (tabName === 'newPaymentStorage' && i === 30) ||
+          (tabName === 'newGuaranteeExt' && i === 31) ||
+          (tabName === 'newGuaranteeClaim' && i === 32) ||
+          (tabName === 'newPaymentAVN' && i === 33) ||
+          (tabName === 'newPaymentGPS' && i === 34) ||
+          (tabName === 'newFnExp' && i === 35) ||
+          (tabName === 'newDisbursement' && i === 36) ||
+          (tabName === 'newCancelBankMD' && i === 37) ||
+          (tabName === 'newInsurancePayment' && i === 38) ||
+          (tabName === 'newInsuranceDebit' && i === 39) ||
+          (tabName === 'apiDocs' && i === 40));
       });
 
       if (tabName === 'reconcile') loadBatches();
@@ -5074,6 +5428,8 @@
       else if (tabName === 'fnExp') { loadFnExpStatements(); loadFnExpSummary(); }
       else if (tabName === 'disbursement') { loadDisbursementRequests(); loadDisbursementSummary(); }
       else if (tabName === 'cancelBankMD') { loadCancelBankMDList(); loadCancelBankMDSummary(); }
+      else if (tabName === 'insurance') { loadInsuranceData(); }
+      else if (tabName === 'newInsurancePayment') { loadEligibleDebitsForNewPayment(); }
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====
@@ -14019,6 +14375,416 @@
       loadCandidateContractsForCancelBankMD();
     }
 
+    // ===== TAB: THU TIỀN THANH TOÁN & QUYẾT TOÁN BỒI THƯỜNG BẢO HIỂM (Insurance Claim Payment & Settlement) =====
+    async function loadInsuranceSummary() {
+      try {
+        const res = await fetch('/api/insurance-payments/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('insStatTotalClaims').textContent = d.totalClaims;
+        document.getElementById('insStatTotalClaimAmt').textContent = Number(d.totalClaimAmount).toLocaleString('vi-VN') + ' đ';
+        document.getElementById('insStatTotalPaidAmt').textContent = Number(d.totalPaidAmount).toLocaleString('vi-VN') + ' đ';
+        document.getElementById('insStatRemainingDebt').textContent = Number(d.totalRemainingDebt).toLocaleString('vi-VN') + ' đ';
+        document.getElementById('insStatSettlementRate').textContent = d.settlementRate + '%';
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadInsurancePayments() {
+      const insNo = document.getElementById('filterInsNo').value;
+      let url = '/api/insurance-payments?';
+      if (insNo) url += 'insNo=' + encodeURIComponent(insNo) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('insPaymentTableBody');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="10" class="muted" style="text-align:center;">Chưa có phiếu thu thanh toán bảo hiểm nào.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(p => {
+          let badge = 'badge-info';
+          let stLabel = p.status;
+          if (p.status === 'Settled') { badge = 'badge-success'; stLabel = 'Đã Quyết Toán'; }
+          else if (p.status === 'Confirmed') { badge = 'badge-primary'; stLabel = 'Đã Xác Nhận'; }
+          else if (p.status === 'Draft') { badge = 'muted'; stLabel = 'Bản Nháp'; }
+          else if (p.status === 'Cancelled') { badge = 'badge-danger'; stLabel = 'Đã Hủy'; }
+
+          let methodText = p.paymentMethod === 0 ? 'Chuyển khoản' :
+                           p.paymentMethod === 1 ? 'VNPay QR' :
+                           p.paymentMethod === 2 ? 'MoMo' :
+                           p.paymentMethod === 3 ? 'Tiền mặt' : 'Bù trừ';
+
+          let dateStr = p.payDate ? new Date(p.payDate).toLocaleDateString('vi-VN') : '';
+
+          let actions = `<button class="secondary" onclick="viewInsurancePaymentAdvice(${p.id})">Xem/In Phiếu</button>`;
+          if (p.status === 'Draft') {
+            actions += ` <button onclick="confirmInsurancePayment(${p.id})" style="margin-left:4px;">Xác Nhận</button>`;
+            actions += ` <button class="secondary" style="color:var(--danger); margin-left:4px;" onclick="cancelInsurancePayment(${p.id})">Hủy</button>`;
+          } else if (p.status === 'Confirmed') {
+            actions += ` <button onclick="settleInsurancePayment(${p.id})" style="background:var(--success); margin-left:4px;">Quyết Toán</button>`;
+            actions += ` <button class="secondary" style="color:var(--danger); margin-left:4px;" onclick="cancelInsurancePayment(${p.id})">Hủy &amp; Hoàn Tác</button>`;
+          }
+
+          return `
+            <tr>
+              <td><strong>${p.paymentNo}</strong></td>
+              <td>${dateStr}</td>
+              <td><strong>${p.insNo}</strong><br><small class="muted">${p.insName}</small></td>
+              <td>${p.payPersonName}</td>
+              <td style="font-weight:700; color:var(--primary);">${Number(p.paymentAmount).toLocaleString('vi-VN')} đ</td>
+              <td><span class="badge badge-info">${methodText}</span></td>
+              <td><small>${p.bankCode || ''} ${p.bankTxnRef ? '(' + p.bankTxnRef + ')' : ''}</small></td>
+              <td style="color:var(--success); font-weight:600;">${Number(p.totalAllocated).toLocaleString('vi-VN')} đ</td>
+              <td><span class="badge ${badge}">${stLabel}</span></td>
+              <td>${actions}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadInsuranceDebits() {
+      const insNo = document.getElementById('filterInsNo').value;
+      const kw = document.getElementById('filterInsKeyword').value.trim();
+      let url = '/api/insurance-payments/debits?';
+      if (insNo) url += 'insNo=' + encodeURIComponent(insNo) + '&';
+      if (kw) url += 'keyword=' + encodeURIComponent(kw) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('insDebitTableBody');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="12" class="muted" style="text-align:center;">Chưa có hồ sơ nợ bồi thường bảo hiểm nào.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(d => {
+          let badge = 'badge-info';
+          let stLabel = d.status;
+          if (d.status === 'Settled') { badge = 'badge-success'; stLabel = 'Đã Tất Toán'; }
+          else if (d.status === 'PartiallyPaid') { badge = 'badge-warning'; stLabel = 'Trả 1 Phần'; }
+          else if (d.status === 'Pending') { badge = 'badge-danger'; stLabel = 'Chưa Thu'; }
+          else if (d.status === 'Cancelled') { badge = 'muted'; stLabel = 'Đã Hủy'; }
+
+          let dDateStr = d.debitDate ? new Date(d.debitDate).toLocaleDateString('vi-VN') : '';
+
+          return `
+            <tr>
+              <td><code>${d.debitNo}</code></td>
+              <td><strong>${d.roNo}</strong></td>
+              <td><strong style="color:var(--primary);">${d.plateNo}</strong></td>
+              <td><small style="font-family:monospace;">${d.vin}</small></td>
+              <td><strong>${d.modelCode}</strong></td>
+              <td><strong>${d.insNo}</strong></td>
+              <td>${d.customerName || ''}</td>
+              <td>${dDateStr}</td>
+              <td style="font-weight:600;">${Number(d.debitAmount).toLocaleString('vi-VN')} đ</td>
+              <td style="color:var(--success); font-weight:600;">${Number(d.paidAmount).toLocaleString('vi-VN')} đ</td>
+              <td style="color:${d.remainAmount > 0 ? 'var(--danger)' : 'var(--muted)'}; font-weight:700;">${Number(d.remainAmount).toLocaleString('vi-VN')} đ</td>
+              <td><span class="badge ${badge}">${stLabel}</span></td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadInsuranceData() {
+      await loadInsuranceSummary();
+      await Promise.all([loadInsurancePayments(), loadInsuranceDebits()]);
+    }
+
+    async function confirmInsurancePayment(id) {
+      if (!confirm('Xác nhận tiền thanh toán đã vào tài khoản / cổng thanh toán?')) return;
+      try {
+        const res = await fetch(`/api/insurance-payments/${id}/confirm`, {
+          method: 'POST', headers, body: JSON.stringify({ confirmedBy: 'KeToanTruong' })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        await loadInsuranceData();
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function settleInsurancePayment(id) {
+      if (!confirm('Xác nhận quyết toán hoàn tất phiếu thu và chốt sổ kế toán?')) return;
+      try {
+        const res = await fetch(`/api/insurance-payments/${id}/settle`, {
+          method: 'POST', headers, body: JSON.stringify({ settledBy: 'KeToanThanhToan' })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        await loadInsuranceData();
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function cancelInsurancePayment(id) {
+      const reason = prompt('Nhập lý do hủy phiếu thu (hệ thống sẽ tự động hoàn tác nợ trên các lệnh RO):', 'Giao dịch chuyển sai hoặc bảo hiểm yêu cầu hoàn tiền');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/insurance-payments/${id}/cancel`, {
+          method: 'POST', headers, body: JSON.stringify({ reason: reason, cancelledBy: 'KeToanTruong' })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã hủy phiếu thu và hoàn tác công nợ thành công!');
+        await loadInsuranceData();
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function viewInsurancePaymentAdvice(id) {
+      try {
+        const res = await fetch(`/api/insurance-payments/${id}/advice`, { headers });
+        if (!res.ok) { alert('Không tìm thấy phiếu thu.'); return; }
+        const a = await res.json();
+
+        let detailsHtml = a.details.map(d => `
+          <tr>
+            <td style="text-align:center;">${d.no}</td>
+            <td><strong>${d.roNo}</strong></td>
+            <td><strong>${d.plateNo}</strong></td>
+            <td><code>${d.vin}</code></td>
+            <td style="text-align:right;">${Number(d.debitAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right;">${Number(d.debitAmountBefore).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; font-weight:700; color:var(--primary);">${Number(d.paymentDetailAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; color:${d.debitAmountLeft === 0 ? 'var(--success)' : 'var(--danger)'}; font-weight:600;">${Number(d.debitAmountLeft).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:center;"><span class="badge ${d.debitAmountLeft === 0 ? 'badge-success' : 'badge-warning'}">${d.statusAfterPayment}</span></td>
+          </tr>
+        `).join('');
+
+        const html = `
+          <div style="border:2px solid var(--border); padding:20px; background:#fff; color:#000;">
+            <div style="text-align:center; margin-bottom:15px; border-bottom:1px solid #ccc; padding-bottom:10px;">
+              <h2 style="margin:0 0 5px; color:#002C6C;">CÔNG TY LIÊN DOANH Ô TÔ HYUNDAI THÀNH CÔNG VIỆT NAM</h2>
+              <h3 style="margin:0 0 5px;">PHIẾU THU TIỀN QUYẾT TOÁN BỒI THƯỜNG BẢO HIỂM</h3>
+              <div style="font-size:12px; color:#555;">Số phiếu: <strong>${a.paymentNo}</strong> | Ngày in: ${a.printDate}</div>
+            </div>
+
+            <div style="margin-bottom:15px; line-height:1.7;">
+              <div><strong>Đơn vị bảo hiểm thanh toán:</strong> ${a.insName} (Mã: ${a.insNo})</div>
+              <div><strong>Người nộp tiền / Giám định viên:</strong> ${a.payPersonName} ${a.payPersonIDCardNo ? '- CCCD: ' + a.payPersonIDCardNo : ''} ${a.payPersonPhone ? '- ĐT: ' + a.payPersonPhone : ''}</div>
+              <div><strong>Hình thức thanh toán:</strong> ${a.paymentMethodText} | ${a.bankCode ? 'Ngân hàng: ' + a.bankCode : ''} ${a.bankTxnRef ? '| Mã GD: ' + a.bankTxnRef : ''}</div>
+              <div><strong>Số tiền thanh toán:</strong> <span style="font-size:1.2em; font-weight:bold; color:#002C6C;">${Number(a.paymentAmount).toLocaleString('vi-VN')} VNĐ</span></div>
+              <div><strong>Số tiền bằng chữ:</strong> <em>${a.paymentAmountInWords}</em></div>
+              <div><strong>Nội dung / Diễn giải:</strong> ${a.note || 'Thanh toán quyết toán bồi thường sửa chữa xe ô tô theo Lệnh RO'}</div>
+              <div><strong>Trạng thái:</strong> <strong>${a.statusText}</strong> | Đã phân bổ trừ nợ: <strong>${Number(a.totalAllocated).toLocaleString('vi-VN')} đ</strong> ${a.unallocatedAmount > 0 ? '| Thừa: ' + Number(a.unallocatedAmount).toLocaleString('vi-VN') + ' đ' : ''}</div>
+            </div>
+
+            <h4 style="margin:12px 0 6px; border-bottom:1px solid #ddd; padding-bottom:4px;">DANH MỤC LỆNH SỬA CHỮA (RO) ĐƯỢC QUYẾT TOÁN TRỪ NỢ</h4>
+            <table style="width:100%; border-collapse:collapse; margin-bottom:20px; font-size:12px;" border="1">
+              <thead>
+                <tr style="background:#f2f2f2;">
+                  <th>STT</th>
+                  <th>Số Lệnh RO</th>
+                  <th>Biển Số Xe</th>
+                  <th>Số Khung (VIN)</th>
+                  <th>Nợ Gốc</th>
+                  <th>Nợ Trước TT</th>
+                  <th>Thanh Toán Kỳ Này</th>
+                  <th>Nợ Còn Lại</th>
+                  <th>Trạng Thái</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${detailsHtml}
+              </tbody>
+            </table>
+
+            <div style="display:flex; justify-content:space-between; text-align:center; margin-top:30px;">
+              <div>
+                <strong>Người Nộp Tiền</strong><br><br><br>
+                <span>${a.payPersonName}</span>
+              </div>
+              <div>
+                <strong>Thủ Quỹ / Thu Ngân</strong><br><br><br>
+                <span>${a.createdBy || 'Kế toán thu'}</span>
+              </div>
+              <div>
+                <strong>Kế Toán Trưởng</strong><br><br><br>
+                <span>${a.confirmedBy || a.settledBy || 'Phê duyệt'}</span>
+              </div>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('insuranceAdviceContent').innerHTML = html;
+        document.getElementById('modalInsurancePaymentAdvice').style.display = 'block';
+      } catch(e) { alert('Lỗi tải phiếu in: ' + e.message); }
+    }
+
+    function closeInsuranceAdviceModal() {
+      document.getElementById('modalInsurancePaymentAdvice').style.display = 'none';
+    }
+
+    async function loadEligibleDebitsForNewPayment() {
+      const insNo = document.getElementById('inpNewInsPmtInsNo').value;
+      const tbody = document.getElementById('eligibleDebitsTableBody');
+      tbody.innerHTML = '<tr><td colspan="9" class="muted" style="text-align:center;">Đang tải danh sách nợ...</td></tr>';
+
+      try {
+        const res = await fetch(`/api/insurance-payments/debits/eligible/${encodeURIComponent(insNo)}`, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="9" class="muted" style="text-align:center; color:var(--success);">Công ty bảo hiểm này hiện không có hồ sơ nào còn nợ.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(d => {
+          let dDateStr = d.debitDate ? new Date(d.debitDate).toLocaleDateString('vi-VN') : '';
+          return `
+            <tr>
+              <td><code>${d.debitNo}</code></td>
+              <td><strong>${d.roNo}</strong></td>
+              <td><strong style="color:var(--primary);">${d.plateNo}</strong></td>
+              <td>${d.modelCode}</td>
+              <td>${d.customerName || ''}</td>
+              <td>${dDateStr}</td>
+              <td style="text-align:right;">${Number(d.debitAmount).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; color:var(--success);">${Number(d.paidAmount).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; color:var(--danger); font-weight:700;">${Number(d.remainAmount).toLocaleString('vi-VN')} đ</td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function submitCreateInsurancePayment() {
+      const msg = document.getElementById('submitNewInsPmtMsg');
+      const insNo = document.getElementById('inpNewInsPmtInsNo').value;
+      const amount = parseInt(document.getElementById('inpNewInsPmtAmount').value) || 0;
+      const payDate = document.getElementById('inpNewInsPmtDate').value;
+      const personName = document.getElementById('inpNewInsPmtPersonName').value.trim();
+      const idCard = document.getElementById('inpNewInsPmtIDCard').value.trim();
+      const phone = document.getElementById('inpNewInsPmtPhone').value.trim();
+      const method = parseInt(document.getElementById('inpNewInsPmtMethod').value) || 0;
+      const bankCode = document.getElementById('inpNewInsPmtBankCode').value;
+      const bankTxnRef = document.getElementById('inpNewInsPmtBankTxnRef').value.trim();
+      const note = document.getElementById('inpNewInsPmtNote').value.trim();
+
+      if (amount <= 0) {
+        alert('Số tiền thanh toán phải lớn hơn 0.');
+        return;
+      }
+      if (!personName) {
+        alert('Tên người đại diện nộp tiền không được để trống.');
+        return;
+      }
+
+      const payload = {
+        insNo: insNo,
+        paymentAmount: amount,
+        payDate: payDate ? new Date(payDate) : new Date(),
+        payPersonName: personName,
+        payPersonIDCardNo: idCard,
+        payPersonPhone: phone,
+        paymentMethod: method,
+        bankCode: bankCode,
+        bankTxnRef: bankTxnRef,
+        note: note,
+        autoAllocateFifo: true
+      };
+
+      msg.textContent = 'Đang lập phiếu thu & tự động phân bổ nợ...';
+      try {
+        const res = await fetch('/api/insurance-payments', {
+          method: 'POST', headers, body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Số phiếu: ${data.paymentNo} (Đã phân bổ: ${Number(data.totalAllocated).toLocaleString('vi-VN')} đ)`;
+        setTimeout(() => {
+          showTab('insurance');
+          loadInsuranceData();
+        }, 800);
+      } catch(e) { msg.textContent = 'Lỗi: ' + e.message; }
+    }
+
+    async function submitCreateInsuranceDebit() {
+      const msg = document.getElementById('submitNewInsDebMsg');
+      const insNo = document.getElementById('inpNewInsDebInsNo').value;
+      const roNo = document.getElementById('inpNewInsDebRONo').value.trim();
+      const plateNo = document.getElementById('inpNewInsDebPlateNo').value.trim();
+      const vin = document.getElementById('inpNewInsDebVIN').value.trim();
+      const modelCode = document.getElementById('inpNewInsDebModelCode').value;
+      const amount = parseInt(document.getElementById('inpNewInsDebAmount').value) || 0;
+      const custName = document.getElementById('inpNewInsDebCustName').value.trim();
+      const custPhone = document.getElementById('inpNewInsDebCustPhone').value.trim();
+      const dueDate = document.getElementById('inpNewInsDebDueDate').value;
+      const note = document.getElementById('inpNewInsDebNote').value.trim();
+
+      if (!roNo || !plateNo || !vin) {
+        alert('Số Lệnh RO, Biển số xe và Số khung VIN không được để trống.');
+        return;
+      }
+      if (amount <= 0) {
+        alert('Số tiền duyệt bồi thường phải lớn hơn 0.');
+        return;
+      }
+
+      const payload = {
+        insNo: insNo,
+        roNo: roNo,
+        plateNo: plateNo,
+        vin: vin,
+        modelCode: modelCode,
+        debitAmount: amount,
+        customerName: custName,
+        customerPhone: custPhone,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        note: note
+      };
+
+      msg.textContent = 'Đang ghi nhận khoản nợ bồi thường...';
+      try {
+        const res = await fetch('/api/insurance-payments/debits', {
+          method: 'POST', headers, body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Mã nợ: ${data.debitNo} (Lệnh RO: ${data.roNo})`;
+        setTimeout(() => {
+          showTab('insurance');
+          loadInsuranceData();
+        }, 800);
+      } catch(e) { msg.textContent = 'Lỗi: ' + e.message; }
+    }
+
+    function loadSampleInsuranceData() {
+      const today = new Date().toISOString().split('T')[0];
+      const inpDate = document.getElementById('inpNewInsPmtDate');
+      if (inpDate) inpDate.value = today;
+      const inpDueDate = document.getElementById('inpNewInsDebDueDate');
+      if (inpDueDate) {
+        const d = new Date();
+        d.setDate(d.getDate() + 30);
+        inpDueDate.value = d.toISOString().split('T')[0];
+      }
+    }
+
     // Khởi tạo
     loadSampleData();
     loadSamplePayoutData();
@@ -14034,6 +14800,7 @@
     loadSampleFnExpData();
     loadSampleDisbursementData();
     loadSampleCancelBankMDData();
+    loadSampleInsuranceData();
     loadBatches();
   </script>
 </body>

@@ -47,6 +47,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<BankingDisbursementFile> DisbursementFiles => Set<BankingDisbursementFile>();
     public DbSet<ContractBankMDCancel> CancelBankMDRequests => Set<ContractBankMDCancel>();
     public DbSet<ContractBankMDCancelDetail> CancelBankMDDetails => Set<ContractBankMDCancelDetail>();
+    public DbSet<InsuranceClaimDebit> InsuranceClaimDebits => Set<InsuranceClaimDebit>();
+    public DbSet<InsurancePayment> InsurancePayments => Set<InsurancePayment>();
+    public DbSet<InsurancePaymentDetail> InsurancePaymentDetails => Set<InsurancePaymentDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -255,5 +258,21 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<ContractBankMDCancelDetail>().HasIndex(x => x.CancelBankMDId);
         b.Entity<ContractBankMDCancelDetail>().HasIndex(x => new { x.OrgId, x.VIN });
         b.Entity<ContractBankMDCancelDetail>().HasIndex(x => new { x.OrgId, x.CancelBankMDNo });
+
+        b.Entity<InsuranceClaimDebit>().HasIndex(x => new { x.OrgId, x.DebitNo }).IsUnique();
+        b.Entity<InsuranceClaimDebit>().HasIndex(x => new { x.OrgId, x.InsNo });
+        b.Entity<InsuranceClaimDebit>().HasIndex(x => new { x.OrgId, x.RONo });
+        b.Entity<InsuranceClaimDebit>().HasIndex(x => new { x.OrgId, x.VIN });
+        b.Entity<InsuranceClaimDebit>().Property(x => x.Status).HasConversion<int>();
+
+        b.Entity<InsurancePayment>().HasIndex(x => new { x.OrgId, x.PaymentNo }).IsUnique();
+        b.Entity<InsurancePayment>().HasIndex(x => new { x.OrgId, x.InsNo });
+        b.Entity<InsurancePayment>().Property(x => x.PaymentMethod).HasConversion<int>();
+        b.Entity<InsurancePayment>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<InsurancePayment>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.PaymentId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<InsurancePaymentDetail>().HasIndex(x => x.PaymentId);
+        b.Entity<InsurancePaymentDetail>().HasIndex(x => x.DebitId);
+        b.Entity<InsurancePaymentDetail>().HasIndex(x => new { x.OrgId, x.RONo });
     }
 }
