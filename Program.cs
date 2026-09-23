@@ -49,6 +49,11 @@ builder.Services.AddScoped<InsurancePaymentService>();
 builder.Services.AddScoped<SupplierPaymentService>();
 builder.Services.AddScoped<CustomerPaymentService>();
 builder.Services.AddScoped<ContractCancellationService>();
+builder.Services.AddScoped<CarDocReqService>();
+builder.Services.ConfigureHttpJsonOptions(o =>
+{
+    o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+});
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -6739,6 +6744,279 @@ app.MapPost("/api/contract-cancels/{id:long}/cancel", async (long id, CancelCont
     {
         return Results.BadRequest(new { error = ex.Message });
     }
+});
+
+// ==========================================
+// QUẢN LÝ HỒ SƠ ĐỀ NGHỊ MƯỢN / BÀN GIAO CHỨNG TỪ GỐC XE Ô TÔ & XÁC NHẬN NGÂN HÀNG (CarDocReq / FrmMngDocReq / FrmNewDocReq)
+// ==========================================
+
+// 1) Lấy danh sách hồ sơ đề nghị giao chứng từ gốc kèm bộ lọc
+app.MapGet("/api/car-doc-requests", async (
+    string? dealer,
+    string? bank,
+    string? status,
+    string? typeCRR,
+    string? query,
+    CarDocReqService docReqService,
+    ITenantContext tc) =>
+{
+    var list = await docReqService.GetListAsync(tc.OrgId, dealer, bank, status, typeCRR, query);
+    return Results.Ok(list);
+});
+
+// 2) Lấy chi tiết hồ sơ đề nghị theo ID
+app.MapGet("/api/car-doc-requests/{id:long}", async (long id, CarDocReqService docReqService, ITenantContext tc) =>
+{
+    var item = await docReqService.GetByIdAsync(tc.OrgId, id);
+    if (item == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ đề nghị #{id}." });
+    return Results.Ok(item);
+});
+
+// 3) Lấy chi tiết hồ sơ đề nghị theo Mã đề nghị (DRListCode)
+app.MapGet("/api/car-doc-requests/code/{code}", async (string code, CarDocReqService docReqService, ITenantContext tc) =>
+{
+    var item = await docReqService.GetByCodeAsync(tc.OrgId, code);
+    if (item == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ đề nghị '{code}'." });
+    return Results.Ok(item);
+});
+
+// 4) Lập hồ sơ đề nghị giao chứng từ gốc mới (CarDocReqCreateHTC / CarDocReqCreateDealer)
+app.MapPost("/api/car-doc-requests", async (CreateCarDocReqDto dto, CarDocReqService docReqService, ITenantContext tc) =>
+{
+    try
+    {
+        var item = await docReqService.CreateAsync(tc.OrgId, dto);
+        return Results.Created($"/api/car-doc-requests/{item.Id}", item);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 5) Cập nhật hồ sơ đề nghị ở trạng thái Draft
+app.MapPut("/api/car-doc-requests/{id:long}", async (long id, UpdateCarDocReqDto dto, CarDocReqService docReqService, ITenantContext tc) =>
+{
+    try
+    {
+        var item = await docReqService.UpdateAsync(tc.OrgId, id, dto);
+        return Results.Ok(item);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Thêm xe vào hồ sơ đề nghị Draft
+app.MapPost("/api/car-doc-requests/{id:long}/items", async (long id, CarDocReqItemInputDto itemDto, CarDocReqService docReqService, ITenantContext tc) =>
+{
+    try
+    {
+        var item = await docReqService.AddDetailAsync(tc.OrgId, id, itemDto);
+        return Results.Ok(item);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 7) Xóa xe khỏi hồ sơ đề nghị Draft
+app.MapDelete("/api/car-doc-requests/{id:long}/items/{detailId:long}", async (long id, long detailId, CarDocReqService docReqService, ITenantContext tc) =>
+{
+    try
+    {
+        var item = await docReqService.RemoveDetailAsync(tc.OrgId, id, detailId);
+        return Results.Ok(item);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 8) Xóa hồ sơ đề nghị Draft
+app.MapDelete("/api/car-doc-requests/{id:long}", async (long id, CarDocReqService docReqService, ITenantContext tc) =>
+{
+    try
+    {
+        await docReqService.DeleteDraftAsync(tc.OrgId, id);
+        return Results.Ok(new { message = $"Đã xóa hồ sơ đề nghị #{id} thành công." });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 9) Trình thẩm định hồ sơ đề nghị (Draft -> Pending)
+app.MapPost("/api/car-doc-requests/{id:long}/submit", async (long id, SubmitCarDocReqDto? dto, CarDocReqService docReqService, ITenantContext tc) =>
+{
+    try
+    {
+        var item = await docReqService.SubmitAsync(tc.OrgId, id, dto ?? new SubmitCarDocReqDto());
+        return Results.Ok(item);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 10) Chuyên viên kế toán công nợ HTC thẩm định & duyệt cấp 1 (CarDocReqApprove1 / A1)
+app.MapPost("/api/car-doc-requests/{id:long}/approve1", async (long id, Approve1CarDocReqDto? dto, CarDocReqService docReqService, ITenantContext tc) =>
+{
+    try
+    {
+        var item = await docReqService.Approve1Async(tc.OrgId, id, dto ?? new Approve1CarDocReqDto());
+        return Results.Ok(item);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 11) Ngân hàng tài trợ thẩm định & xác nhận chấp thuận bảo lãnh / giải phóng chứng từ xe
+app.MapPost("/api/car-doc-requests/{id:long}/bank-approve", async (long id, BankApproveCarDocReqDto? dto, CarDocReqService docReqService, ITenantContext tc) =>
+{
+    try
+    {
+        var item = await docReqService.BankApproveAsync(tc.OrgId, id, dto ?? new BankApproveCarDocReqDto());
+        return Results.Ok(item);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 12) Lãnh đạo HTC duyệt cấp 2 lệnh xuất két hồ sơ gốc bàn giao (CarDocReqDtlApprove2 / A2)
+app.MapPost("/api/car-doc-requests/{id:long}/approve2", async (long id, Approve2CarDocReqDto? dto, CarDocReqService docReqService, ITenantContext tc) =>
+{
+    try
+    {
+        var item = await docReqService.Approve2Async(tc.OrgId, id, dto ?? new Approve2CarDocReqDto());
+        return Results.Ok(item);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 13) Tự động quét và phê duyệt cấp 2 (AutoApprove2) cho các đề nghị đạt tỷ lệ nghĩa vụ
+app.MapPost("/api/car-doc-requests/auto-approve2", async (AutoApprove2CarDocReqDto? dto, CarDocReqService docReqService, ITenantContext tc) =>
+{
+    var list = await docReqService.AutoApprove2Async(tc.OrgId, dto ?? new AutoApprove2CarDocReqDto());
+    return Results.Ok(new
+    {
+        message = $"Đã tự động duyệt cấp 2 cho {list.Count} hồ sơ đề nghị đạt điều kiện nghĩa vụ.",
+        count = list.Count,
+        items = list
+    });
+});
+
+// 14) Thủ kho xuất giao hồ sơ gốc cho đại diện đại lý / cán bộ ngân hàng ký nhận BBBG (Handover)
+app.MapPost("/api/car-doc-requests/{id:long}/handover", async (long id, HandoverCarDocReqDto? dto, CarDocReqService docReqService, ITenantContext tc) =>
+{
+    try
+    {
+        var item = await docReqService.HandoverAsync(tc.OrgId, id, dto ?? new HandoverCarDocReqDto());
+        return Results.Ok(item);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 15) Đại lý hoàn trả hồ sơ gốc về két bảo quản (với trường hợp mượn Dealer) (Return)
+app.MapPost("/api/car-doc-requests/{id:long}/return", async (long id, ReturnCarDocReqDto? dto, CarDocReqService docReqService, ITenantContext tc) =>
+{
+    try
+    {
+        var item = await docReqService.ReturnAsync(tc.OrgId, id, dto ?? new ReturnCarDocReqDto());
+        return Results.Ok(item);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 16) Quay lui trạng thái xuất két A2 khi cần điều chỉnh (RevertA2)
+app.MapPost("/api/car-doc-requests/{id:long}/revert-a2", async (long id, RevertA2CarDocReqDto dto, CarDocReqService docReqService, ITenantContext tc) =>
+{
+    try
+    {
+        var item = await docReqService.RevertA2Async(tc.OrgId, id, dto);
+        return Results.Ok(item);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 17) Từ chối hồ sơ đề nghị (CarDocReqDtlReject)
+app.MapPost("/api/car-doc-requests/{id:long}/reject", async (long id, RejectCarDocReqDto dto, CarDocReqService docReqService, ITenantContext tc) =>
+{
+    try
+    {
+        var item = await docReqService.RejectAsync(tc.OrgId, id, dto);
+        return Results.Ok(item);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 18) Hủy hồ sơ đề nghị (CarDocReqListCancel / CarDocReqDtlCancel)
+app.MapPost("/api/car-doc-requests/{id:long}/cancel", async (long id, CancelCarDocReqDto dto, CarDocReqService docReqService, ITenantContext tc) =>
+{
+    try
+    {
+        var item = await docReqService.CancelAsync(tc.OrgId, id, dto);
+        return Results.Ok(item);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 19) Sinh dữ liệu mẫu in Biên bản bàn giao chứng từ gốc CRCarDocReq (Advice)
+app.MapGet("/api/car-doc-requests/{id:long}/advice", async (long id, CarDocReqService docReqService, ITenantContext tc) =>
+{
+    var advice = await docReqService.GenerateAdviceAsync(tc.OrgId, id);
+    if (advice == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ đề nghị #{id}." });
+    return Results.Ok(advice);
+});
+
+// 20) Thống kê tổng hợp báo cáo dashboard đề nghị giao chứng từ
+app.MapGet("/api/car-doc-requests/summary", async (CarDocReqService docReqService, ITenantContext tc) =>
+{
+    var summary = await docReqService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
 });
 
 app.Run();

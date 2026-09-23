@@ -108,6 +108,7 @@
     <button class="tab-btn" onclick="showTab('supplier')">Chi Trả NCC Phụ Tùng (Supplier Payment)</button>
     <button class="tab-btn" onclick="showTab('customer')">Thu Tiền KH Dịch Vụ (Customer Payment)</button>
     <button class="tab-btn" onclick="showTab('contractCancel')">Hủy HĐ &amp; Quyết Toán Cọc (Contract Cancel)</button>
+    <button class="tab-btn" onclick="showTab('carDocReq')">Hồ Sơ Gốc Xe (Car Doc Request / DNGT)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -134,6 +135,7 @@
     <button class="tab-btn" onclick="showTab('newCustomerPayment')">+ Lập Phiếu Thu KH</button>
     <button class="tab-btn" onclick="showTab('newCustomerDebit')">+ Lập Nợ Dịch Vụ Mới</button>
     <button class="tab-btn" onclick="showTab('newContractCancel')">+ Lập Thỏa Thuận Hủy HĐ</button>
+    <button class="tab-btn" onclick="showTab('newCarDocReq')">+ Lập Đề Nghị Giấy Tờ Xe</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -5886,6 +5888,270 @@
     </div>
   </div>
 
+  <!-- TAB: Quản lý Hồ sơ Đề nghị Mượn / Bàn Giao Chứng Từ Gốc Xe Ô Tô & Xác Nhận Ngân Hàng (CarDocReq) -->
+  <div id="tab-carDocReq" style="display:none;">
+    <!-- Thống kê KPI -->
+    <div class="row" style="margin-bottom:16px;">
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Tổng Hồ Sơ Đề Nghị</div>
+        <div id="cdrStatTotalRequests" style="font-size:1.4em; font-weight:bold; color:var(--primary); margin-top:4px;">0</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Đã Xuất Giao Chứng Từ</div>
+        <div id="cdrStatHandedOver" style="font-size:1.4em; font-weight:bold; color:var(--success); margin-top:4px;">0</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Đại Lý Mượn (Chờ Trả Két)</div>
+        <div id="cdrStatDealerLoan" style="font-size:1.4em; font-weight:bold; color:var(--warning); margin-top:4px;">0</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Tổng Số Xe Yêu Cầu</div>
+        <div id="cdrStatTotalVehicles" style="font-size:1.3em; font-weight:bold; color:var(--text); margin-top:4px;">0 xe</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Tổng Giá Trị Xe Ô Tô</div>
+        <div id="cdrStatTotalCarAmount" style="font-size:1.3em; font-weight:bold; color:var(--primary); margin-top:4px;">0 đ</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Bảo Lãnh Ngân Hàng</div>
+        <div id="cdrStatTotalGuaranteeAmount" style="font-size:1.3em; font-weight:bold; color:#0284c7; margin-top:4px;">0 đ</div>
+      </div>
+    </div>
+
+    <!-- Bộ lọc & Thao tác -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <div>
+            <label class="muted" style="font-size:.85em; display:block;">Đại Lý Đề Nghị:</label>
+            <select id="filterDocReqDealer" onchange="loadCarDocRequests()" style="padding:4px 8px;">
+              <option value="">-- Tất cả đại lý --</option>
+              <option value="DLR-PVD">Hyundai Phạm Văn Đồng</option>
+              <option value="DLR-DA">Hyundai Đông Anh</option>
+              <option value="DLR-SG">Hyundai Sài Gòn</option>
+              <option value="DLR-LB">Hyundai Long Biên</option>
+              <option value="DLR-HD">Hyundai Hà Đông</option>
+              <option value="DLR-TH">Hyundai Tây Hồ</option>
+            </select>
+          </div>
+          <div>
+            <label class="muted" style="font-size:.85em; display:block;">Ngân Hàng Tài Trợ:</label>
+            <select id="filterDocReqBank" onchange="loadCarDocRequests()" style="padding:4px 8px;">
+              <option value="">-- Tất cả ngân hàng --</option>
+              <option value="TCB">Techcombank</option>
+              <option value="VCB">Vietcombank</option>
+              <option value="VPB">VPBank</option>
+              <option value="MBB">MBBank</option>
+              <option value="CTG">VietinBank</option>
+              <option value="BIDV">BIDV</option>
+            </select>
+          </div>
+          <div>
+            <label class="muted" style="font-size:.85em; display:block;">Loại Đề Nghị:</label>
+            <select id="filterDocReqType" onchange="loadCarDocRequests()" style="padding:4px 8px;">
+              <option value="">-- Tất cả loại --</option>
+              <option value="Normal">Normal - Giao hoàn tất thanh toán</option>
+              <option value="Dealer">Dealer - Đại lý mượn làm đăng ký xe</option>
+              <option value="Special">Special - Giao theo Bảo lãnh ngân hàng</option>
+            </select>
+          </div>
+          <div>
+            <label class="muted" style="font-size:.85em; display:block;">Trạng Thái:</label>
+            <select id="filterDocReqStatus" onchange="loadCarDocRequests()" style="padding:4px 8px;">
+              <option value="">-- Tất cả trạng thái --</option>
+              <option value="Draft">Draft - Dự thảo</option>
+              <option value="Pending">Pending - Chờ thẩm định A1</option>
+              <option value="Approved1">Approved1 - Đã duyệt A1</option>
+              <option value="BankApproved">BankApproved - Ngân hàng duyệt</option>
+              <option value="Approved2">Approved2 - Đã duyệt lệnh xuất két A2</option>
+              <option value="HandedOver">HandedOver - Đã xuất giao chứng từ</option>
+              <option value="Returned">Returned - Đã hoàn trả về két</option>
+              <option value="Rejected">Rejected - Từ chối</option>
+              <option value="Cancelled">Cancelled - Hủy đề nghị</option>
+            </select>
+          </div>
+          <div>
+            <label class="muted" style="font-size:.85em; display:block;">Tìm kiếm (Mã / VIN / Đại diện):</label>
+            <input type="text" id="filterDocReqKeyword" placeholder="DNGT-..., VIN, Họ tên..." onkeyup="if(event.key==='Enter') loadCarDocRequests()" style="padding:4px 8px; width:190px;">
+          </div>
+          <button class="secondary" onclick="loadCarDocRequests()" style="margin-top:16px;">Lọc Dữ Liệu</button>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="secondary" onclick="autoApprove2CarDocReq()" style="font-size:.85em;" title="Tự động duyệt cấp 2 cho các hồ sơ đạt đủ điều kiện tài chính">&#9889; Tự Động Duyệt A2</button>
+          <button onclick="showTab('newCarDocReq')">+ Lập Đề Nghị Mới</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Danh sách Hồ sơ Đề nghị Mượn / Bàn Giao Chứng Từ Gốc Xe Ô Tô -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="margin:0;">Lịch Sử Đề Nghị Mượn / Bàn Giao Chứng Từ Gốc Xe Ô Tô (Car_DocReqList / FrmMngDocReq)</h3>
+        <span class="muted" style="font-size:.85em;">Thẩm định công nợ, ngân hàng xác nhận bảo lãnh, lệnh xuất két A2 &amp; biên bản bàn giao CRCarDocReq</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr style="background:#f1f5f9;">
+              <th>Mã Đề Nghị</th>
+              <th>Loại Đề Nghị</th>
+              <th>Đại Lý Đề Nghị</th>
+              <th>Ngân Hàng Tài Trợ</th>
+              <th>Người Đại Diện Nhận</th>
+              <th style="text-align:center;">Số Xe</th>
+              <th style="text-align:right;">Tổng Giá Trị Xe</th>
+              <th style="text-align:center;">% Nghĩa Vụ</th>
+              <th>Trạng Thái</th>
+              <th>Hạn Trả Két / Ngày Giao</th>
+              <th style="text-align:center;">Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="tblCarDocRequestsBody">
+            <tr><td colspan="11" style="text-align:center; padding:20px;" class="muted">Đang tải danh sách hồ sơ đề nghị chứng từ gốc...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Lập Đề Nghị Mượn / Bàn Giao Chứng Từ Gốc Mới -->
+  <div id="tab-newCarDocReq" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:16px;">
+        <h3 style="margin:0;">Lập Hồ Sơ Đề Nghị Mượn / Bàn Giao Chứng Từ Gốc Xe Ô Tô Mới (CarDocReqCreate / FrmNewDocReq)</h3>
+        <button class="secondary" onclick="loadSampleCarDocReqData()">Nạp Mẫu Dữ Liệu</button>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted" style="font-size:.85em;">Mã Đề Nghị Giao Chứng Từ (để trống để tự động sinh):</label>
+          <input type="text" id="inpNewDRListCode" placeholder="DNGT-yyyyMM-xxx (tùy chọn)">
+        </div>
+        <div class="col">
+          <label class="muted" style="font-size:.85em;">Phân Loại Hình Thức Đề Nghị (*):</label>
+          <select id="inpNewDRTypeCRR" onchange="onNewDRTypeChanged()">
+            <option value="Normal">Normal - Giao chứng từ hoàn tất thanh toán 100%</option>
+            <option value="Dealer">Dealer - Đại lý mượn hồ sơ làm thủ tục đăng ký xe (có hạn trả két)</option>
+            <option value="Special">Special - Bàn giao theo Thư bảo lãnh ngân hàng tài trợ tín dụng</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted" style="font-size:.85em;">Mã Đại Lý Đề Nghị (*):</label>
+          <select id="inpNewDRDealerCode" onchange="onNewDRDealerChanged()">
+            <option value="DLR-PVD" data-name="Công ty CP Ô tô Hyundai Phạm Văn Đồng">DLR-PVD - Hyundai Phạm Văn Đồng</option>
+            <option value="DLR-DA" data-name="Công ty CP Ô tô Hyundai Đông Anh">DLR-DA - Hyundai Đông Anh</option>
+            <option value="DLR-SG" data-name="Công ty CP Hyundai Sài Gòn Phân Phối">DLR-SG - Hyundai Sài Gòn</option>
+            <option value="DLR-LB" data-name="Công ty CP Ô tô Hyundai Long Biên">DLR-LB - Hyundai Long Biên</option>
+            <option value="DLR-HD" data-name="Công ty CP Ô tô Hyundai Hà Đông">DLR-HD - Hyundai Hà Đông</option>
+            <option value="DLR-TH" data-name="Công ty CP Ô tô Hyundai Tây Hồ">DLR-TH - Hyundai Tây Hồ</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted" style="font-size:.85em;">Tên Đại Lý Đề Nghị:</label>
+          <input type="text" id="inpNewDRDealerName" value="Công ty CP Ô tô Hyundai Phạm Văn Đồng">
+        </div>
+        <div class="col">
+          <label class="muted" style="font-size:.85em;">Đại Lý Nhận Thay (nếu ủy quyền):</label>
+          <input type="text" id="inpNewDRDealerCodeRecieve" placeholder="Mã đại lý nhận thay (nếu có)">
+        </div>
+        <div class="col">
+          <label class="muted" style="font-size:.85em;">Ngân Hàng Tài Trợ / Bảo Lãnh (nếu Special):</label>
+          <select id="inpNewDRBankCode" onchange="onNewDRBankChanged()">
+            <option value="">-- Không qua ngân hàng (Vốn tự có) --</option>
+            <option value="TCB" data-name="Ngân hàng TMCP Kỹ Thương Việt Nam (Techcombank) - CN Thăng Long">Techcombank - CN Thăng Long</option>
+            <option value="VCB" data-name="Ngân hàng TMCP Ngoại Thương Việt Nam (Vietcombank) - CN Kỳ Đồng">Vietcombank - CN Kỳ Đồng</option>
+            <option value="VPB" data-name="Ngân hàng TMCP Việt Nam Thịnh Vượng (VPBank) - Hội Sở">VPBank - Hội Sở</option>
+            <option value="MBB" data-name="Ngân hàng TMCP Quân Đội (MBBank) - CN Ba Đình">MBBank - CN Ba Đình</option>
+            <option value="CTG" data-name="Ngân hàng TMCP Công Thương Việt Nam (VietinBank) - CN Hà Nội">VietinBank - CN Hà Nội</option>
+            <option value="BIDV" data-name="Ngân hàng TMCP Đầu tư và Phát triển Việt Nam (BIDV) - CN Thăng Long">BIDV - CN Thăng Long</option>
+          </select>
+          <input type="hidden" id="inpNewDRBankName" value="">
+        </div>
+      </div>
+
+      <!-- Khối thông tin Giấy Giới Thiệu & Người Đại Diện Nhận Hồ Sơ Gốc -->
+      <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px; margin-bottom:16px;">
+        <h4 style="margin:0 0 10px; font-size:.95em; color:var(--primary);">Thông Tin Giấy Giới Thiệu &amp; Cán Bộ Đại Diện Nhận Hồ Sơ Gốc</h4>
+        <div class="row" style="margin-bottom:8px;">
+          <div class="col">
+            <label class="muted" style="font-size:.85em;">Số Giấy Giới Thiệu (*):</label>
+            <input type="text" id="inpNewDRLetterNo" placeholder="GGT-2025/05/PVD-01">
+          </div>
+          <div class="col">
+            <label class="muted" style="font-size:.85em;">Ngày Cấp Giấy Giới Thiệu:</label>
+            <input type="date" id="inpNewDRLetterDate">
+          </div>
+          <div class="col">
+            <label class="muted" style="font-size:.85em;">Họ Tên Cán Bộ Đại Diện Nhận (*):</label>
+            <input type="text" id="inpNewDRRepName" placeholder="Nguyễn Văn A">
+          </div>
+        </div>
+        <div class="row">
+          <div class="col">
+            <label class="muted" style="font-size:.85em;">Số CCCD / CMND (*):</label>
+            <input type="text" id="inpNewDRRepIdCard" placeholder="00109200xxxx">
+          </div>
+          <div class="col">
+            <label class="muted" style="font-size:.85em;">Số Điện Thoại:</label>
+            <input type="text" id="inpNewDRRepPhone" placeholder="0912345678">
+          </div>
+          <div class="col">
+            <label class="muted" style="font-size:.85em;" id="lblNewDRReturnDueDate">Hạn Hoàn Trả Hồ Sơ Gốc (với diện Dealer mượn):</label>
+            <input type="date" id="inpNewDRReturnDueDate">
+          </div>
+        </div>
+      </div>
+
+      <div style="margin-bottom:12px;">
+        <label class="muted" style="font-size:.85em;">Ghi Chú / Diễn Giải Đề Nghị:</label>
+        <textarea id="inpNewDRRemark" rows="2" placeholder="Ghi rõ mục đích nhận chứng từ gốc, số HĐ mua bán, cam kết thời hạn trả hồ sơ..."></textarea>
+      </div>
+
+      <!-- Danh Sách Xe Ô Tô Đề Nghị Giao Chứng Từ Gốc -->
+      <div style="margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h4 style="margin:0;">Danh Sách Xe Ô Tô Đề Nghị Giao Chứng Từ Gốc</h4>
+          <div style="display:flex; gap:8px;">
+            <button class="secondary" onclick="autoFillNewDRVehiclesDuty()" style="font-size:.85em;">Điền Đủ 100% Nghĩa Vụ</button>
+            <button class="secondary" onclick="addVehicleRowToNewDR()" style="font-size:.85em;">+ Thêm Dòng Xe</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr style="background:#f8fafc;">
+                <th>Số Khung (VIN) (*)</th>
+                <th>Dòng Xe / Model</th>
+                <th>Màu Ngoại Thất</th>
+                <th>Đơn Giá Xe (VND)</th>
+                <th>% Thanh Toán</th>
+                <th>% Bảo Lãnh</th>
+                <th>% Hoàn Thành</th>
+                <th>Số Thư BL</th>
+                <th>Số CO Gốc</th>
+                <th>Số CQ</th>
+                <th>Chứng Từ Giao</th>
+                <th>Xóa</th>
+              </tr>
+            </thead>
+            <tbody id="tblNewDRVehiclesBody">
+              <!-- Sẽ được thêm bằng JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:20px;">
+        <span id="submitNewDRMsg" style="margin-right:12px; align-self:center; color:var(--primary); font-weight:500;"></span>
+        <button class="secondary" onclick="showTab('carDocReq')">Hủy Bỏ</button>
+        <button onclick="submitCreateCarDocReq()">Lập Hồ Sơ Đề Nghị Giấy Tờ Xe</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Xem Chi Tiết Biên Bản Thỏa Thuận Hủy & Quản Lý Dòng Xe -->
   <div id="modalContractCancelDetail" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
     <div style="max-width:1050px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
@@ -6020,7 +6286,129 @@
     </div>
   </div>
 
-  <!-- TAB 5: API Docs -->
+  <!-- Modal Xem Chi Tiết Hồ Sơ Đề Nghị Mượn / Bàn Giao Chứng Từ Gốc Xe Ô Tô & Quản Lý Luồng Duyệt -->
+  <div id="modalCarDocReqDetail" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:1100px; margin:25px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.2em;" id="modalDRDetailTitle">CHI TIẾT ĐỀ NGHỊ MƯỢN / BÀN GIAO CHỨNG TỪ GỐC XE Ô TÔ</h2>
+        <button class="secondary" onclick="closeCarDocReqDetailModal()">Đóng [X]</button>
+      </div>
+
+      <div id="modalDRDetailContent" style="margin-top:16px;">
+        <!-- Header và trạng thái thẩm định render bằng JS -->
+      </div>
+
+      <!-- Bảng danh sách dòng xe ô tô trong modal -->
+      <div style="margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h4 style="margin:0;">Danh Sách Xe Ô Tô &amp; Tình Trạng Chứng Từ Gốc Bàn Giao</h4>
+          <span id="drDetailDraftActions" style="display:none;">
+            <button class="secondary" onclick="toggleAddCarFormInDRModal()" style="font-size:.85em;">+ Thêm Xe Vào Đề Nghị</button>
+          </span>
+        </div>
+
+        <!-- Form thêm xe nhanh trong modal (nếu Draft) -->
+        <div id="divModalAddDRCarForm" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; padding:12px; margin-bottom:12px; border-radius:6px;">
+          <h5 style="margin:0 0 8px;">Thêm Xe Ô Tô Vào Đề Nghị:</h5>
+          <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; font-size:.9em;">
+            <div>
+              <label class="muted">Số Khung (VIN) (*):</label>
+              <input type="text" id="modalAddDRVIN" placeholder="17 ký tự VIN">
+            </div>
+            <div>
+              <label class="muted">Model Xe:</label>
+              <select id="modalAddDRModel">
+                <option value="SANTAFE">Santa Fe</option>
+                <option value="TUCSON">Tucson</option>
+                <option value="CRETA">Creta</option>
+                <option value="ACCENT">Accent</option>
+                <option value="CUSTIN">Custin</option>
+                <option value="PALISADE">Palisade</option>
+                <option value="IONIQ5">Ioniq 5</option>
+              </select>
+            </div>
+            <div>
+              <label class="muted">Màu Ngoại Thất:</label>
+              <input type="text" id="modalAddDRColor" value="Trắng">
+            </div>
+            <div>
+              <label class="muted">Đơn Giá Xe (VND):</label>
+              <input type="number" id="modalAddDRPrice" value="950000000">
+            </div>
+            <div>
+              <label class="muted">% Thanh Toán:</label>
+              <input type="number" id="modalAddDRPayPct" value="30">
+            </div>
+            <div>
+              <label class="muted">% Bảo Lãnh:</label>
+              <input type="number" id="modalAddDRGrtPct" value="70">
+            </div>
+            <div>
+              <label class="muted">Số Thư BL Ngân Hàng:</label>
+              <input type="text" id="modalAddDRBLNo" placeholder="BL-2025-...">
+            </div>
+            <div>
+              <label class="muted">Số CO Gốc:</label>
+              <input type="text" id="modalAddDRCONo" placeholder="CO-2025-...">
+            </div>
+          </div>
+          <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:10px;">
+            <button class="secondary" onclick="toggleAddCarFormInDRModal()">Hủy</button>
+            <button onclick="submitAddCarFromDRModal()">Lưu Xe Vào Đề Nghị</button>
+          </div>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr style="background:#f1f5f9;">
+                <th>STT</th>
+                <th>Số Khung (VIN)</th>
+                <th>Model Xe / Phiên Bản</th>
+                <th>Màu Ngoại Thất</th>
+                <th style="text-align:right;">Đơn Giá Xe</th>
+                <th style="text-align:center;">% TT</th>
+                <th style="text-align:center;">% BL</th>
+                <th style="text-align:center;">% Hoàn Thành</th>
+                <th>Số CO / CQ</th>
+                <th>Ngân Hàng Duyệt</th>
+                <th>Trạng Thái Xe</th>
+                <th>Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="modalDRTableBody">
+              <!-- Render bằng JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Thanh công cụ xử lý luồng duyệt hồ sơ đề nghị -->
+      <div id="modalDRWorkflowBar" style="margin-top:20px; padding-top:14px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div id="modalDRLeftActions" style="display:flex; gap:8px; flex-wrap:wrap;">
+          <!-- Render nút action theo status bằng JS -->
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="secondary" onclick="closeCarDocReqDetailModal()">Đóng</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Xem & In Biên Bản Bàn Giao Chứng Từ Gốc Xe Ô Tô (Mẫu CRCarDocReq Advice) -->
+  <div id="modalCarDocReqAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:980px; margin:25px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.2em;">BIÊN BẢN BÀN GIAO CHỨNG TỪ GỐC XE Ô TÔ (Mẫu CRCarDocReq)</h2>
+        <button class="secondary" onclick="closeCarDocReqAdviceModal()">Đóng [X]</button>
+      </div>
+      <div id="carDocReqAdviceContent" style="margin-top:16px; font-size:.9em; line-height:1.6;"></div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('carDocReqAdviceContent').innerText); alert('Đã sao chép nội dung Biên bản bàn giao vào clipboard!');">Sao Chép Văn Bản</button>
+        <button onclick="window.print()">In Biên Bản Bàn Giao (Print)</button>
+      </div>
+    </div>
+  </div>
   <div id="tab-apiDocs" style="display:none;">
     <div class="card">
       <h3>Cổng Thanh Toán (VNPay &amp; MoMo)</h3>
@@ -6375,6 +6763,29 @@
         <li><code>GET /api/contract-cancels/{id}/advice</code> — Sinh dữ liệu mẫu in Biên Bản Thỏa Thuận Hủy Hợp Đồng Mua Bán Xe &amp; Quyết Toán Nghĩa Vụ Tài Chính kèm đọc tiền bằng chữ tiếng Việt</li>
         <li><code>GET /api/contract-cancels/summary</code> — Báo cáo tổng hợp Dashboard KPI biên bản thỏa thuận hủy, số xe hủy và các khoản tiền tài chính</li>
       </ul>
+      <h3>Nghiệp Vụ Đề Nghị Mượn / Bàn Giao Chứng Từ Gốc Xe Ô Tô &amp; Xác Nhận Ngân Hàng (Car Original Document Handover - Car_DocReqList / FrmMngDocReq / BizHTC.Car.Profile.cs)</h3>
+      <ul>
+        <li><code>POST /api/car-doc-requests</code> — Lập hồ sơ đề nghị giao chứng từ gốc mới (CarDocReqCreateHTC / CarDocReqCreateDealer)</li>
+        <li><code>GET /api/car-doc-requests</code> — Danh sách hồ sơ đề nghị (hỗ trợ lọc theo <code>dealer</code>, <code>bank</code>, <code>status</code>, <code>typeCRR</code>, <code>query</code>)</li>
+        <li><code>GET /api/car-doc-requests/{id}</code> — Chi tiết 1 hồ sơ đề nghị kèm toàn bộ danh sách xe và giấy giới thiệu</li>
+        <li><code>GET /api/car-doc-requests/code/{code}</code> — Chi tiết hồ sơ đề nghị theo mã đề nghị (DRListCode)</li>
+        <li><code>PUT /api/car-doc-requests/{id}</code> — Cập nhật thông tin hồ sơ đề nghị ở trạng thái dự thảo Draft</li>
+        <li><code>POST /api/car-doc-requests/{id}/items</code> — Bổ sung xe vào hồ sơ đề nghị Draft</li>
+        <li><code>DELETE /api/car-doc-requests/{id}/items/{detailId}</code> — Xóa xe khỏi hồ sơ đề nghị Draft</li>
+        <li><code>DELETE /api/car-doc-requests/{id}</code> — Xóa toàn bộ hồ sơ đề nghị Draft</li>
+        <li><code>POST /api/car-doc-requests/{id}/submit</code> — Trình hồ sơ đề nghị lên cấp thẩm định (Draft &rarr; Pending)</li>
+        <li><code>POST /api/car-doc-requests/{id}/approve1</code> — Chuyên viên kế toán công nợ HTC thẩm định điều kiện nợ &amp; duyệt cấp 1 (CarDocReqApprove1 / A1)</li>
+        <li><code>POST /api/car-doc-requests/{id}/bank-approve</code> — Ngân hàng tài trợ thẩm định và xác nhận chấp thuận bảo lãnh / giải phóng chứng từ xe (BankApprove)</li>
+        <li><code>POST /api/car-doc-requests/{id}/approve2</code> — Lãnh đạo HTC phê duyệt lệnh xuất két hồ sơ gốc bàn giao (CarDocReqDtlApprove2 / A2)</li>
+        <li><code>POST /api/car-doc-requests/auto-approve2</code> — Tự động quét và phê duyệt cấp 2 cho các đề nghị đạt tỷ lệ nghĩa vụ tài chính</li>
+        <li><code>POST /api/car-doc-requests/{id}/handover</code> — Thủ kho xuất giao hồ sơ gốc cho cán bộ ngân hàng / đại diện đại lý ký nhận BBBG (Handover)</li>
+        <li><code>POST /api/car-doc-requests/{id}/return</code> — Đại lý hoàn trả hồ sơ gốc về két bảo quản (áp dụng diện Dealer mượn) (Return)</li>
+        <li><code>POST /api/car-doc-requests/{id}/revert-a2</code> — Quay lui trạng thái xuất két A2 khi cần điều chỉnh thông tin</li>
+        <li><code>POST /api/car-doc-requests/{id}/reject</code> — Từ chối đề nghị giao chứng từ gốc kèm lý do thẩm định</li>
+        <li><code>POST /api/car-doc-requests/{id}/cancel</code> — Hủy hồ sơ đề nghị giao chứng từ gốc</li>
+        <li><code>GET /api/car-doc-requests/{id}/advice</code> — Sinh dữ liệu mẫu in Biên Bản Bàn Giao Chứng Từ Gốc Xe Ô Tô (Mẫu CRCarDocReq) kèm đọc số tiền bằng chữ tiếng Việt chuẩn tài chính</li>
+        <li><code>GET /api/car-doc-requests/summary</code> — Báo cáo tổng hợp Dashboard KPI đề nghị giao chứng từ gốc xe ô tô</li>
+      </ul>
     </div>
   </div>
 
@@ -6407,6 +6818,7 @@
       document.getElementById('tab-supplier').style.display = tabName === 'supplier' ? 'block' : 'none';
       document.getElementById('tab-customer').style.display = tabName === 'customer' ? 'block' : 'none';
       document.getElementById('tab-contractCancel').style.display = tabName === 'contractCancel' ? 'block' : 'none';
+      document.getElementById('tab-carDocReq').style.display = tabName === 'carDocReq' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -6433,6 +6845,7 @@
       document.getElementById('tab-newCustomerPayment').style.display = tabName === 'newCustomerPayment' ? 'block' : 'none';
       document.getElementById('tab-newCustomerDebit').style.display = tabName === 'newCustomerDebit' ? 'block' : 'none';
       document.getElementById('tab-newContractCancel').style.display = tabName === 'newContractCancel' ? 'block' : 'none';
+      document.getElementById('tab-newCarDocReq').style.display = tabName === 'newCarDocReq' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
       document.querySelectorAll('.tab-btn').forEach((b) => {
@@ -6465,6 +6878,8 @@
       else if (tabName === 'customer') { loadCustomerData(); }
       else if (tabName === 'newCustomerPayment') { loadEligibleDebitsForNewCustomerPayment(); }
       else if (tabName === 'contractCancel') { loadContractCancels(); loadContractCancelSummary(); }
+      else if (tabName === 'carDocReq') { loadCarDocRequests(); loadCarDocReqSummary(); }
+      else if (tabName === 'newCarDocReq') { loadSampleCarDocReqData(); }
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====
@@ -17410,6 +17825,754 @@
       }
     }
 
+    // ===== NGHIỆP VỤ QUẢN LÝ HỒ SƠ ĐỀ NGHỊ MƯỢN / BÀN GIAO CHỨNG TỪ GỐC XE Ô TÔ (CarDocReq) =====
+    let currentCarDocReq = null;
+
+    async function loadCarDocRequests() {
+      const dealer = document.getElementById('filterDocReqDealer')?.value || '';
+      const bank = document.getElementById('filterDocReqBank')?.value || '';
+      const typeCRR = document.getElementById('filterDocReqType')?.value || '';
+      const status = document.getElementById('filterDocReqStatus')?.value || '';
+      const kw = document.getElementById('filterDocReqKeyword')?.value.trim() || '';
+
+      let url = '/api/car-doc-requests?';
+      if (dealer) url += 'dealer=' + encodeURIComponent(dealer) + '&';
+      if (bank) url += 'bank=' + encodeURIComponent(bank) + '&';
+      if (typeCRR) url += 'typeCRR=' + encodeURIComponent(typeCRR) + '&';
+      if (status) url += 'status=' + encodeURIComponent(status) + '&';
+      if (kw) url += 'query=' + encodeURIComponent(kw) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('tblCarDocRequestsBody');
+        if (!list || list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="11" class="muted" style="text-align:center; padding:20px;">Không tìm thấy hồ sơ đề nghị giao chứng từ gốc nào.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(item => {
+          let typeBadge = 'badge-info';
+          let typeText = 'Normal';
+          if (item.typeCRR === 'Dealer' || item.typeCRR === 1) { typeBadge = 'badge-warning'; typeText = 'Dealer (Mượn)'; }
+          else if (item.typeCRR === 'Special' || item.typeCRR === 2) { typeBadge = 'badge-primary'; typeText = 'Special (Bảo lãnh)'; }
+
+          let stBadge = 'badge-info';
+          let stText = 'Draft';
+          const st = item.status;
+          if (st === 'Draft' || st === 0) { stBadge = 'badge-info'; stText = 'Nháp (Draft)'; }
+          else if (st === 'Pending' || st === 1) { stBadge = 'badge-warning'; stText = 'Chờ A1'; }
+          else if (st === 'Approved1' || st === 2) { stBadge = 'badge-info'; stText = 'Đã Duyệt A1'; }
+          else if (st === 'BankApproved' || st === 3) { stBadge = 'badge-primary'; stText = 'Ngân Hàng Duyệt'; }
+          else if (st === 'Approved2' || st === 4) { stBadge = 'badge-success'; stText = 'Duyệt Xuất Két A2'; }
+          else if (st === 'HandedOver' || st === 5) { stBadge = 'badge-success'; stText = 'Đã Bàn Giao'; }
+          else if (st === 'Returned' || st === 6) { stBadge = 'badge-info'; stText = 'Đã Trả Về Két'; }
+          else if (st === 'Rejected' || st === 7) { stBadge = 'badge-danger'; stText = 'Từ Chối'; }
+          else if (st === 'Cancelled' || st === 8) { stBadge = 'badge-warning'; stText = 'Đã Hủy'; }
+
+          const dueDateStr = item.returnDueDate ? item.returnDueDate.slice(0, 10) : '';
+          const handoverDateStr = item.handoverDate ? item.handoverDate.slice(0, 10) : '';
+          const dateDisplay = (item.typeCRR === 'Dealer' || item.typeCRR === 1)
+            ? (dueDateStr ? `Hạn trả: <strong>${dueDateStr}</strong>` : '-')
+            : (handoverDateStr ? `Giao: ${handoverDateStr}` : '-');
+
+          return `
+            <tr>
+              <td><strong><code>${item.drListCode}</code></strong><br><small class="muted">${item.createdAt ? item.createdAt.slice(0, 10) : ''}</small></td>
+              <td><span class="badge ${typeBadge}">${typeText}</span></td>
+              <td><strong>${item.dealerCode}</strong><br><small class="muted">${item.dealerName || ''}</small></td>
+              <td>${item.bankCode ? `<code>${item.bankCode}</code>` : '<span class="muted">Tự có</span>'}</td>
+              <td>${item.representativeName || '-'}<br><small class="muted">${item.representativePhone || ''}</small></td>
+              <td style="text-align:center;"><strong>${item.totalVehicles}</strong> xe</td>
+              <td style="text-align:right; font-weight:600; color:var(--primary);">${Number(item.totalCarAmount || 0).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:center;"><span style="font-weight:700; color:${item.avgDutyCompletePercent >= 100 ? 'var(--success)' : 'var(--warning)'};">${item.avgDutyCompletePercent}%</span></td>
+              <td><span class="badge ${stBadge}">${stText}</span></td>
+              <td><small>${dateDisplay}</small></td>
+              <td style="text-align:center; white-space:nowrap;">
+                <button class="secondary" style="padding:4px 8px; font-size:.85em;" onclick="viewCarDocReqDetail(${item.id})">Chi Tiết</button>
+                <button class="secondary" style="padding:4px 8px; font-size:.85em; margin-left:4px;" onclick="openCarDocReqAdviceModal(${item.id})">In</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error('Lỗi loadCarDocRequests:', e); }
+    }
+
+    async function loadCarDocReqSummary() {
+      try {
+        const res = await fetch('/api/car-doc-requests/summary', { headers });
+        if (!res.ok) return;
+        const data = await res.json();
+        const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.innerText = val; };
+        setVal('cdrStatTotalRequests', data.totalRequests || 0);
+        setVal('cdrStatHandedOver', data.handedOverCount || 0);
+        setVal('cdrStatDealerLoan', (data.totalRequests - data.handedOverCount - data.returnedCount - data.rejectedCount - data.cancelledCount) || 0);
+        setVal('cdrStatTotalVehicles', `${data.totalVehiclesRequested || 0} xe`);
+        setVal('cdrStatTotalCarAmount', `${Number(data.totalCarAmount || 0).toLocaleString('vi-VN')} đ`);
+        setVal('cdrStatTotalGuaranteeAmount', `${Number(data.totalGuaranteeAmount || 0).toLocaleString('vi-VN')} đ`);
+      } catch(e) { console.error('Lỗi loadCarDocReqSummary:', e); }
+    }
+
+    async function autoApprove2CarDocReq() {
+      if (!confirm('Tự động duyệt cấp 2 (A2) lệnh xuất két cho tất cả đề nghị đã đạt 100% nghĩa vụ tài chính?')) return;
+      try {
+        const res = await fetch('/api/car-doc-requests/auto-approve2', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ minDutyPercent: 100.0 })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        const data = await res.json();
+        alert(data.message || `Đã tự động duyệt A2 cho ${data.count} hồ sơ.`);
+        loadCarDocRequests();
+        loadCarDocReqSummary();
+      } catch(e) { alert('Lỗi gọi API auto-approve2: ' + e.message); }
+    }
+
+    async function viewCarDocReqDetail(id) {
+      try {
+        const res = await fetch(`/api/car-doc-requests/${id}`, { headers });
+        if (!res.ok) { alert('Không tìm thấy hồ sơ đề nghị giao chứng từ.'); return; }
+        const r = await res.json();
+        currentCarDocReq = r;
+
+        let typeBadge = 'badge-info';
+        let typeText = 'Normal';
+        if (r.typeCRR === 'Dealer' || r.typeCRR === 1) { typeBadge = 'badge-warning'; typeText = 'Dealer (Mượn)'; }
+        else if (r.typeCRR === 'Special' || r.typeCRR === 2) { typeBadge = 'badge-primary'; typeText = 'Special (Bảo lãnh)'; }
+
+        let stBadge = 'badge-info';
+        let stText = 'Draft';
+        const st = r.status;
+        if (st === 'Draft' || st === 0) { stBadge = 'badge-info'; stText = 'Nháp (Draft)'; }
+        else if (st === 'Pending' || st === 1) { stBadge = 'badge-warning'; stText = 'Chờ A1'; }
+        else if (st === 'Approved1' || st === 2) { stBadge = 'badge-info'; stText = 'Đã Duyệt A1'; }
+        else if (st === 'BankApproved' || st === 3) { stBadge = 'badge-primary'; stText = 'Ngân Hàng Duyệt'; }
+        else if (st === 'Approved2' || st === 4) { stBadge = 'badge-success'; stText = 'Duyệt Xuất Két A2'; }
+        else if (st === 'HandedOver' || st === 5) { stBadge = 'badge-success'; stText = 'Đã Bàn Giao'; }
+        else if (st === 'Returned' || st === 6) { stBadge = 'badge-info'; stText = 'Đã Trả Về Két'; }
+        else if (st === 'Rejected' || st === 7) { stBadge = 'badge-danger'; stText = 'Từ Chối'; }
+        else if (st === 'Cancelled' || st === 8) { stBadge = 'badge-warning'; stText = 'Đã Hủy'; }
+
+        document.getElementById('modalDRDetailTitle').innerHTML = `
+          Đề Nghị Giao Chứng Từ Gốc <code>${r.drListCode}</code>
+          <span class="badge ${typeBadge}" style="margin-left:8px;">${typeText}</span>
+          <span class="badge ${stBadge}" style="margin-left:4px;">${stText}</span>
+        `;
+
+        const headerHtml = `
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; font-size:.9em; background:#f8fafc; border:1px solid #e2e8f0; border-radius:6px; padding:12px;">
+            <div><strong>Đại lý đề nghị:</strong> ${r.dealerName} (<code>${r.dealerCode}</code>)</div>
+            <div><strong>Đại lý nhận thay:</strong> ${r.dealerNameRecieve || r.dealerCodeRecieve || 'Chính đại lý nhận'}</div>
+            <div><strong>Ngân hàng tài trợ:</strong> ${r.bankName ? `${r.bankName} (<code>${r.bankCode}</code>)` : '<span class="muted">Tự có (Không qua NH)</span>'}</div>
+            <div><strong>Giấy giới thiệu:</strong> <code>${r.letterRepresentationNo || 'Chưa nộp'}</code> (${r.letterRepresentationDate ? r.letterRepresentationDate.slice(0, 10) : '-'})</div>
+            <div><strong>Cán bộ nhận hồ sơ:</strong> <strong>${r.representativeName || '-'}</strong> (CCCD: ${r.representativeIdCard || '-'})</div>
+            <div><strong>SĐT người nhận:</strong> ${r.representativePhone || '-'}</div>
+            <div><strong>Hạn trả hồ sơ gốc (Dealer):</strong> <span style="font-weight:700; color:var(--warning);">${r.returnDueDate ? r.returnDueDate.slice(0, 10) : 'Không áp dụng'}</span></div>
+            <div><strong>Ngày xuất giao thực tế:</strong> ${r.handoverDate ? r.handoverDate.slice(0, 16).replace('T', ' ') : 'Chưa xuất giao'}</div>
+            <div><strong>Ngày hoàn trả két:</strong> ${r.actualReturnDate ? r.actualReturnDate.slice(0, 16).replace('T', ' ') : '-'}</div>
+            <div style="grid-column:1 / -1;"><strong>Ghi chú / Điều khoản:</strong> ${r.remark || '-'}</div>
+            ${r.rejectReason ? `<div style="grid-column:1 / -1; color:var(--danger); font-weight:600;"><strong>Lý do từ chối:</strong> ${r.rejectReason}</div>` : ''}
+            ${r.cancelReason ? `<div style="grid-column:1 / -1; color:var(--warning); font-weight:600;"><strong>Lý do hủy:</strong> ${r.cancelReason}</div>` : ''}
+          </div>
+
+          <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:10px; margin-top:12px;">
+            <div class="card" style="padding:8px 12px; text-align:center; margin:0;">
+              <div class="muted" style="font-size:.8em;">Tổng Số Lượng Xe</div>
+              <div style="font-size:1.2em; font-weight:bold;">${r.totalVehicles} xe</div>
+            </div>
+            <div class="card" style="padding:8px 12px; text-align:center; margin:0;">
+              <div class="muted" style="font-size:.8em;">Tổng Giá Trị Xe</div>
+              <div style="font-size:1.1em; font-weight:bold; color:var(--primary);">${Number(r.totalCarAmount || 0).toLocaleString('vi-VN')} đ</div>
+            </div>
+            <div class="card" style="padding:8px 12px; text-align:center; margin:0;">
+              <div class="muted" style="font-size:.8em;">Đã Thanh Toán (30%)</div>
+              <div style="font-size:1.1em; font-weight:bold; color:var(--success);">${Number(r.totalPaymentAmount || 0).toLocaleString('vi-VN')} đ</div>
+            </div>
+            <div class="card" style="padding:8px 12px; text-align:center; margin:0;">
+              <div class="muted" style="font-size:.8em;">Bảo Lãnh Ngân Hàng</div>
+              <div style="font-size:1.1em; font-weight:bold; color:#0284c7;">${Number(r.totalGuaranteeAmount || 0).toLocaleString('vi-VN')} đ</div>
+            </div>
+            <div class="card" style="padding:8px 12px; text-align:center; margin:0;">
+              <div class="muted" style="font-size:.8em;">% Hoàn Thành Nghĩa Vụ</div>
+              <div style="font-size:1.2em; font-weight:bold; color:${r.avgDutyCompletePercent >= 100 ? 'var(--success)' : 'var(--warning)'};">${r.avgDutyCompletePercent}%</div>
+            </div>
+          </div>
+        `;
+        document.getElementById('modalDRDetailContent').innerHTML = headerHtml;
+
+        const isDraft = (r.status === 'Draft' || r.status === 0);
+        const draftActions = document.getElementById('drDetailDraftActions');
+        if (draftActions) draftActions.style.display = isDraft ? 'inline-block' : 'none';
+        document.getElementById('divModalAddDRCarForm').style.display = 'none';
+
+        const tbody = document.getElementById('modalDRTableBody');
+        let idx = 1;
+        tbody.innerHTML = (r.details || []).map(d => {
+          let bankBadge = 'badge-warning';
+          let bankText = 'Chờ NH';
+          if (d.bankApprStatus === 'Approved' || d.bankApprStatus === 1) { bankBadge = 'badge-success'; bankText = 'NH Đã Duyệt'; }
+          else if (d.bankApprStatus === 'Rejected' || d.bankApprStatus === 2) { bankBadge = 'badge-danger'; bankText = 'NH Từ Chối'; }
+
+          let delBtn = isDraft ? `<button class="secondary" style="color:var(--danger); padding:2px 6px;" onclick="removeCarFromDRModal(${d.id})">Xóa</button>` : '-';
+
+          return `
+            <tr>
+              <td style="text-align:center;">${idx++}</td>
+              <td><code>${d.vin}</code></td>
+              <td><strong>${d.modelName || d.modelCode}</strong><br><small class="muted">${d.specCode || ''}</small></td>
+              <td>${d.colorNameVN || ''}</td>
+              <td style="text-align:right;">${Number(d.unitPriceActual || 0).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:center;">${d.paymentPercent}%</td>
+              <td style="text-align:center;">${d.guaranteePercent}%</td>
+              <td style="text-align:center; font-weight:700; color:${d.dutyCompletePercent >= 100 ? 'var(--success)' : 'var(--warning)'};">${d.dutyCompletePercent}%</td>
+              <td><small>CO: <code>${d.coNo || '-'}</code><br>CQ: <code>${d.cqNo || '-'}</code></small></td>
+              <td style="text-align:center;"><span class="badge ${bankBadge}">${bankText}</span></td>
+              <td style="text-align:center;"><span class="badge badge-info">${d.status}</span></td>
+              <td style="text-align:center;">${delBtn}</td>
+            </tr>
+          `;
+        }).join('');
+
+        let actionsHtml = `<button class="secondary" onclick="openCarDocReqAdviceModal(${r.id})">Xem/In Mẫu BBBG (Advice)</button>`;
+        if (isDraft) {
+          actionsHtml += ` <button onclick="submitCarDocReq(${r.id})">Trình Thẩm Định A1</button>`;
+          actionsHtml += ` <button class="secondary" style="color:var(--danger);" onclick="deleteDraftCarDocReq(${r.id})">Xóa Đề Nghị Nháp</button>`;
+        } else if (r.status === 'Pending' || r.status === 1) {
+          actionsHtml += ` <button onclick="approve1CarDocReq(${r.id})" style="background:var(--primary);">Kế Toán Thẩm Định Duyệt A1</button>`;
+          actionsHtml += ` <button class="secondary" style="color:var(--danger);" onclick="rejectCarDocReq(${r.id})">Từ Chối</button>`;
+        } else if (r.status === 'Approved1' || r.status === 2) {
+          if (r.bankCode) {
+            actionsHtml += ` <button onclick="bankApproveCarDocReq(${r.id})" style="background:#0284c7;">Ngân Hàng Xác Nhận Bảo Lãnh</button>`;
+          }
+          actionsHtml += ` <button onclick="approve2CarDocReq(${r.id})" style="background:var(--success);">Lãnh Đạo Duyệt Xuất Két A2</button>`;
+          actionsHtml += ` <button class="secondary" style="color:var(--danger);" onclick="rejectCarDocReq(${r.id})">Từ Chối</button>`;
+        } else if (r.status === 'BankApproved' || r.status === 3) {
+          actionsHtml += ` <button onclick="approve2CarDocReq(${r.id})" style="background:var(--success);">Lãnh Đạo Duyệt Xuất Két A2</button>`;
+          actionsHtml += ` <button class="secondary" style="color:var(--danger);" onclick="rejectCarDocReq(${r.id})">Từ Chối</button>`;
+        } else if (r.status === 'Approved2' || r.status === 4) {
+          actionsHtml += ` <button onclick="handoverCarDocReq(${r.id})" style="background:var(--success);">Thủ Kho Bàn Giao Chứng Từ Gốc</button>`;
+          actionsHtml += ` <button class="secondary" style="color:var(--warning);" onclick="revertA2CarDocReq(${r.id})">Quay Lui Lệnh A2</button>`;
+        } else if (r.status === 'HandedOver' || r.status === 5) {
+          actionsHtml += ` <button onclick="returnCarDocReq(${r.id})" style="background:#0284c7;">Hoàn Trả Hồ Sơ Về Két</button>`;
+        }
+
+        if (r.status !== 'HandedOver' && r.status !== 5 && r.status !== 'Returned' && r.status !== 6 && r.status !== 'Cancelled' && r.status !== 8 && !isDraft) {
+          actionsHtml += ` <button class="secondary" style="color:var(--danger);" onclick="cancelCarDocReq(${r.id})">Hủy Đề Nghị</button>`;
+        }
+
+        document.getElementById('modalDRLeftActions').innerHTML = actionsHtml;
+        document.getElementById('modalCarDocReqDetail').style.display = 'block';
+      } catch(e) { alert('Lỗi tải chi tiết đề nghị: ' + e.message); }
+    }
+
+    function closeCarDocReqDetailModal() {
+      document.getElementById('modalCarDocReqDetail').style.display = 'none';
+      currentCarDocReq = null;
+    }
+
+    function toggleAddCarFormInDRModal() {
+      const div = document.getElementById('divModalAddDRCarForm');
+      div.style.display = div.style.display === 'none' ? 'block' : 'none';
+    }
+
+    async function submitAddCarFromDRModal() {
+      if (!currentCarDocReq) return;
+      const vin = document.getElementById('modalAddDRVIN').value.trim();
+      if (!vin) { alert('Vui lòng nhập số khung VIN.'); return; }
+      const model = document.getElementById('modalAddDRModel').value;
+      const color = document.getElementById('modalAddDRColor').value.trim();
+      const uPrice = parseInt(document.getElementById('modalAddDRPrice').value) || 0;
+      const payPct = parseFloat(document.getElementById('modalAddDRPayPct').value) || 30;
+      const grtPct = parseFloat(document.getElementById('modalAddDRGrtPct').value) || 70;
+      const blNo = document.getElementById('modalAddDRBLNo').value.trim();
+      const coNo = document.getElementById('modalAddDRCONo').value.trim();
+
+      const payload = {
+        vin: vin,
+        modelCode: model,
+        colorNameVN: color,
+        unitPriceActual: uPrice,
+        paymentPercent: payPct,
+        guaranteePercent: grtPct,
+        dutyCompletePercent: Math.min(100, payPct + grtPct),
+        bankGuaranteeNo: blNo || null,
+        coNo: coNo || null
+      };
+
+      try {
+        const res = await fetch(`/api/car-doc-requests/${currentCarDocReq.id}/items`, {
+          method: 'POST', headers, body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        viewCarDocReqDetail(currentCarDocReq.id);
+        loadCarDocRequests();
+        loadCarDocReqSummary();
+      } catch(e) { alert('Lỗi thêm xe vào đề nghị: ' + e.message); }
+    }
+
+    async function removeCarFromDRModal(detailId) {
+      if (!currentCarDocReq) return;
+      if (!confirm('Xác nhận xóa dòng xe này khỏi đề nghị?')) return;
+      try {
+        const res = await fetch(`/api/car-doc-requests/${currentCarDocReq.id}/items/${detailId}`, {
+          method: 'DELETE', headers
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        viewCarDocReqDetail(currentCarDocReq.id);
+        loadCarDocRequests();
+        loadCarDocReqSummary();
+      } catch(e) { alert('Lỗi xóa xe: ' + e.message); }
+    }
+
+    async function submitCarDocReq(id) {
+      if (!confirm('Xác nhận nộp trình chuyên viên kế toán công nợ thẩm định A1?')) return;
+      try {
+        const res = await fetch(`/api/car-doc-requests/${id}/submit`, {
+          method: 'POST', headers, body: JSON.stringify({ submitterName: 'ChuyenVienQuanLyHSCar' })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        viewCarDocReqDetail(id); loadCarDocRequests(); loadCarDocReqSummary();
+      } catch(e) { alert('Lỗi trình thẩm định: ' + e.message); }
+    }
+
+    async function approve1CarDocReq(id) {
+      const remark = prompt('Nhập ý kiến thẩm định công nợ cấp 1 (A1):', 'Đã đối soát hoàn thành 30% cọc và Thư bảo lãnh 70% ngân hàng hợp lệ.');
+      if (remark === null) return;
+      try {
+        const res = await fetch(`/api/car-doc-requests/${id}/approve1`, {
+          method: 'POST', headers, body: JSON.stringify({ approverName: 'ChuyenVienKeToanCongNo_HTC', remark })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        viewCarDocReqDetail(id); loadCarDocRequests(); loadCarDocReqSummary();
+      } catch(e) { alert('Lỗi duyệt A1: ' + e.message); }
+    }
+
+    async function bankApproveCarDocReq(id) {
+      const bankApprover = prompt('Họ tên cán bộ tín dụng ngân hàng xác nhận bảo lãnh:', 'NguyenPhuongThao_CBTD');
+      if (!bankApprover) return;
+      const bankNote = prompt('Ghi chú xác nhận của ngân hàng:', 'Ngân hàng cam kết thanh toán dứt điểm khi nhận được bản gốc đăng kiểm xe.');
+      try {
+        const res = await fetch(`/api/car-doc-requests/${id}/bank-approve`, {
+          method: 'POST', headers, body: JSON.stringify({ bankApprover, bankNote })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        viewCarDocReqDetail(id); loadCarDocRequests(); loadCarDocReqSummary();
+      } catch(e) { alert('Lỗi ngân hàng duyệt: ' + e.message); }
+    }
+
+    async function approve2CarDocReq(id) {
+      const approver = prompt('Họ tên lãnh đạo HTC phê duyệt lệnh xuất két A2:', 'PhamQuangHuy_PhoTGDKD');
+      if (!approver) return;
+      const remark = prompt('Chỉ đạo xuất két:', 'Đồng ý xuất giao bản gốc chứng từ xe theo đúng quy định bảo quản.');
+      try {
+        const res = await fetch(`/api/car-doc-requests/${id}/approve2`, {
+          method: 'POST', headers, body: JSON.stringify({ approverName: approver, remark })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        viewCarDocReqDetail(id); loadCarDocRequests(); loadCarDocReqSummary();
+      } catch(e) { alert('Lỗi duyệt A2: ' + e.message); }
+    }
+
+    async function handoverCarDocReq(id) {
+      const recipient = prompt('Họ tên đại diện ký nhận bàn giao chứng từ gốc:', currentCarDocReq?.representativeName || 'Đại diện đại lý / Ngân hàng');
+      if (!recipient) return;
+      const idCard = prompt('Số CCCD / CMND người nhận:', currentCarDocReq?.representativeIdCard || '00109200xxxx');
+      try {
+        const res = await fetch(`/api/car-doc-requests/${id}/handover`, {
+          method: 'POST', headers, body: JSON.stringify({ handedOverBy: 'ThuKhoChungTuGoc_HTC', recipientName: recipient, recipientIdCard: idCard })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        viewCarDocReqDetail(id); loadCarDocRequests(); loadCarDocReqSummary();
+      } catch(e) { alert('Lỗi bàn giao: ' + e.message); }
+    }
+
+    async function returnCarDocReq(id) {
+      const notes = prompt('Nhập ghi chú hoàn trả hồ sơ về két bảo quản:', 'Đại lý đã hoàn tất thủ tục đăng ký xe và trả đủ CO bản gốc vào két lưu trữ.');
+      if (notes === null) return;
+      try {
+        const res = await fetch(`/api/car-doc-requests/${id}/return`, {
+          method: 'POST', headers, body: JSON.stringify({ returnedBy: 'ThuKhoChungTuGoc_HTC', returnNotes: notes })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        viewCarDocReqDetail(id); loadCarDocRequests(); loadCarDocReqSummary();
+      } catch(e) { alert('Lỗi trả hồ sơ về két: ' + e.message); }
+    }
+
+    async function revertA2CarDocReq(id) {
+      const reason = prompt('Nhập lý do quay lui lệnh xuất két A2:');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/car-doc-requests/${id}/revert-a2`, {
+          method: 'POST', headers, body: JSON.stringify({ reason, operatorName: 'BanKiemSoatHTC' })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        viewCarDocReqDetail(id); loadCarDocRequests(); loadCarDocReqSummary();
+      } catch(e) { alert('Lỗi quay lui: ' + e.message); }
+    }
+
+    async function rejectCarDocReq(id) {
+      const reason = prompt('Nhập lý do từ chối hồ sơ đề nghị:');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/car-doc-requests/${id}/reject`, {
+          method: 'POST', headers, body: JSON.stringify({ reason, rejecterName: 'CapThamDinh_HTC' })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        viewCarDocReqDetail(id); loadCarDocRequests(); loadCarDocReqSummary();
+      } catch(e) { alert('Lỗi từ chối: ' + e.message); }
+    }
+
+    async function cancelCarDocReq(id) {
+      const reason = prompt('Nhập lý do hủy hồ sơ đề nghị:');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/car-doc-requests/${id}/cancel`, {
+          method: 'POST', headers, body: JSON.stringify({ reason, cancellerName: 'DaiLyYeuCau' })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        viewCarDocReqDetail(id); loadCarDocRequests(); loadCarDocReqSummary();
+      } catch(e) { alert('Lỗi hủy: ' + e.message); }
+    }
+
+    async function deleteDraftCarDocReq(id) {
+      if (!confirm('Xác nhận xóa hoàn toàn hồ sơ đề nghị nháp này?')) return;
+      try {
+        const res = await fetch(`/api/car-doc-requests/${id}`, { method: 'DELETE', headers });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        closeCarDocReqDetailModal(); loadCarDocRequests(); loadCarDocReqSummary();
+      } catch(e) { alert('Lỗi xóa nháp: ' + e.message); }
+    }
+
+    async function openCarDocReqAdviceModal(id) {
+      try {
+        const res = await fetch(`/api/car-doc-requests/${id}/advice`, { headers });
+        if (!res.ok) { alert('Không tải được mẫu in biên bản.'); return; }
+        const a = await res.json();
+
+        const html = `
+          <div style="font-family:Arial, sans-serif; padding:10px;">
+            <div style="display:flex; justify-content:space-between; border-bottom:2px solid #000; padding-bottom:8px; margin-bottom:16px;">
+              <div>
+                <strong>CÔNG TY CỔ PHẦN LIÊN DOANH Ô TÔ HYUNDAI THÀNH CÔNG VIỆT NAM (HTV)</strong><br>
+                <em>Ban Quản Lý Chứng Từ Gốc Xe &amp; Kế Toán Thanh Toán</em><br>
+                <span>Địa chỉ: Tòa nhà Thành Công Group, Cầu Giấy, Hà Nội</span>
+              </div>
+              <div style="text-align:right;">
+                <strong>Mẫu số: CRCarDocReq.rpt</strong><br>
+                <span>Số ĐNGT: <strong>${a.drListCode}</strong></span><br>
+                <span>Ngày in: ${a.printDate}</span>
+              </div>
+            </div>
+
+            <div style="text-align:center; margin:16px 0;">
+              <h2 style="margin:0; font-size:1.3em;">BIÊN BẢN BÀN GIAO CHỨNG TỪ GỐC XE Ô TÔ</h2>
+              <div style="font-style:italic; margin-top:4px;">(Kèm theo Giấy giới thiệu số: <strong>${a.letterRepresentationNo || '-'}</strong> ngày ${a.letterRepresentationDate || '-'})</div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:14px; background:#f9fafb; padding:10px; border-radius:6px; border:1px solid #e5e7eb;">
+              <div><strong>Đại lý đề nghị:</strong> ${a.dealerName} (<code>${a.dealerCode}</code>)</div>
+              <div><strong>Đại lý nhận hồ sơ:</strong> ${a.dealerNameRecieve || a.dealerName}</div>
+              <div><strong>Cán bộ nhận hồ sơ:</strong> <strong>${a.representativeName || '-'}</strong></div>
+              <div><strong>CCCD / CMND:</strong> ${a.representativeIdCard || '-'} (SĐT: ${a.representativePhone || '-'})</div>
+              <div><strong>Ngân hàng tài trợ/bảo lãnh:</strong> ${a.bankName ? `${a.bankName} (<code>${a.bankCode}</code>)` : 'Vốn tự có (Không qua NH)'}</div>
+              <div><strong>Phân loại hình thức:</strong> <span style="font-weight:700; color:var(--primary);">${a.typeCRRText}</span></div>
+              <div><strong>Tình trạng thẩm định:</strong> <strong>${a.statusText}</strong></div>
+              <div><strong>Hạn hoàn trả hồ sơ gốc (với diện mượn):</strong> <strong style="color:var(--warning);">${a.returnDueDate || 'Không'}</strong></div>
+            </div>
+
+            <h4 style="margin:12px 0 6px;">DANH MỤC XE Ô TÔ BÀN GIAO CHỨNG TỪ GỐC:</h4>
+            <table style="width:100%; border-collapse:collapse; margin-bottom:14px; font-size:.85em;" border="1" cellpadding="5">
+              <thead style="background:#f3f4f6;">
+                <tr>
+                  <th>STT</th>
+                  <th>Số Khung (VIN)</th>
+                  <th>Dòng Xe / Model</th>
+                  <th>Số Máy</th>
+                  <th>Màu Xe</th>
+                  <th style="text-align:right;">Đơn Giá Xe</th>
+                  <th style="text-align:center;">% TT</th>
+                  <th style="text-align:center;">% BL</th>
+                  <th>Số CO Gốc</th>
+                  <th>Số CQ</th>
+                  <th>Danh Mục Chứng Từ Giao</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(a.items || []).map(i => `
+                  <tr>
+                    <td style="text-align:center;">${i.no}</td>
+                    <td><code>${i.vin}</code></td>
+                    <td><strong>${i.modelName}</strong></td>
+                    <td><code>${i.engineNo}</code></td>
+                    <td>${i.colorNameVN}</td>
+                    <td style="text-align:right;">${Number(i.unitPriceActual).toLocaleString('vi-VN')} đ</td>
+                    <td style="text-align:center;">${i.paymentPercent}%</td>
+                    <td style="text-align:center;">${i.guaranteePercent}%</td>
+                    <td><code>${i.coNo}</code></td>
+                    <td><code>${i.cqNo}</code></td>
+                    <td><small>${i.documentsGiven}</small></td>
+                  </tr>
+                `).join('')}
+              </tbody>
+            </table>
+
+            <div style="background:#f9fafb; padding:10px; border-radius:6px; border:1px solid #e5e7eb; margin-bottom:16px;">
+              <div>- Tổng số lượng xe: <strong>${a.totalVehicles} xe</strong></div>
+              <div>- Tổng giá trị xe: <strong style="color:var(--primary);">${Number(a.totalCarAmount).toLocaleString('vi-VN')} VNĐ</strong></div>
+              <div><em>(Bằng chữ giá trị xe: ${a.totalCarAmountInWords})</em></div>
+              <div>- Tiền cọc / tiền đã thanh toán: <strong>${Number(a.totalPaymentAmount).toLocaleString('vi-VN')} VNĐ</strong> (${a.totalPaymentAmountInWords})</div>
+              <div>- Giá trị bảo lãnh ngân hàng: <strong>${Number(a.totalGuaranteeAmount).toLocaleString('vi-VN')} VNĐ</strong> (${a.totalGuaranteeAmountInWords})</div>
+              <div>- Tỷ lệ hoàn thành nghĩa vụ tài chính: <strong>${a.avgDutyCompletePercent}%</strong></div>
+              ${a.remark ? `<div>- Ghi chú: <em>${a.remark}</em></div>` : ''}
+            </div>
+
+            <div style="display:flex; justify-content:space-between; text-align:center; margin-top:30px;">
+              <div style="flex:1;">
+                <strong>ĐẠI DIỆN ĐẠI LÝ (BÊN NHẬN)</strong><br>
+                <em>(Ký, ghi rõ họ tên &amp; đóng dấu)</em><br><br><br><br>
+                <strong>${a.representativeName || a.dealerName}</strong>
+              </div>
+              <div style="flex:1;">
+                <strong>CÁN BỘ NGÂN HÀNG (NẾU CÓ)</strong><br>
+                <em>(Xác nhận tiếp nhận chứng từ)</em><br><br><br><br>
+                <strong>${a.bankApprovedBy || 'Đại diện Ngân hàng'}</strong>
+              </div>
+              <div style="flex:1;">
+                <strong>THỦ KHO CHỨNG TỪ GỐC</strong><br>
+                <em>(Xuất giao chứng từ gốc)</em><br><br><br><br>
+                <strong>${a.handedOverBy || 'Thủ Kho Hồ Sơ'}</strong>
+              </div>
+              <div style="flex:1;">
+                <strong>PHÊ DUYỆT LÃNH ĐẠO HTV</strong><br>
+                <em>(Ký duyệt lệnh xuất két A2)</em><br><br><br><br>
+                <strong>${a.approvedBy2 || 'Ban Tổng Giám Đốc'}</strong>
+              </div>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('carDocReqAdviceContent').innerHTML = html;
+        document.getElementById('modalCarDocReqAdvice').style.display = 'block';
+      } catch(e) { alert('Lỗi hiển thị mẫu in: ' + e.message); }
+    }
+
+    function closeCarDocReqAdviceModal() {
+      document.getElementById('modalCarDocReqAdvice').style.display = 'none';
+    }
+
+    function onNewDRTypeChanged() {
+      const type = document.getElementById('inpNewDRTypeCRR')?.value;
+      const lblReturn = document.getElementById('lblNewDRReturnDueDate');
+      const inpReturn = document.getElementById('inpNewDRReturnDueDate');
+      if (type === 'Dealer') {
+        if (lblReturn) lblReturn.style.fontWeight = 'bold';
+        if (inpReturn) {
+          const due = new Date(Date.now() + 10 * 86400000);
+          inpReturn.value = due.toISOString().split('T')[0];
+        }
+      }
+    }
+
+    function onNewDRDealerChanged() {
+      const sel = document.getElementById('inpNewDRDealerCode');
+      const opt = sel?.options[sel.selectedIndex];
+      const dName = opt?.getAttribute('data-name');
+      const inp = document.getElementById('inpNewDRDealerName');
+      if (inp && dName) inp.value = dName;
+    }
+
+    function onNewDRBankChanged() {
+      const sel = document.getElementById('inpNewDRBankCode');
+      const opt = sel?.options[sel.selectedIndex];
+      const bName = opt?.getAttribute('data-name') || '';
+      const inp = document.getElementById('inpNewDRBankName');
+      if (inp) inp.value = bName;
+    }
+
+    function addVehicleRowToNewDR(vin = '', model = 'SANTAFE', color = 'Trắng', price = 950000000, payPct = 30, grtPct = 70, dutyPct = 100, blNo = '', coNo = '', cqNo = '', docGiven = 'Bản gốc CO, Bản sao CQ, Tờ khai HQ, Hóa đơn VAT') {
+      const tbody = document.getElementById('tblNewDRVehiclesBody');
+      if (!tbody) return;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input type="text" class="dr-vin" value="${vin}" placeholder="17 ký tự VIN" style="width:160px; font-weight:600;"></td>
+        <td>
+          <select class="dr-model" style="padding:2px 4px;">
+            <option value="SANTAFE" ${model === 'SANTAFE' ? 'selected' : ''}>Santa Fe</option>
+            <option value="TUCSON" ${model === 'TUCSON' ? 'selected' : ''}>Tucson</option>
+            <option value="CRETA" ${model === 'CRETA' ? 'selected' : ''}>Creta</option>
+            <option value="ACCENT" ${model === 'ACCENT' ? 'selected' : ''}>Accent</option>
+            <option value="ELANTRA" ${model === 'ELANTRA' ? 'selected' : ''}>Elantra</option>
+            <option value="PALISADE" ${model === 'PALISADE' ? 'selected' : ''}>Palisade</option>
+            <option value="CUSTIN" ${model === 'CUSTIN' ? 'selected' : ''}>Custin</option>
+            <option value="IONIQ5" ${model === 'IONIQ5' ? 'selected' : ''}>Ioniq 5</option>
+          </select>
+        </td>
+        <td><input type="text" class="dr-color" value="${color}" style="width:70px;"></td>
+        <td><input type="number" class="dr-price" value="${price}" style="width:110px; text-align:right;"></td>
+        <td><input type="number" class="dr-pay-pct" value="${payPct}" style="width:50px; text-align:center;"></td>
+        <td><input type="number" class="dr-grt-pct" value="${grtPct}" style="width:50px; text-align:center;"></td>
+        <td><input type="number" class="dr-duty-pct" value="${dutyPct}" style="width:50px; text-align:center; font-weight:bold;"></td>
+        <td><input type="text" class="dr-bl-no" value="${blNo}" placeholder="BL-2025-..." style="width:110px;"></td>
+        <td><input type="text" class="dr-co-no" value="${coNo}" placeholder="CO-2025-..." style="width:110px;"></td>
+        <td><input type="text" class="dr-cq-no" value="${cqNo}" placeholder="CQ-2025-..." style="width:110px;"></td>
+        <td><input type="text" class="dr-docs" value="${docGiven}" style="width:170px;"></td>
+        <td style="text-align:center;"><button class="secondary" style="color:var(--danger); padding:2px 6px;" onclick="removeVehicleRowFromNewDR(this)">X</button></td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    function removeVehicleRowFromNewDR(btn) {
+      btn.closest('tr')?.remove();
+    }
+
+    function autoFillNewDRVehiclesDuty() {
+      const rows = document.querySelectorAll('#tblNewDRVehiclesBody tr');
+      rows.forEach(r => {
+        const pay = parseFloat(r.querySelector('.dr-pay-pct')?.value) || 30;
+        const grt = 100 - pay;
+        const grtInp = r.querySelector('.dr-grt-pct');
+        const dutyInp = r.querySelector('.dr-duty-pct');
+        if (grtInp) grtInp.value = grt;
+        if (dutyInp) dutyInp.value = 100;
+      });
+    }
+
+    function loadSampleCarDocReqData() {
+      const today = new Date().toISOString().split('T')[0];
+      const inpLetterDate = document.getElementById('inpNewDRLetterDate');
+      if (inpLetterDate) inpLetterDate.value = today;
+
+      const inpLetterNo = document.getElementById('inpNewDRLetterNo');
+      if (inpLetterNo && !inpLetterNo.value) inpLetterNo.value = `GGT-2025/05/PVD-${Math.floor(10 + Math.random() * 90)}`;
+
+      const inpRepName = document.getElementById('inpNewDRRepName');
+      if (inpRepName && !inpRepName.value) inpRepName.value = 'Nguyễn Tuấn Dũng';
+
+      const inpRepId = document.getElementById('inpNewDRRepIdCard');
+      if (inpRepId && !inpRepId.value) inpRepId.value = '001095004128';
+
+      const inpRepPhone = document.getElementById('inpNewDRRepPhone');
+      if (inpRepPhone && !inpRepPhone.value) inpRepPhone.value = '0988776655';
+
+      const inpRemark = document.getElementById('inpNewDRRemark');
+      if (inpRemark && !inpRemark.value) inpRemark.value = 'Đại lý đề nghị bàn giao hồ sơ gốc xe Hyundai Santa Fe và Tucson theo Thư bảo lãnh Techcombank số BL-2025-TCB-8822.';
+
+      const tbody = document.getElementById('tblNewDRVehiclesBody');
+      if (tbody && tbody.children.length === 0) {
+        addVehicleRowToNewDR('KMHSF81WAPU089221', 'SANTAFE', 'Đen', 1350000000, 30, 70, 100, 'BL-2025-TCB-8822', 'CO-2025-SF-9221', 'CQ-2025-SF-9221', 'Bản gốc CO, Bản sao CQ, Hóa đơn VAT');
+        addVehicleRowToNewDR('KMHTU81DPNU500125', 'TUCSON', 'Trắng', 1020000000, 30, 70, 100, 'BL-2025-TCB-8822', 'CO-2025-TUC-0125', 'CQ-2025-TUC-0125', 'Bản gốc CO, Bản sao CQ, Tờ khai HQ, Hóa đơn VAT');
+      }
+    }
+
+    async function submitCreateCarDocReq() {
+      const msg = document.getElementById('submitNewDRMsg');
+      const dCode = document.getElementById('inpNewDRDealerCode')?.value;
+      const dName = document.getElementById('inpNewDRDealerName')?.value;
+      const dRecieve = document.getElementById('inpNewDRDealerCodeRecieve')?.value || null;
+      const bCode = document.getElementById('inpNewDRBankCode')?.value || null;
+      const bName = document.getElementById('inpNewDRBankName')?.value || null;
+      const typeCRR = document.getElementById('inpNewDRTypeCRR')?.value || 'Normal';
+      const drCode = document.getElementById('inpNewDRListCode')?.value.trim() || null;
+      const letterNo = document.getElementById('inpNewDRLetterNo')?.value.trim();
+      const letterDate = document.getElementById('inpNewDRLetterDate')?.value;
+      const repName = document.getElementById('inpNewDRRepName')?.value.trim();
+      const repId = document.getElementById('inpNewDRRepIdCard')?.value.trim();
+      const repPhone = document.getElementById('inpNewDRRepPhone')?.value.trim();
+      const returnDue = document.getElementById('inpNewDRReturnDueDate')?.value;
+      const remark = document.getElementById('inpNewDRRemark')?.value.trim();
+
+      if (!dCode) { alert('Vui lòng chọn đại lý đề nghị.'); return; }
+      if (!letterNo) { alert('Vui lòng nhập số Giấy giới thiệu.'); return; }
+      if (!repName) { alert('Vui lòng nhập họ tên cán bộ đại diện nhận hồ sơ.'); return; }
+
+      const rows = document.querySelectorAll('#tblNewDRVehiclesBody tr');
+      if (rows.length === 0) { alert('Vui lòng thêm ít nhất 1 dòng xe vào đề nghị.'); return; }
+
+      const items = [];
+      for (const r of rows) {
+        const vin = r.querySelector('.dr-vin')?.value.trim();
+        if (!vin) { alert('Có dòng xe chưa nhập số khung VIN.'); return; }
+        const model = r.querySelector('.dr-model')?.value || 'SANTAFE';
+        const color = r.querySelector('.dr-color')?.value.trim() || 'Trắng';
+        const price = parseInt(r.querySelector('.dr-price')?.value) || 0;
+        const payPct = parseFloat(r.querySelector('.dr-pay-pct')?.value) || 30;
+        const grtPct = parseFloat(r.querySelector('.dr-grt-pct')?.value) || 70;
+        const dutyPct = parseFloat(r.querySelector('.dr-duty-pct')?.value) || 100;
+        const blNo = r.querySelector('.dr-bl-no')?.value.trim() || null;
+        const coNo = r.querySelector('.dr-co-no')?.value.trim() || null;
+        const cqNo = r.querySelector('.dr-cq-no')?.value.trim() || null;
+        const docs = r.querySelector('.dr-docs')?.value.trim() || 'Bản gốc CO, Bản sao CQ, Hóa đơn VAT';
+
+        items.push({
+          vin: vin,
+          modelCode: model,
+          colorNameVN: color,
+          unitPriceActual: price,
+          paymentPercent: payPct,
+          guaranteePercent: grtPct,
+          dutyCompletePercent: dutyPct,
+          bankGuaranteeNo: blNo,
+          coNo: coNo,
+          cqNo: cqNo,
+          documentsGiven: docs
+        });
+      }
+
+      const payload = {
+        drListCode: drCode,
+        dealerCode: dCode,
+        dealerName: dName,
+        dealerCodeRecieve: dRecieve,
+        bankCode: bCode,
+        bankName: bName,
+        typeCRR: typeCRR,
+        letterRepresentationNo: letterNo,
+        letterRepresentationDate: letterDate ? new Date(letterDate) : null,
+        representativeName: repName,
+        representativeIdCard: repId,
+        representativePhone: repPhone,
+        returnDueDate: returnDue ? new Date(returnDue) : null,
+        remark: remark,
+        items: items
+      };
+
+      if (msg) msg.innerText = 'Đang lưu hồ sơ đề nghị...';
+      try {
+        const res = await fetch('/api/car-doc-requests', {
+          method: 'POST', headers, body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          if (msg) msg.innerText = '';
+          return;
+        }
+        const created = await res.json();
+        if (msg) msg.innerText = `Đã lập đề nghị ${created.drListCode} thành công!`;
+        showTab('carDocReq');
+        loadCarDocRequests();
+        loadCarDocReqSummary();
+        viewCarDocReqDetail(created.id);
+      } catch(e) {
+        alert('Lỗi lập đề nghị: ' + e.message);
+        if (msg) msg.innerText = '';
+      }
+    }
+
     // Khởi tạo
     loadSampleData();
     loadSamplePayoutData();
@@ -17429,6 +18592,7 @@
     loadSampleSupplierData();
     loadSampleCustomerData();
     loadSampleContractCancelData();
+    loadSampleCarDocReqData();
     loadBatches();
   </script>
 </body>

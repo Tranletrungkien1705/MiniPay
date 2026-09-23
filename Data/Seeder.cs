@@ -1455,6 +1455,89 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_ContractCancelDetails_CancellationId"" ON ""ContractCancelDetails"" (""CancellationId"");
                 CREATE INDEX IF NOT EXISTS ""IX_ContractCancelDetails_OrgId_VIN"" ON ""ContractCancelDetails"" (""OrgId"", ""VIN"");
                 CREATE INDEX IF NOT EXISTS ""IX_ContractCancelDetails_OrgId_ContractCancelNo"" ON ""ContractCancelDetails"" (""OrgId"", ""ContractCancelNo"");
+
+                CREATE TABLE IF NOT EXISTS ""CarDocRequests"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""DRListCode"" TEXT NOT NULL,
+                    ""DealerCode"" TEXT NOT NULL,
+                    ""DealerName"" TEXT NOT NULL,
+                    ""DealerCodeRecieve"" TEXT NULL,
+                    ""DealerNameRecieve"" TEXT NULL,
+                    ""BankCode"" TEXT NULL,
+                    ""BankName"" TEXT NULL,
+                    ""TypeCRR"" INTEGER NOT NULL,
+                    ""LetterRepresentationNo"" TEXT NULL,
+                    ""LetterRepresentationDate"" TEXT NULL,
+                    ""RepresentativeName"" TEXT NULL,
+                    ""RepresentativeIdCard"" TEXT NULL,
+                    ""RepresentativePhone"" TEXT NULL,
+                    ""TotalVehicles"" INTEGER NOT NULL,
+                    ""TotalCarAmount"" INTEGER NOT NULL,
+                    ""TotalPaymentAmount"" INTEGER NOT NULL,
+                    ""TotalGuaranteeAmount"" INTEGER NOT NULL,
+                    ""AvgDutyCompletePercent"" REAL NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""ApprovedBy1"" TEXT NULL,
+                    ""ApprovedDate1"" TEXT NULL,
+                    ""BankApprovedBy"" TEXT NULL,
+                    ""BankApprovedAt"" TEXT NULL,
+                    ""ApprovedBy2"" TEXT NULL,
+                    ""ApprovedDate2"" TEXT NULL,
+                    ""HandoverDate"" TEXT NULL,
+                    ""HandedOverBy"" TEXT NULL,
+                    ""HandoverRecipient"" TEXT NULL,
+                    ""ReturnDueDate"" TEXT NULL,
+                    ""ActualReturnDate"" TEXT NULL,
+                    ""ReturnedBy"" TEXT NULL,
+                    ""RejectReason"" TEXT NULL,
+                    ""CancelReason"" TEXT NULL,
+                    ""Remark"" TEXT NULL,
+                    ""CreatedBy"" TEXT NULL,
+                    ""CreatedAt"" TEXT NOT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_CarDocRequests_OrgId_DRListCode"" ON ""CarDocRequests"" (""OrgId"", ""DRListCode"");
+                CREATE INDEX IF NOT EXISTS ""IX_CarDocRequests_OrgId_DealerCode"" ON ""CarDocRequests"" (""OrgId"", ""DealerCode"");
+                CREATE INDEX IF NOT EXISTS ""IX_CarDocRequests_OrgId_BankCode"" ON ""CarDocRequests"" (""OrgId"", ""BankCode"");
+
+                CREATE TABLE IF NOT EXISTS ""CarDocRequestDetails"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""DocReqId"" INTEGER NOT NULL,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""DRListCode"" TEXT NOT NULL,
+                    ""VIN"" TEXT NOT NULL,
+                    ""CarId"" TEXT NULL,
+                    ""ModelCode"" TEXT NOT NULL,
+                    ""ModelName"" TEXT NULL,
+                    ""SpecCode"" TEXT NULL,
+                    ""EngineNo"" TEXT NULL,
+                    ""ColorNameVN"" TEXT NULL,
+                    ""ContractNo"" TEXT NULL,
+                    ""UnitPriceActual"" INTEGER NOT NULL,
+                    ""PaymentPercent"" REAL NOT NULL,
+                    ""DepositPercent"" REAL NOT NULL,
+                    ""GuaranteePercent"" REAL NOT NULL,
+                    ""DutyCompletePercent"" REAL NOT NULL,
+                    ""BankGuaranteeNo"" TEXT NULL,
+                    ""CONo"" TEXT NULL,
+                    ""CQNo"" TEXT NULL,
+                    ""CustomsDeclarationNo"" TEXT NULL,
+                    ""HTCInvoiceNo"" TEXT NULL,
+                    ""DocumentsGiven"" TEXT NOT NULL,
+                    ""BankApprStatus"" INTEGER NOT NULL,
+                    ""BankApprDTime"" TEXT NULL,
+                    ""BankApprBy"" TEXT NULL,
+                    ""BankApprNote"" TEXT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""HandoverDate"" TEXT NULL,
+                    ""ReturnDueDate"" TEXT NULL,
+                    ""ActualReturnDate"" TEXT NULL,
+                    ""Remark"" TEXT NULL,
+                    CONSTRAINT ""FK_CarDocRequestDetails_CarDocRequests_DocReqId"" FOREIGN KEY (""DocReqId"") REFERENCES ""CarDocRequests"" (""Id"") ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_CarDocRequestDetails_DocReqId"" ON ""CarDocRequestDetails"" (""DocReqId"");
+                CREATE INDEX IF NOT EXISTS ""IX_CarDocRequestDetails_OrgId_VIN"" ON ""CarDocRequestDetails"" (""OrgId"", ""VIN"");
+                CREATE INDEX IF NOT EXISTS ""IX_CarDocRequestDetails_OrgId_DRListCode"" ON ""CarDocRequestDetails"" (""OrgId"", ""DRListCode"");
             ");
         }
         else if (db.Database.IsNpgsql())
@@ -2884,6 +2967,88 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_ContractCancelDetails_CancellationId"" ON ""ContractCancelDetails"" (""CancellationId"");
                 CREATE INDEX IF NOT EXISTS ""IX_ContractCancelDetails_OrgId_VIN"" ON ""ContractCancelDetails"" (""OrgId"", ""VIN"");
                 CREATE INDEX IF NOT EXISTS ""IX_ContractCancelDetails_OrgId_ContractCancelNo"" ON ""ContractCancelDetails"" (""OrgId"", ""ContractCancelNo"");
+
+                CREATE TABLE IF NOT EXISTS ""CarDocRequests"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""OrgId"" uuid NOT NULL,
+                    ""DRListCode"" text NOT NULL,
+                    ""DealerCode"" text NOT NULL,
+                    ""DealerName"" text NOT NULL,
+                    ""DealerCodeRecieve"" text NULL,
+                    ""DealerNameRecieve"" text NULL,
+                    ""BankCode"" text NULL,
+                    ""BankName"" text NULL,
+                    ""TypeCRR"" integer NOT NULL,
+                    ""LetterRepresentationNo"" text NULL,
+                    ""LetterRepresentationDate"" timestamp with time zone NULL,
+                    ""RepresentativeName"" text NULL,
+                    ""RepresentativeIdCard"" text NULL,
+                    ""RepresentativePhone"" text NULL,
+                    ""TotalVehicles"" integer NOT NULL,
+                    ""TotalCarAmount"" bigint NOT NULL,
+                    ""TotalPaymentAmount"" bigint NOT NULL,
+                    ""TotalGuaranteeAmount"" bigint NOT NULL,
+                    ""AvgDutyCompletePercent"" numeric NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""ApprovedBy1"" text NULL,
+                    ""ApprovedDate1"" timestamp with time zone NULL,
+                    ""BankApprovedBy"" text NULL,
+                    ""BankApprovedAt"" timestamp with time zone NULL,
+                    ""ApprovedBy2"" text NULL,
+                    ""ApprovedDate2"" timestamp with time zone NULL,
+                    ""HandoverDate"" timestamp with time zone NULL,
+                    ""HandedOverBy"" text NULL,
+                    ""HandoverRecipient"" text NULL,
+                    ""ReturnDueDate"" timestamp with time zone NULL,
+                    ""ActualReturnDate"" timestamp with time zone NULL,
+                    ""ReturnedBy"" text NULL,
+                    ""RejectReason"" text NULL,
+                    ""CancelReason"" text NULL,
+                    ""Remark"" text NULL,
+                    ""CreatedBy"" text NULL,
+                    ""CreatedAt"" timestamp with time zone NOT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_CarDocRequests_OrgId_DRListCode"" ON ""CarDocRequests"" (""OrgId"", ""DRListCode"");
+                CREATE INDEX IF NOT EXISTS ""IX_CarDocRequests_OrgId_DealerCode"" ON ""CarDocRequests"" (""OrgId"", ""DealerCode"");
+                CREATE INDEX IF NOT EXISTS ""IX_CarDocRequests_OrgId_BankCode"" ON ""CarDocRequests"" (""OrgId"", ""BankCode"");
+
+                CREATE TABLE IF NOT EXISTS ""CarDocRequestDetails"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""DocReqId"" bigint NOT NULL REFERENCES ""CarDocRequests"" (""Id"") ON DELETE CASCADE,
+                    ""OrgId"" uuid NOT NULL,
+                    ""DRListCode"" text NOT NULL,
+                    ""VIN"" text NOT NULL,
+                    ""CarId"" text NULL,
+                    ""ModelCode"" text NOT NULL,
+                    ""ModelName"" text NULL,
+                    ""SpecCode"" text NULL,
+                    ""EngineNo"" text NULL,
+                    ""ColorNameVN"" text NULL,
+                    ""ContractNo"" text NULL,
+                    ""UnitPriceActual"" bigint NOT NULL,
+                    ""PaymentPercent"" numeric NOT NULL,
+                    ""DepositPercent"" numeric NOT NULL,
+                    ""GuaranteePercent"" numeric NOT NULL,
+                    ""DutyCompletePercent"" numeric NOT NULL,
+                    ""BankGuaranteeNo"" text NULL,
+                    ""CONo"" text NULL,
+                    ""CQNo"" text NULL,
+                    ""CustomsDeclarationNo"" text NULL,
+                    ""HTCInvoiceNo"" text NULL,
+                    ""DocumentsGiven"" text NOT NULL,
+                    ""BankApprStatus"" integer NOT NULL,
+                    ""BankApprDTime"" timestamp with time zone NULL,
+                    ""BankApprBy"" text NULL,
+                    ""BankApprNote"" text NULL,
+                    ""Status"" integer NOT NULL,
+                    ""HandoverDate"" timestamp with time zone NULL,
+                    ""ReturnDueDate"" timestamp with time zone NULL,
+                    ""ActualReturnDate"" timestamp with time zone NULL,
+                    ""Remark"" text NULL
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_CarDocRequestDetails_DocReqId"" ON ""CarDocRequestDetails"" (""DocReqId"");
+                CREATE INDEX IF NOT EXISTS ""IX_CarDocRequestDetails_OrgId_VIN"" ON ""CarDocRequestDetails"" (""OrgId"", ""VIN"");
+                CREATE INDEX IF NOT EXISTS ""IX_CarDocRequestDetails_OrgId_DRListCode"" ON ""CarDocRequestDetails"" (""OrgId"", ""DRListCode"");
             ");
         }
 
@@ -10791,6 +10956,332 @@ public static class Seeder
                     TransferContractNo = "HDMB-2025-HP12",
                     Status = ContractCancelDetailStatus.Pending,
                     Remark = "Chuyển tiền cọc sang hợp đồng mới HDMB-2025-HP12"
+                }
+            );
+
+            await db.SaveChangesAsync();
+        }
+
+        // Seed dữ liệu mẫu cho Quản lý Hồ sơ Đề nghị Mượn / Bàn Giao Chứng Từ Gốc Xe Ô Tô & Xác Nhận Ngân Hàng (BizHTC.Car.Profile.cs / Car_DocReqList / FrmMngDocReq)
+        if (!await db.CarDocRequests.AnyAsync())
+        {
+            // Hồ sơ 1: Bàn giao chứng từ xe hoàn tất thanh toán (TypeCRR = Normal, Status = HandedOver)
+            var req1 = new CarDocReqList
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DRListCode = "DNGT-202505-001",
+                DealerCode = "DLR-PVD",
+                DealerName = "Công ty CP Ô tô Hyundai Phạm Văn Đồng",
+                BankCode = null,
+                BankName = null,
+                TypeCRR = CarDocReqType.Normal,
+                LetterRepresentationNo = "GGT-2025/05/PVD-01",
+                LetterRepresentationDate = DateTime.Today.AddDays(-5),
+                RepresentativeName = "Nguyễn Văn Hưng",
+                RepresentativeIdCard = "001092004812",
+                RepresentativePhone = "0912345678",
+                TotalVehicles = 2,
+                TotalCarAmount = 2_150_000_000,
+                TotalPaymentAmount = 2_150_000_000,
+                TotalGuaranteeAmount = 0,
+                AvgDutyCompletePercent = 100.0m,
+                Status = CarDocReqStatus.HandedOver,
+                ApprovedBy1 = "TrinhVanBinh_ChuyenVienCongNo",
+                ApprovedDate1 = DateTime.Today.AddDays(-4),
+                ApprovedBy2 = "PhamQuangHuy_PhoTGDKD",
+                ApprovedDate2 = DateTime.Today.AddDays(-3),
+                HandoverDate = DateTime.Today.AddDays(-2),
+                HandedOverBy = "LeVanThang_ThuKhoChungTu",
+                HandoverRecipient = "Nguyễn Văn Hưng",
+                Remark = "Đại lý đã hoàn tất thanh toán 100% tiền mua 02 xe Santa Fe qua UNC ngân hàng VietinBank. Hồ sơ gốc CO/CQ đã xuất giao đủ cho đại diện đại lý nhận làm thủ tục bàn giao khách.",
+                CreatedBy = "VuThiThao_ChuyenVienQuanLyDaiLy",
+                CreatedAt = DateTime.Today.AddDays(-5)
+            };
+            db.CarDocRequests.Add(req1);
+            await db.SaveChangesAsync();
+
+            db.CarDocRequestDetails.AddRange(
+                new CarDocReqDetail
+                {
+                    DocReqId = req1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DRListCode = req1.DRListCode,
+                    VIN = "KMHEE81WBPU018821",
+                    CarId = "CAR-STA-018821",
+                    ModelCode = "SANTAFE",
+                    ModelName = "Hyundai Santa Fe Calligraphy 2.5 AWD",
+                    SpecCode = "STA-2.5-CAL",
+                    EngineNo = "G4KP-PU018821",
+                    ColorNameVN = "Trắng Tinh Khôi",
+                    ContractNo = "HDMB-2025-PVD01",
+                    UnitPriceActual = 1_280_000_000,
+                    PaymentPercent = 100.0m,
+                    DepositPercent = 20.0m,
+                    GuaranteePercent = 0m,
+                    DutyCompletePercent = 100.0m,
+                    CONo = "CO-2025-STA-8821",
+                    CQNo = "CQ-2025-STA-8821",
+                    HTCInvoiceNo = "HD-2025-001289",
+                    DocumentsGiven = "Bản gốc CO, Bản sao CQ, Giấy kiểm định xuất xưởng, Hóa đơn VAT",
+                    BankApprStatus = BankDocApprStatus.Approved,
+                    Status = CarDocReqDetailStatus.HandedOver,
+                    HandoverDate = req1.HandoverDate,
+                    Remark = "Đã xuất giao hồ sơ gốc hoàn tất"
+                },
+                new CarDocReqDetail
+                {
+                    DocReqId = req1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DRListCode = req1.DRListCode,
+                    VIN = "KMHCT81DAPU029944",
+                    CarId = "CAR-CRE-029944",
+                    ModelCode = "CRETA",
+                    ModelName = "Hyundai Creta 1.5 Cao Cấp",
+                    SpecCode = "CRE-1.5-PRE",
+                    EngineNo = "G4FL-PU029944",
+                    ColorNameVN = "Đỏ Quyến Rũ",
+                    ContractNo = "HDMB-2025-PVD01",
+                    UnitPriceActual = 870_000_000,
+                    PaymentPercent = 100.0m,
+                    DepositPercent = 20.0m,
+                    GuaranteePercent = 0m,
+                    DutyCompletePercent = 100.0m,
+                    CONo = "CO-2025-CRE-9944",
+                    CQNo = "CQ-2025-CRE-9944",
+                    HTCInvoiceNo = "HD-2025-001290",
+                    DocumentsGiven = "Bản gốc CO, Bản sao CQ, Hóa đơn VAT",
+                    BankApprStatus = BankDocApprStatus.Approved,
+                    Status = CarDocReqDetailStatus.HandedOver,
+                    HandoverDate = req1.HandoverDate,
+                    Remark = "Đã xuất giao hồ sơ gốc hoàn tất"
+                }
+            );
+
+            // Hồ sơ 2: Bàn giao theo Thư bảo lãnh ngân hàng tài trợ Techcombank (TypeCRR = Special, Status = Approved2)
+            var req2 = new CarDocReqList
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DRListCode = "DNGT-202505-002",
+                DealerCode = "DLR-DA",
+                DealerName = "Công ty CP Ô tô Hyundai Đông Anh",
+                BankCode = "TCB",
+                BankName = "Ngân hàng TMCP Kỹ Thương Việt Nam (Techcombank) - CN Thăng Long",
+                TypeCRR = CarDocReqType.Special,
+                LetterRepresentationNo = "GGT-2025/05/DA-08",
+                LetterRepresentationDate = DateTime.Today.AddDays(-3),
+                RepresentativeName = "Trần Hải Đăng",
+                RepresentativeIdCard = "001088009123",
+                RepresentativePhone = "0988776655",
+                TotalVehicles = 2,
+                TotalCarAmount = 1_870_000_000,
+                TotalPaymentAmount = 561_000_000,
+                TotalGuaranteeAmount = 1_309_000_000,
+                AvgDutyCompletePercent = 100.0m,
+                Status = CarDocReqStatus.Approved2,
+                ApprovedBy1 = "TrinhVanBinh_ChuyenVienCongNo",
+                ApprovedDate1 = DateTime.Today.AddDays(-2),
+                BankApprovedBy = "NguyenPhuongThao_CBTD_TCB",
+                BankApprovedAt = DateTime.Today.AddDays(-1),
+                ApprovedBy2 = "PhamQuangHuy_PhoTGDKD",
+                ApprovedDate2 = DateTime.Today,
+                Remark = "Đại lý đã thanh toán 30% tiền cọc và có Thư bảo lãnh Techcombank số BL-2025-TCB-8821 bảo lãnh 70% giá trị hợp đồng. Ngân hàng đã thẩm định và xác nhận chấp thuận giải phóng hồ sơ xe. Đã có lệnh xuất két A2.",
+                CreatedBy = "NguyenVanTam_ChuyenVienQuanLyDaiLy",
+                CreatedAt = DateTime.Today.AddDays(-3)
+            };
+            db.CarDocRequests.Add(req2);
+            await db.SaveChangesAsync();
+
+            db.CarDocRequestDetails.AddRange(
+                new CarDocReqDetail
+                {
+                    DocReqId = req2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DRListCode = req2.DRListCode,
+                    VIN = "KMHJT81WAPU044120",
+                    CarId = "CAR-TUC-044120",
+                    ModelCode = "TUCSON",
+                    ModelName = "Hyundai Tucson 1.6T HTRAC Turbo",
+                    SpecCode = "TUC-1.6T-TURBO",
+                    EngineNo = "G4FP-PU044120",
+                    ColorNameVN = "Đen Sang Trọng",
+                    ContractNo = "HDMB-2025-TC01",
+                    UnitPriceActual = 1_040_000_000,
+                    PaymentPercent = 30.0m,
+                    DepositPercent = 30.0m,
+                    GuaranteePercent = 70.0m,
+                    DutyCompletePercent = 100.0m,
+                    BankGuaranteeNo = "BL-2025-TCB-8821",
+                    CONo = "CO-2025-TUC-4120",
+                    CQNo = "CQ-2025-TUC-4120",
+                    HTCInvoiceNo = "HD-2025-001305",
+                    DocumentsGiven = "Bản gốc CO, Bản sao CQ, Tờ khai HQ, Hóa đơn VAT",
+                    BankApprStatus = BankDocApprStatus.Approved,
+                    BankApprBy = "NguyenPhuongThao_CBTD_TCB",
+                    BankApprDTime = DateTime.Today.AddDays(-1),
+                    BankApprNote = "Techcombank Thăng Long xác nhận bảo lãnh hợp lệ cho số khung KMHJT81WAPU044120",
+                    Status = CarDocReqDetailStatus.Approved2,
+                    Remark = "Chờ thủ kho xuất giao chứng từ cho cán bộ ngân hàng ký nhận"
+                },
+                new CarDocReqDetail
+                {
+                    DocReqId = req2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DRListCode = req2.DRListCode,
+                    VIN = "KMHAC81CBPU077112",
+                    CarId = "CAR-ACC-077112",
+                    ModelCode = "ACCENT",
+                    ModelName = "Hyundai All-New Accent 1.5 AT Đặc Biệt",
+                    SpecCode = "ACC-1.5-AT-DB",
+                    EngineNo = "G4FA-PU077112",
+                    ColorNameVN = "Bạc Ánh Kim",
+                    ContractNo = "HDMB-2025-TC01",
+                    UnitPriceActual = 830_000_000,
+                    PaymentPercent = 30.0m,
+                    DepositPercent = 30.0m,
+                    GuaranteePercent = 70.0m,
+                    DutyCompletePercent = 100.0m,
+                    BankGuaranteeNo = "BL-2025-TCB-8821",
+                    CONo = "CO-2025-ACC-7112",
+                    CQNo = "CQ-2025-ACC-7112",
+                    HTCInvoiceNo = "HD-2025-001306",
+                    DocumentsGiven = "Bản gốc CO, Bản sao CQ, Hóa đơn VAT",
+                    BankApprStatus = BankDocApprStatus.Approved,
+                    BankApprBy = "NguyenPhuongThao_CBTD_TCB",
+                    BankApprDTime = DateTime.Today.AddDays(-1),
+                    BankApprNote = "Techcombank Thăng Long xác nhận bảo lãnh hợp lệ cho số khung KMHAC81CBPU077112",
+                    Status = CarDocReqDetailStatus.Approved2,
+                    Remark = "Chờ thủ kho xuất giao chứng từ cho cán bộ ngân hàng ký nhận"
+                }
+            );
+
+            // Hồ sơ 3: Đại lý mượn hồ sơ gốc làm thủ tục đăng ký xe trước cho khách (TypeCRR = Dealer, Status = HandedOver kèm hạn trả két)
+            var req3 = new CarDocReqList
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DRListCode = "DNGT-202505-003",
+                DealerCode = "DLR-SG",
+                DealerName = "Công ty CP Hyundai Sài Gòn Phân Phối",
+                BankCode = "VCB",
+                BankName = "Ngân hàng TMCP Ngoại Thương Việt Nam (Vietcombank) - CN Kỳ Đồng",
+                TypeCRR = CarDocReqType.Dealer,
+                LetterRepresentationNo = "GGT-2025/05/SG-14",
+                LetterRepresentationDate = DateTime.Today.AddDays(-7),
+                RepresentativeName = "Hoàng Minh Trí",
+                RepresentativeIdCard = "079090001245",
+                RepresentativePhone = "0903334455",
+                TotalVehicles = 1,
+                TotalCarAmount = 1_580_000_000,
+                TotalPaymentAmount = 474_000_000,
+                TotalGuaranteeAmount = 1_106_000_000,
+                AvgDutyCompletePercent = 100.0m,
+                Status = CarDocReqStatus.HandedOver,
+                ApprovedBy1 = "TrinhVanBinh_ChuyenVienCongNo",
+                ApprovedDate1 = DateTime.Today.AddDays(-6),
+                BankApprovedBy = "VoThiKimOanh_CBTD_VCB",
+                BankApprovedAt = DateTime.Today.AddDays(-5),
+                ApprovedBy2 = "PhamQuangHuy_PhoTGDKD",
+                ApprovedDate2 = DateTime.Today.AddDays(-4),
+                HandoverDate = DateTime.Today.AddDays(-3),
+                HandedOverBy = "LeVanThang_ThuKhoChungTu",
+                HandoverRecipient = "Hoàng Minh Trí",
+                ReturnDueDate = DateTime.Today.AddDays(7), // Hạn trả hồ sơ gốc trong vòng 10 ngày
+                Remark = "Đại lý mượn bản gốc CO xe Palisade để hoàn tất thủ tục đăng ký xe và đăng kiểm biển số cho khách hàng VIP của Vietcombank. Cam kết hoàn trả bản gốc CO về két trước ngày quy định.",
+                CreatedBy = "VuThiThao_ChuyenVienQuanLyDaiLy",
+                CreatedAt = DateTime.Today.AddDays(-7)
+            };
+            db.CarDocRequests.Add(req3);
+            await db.SaveChangesAsync();
+
+            db.CarDocRequestDetails.Add(
+                new CarDocReqDetail
+                {
+                    DocReqId = req3.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DRListCode = req3.DRListCode,
+                    VIN = "KMHPL81CBPU066911",
+                    CarId = "CAR-PAL-066911",
+                    ModelCode = "PALISADE",
+                    ModelName = "Hyundai Palisade Calligraphy 2.2D AWD",
+                    SpecCode = "PAL-2.2D-CAL",
+                    EngineNo = "D4HB-PU066911",
+                    ColorNameVN = "Trắng Ngọc Trai",
+                    ContractNo = "HDMB-2025-SG04",
+                    UnitPriceActual = 1_580_000_000,
+                    PaymentPercent = 30.0m,
+                    DepositPercent = 30.0m,
+                    GuaranteePercent = 70.0m,
+                    DutyCompletePercent = 100.0m,
+                    BankGuaranteeNo = "BL-2025-VCB-9901",
+                    CONo = "CO-2025-PAL-6911",
+                    CQNo = "CQ-2025-PAL-6911",
+                    HTCInvoiceNo = "HD-2025-001318",
+                    DocumentsGiven = "Bản gốc CO mượn tạm, Bản sao CQ công chứng",
+                    BankApprStatus = BankDocApprStatus.Approved,
+                    BankApprBy = "VoThiKimOanh_CBTD_VCB",
+                    BankApprDTime = DateTime.Today.AddDays(-5),
+                    BankApprNote = "Vietcombank Kỳ Đồng đồng ý cho đại lý mượn CO gốc đăng ký bấm biển xe cho KH",
+                    Status = CarDocReqDetailStatus.HandedOver,
+                    HandoverDate = req3.HandoverDate,
+                    ReturnDueDate = req3.ReturnDueDate,
+                    Remark = "Đang mượn hồ sơ gốc làm thủ tục đăng ký xe, hạn trả két ngày " + req3.ReturnDueDate?.ToString("dd/MM/yyyy")
+                }
+            );
+
+            // Hồ sơ 4: Đề nghị mới tạo dự thảo (TypeCRR = Normal, Status = Draft)
+            var req4 = new CarDocReqList
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DRListCode = "DNGT-202505-004",
+                DealerCode = "DLR-LB",
+                DealerName = "Công ty CP Ô tô Hyundai Long Biên",
+                BankCode = "VPB",
+                BankName = "Ngân hàng TMCP Việt Nam Thịnh Vượng (VPBank) - Hội Sở",
+                TypeCRR = CarDocReqType.Special,
+                LetterRepresentationNo = "GGT-2025/05/LB-03",
+                LetterRepresentationDate = DateTime.Today,
+                RepresentativeName = "Đoàn Văn Hùng",
+                RepresentativeIdCard = "001094002871",
+                RepresentativePhone = "0944556677",
+                TotalVehicles = 1,
+                TotalCarAmount = 1_250_000_000,
+                TotalPaymentAmount = 250_000_000,
+                TotalGuaranteeAmount = 1_000_000_000,
+                AvgDutyCompletePercent = 100.0m,
+                Status = CarDocReqStatus.Draft,
+                Remark = "Dự thảo hồ sơ đề nghị giao hồ sơ gốc xe Hyundai Custin theo Thư bảo lãnh VPBank, đang chờ hoàn thiện sao y công chứng giấy giới thiệu.",
+                CreatedBy = "VuThiThao_ChuyenVienQuanLyDaiLy",
+                CreatedAt = DateTime.Today
+            };
+            db.CarDocRequests.Add(req4);
+            await db.SaveChangesAsync();
+
+            db.CarDocRequestDetails.Add(
+                new CarDocReqDetail
+                {
+                    DocReqId = req4.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DRListCode = req4.DRListCode,
+                    VIN = "KMHCU81NBPU055209",
+                    CarId = "CAR-CUS-055209",
+                    ModelCode = "CUSTIN",
+                    ModelName = "Hyundai Custin 2.0T Cao Cấp MPV",
+                    SpecCode = "CUS-2.0T-PRE",
+                    EngineNo = "G4NN-PU055209",
+                    ColorNameVN = "Xanh Lục Bảo",
+                    ContractNo = "HDMB-2025-LB09",
+                    UnitPriceActual = 1_250_000_000,
+                    PaymentPercent = 20.0m,
+                    DepositPercent = 20.0m,
+                    GuaranteePercent = 80.0m,
+                    DutyCompletePercent = 100.0m,
+                    BankGuaranteeNo = "BL-2025-VPB-7712",
+                    CONo = "CO-2025-CUS-5209",
+                    CQNo = "CQ-2025-CUS-5209",
+                    HTCInvoiceNo = "HD-2025-001322",
+                    DocumentsGiven = "Bản gốc CO, Bản sao CQ, Hóa đơn VAT",
+                    BankApprStatus = BankDocApprStatus.Pending,
+                    Status = CarDocReqDetailStatus.Pending,
+                    Remark = "Dự thảo đề nghị, chuẩn bị trình chuyên viên công nợ HTC thẩm định A1"
                 }
             );
 

@@ -2993,3 +2993,362 @@ public sealed class DealerCancelStatDto
     public long TotalPenaltyAmount { get; set; }
     public long TotalGuaranteeRelease { get; set; }
 }
+
+// ==========================================
+// Nghiệp vụ Quản lý Hồ sơ Đề nghị Mượn / Bàn Giao Chứng Từ Gốc Xe Ô Tô & Xác Nhận Ngân Hàng
+// (Car Original Document Release & Handover Request / Bank Document Approval Management - CarDocReq)
+// Tương ứng bảng Car_DocReqList, Car_DocReqDtl trong BizHTC.Car.Profile.cs, DataWH/BizHTC.zTemp.cs
+// và các màn hình FrmMngDocReq, FrmNewDocReq, FrmMngDocReqDealer, FrmUpdateDocReq,
+// báo cáo in Biên bản bàn giao hồ sơ gốc CRCarDocReq.rpt trong TERP.HTCClient/Views/Sales hệ nguồn HTC 2010.
+// ==========================================
+
+/// <summary>Phân loại hình thức đề nghị giao chứng từ gốc xe ô tô — tương ứng TypeCRR (CarDocReqType) trong BizHTC.</summary>
+public enum CarDocReqType
+{
+    Normal = 0,   // Đề nghị bàn giao chứng từ thông thường (xe đã hoàn thành 100% nghĩa vụ thanh toán hoặc cọc + bảo lãnh hợp lệ)
+    Dealer = 1,   // Đại lý mượn hồ sơ gốc để làm thủ tục đăng ký xe trước cho khách hàng (có cam kết thời hạn hoàn trả hồ sơ gốc)
+    Special = 2   // Bàn giao chứng từ đặc biệt theo bảo lãnh ngân hàng tài trợ tín dụng (yêu cầu Ngân hàng thẩm định & xác nhận BankAppr)
+}
+
+/// <summary>Trạng thái đề nghị giao chứng từ gốc — tương ứng DRListStatus trong Car_DocReqList.</summary>
+public enum CarDocReqStatus
+{
+    Draft = 0,        // Mới tạo dự thảo / Chờ bổ sung hồ sơ giấy giới thiệu
+    Pending = 1,      // Chờ thẩm định công nợ cấp 1 (Chờ A1)
+    Approved1 = 2,    // Đã duyệt cấp 1 (A1: Chuyên viên thẩm định tài chính HTC xác nhận điều kiện công nợ)
+    BankApproved = 3, // Ngân hàng tài trợ đã thẩm định và xác nhận chấp thuận bảo lãnh / giải phóng chứng từ xe
+    Approved2 = 4,    // Lãnh đạo HTC phê duyệt cấp 2 (A2: Lệnh xuất két hồ sơ gốc bàn giao)
+    HandedOver = 5,   // Đã xuất giao hồ sơ gốc cho đại diện đại lý / cán bộ ngân hàng ký nhận BBBG
+    Returned = 6,     // Đã hoàn trả hồ sơ gốc về két bảo quản / Tất toán hồ sơ mượn tạm
+    Rejected = 7,     // Từ chối đề nghị
+    Cancelled = 8     // Hủy đề nghị
+}
+
+/// <summary>Trạng thái ngân hàng thẩm định & xác nhận giải phóng chứng từ xe — tương ứng BankApprStatus trong Car_DocReqDtl.</summary>
+public enum BankDocApprStatus
+{
+    Pending = 0,   // Chờ ngân hàng xác nhận
+    Approved = 1,  // Ngân hàng đã xác nhận đồng ý
+    Rejected = 2   // Ngân hàng từ chối
+}
+
+/// <summary>Trạng thái từng xe trong đề nghị — tương ứng DRDtlStatus trong Car_DocReqDtl.</summary>
+public enum CarDocReqDetailStatus
+{
+    Pending = 0,      // Chờ xử lý
+    Approved1 = 1,    // Đã thẩm định A1
+    BankApproved = 2, // Ngân hàng xác nhận
+    Approved2 = 3,    // Lãnh đạo HTC duyệt A2
+    HandedOver = 4,   // Đã bàn giao chứng từ
+    Returned = 5,     // Đã hoàn trả chứng từ
+    Cancelled = 6     // Hủy dòng xe
+}
+
+/// <summary>Hồ sơ Đề nghị mượn / bàn giao chứng từ gốc xe ô tô — tương ứng bảng Car_DocReqList trong BizHTC.</summary>
+public sealed class CarDocReqList
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string DRListCode { get; set; } = "";                     // Số đề nghị giao chứng từ (DNGT-yyyyMM-xxx)
+    public string DealerCode { get; set; } = "";                     // Mã đại lý đề nghị
+    public string DealerName { get; set; } = "";                     // Tên đại lý đề nghị
+    public string? DealerCodeRecieve { get; set; }                   // Mã đại lý nhận giấy tờ (nếu ủy quyền cho đại lý khác nhận)
+    public string? DealerNameRecieve { get; set; }                   // Tên đại lý nhận giấy tờ
+    public string? BankCode { get; set; }                            // Mã ngân hàng tài trợ/bảo lãnh (MBB, VCB, CTG, TCB, VPB, BIDV)
+    public string? BankName { get; set; }                            // Tên ngân hàng
+    public CarDocReqType TypeCRR { get; set; } = CarDocReqType.Normal; // Loại đề nghị (Normal, Dealer, Special)
+    public string? LetterRepresentationNo { get; set; }              // Số giấy giới thiệu nhân viên đại lý đi nhận hồ sơ
+    public DateTime? LetterRepresentationDate { get; set; }          // Ngày cấp giấy giới thiệu
+    public string? RepresentativeName { get; set; }                  // Họ tên cán bộ đại diện nhận hồ sơ gốc
+    public string? RepresentativeIdCard { get; set; }                // Số CCCD / CMND người đại diện
+    public string? RepresentativePhone { get; set; }                 // SĐT người đại diện
+    public int TotalVehicles { get; set; }                           // Tổng số xe đề nghị
+    public long TotalCarAmount { get; set; }                         // Tổng giá trị xe (VND)
+    public long TotalPaymentAmount { get; set; }                     // Tổng số tiền đã thanh toán (VND)
+    public long TotalGuaranteeAmount { get; set; }                   // Tổng giá trị bảo lãnh ngân hàng (VND)
+    public decimal AvgDutyCompletePercent { get; set; }              // Tỷ lệ % hoàn thành nghĩa vụ bình quân
+    public CarDocReqStatus Status { get; set; } = CarDocReqStatus.Draft; // Trạng thái đề nghị
+    public string? ApprovedBy1 { get; set; }                         // Chuyên viên HTC thẩm định A1
+    public DateTime? ApprovedDate1 { get; set; }                     // Ngày duyệt A1
+    public string? BankApprovedBy { get; set; }                      // Cán bộ ngân hàng duyệt
+    public DateTime? BankApprovedAt { get; set; }                    // Thời điểm ngân hàng duyệt
+    public string? ApprovedBy2 { get; set; }                         // Lãnh đạo HTC duyệt A2
+    public DateTime? ApprovedDate2 { get; set; }                     // Ngày duyệt A2
+    public DateTime? HandoverDate { get; set; }                      // Ngày bàn giao chứng từ gốc thực tế
+    public string? HandedOverBy { get; set; }                        // Thủ kho / cán bộ bàn giao hồ sơ gốc
+    public string? HandoverRecipient { get; set; }                   // Người nhận ký biên bản giao nhận
+    public DateTime? ReturnDueDate { get; set; }                     // Hạn hoàn trả hồ sơ gốc (với diện mượn Dealer)
+    public DateTime? ActualReturnDate { get; set; }                  // Ngày hoàn trả thực tế về két
+    public string? ReturnedBy { get; set; }                          // Cán bộ tiếp nhận hoàn trả
+    public string? RejectReason { get; set; }                        // Lý do từ chối
+    public string? CancelReason { get; set; }                        // Lý do hủy đề nghị
+    public string? Remark { get; set; }                              // Ghi chú / điều khoản bổ sung
+    public string? CreatedBy { get; set; }                           // Người tạo đề nghị
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    public List<CarDocReqDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết xe trong hồ sơ đề nghị giao chứng từ gốc — tương ứng Car_DocReqDtl trong BizHTC.</summary>
+public sealed class CarDocReqDetail
+{
+    public long Id { get; set; }
+    public long DocReqId { get; set; }
+    public Guid OrgId { get; set; }
+    public string DRListCode { get; set; } = "";                     // Số đề nghị
+    public string VIN { get; set; } = "";                            // Số khung xe (17 ký tự VIN)
+    public string? CarId { get; set; }                               // Mã xe nội bộ kho HTC
+    public string ModelCode { get; set; } = "";                      // Mã model xe (SANTAFE, TUCSON, CRETA...)
+    public string? ModelName { get; set; }                           // Tên thương mại mẫu xe
+    public string? SpecCode { get; set; }                            // Mã phiên bản xe
+    public string? EngineNo { get; set; }                            // Số máy xe
+    public string? ColorNameVN { get; set; }                         // Màu xe
+    public string? ContractNo { get; set; }                          // Số hợp đồng mua bán / phụ lục hợp đồng
+    public long UnitPriceActual { get; set; }                        // Đơn giá bán thực tế xe (VND)
+    public decimal PaymentPercent { get; set; }                      // % tiền xe đã thanh toán
+    public decimal DepositPercent { get; set; }                      // % tiền cọc đã nộp
+    public decimal GuaranteePercent { get; set; }                    // % bảo lãnh ngân hàng
+    public decimal DutyCompletePercent { get; set; }                 // % hoàn thành nghĩa vụ tài chính
+    public string? BankGuaranteeNo { get; set; }                     // Số bảo lãnh ngân hàng cấp
+    public string? CONo { get; set; }                                // Số Phiếu kiểm tra chất lượng xuất xưởng CO bản gốc
+    public string? CQNo { get; set; }                                // Số Giấy chứng nhận an toàn kỹ thuật & BVMT CQ
+    public string? CustomsDeclarationNo { get; set; }                // Số tờ khai hải quan nhập khẩu (với xe CBU)
+    public string? HTCInvoiceNo { get; set; }                        // Số hóa đơn GTGT bán lẻ/bán buôn
+    public string DocumentsGiven { get; set; } = "Bản gốc CO, Bản sao CQ, Tờ khai HQ, Hóa đơn VAT"; // Danh mục chứng từ giao
+    public BankDocApprStatus BankApprStatus { get; set; } = BankDocApprStatus.Pending; // Trạng thái ngân hàng duyệt
+    public DateTime? BankApprDTime { get; set; }                     // Thời điểm ngân hàng duyệt
+    public string? BankApprBy { get; set; }                          // Cán bộ ngân hàng duyệt
+    public string? BankApprNote { get; set; }                        // Ghi chú thẩm định ngân hàng
+    public CarDocReqDetailStatus Status { get; set; } = CarDocReqDetailStatus.Pending; // Trạng thái dòng
+    public DateTime? HandoverDate { get; set; }                      // Ngày bàn giao chứng từ
+    public DateTime? ReturnDueDate { get; set; }                     // Hạn trả hồ sơ gốc
+    public DateTime? ActualReturnDate { get; set; }                  // Ngày hoàn trả thực tế
+    public string? Remark { get; set; }                              // Ghi chú dòng xe
+}
+
+public sealed class CreateCarDocReqDto
+{
+    public string? DRListCode { get; set; }
+    public string DealerCode { get; set; } = "";
+    public string? DealerName { get; set; }
+    public string? DealerCodeRecieve { get; set; }
+    public string? DealerNameRecieve { get; set; }
+    public string? BankCode { get; set; }
+    public string? BankName { get; set; }
+    public CarDocReqType TypeCRR { get; set; } = CarDocReqType.Normal;
+    public string? LetterRepresentationNo { get; set; }
+    public DateTime? LetterRepresentationDate { get; set; }
+    public string? RepresentativeName { get; set; }
+    public string? RepresentativeIdCard { get; set; }
+    public string? RepresentativePhone { get; set; }
+    public DateTime? ReturnDueDate { get; set; }
+    public string? Remark { get; set; }
+    public string? CreatedBy { get; set; }
+    public List<CarDocReqItemInputDto> Items { get; set; } = [];
+}
+
+public sealed class CarDocReqItemInputDto
+{
+    public string VIN { get; set; } = "";
+    public string? CarId { get; set; }
+    public string ModelCode { get; set; } = "";
+    public string? ModelName { get; set; }
+    public string? SpecCode { get; set; }
+    public string? EngineNo { get; set; }
+    public string? ColorNameVN { get; set; }
+    public string? ContractNo { get; set; }
+    public long UnitPriceActual { get; set; }
+    public decimal? PaymentPercent { get; set; }
+    public decimal? DepositPercent { get; set; }
+    public decimal? GuaranteePercent { get; set; }
+    public decimal? DutyCompletePercent { get; set; }
+    public string? BankGuaranteeNo { get; set; }
+    public string? CONo { get; set; }
+    public string? CQNo { get; set; }
+    public string? CustomsDeclarationNo { get; set; }
+    public string? HTCInvoiceNo { get; set; }
+    public string? DocumentsGiven { get; set; }
+    public DateTime? ReturnDueDate { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class UpdateCarDocReqDto
+{
+    public string? DealerCodeRecieve { get; set; }
+    public string? DealerNameRecieve { get; set; }
+    public string? BankCode { get; set; }
+    public string? BankName { get; set; }
+    public CarDocReqType? TypeCRR { get; set; }
+    public string? LetterRepresentationNo { get; set; }
+    public DateTime? LetterRepresentationDate { get; set; }
+    public string? RepresentativeName { get; set; }
+    public string? RepresentativeIdCard { get; set; }
+    public string? RepresentativePhone { get; set; }
+    public DateTime? ReturnDueDate { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class AddCarToDocReqDto
+{
+    public CarDocReqItemInputDto Item { get; set; } = new();
+}
+
+public sealed class SubmitCarDocReqDto
+{
+    public string? SubmitterName { get; set; } = "ChuyenVienQuanLyHSCar";
+}
+
+public sealed class Approve1CarDocReqDto
+{
+    public string? ApproverName { get; set; } = "ChuyenVienKeToanCongNo_HTC";
+    public string? Remark { get; set; }
+}
+
+public sealed class BankApproveCarDocReqDto
+{
+    public string? BankApprover { get; set; } = "CanBoTinDungNganHang";
+    public string? BankNote { get; set; }
+    public List<string>? ApprovedVINs { get; set; } // Nếu chỉ duyệt cho 1 số xe, hoặc null để duyệt toàn bộ
+}
+
+public sealed class Approve2CarDocReqDto
+{
+    public string? ApproverName { get; set; } = "PhoTongGiamDocKinhDoanh_HTC";
+    public string? Remark { get; set; }
+}
+
+public sealed class AutoApprove2CarDocReqDto
+{
+    public decimal MinDutyPercent { get; set; } = 100.0m; // Tỷ lệ hoàn thành nghĩa vụ tối thiểu để tự động duyệt A2
+}
+
+public sealed class HandoverCarDocReqDto
+{
+    public string? HandedOverBy { get; set; } = "ThuKhoHoSoGoc_HTC";
+    public string? RecipientName { get; set; }
+    public string? RecipientIdCard { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class ReturnCarDocReqDto
+{
+    public string? ReturnedBy { get; set; } = "ThuKhoHoSoGoc_HTC";
+    public string? ReturnNotes { get; set; }
+}
+
+public sealed class RevertA2CarDocReqDto
+{
+    public string Reason { get; set; } = "";
+    public string? OperatorName { get; set; }
+}
+
+public sealed class RejectCarDocReqDto
+{
+    public string Reason { get; set; } = "";
+    public string? RejecterName { get; set; }
+}
+
+public sealed class CancelCarDocReqDto
+{
+    public string Reason { get; set; } = "";
+    public string? CancellerName { get; set; }
+}
+
+public sealed class CarDocReqAdviceDto
+{
+    public string DRListCode { get; set; } = "";
+    public string PrintDate { get; set; } = "";
+    public string DealerCode { get; set; } = "";
+    public string DealerName { get; set; } = "";
+    public string? DealerCodeRecieve { get; set; }
+    public string? DealerNameRecieve { get; set; }
+    public string? BankCode { get; set; }
+    public string? BankName { get; set; }
+    public string TypeCRRText { get; set; } = "";
+    public string? LetterRepresentationNo { get; set; }
+    public string? LetterRepresentationDate { get; set; }
+    public string? RepresentativeName { get; set; }
+    public string? RepresentativeIdCard { get; set; }
+    public string? RepresentativePhone { get; set; }
+    public int TotalVehicles { get; set; }
+    public long TotalCarAmount { get; set; }
+    public string TotalCarAmountInWords { get; set; } = "";
+    public long TotalPaymentAmount { get; set; }
+    public string TotalPaymentAmountInWords { get; set; } = "";
+    public long TotalGuaranteeAmount { get; set; }
+    public string TotalGuaranteeAmountInWords { get; set; } = "";
+    public decimal AvgDutyCompletePercent { get; set; }
+    public string StatusText { get; set; } = "";
+    public string? ApprovedBy1 { get; set; }
+    public string? ApprovedDate1 { get; set; }
+    public string? BankApprovedBy { get; set; }
+    public string? BankApprovedAt { get; set; }
+    public string? ApprovedBy2 { get; set; }
+    public string? ApprovedDate2 { get; set; }
+    public string? HandoverDate { get; set; }
+    public string? HandedOverBy { get; set; }
+    public string? HandoverRecipient { get; set; }
+    public string? ReturnDueDate { get; set; }
+    public string? ActualReturnDate { get; set; }
+    public string? ReturnedBy { get; set; }
+    public string? Remark { get; set; }
+    public List<CarDocReqDetailAdviceDto> Items { get; set; } = [];
+}
+
+public sealed class CarDocReqDetailAdviceDto
+{
+    public int No { get; set; }
+    public string VIN { get; set; } = "";
+    public string? CarId { get; set; }
+    public string ModelCode { get; set; } = "";
+    public string ModelName { get; set; } = "";
+    public string? SpecCode { get; set; }
+    public string? EngineNo { get; set; }
+    public string? ColorNameVN { get; set; }
+    public string? ContractNo { get; set; }
+    public long UnitPriceActual { get; set; }
+    public decimal PaymentPercent { get; set; }
+    public decimal GuaranteePercent { get; set; }
+    public decimal DutyCompletePercent { get; set; }
+    public string? BankGuaranteeNo { get; set; }
+    public string? CONo { get; set; }
+    public string? CQNo { get; set; }
+    public string? CustomsDeclarationNo { get; set; }
+    public string? HTCInvoiceNo { get; set; }
+    public string DocumentsGiven { get; set; } = "";
+    public string BankApprStatusText { get; set; } = "";
+    public string StatusText { get; set; } = "";
+    public string? ReturnDueDate { get; set; }
+    public string? ActualReturnDate { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class CarDocReqSummaryDto
+{
+    public int TotalRequests { get; set; }
+    public int DraftCount { get; set; }
+    public int PendingCount { get; set; }
+    public int Approved1Count { get; set; }
+    public int BankApprovedCount { get; set; }
+    public int Approved2Count { get; set; }
+    public int HandedOverCount { get; set; }
+    public int ReturnedCount { get; set; }
+    public int RejectedCount { get; set; }
+    public int CancelledCount { get; set; }
+    public int TotalVehiclesRequested { get; set; }
+    public int TotalVehiclesHandedOver { get; set; }
+    public long TotalCarAmount { get; set; }
+    public long TotalPaymentAmount { get; set; }
+    public long TotalGuaranteeAmount { get; set; }
+    public List<DealerDocReqStatDto> TopDealers { get; set; } = [];
+}
+
+public sealed class DealerDocReqStatDto
+{
+    public string DealerCode { get; set; } = "";
+    public string DealerName { get; set; } = "";
+    public int RequestCount { get; set; }
+    public int VehicleCount { get; set; }
+    public long TotalCarAmount { get; set; }
+    public int HandedOverCount { get; set; }
+}

@@ -58,6 +58,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<CustomerPaymentDetail> CustomerPaymentDetails => Set<CustomerPaymentDetail>();
     public DbSet<ContractCancellation> ContractCancellations => Set<ContractCancellation>();
     public DbSet<ContractCancelDetail> ContractCancelDetails => Set<ContractCancelDetail>();
+    public DbSet<CarDocReqList> CarDocRequests => Set<CarDocReqList>();
+    public DbSet<CarDocReqDetail> CarDocRequestDetails => Set<CarDocReqDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -327,5 +329,18 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<ContractCancelDetail>().HasIndex(x => x.CancellationId);
         b.Entity<ContractCancelDetail>().HasIndex(x => new { x.OrgId, x.VIN });
         b.Entity<ContractCancelDetail>().HasIndex(x => new { x.OrgId, x.ContractCancelNo });
+
+        b.Entity<CarDocReqList>().HasIndex(x => new { x.OrgId, x.DRListCode }).IsUnique();
+        b.Entity<CarDocReqList>().HasIndex(x => new { x.OrgId, x.DealerCode });
+        b.Entity<CarDocReqList>().HasIndex(x => new { x.OrgId, x.BankCode });
+        b.Entity<CarDocReqList>().Property(x => x.TypeCRR).HasConversion<int>();
+        b.Entity<CarDocReqList>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<CarDocReqList>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.DocReqId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<CarDocReqDetail>().Property(x => x.BankApprStatus).HasConversion<int>();
+        b.Entity<CarDocReqDetail>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<CarDocReqDetail>().HasIndex(x => x.DocReqId);
+        b.Entity<CarDocReqDetail>().HasIndex(x => new { x.OrgId, x.VIN });
+        b.Entity<CarDocReqDetail>().HasIndex(x => new { x.OrgId, x.DRListCode });
     }
 }
