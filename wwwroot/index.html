@@ -101,6 +101,7 @@
     <button class="tab-btn" onclick="showTab('guaranteeClaim')">Đòi Bảo Lãnh (Bank Guarantee Claim / CVĐBL)</button>
     <button class="tab-btn" onclick="showTab('paymentAVN')">Bảng Kê AVN Xe (AVN Payment)</button>
     <button class="tab-btn" onclick="showTab('paymentGPS')">Bảng Kê GPS Xe (GPS Payment)</button>
+    <button class="tab-btn" onclick="showTab('fnExp')">Hỗ Trợ CPTC &amp; CKTT Đại Lý (FnExp)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -117,6 +118,7 @@
     <button class="tab-btn" onclick="showTab('newGuaranteeClaim')">+ Lập Công Văn Đòi BL</button>
     <button class="tab-btn" onclick="showTab('newPaymentAVN')">+ Lập Bảng Kê AVN</button>
     <button class="tab-btn" onclick="showTab('newPaymentGPS')">+ Lập Bảng Kê GPS</button>
+    <button class="tab-btn" onclick="showTab('newFnExp')">+ Lập Bảng Tính CPTC</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -3097,6 +3099,384 @@
     </div>
   </div>
 
+  <!-- TAB: BẢNG TÍNH HỖ TRỢ CHI PHÍ TÀI CHÍNH (CPTC) & CHIẾT KHẤU THANH TOÁN TCG (CKTT) CHO ĐẠI LÝ -->
+  <div id="tab-fnExp" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div>
+          <h3 style="margin:0;">Bảng Tính Hỗ Trợ Chi Phí Tài Chính (CPTC) &amp; Chiết Khấu Thanh Toán TCG (CKTT) Cho Đại Lý</h3>
+          <p class="muted" style="margin:2px 0 0;">Module tính toán lãi suất hỗ trợ vốn lưu động / bảo lãnh ngân hàng và chiết khấu thanh toán sớm 2 bên ký số CA (DMS40_FnExp_Calc_FnExp_PmDc / 0.41.CalcFnExp).</p>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="secondary" onclick="loadFnExpStatements()">Làm mới</button>
+          <button onclick="showTab('newFnExp')">+ Lập Bảng Tính Mới</button>
+        </div>
+      </div>
+
+      <!-- Bộ lọc tìm kiếm -->
+      <div class="row" style="margin-bottom:14px; background:rgba(127,127,127,.05); padding:10px; border-radius:6px; align-items:flex-end;">
+        <div class="col">
+          <label class="muted">Đại Lý Thụ Hưởng:</label>
+          <select id="filterFnExpDealer" onchange="loadFnExpStatements()">
+            <option value="">-- Tất cả đại lý phân phối --</option>
+            <option value="DLR-HADONG">Hyundai Hà Đông (DLR-HADONG)</option>
+            <option value="DLR-DONGANH">Hyundai Đông Anh (DLR-DONGANH)</option>
+            <option value="DLR-SAIGON">Hyundai Sài Gòn 1S (DLR-SAIGON)</option>
+            <option value="DLR-PHAMVANDONG">Hyundai Phạm Văn Đồng (DLR-PHAMVANDONG)</option>
+            <option value="DLR-DANANG">Hyundai Sông Hàn - Đà Nẵng (DLR-DANANG)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Trạng Thái Bảng Tính:</label>
+          <select id="filterFnExpStatus" onchange="loadFnExpStatements()">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="Draft">Dự thảo (Draft)</option>
+            <option value="DlrApproved1">Đại lý đã duyệt cấp 1 (DlrApproved1)</option>
+            <option value="DlrSigned">Đại lý đã ký số CA (DlrSigned)</option>
+            <option value="HTCApproved1">HTC Thẩm định duyệt cấp 1 (HTCApproved1)</option>
+            <option value="HTCSigned">HTC Đã ký số CA duyệt (HTCSigned)</option>
+            <option value="Settled">Đã quyết toán chuyển khoản UNC (Settled)</option>
+            <option value="Cancelled">Đã hủy bảng tính (Cancelled)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Kỳ Tính Từ Ngày:</label>
+          <input type="date" id="filterFnExpFrom" onchange="loadFnExpStatements()">
+        </div>
+        <div class="col">
+          <label class="muted">Kỳ Tính Đến Ngày:</label>
+          <input type="date" id="filterFnExpTo" onchange="loadFnExpStatements()">
+        </div>
+        <div style="flex:0 0 auto;">
+          <button class="secondary" onclick="loadFnExpStatements()">Lọc Dữ Liệu</button>
+        </div>
+      </div>
+
+      <!-- Bảng danh sách bảng tính -->
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Bảng Tính</th>
+              <th>Đại Lý Thụ Hưởng</th>
+              <th>Kỳ Tính Hiện Tại</th>
+              <th>Kỳ Trước</th>
+              <th>% CPTC</th>
+              <th>% CKTT</th>
+              <th>Số Xe</th>
+              <th>CPTC Tiền Cọc</th>
+              <th>CPTC Bảo Lãnh</th>
+              <th>Tổng Tiền CPTC</th>
+              <th>Tổng CKTT Sớm</th>
+              <th>TỔNG QUYẾT TOÁN</th>
+              <th>Trạng Thái</th>
+              <th>Ký Số CA</th>
+              <th>Bút Toán UNC</th>
+              <th>Ngày Lập</th>
+              <th>Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="fnExpTableBody">
+            <tr><td colspan="17" class="muted" style="text-align:center;">Đang tải danh sách bảng tính CPTC &amp; CKTT...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Card Chi Tiết 1 Bảng Tính CPTC & CKTT -->
+    <div class="card" id="cardFnExpDetail" style="display:none; margin-top:20px; border-left:4px solid var(--primary);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:14px;">
+        <div>
+          <h3 style="margin:0;" id="detFnExpTitle">Chi Tiết Bảng Tính CPTC &amp; CKTT</h3>
+          <p class="muted" style="margin:2px 0 0;" id="detFnExpSubtitle"></p>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="secondary" onclick="closeFnExpDetailCard()">Đóng [X]</button>
+        </div>
+      </div>
+
+      <!-- Thông tin tổng quan bảng tính -->
+      <div class="row" style="margin-bottom:12px; background:rgba(127,127,127,.05); padding:12px; border-radius:6px;">
+        <div class="col">
+          <strong>Đại lý thụ hưởng:</strong> <span id="detFnExpDealer"></span><br>
+          <strong>Kỳ tính hiện tại:</strong> <span id="detFnExpTerm"></span><br>
+          <strong>Kỳ tính đối chiếu trước:</strong> <span id="detFnExpTermPrev"></span>
+        </div>
+        <div class="col">
+          <strong>Lãi suất CPTC:</strong> <span id="detFnExpRate" style="color:var(--primary); font-weight:700;"></span><br>
+          <strong>Chiết khấu TCG:</strong> <span id="detFnExpPmtDsRate" style="color:var(--success); font-weight:700;"></span><br>
+          <strong>Trạng thái:</strong> <span id="detFnExpStatusBadge"></span>
+        </div>
+        <div class="col">
+          <strong>Tổng tiền CPTC:</strong> <span id="detFnExpTotalFn" style="font-weight:700; color:var(--primary);"></span><br>
+          <strong>Tổng CKTT sớm:</strong> <span id="detFnExpTotalPD" style="font-weight:700; color:var(--success);"></span><br>
+          <strong>TỔNG QUYẾT TOÁN:</strong> <span id="detFnExpGrandTotal" style="font-weight:700; font-size:1.15em; color:var(--success);"></span>
+        </div>
+        <div class="col">
+          <strong>Ký số Đại lý:</strong> <span id="detFnExpDlrSign"></span><br>
+          <strong>Ký số HTC:</strong> <span id="detFnExpHTCSign"></span><br>
+          <strong>Bút toán UNC:</strong> <span id="detFnExpUNC" style="font-family:monospace;"></span>
+        </div>
+      </div>
+
+      <!-- Action buttons thanh quy trình nghiệp vụ -->
+      <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:16px; padding:10px; background:rgba(0,128,255,.05); border:1px solid rgba(0,128,255,.2); border-radius:6px; align-items:center;">
+        <span style="font-weight:600; margin-right:4px;">Quy Trình Nghiệp Vụ:</span>
+        <button id="btnDlrApprove1" class="secondary" onclick="dlrApprove1FnExp(currentFnExpId)">ĐL Duyệt Cấp 1</button>
+        <button id="btnDlrSignCA" style="background:#28a745; color:#fff;" onclick="dlrSignCAFnExp(currentFnExpId)">ĐL Ký Số CA</button>
+        <button id="btnHTCApprove1" class="secondary" onclick="htcApprove1FnExp(currentFnExpId)">HTC Duyệt Cấp 1</button>
+        <button id="btnHTCSignCA" style="background:#17a2b8; color:#fff;" onclick="htcSignCAFnExp(currentFnExpId)">HTC Ký Số CA</button>
+        <button id="btnSettleFnExp" style="background:#007bff; color:#fff;" onclick="settleFnExp(currentFnExpId)">Quyết Toán UNC</button>
+        <button id="btnAddCarFnExp" class="secondary" onclick="openAddFnExpVehicleModal(currentFnExpId)">+ Thêm Xe</button>
+        <button id="btnCancelFnExp" style="background:#dc3545; color:#fff;" onclick="cancelFnExp(currentFnExpId)">Hủy Bảng Tính</button>
+        <button id="btnDeleteDraftFnExp" class="secondary" style="color:#dc3545;" onclick="deleteDraftFnExp(currentFnExpId)">Xóa Bảng Tính Nháp</button>
+        <div style="margin-left:auto;">
+          <button style="background:var(--primary); color:#fff;" onclick="openFnExpAdviceModal(currentFnExpId)">Xem &amp; In Mẫu Quyết Toán (CR Advice)</button>
+        </div>
+      </div>
+
+      <!-- Bảng danh sách dòng xe trong bảng tính -->
+      <h4 style="margin:12px 0 6px;">Danh Sách Xe Ô Tô Trong Kỳ Quyết Toán (<span id="detFnExpCarCount">0</span> xe):</h4>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>STT</th>
+              <th>Số Khung (VIN)</th>
+              <th>Dòng Xe / Phiên Bản</th>
+              <th>Loại Xe</th>
+              <th>Đơn Giá Xe</th>
+              <th>Hạn Cọc</th>
+              <th>Ngày Hoàn Tất TT</th>
+              <th>Hạn Bảo Lãnh</th>
+              <th>Số Ngày Cọc</th>
+              <th>Tiền CPTC Cọc</th>
+              <th>Số Ngày BL</th>
+              <th>Tiền CPTC BL</th>
+              <th>Tổng CPTC</th>
+              <th>Ngày Sớm</th>
+              <th>Tiền CKTT TCG</th>
+              <th>Tổng Xe</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="fnExpCarsTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: LẬP BẢNG TÍNH CPTC & CKTT MỚI (tab-newFnExp) -->
+  <div id="tab-newFnExp" style="display:none;">
+    <div class="card">
+      <h3>Lập Bảng Tính Hỗ Trợ Chi Phí Tài Chính &amp; Chiết Khấu Thanh Toán TCG Cho Đại Lý (DMS40_FnExp_Calc_FnExp_PmDc_Save)</h3>
+      <p class="muted">Khởi tạo đợt quyết toán hỗ trợ lãi suất cọc, bảo lãnh ngân hàng và chiết khấu thanh toán sớm cho Đại lý phân phối theo chuẩn BizHTC.Payment.</p>
+
+      <div class="row" style="margin-top:12px;">
+        <div class="col">
+          <label class="muted">Số Bảng Tính (để trống tự sinh):</label>
+          <input type="text" id="inpNewFnExpNo" placeholder="Ví dụ: CAN-202505-HADONG-02">
+        </div>
+        <div class="col">
+          <label class="muted">Đại Lý Thụ Hưởng (*):</label>
+          <select id="inpNewFnExpDealerCode" onchange="onNewFnExpDealerChange()">
+            <option value="DLR-HADONG">Hyundai Hà Đông (DLR-HADONG)</option>
+            <option value="DLR-DONGANH">Hyundai Đông Anh (DLR-DONGANH)</option>
+            <option value="DLR-SAIGON">Hyundai Sài Gòn 1S (DLR-SAIGON)</option>
+            <option value="DLR-PHAMVANDONG">Hyundai Phạm Văn Đồng (DLR-PHAMVANDONG)</option>
+            <option value="DLR-DANANG">Hyundai Sông Hàn - Đà Nẵng (DLR-DANANG)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Kỳ Tính Hiện Tại Từ Ngày (*):</label>
+          <input type="date" id="inpNewFnExpTermFrom" value="2025-05-01">
+        </div>
+        <div class="col">
+          <label class="muted">Kỳ Tính Hiện Tại Đến Ngày (*):</label>
+          <input type="date" id="inpNewFnExpTermTo" value="2025-05-31">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:10px;">
+        <div class="col">
+          <label class="muted">Kỳ Đối Chiếu Trước Từ Ngày:</label>
+          <input type="date" id="inpNewFnExpTermPrevFrom" value="2025-04-01">
+        </div>
+        <div class="col">
+          <label class="muted">Kỳ Đối Chiếu Trước Đến Ngày:</label>
+          <input type="date" id="inpNewFnExpTermPrevTo" value="2025-04-30">
+        </div>
+        <div class="col">
+          <label class="muted">Tỷ Lệ Hỗ Trợ Lãi Suất CPTC (%/năm) (*):</label>
+          <input type="number" id="inpNewFnExpPercent" value="8.5" step="0.1" min="0" max="30">
+        </div>
+        <div class="col">
+          <label class="muted">Tỷ Lệ Chiết Khấu Thanh Toán TCG (%) (*):</label>
+          <input type="number" id="inpNewFnExpPmtDsPercent" value="1.2" step="0.1" min="0" max="20">
+        </div>
+      </div>
+
+      <div style="margin-top:10px;">
+        <label class="muted">Tiêu Đề / Tên Đợt Quyết Toán:</label>
+        <input type="text" id="inpNewFnExpName" placeholder="Tự sinh nếu để trống">
+      </div>
+
+      <div style="margin-top:10px;">
+        <label class="muted">Ghi Chú Đợt Quyết Toán:</label>
+        <input type="text" id="inpNewFnExpRemark" value="Bảng tính hỗ trợ chi phí tài chính và chiết khấu thanh toán sớm cho Đại lý trong kỳ">
+      </div>
+
+      <div style="margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="muted">Danh Sách Xe Ô Tô Tính CPTC &amp; CKTT [JSON]:</label>
+          <div style="display:flex; gap:6px;">
+            <button class="secondary" type="button" onclick="loadCandidateVehiclesForNewFnExp()">Nạp Xe Đủ Điều Kiện</button>
+            <button class="secondary" type="button" onclick="previewNewFnExpCalculation()">Xem Trước Tính Toán (Preview)</button>
+          </div>
+        </div>
+        <textarea id="inpNewFnExpVehiclesJson" rows="8" style="font-family:monospace; font-size:.85em;"></textarea>
+      </div>
+
+      <!-- Khung xem trước tính toán (Preview Calculation) -->
+      <div id="divFnExpPreviewBox" style="display:none; margin-top:14px; background:rgba(0,128,255,.05); border:1px solid rgba(0,128,255,.2); border-radius:6px; padding:12px;">
+        <h4 style="margin:0 0 8px; color:var(--primary);">Kết Quả Xem Trước Tính Toán (Preview Calculation):</h4>
+        <div id="previewFnExpSummaryContent" style="display:flex; flex-wrap:wrap; gap:16px; font-size:.9em; margin-bottom:10px;"></div>
+        <div id="previewFnExpTableContainer" style="max-height:220px; overflow-y:auto;"></div>
+      </div>
+
+      <div style="margin-top:16px;">
+        <button type="button" onclick="submitCreateFnExpStatement()">Khởi Tạo Bảng Tính CPTC &amp; CKTT</button>
+        <span id="submitNewFnExpMsg" style="margin-left:12px;" class="muted"></span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Xem & In Mẫu Bảng Kê Quyết Toán CPTC & CKTT (CR Advice) -->
+  <div id="modalFnExpAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:960px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.2em;">BẢNG KÊ QUYẾT TOÁN CHI PHÍ TÀI CHÍNH &amp; CHIẾT KHẤU THANH TOÁN (CR_DMS40_FnExp)</h2>
+        <button class="secondary" onclick="closeFnExpAdviceModal()">Đóng [X]</button>
+      </div>
+      <div id="fnExpAdviceContent" style="margin-top:16px; font-size:.9em; line-height:1.6;"></div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('fnExpAdviceContent').innerText); alert('Đã sao chép nội dung Bảng kê vào clipboard!');">Sao Chép Nội Dung</button>
+        <button onclick="window.print()">In Bảng Kê Quyết Toán</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Điều Chỉnh Chi Tiết Xe Bảng Tính (UpdateDetails) -->
+  <div id="modalEditFnExpDetail" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:550px; margin:60px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <h3 style="margin:0;">Điều Chỉnh Ngày Tính Chi Phí Xe</h3>
+        <button class="secondary" onclick="closeEditFnExpDetailModal()">Đóng [X]</button>
+      </div>
+      <div style="margin-top:14px;">
+        <input type="hidden" id="editFnExpDetailId">
+        <div style="margin-bottom:10px;">
+          <label class="muted">Số Khung (VIN):</label>
+          <input type="text" id="editFnExpVin" disabled style="background:rgba(127,127,127,.1);">
+        </div>
+        <div class="row" style="margin-bottom:10px;">
+          <div class="col">
+            <label class="muted">Số Ngày Tính CPTC Cọc:</label>
+            <input type="number" id="editFnExpDepDays" min="0" max="180">
+          </div>
+          <div class="col">
+            <label class="muted">Số Ngày Tính CPTC Bảo Lãnh:</label>
+            <input type="number" id="editFnExpGrtDays" min="0" max="180">
+          </div>
+        </div>
+        <div class="row" style="margin-bottom:10px;">
+          <div class="col">
+            <label class="muted">Ngày Hoàn Tất Thanh Toán:</label>
+            <input type="date" id="editFnExpCompletedDate">
+          </div>
+          <div class="col">
+            <label class="muted">Số Ngày Sớm Hưởng CKTT:</label>
+            <input type="number" id="editFnExpPDDays" min="0" max="30">
+          </div>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label class="muted">Ghi Chú Điều Chỉnh:</label>
+          <input type="text" id="editFnExpRemark" placeholder="Lý do điều chỉnh số ngày">
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button class="secondary" onclick="closeEditFnExpDetailModal()">Hủy Bỏ</button>
+          <button onclick="submitEditFnExpDetail()">Lưu &amp; Tái Tính Toán</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Thêm Xe Vào Bảng Tính Nháp -->
+  <div id="modalAddFnExpVehicle" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:620px; margin:40px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:20px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <h3 style="margin:0;">Thêm Xe Ô Tô Vào Bảng Tính Nháp</h3>
+        <button class="secondary" onclick="closeAddFnExpVehicleModal()">Đóng [X]</button>
+      </div>
+      <div style="margin-top:14px;">
+        <div class="row" style="margin-bottom:10px;">
+          <div class="col">
+            <label class="muted">Số Khung (VIN) (*):</label>
+            <input type="text" id="inpAddFnExpVin" placeholder="17 ký tự VIN">
+          </div>
+          <div class="col">
+            <label class="muted">Model Xe (*):</label>
+            <select id="inpAddFnExpModel">
+              <option value="SANTAFE">Hyundai Santa Fe Calligraphy 2.5T</option>
+              <option value="TUCSON">Hyundai Tucson 1.6 T-GDi Turbo</option>
+              <option value="PALISADE">Hyundai Palisade 2.2D Prestige</option>
+              <option value="CUSTIN">Hyundai Custin 2.0T Cao Cấp</option>
+              <option value="IONIQ5">Hyundai Ioniq 5 Prestige EV</option>
+              <option value="CRETA">Hyundai Creta 1.5 Cao Cấp</option>
+              <option value="ACCENT">Hyundai Accent 1.5 AT</option>
+              <option value="STARIA">Hyundai Staria Lounge CBU</option>
+            </select>
+          </div>
+        </div>
+        <div class="row" style="margin-bottom:10px;">
+          <div class="col">
+            <label class="muted">Phân Loại Xe (*):</label>
+            <select id="inpAddFnExpAssembly">
+              <option value="CKD">CKD (Lắp ráp - Cọc 15%, BL 85%)</option>
+              <option value="CBU">CBU (Nhập khẩu - Cọc 30%, BL 70%)</option>
+            </select>
+          </div>
+          <div class="col">
+            <label class="muted">Đơn Giá Xe Thực Tế (VND) (*):</label>
+            <input type="number" id="inpAddFnExpPrice" value="989000000" step="1000000">
+          </div>
+        </div>
+        <div class="row" style="margin-bottom:10px;">
+          <div class="col">
+            <label class="muted">Số Ngày Tính CPTC Cọc:</label>
+            <input type="number" id="inpAddFnExpDepDays" value="25" min="0" max="180">
+          </div>
+          <div class="col">
+            <label class="muted">Số Ngày Tính CPTC Bảo Lãnh:</label>
+            <input type="number" id="inpAddFnExpGrtDays" value="20" min="0" max="180">
+          </div>
+          <div class="col">
+            <label class="muted">Số Ngày Sớm Hưởng CKTT:</label>
+            <input type="number" id="inpAddFnExpPDDays" value="10" min="0" max="30">
+          </div>
+        </div>
+        <div style="margin-bottom:14px;">
+          <label class="muted">Ghi Chú Xe:</label>
+          <input type="text" id="inpAddFnExpRemark" value="Bổ sung xe vào kỳ tính CPTC &amp; CKTT">
+        </div>
+        <div style="display:flex; justify-content:flex-end; gap:8px;">
+          <button class="secondary" onclick="closeAddFnExpVehicleModal()">Hủy Bỏ</button>
+          <button onclick="submitAddFnExpVehicle()">Thêm Xe Vào Bảng Tính</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal Xem & In Mẫu Bảng Kê Quyết Toán Vận Tải & Bảo Hiểm Xe (Transport Statement Advice) -->
   <div id="modalTransportInsAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
     <div style="max-width:920px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
@@ -3882,6 +4262,23 @@
         <li><code>GET /api/payment-gps/{id}/advice</code> — Sinh dữ liệu mẫu in Bảng kê quyết toán CR_Pmt_PaymentGPS Advice kèm đọc số tiền bằng chữ tiếng Việt tài chính ngân hàng</li>
         <li><code>GET /api/payment-gps/summary</code> — Báo cáo tổng hợp số liệu bảng kê, số xe giám sát, số ngày theo dõi và tổng cước GPS</li>
         <li><code>GET /api/payment-gps/providers</code> — Bảng đơn giá định mức thuê bao dịch vụ GPS theo nhà cung cấp (Mst_UnitPriceGPS)</li>
+        <li><code>GET /api/fn-exp</code> — Danh sách bảng tính hỗ trợ Chi phí tài chính (CPTC) &amp; Chiết khấu thanh toán TCG (CKTT) cho Đại lý (DMS40_FnExp_Calc_FnExp_PmDc_Get)</li>
+        <li><code>POST /api/fn-exp</code> — Lập bảng tính CPTC &amp; CKTT TCG mới theo công thức chuẩn HTC (DMS40_FnExp_Calc_FnExp_PmDc_Save)</li>
+        <li><code>GET /api/fn-exp/{id}</code> — Chi tiết 1 bảng tính kèm toàn bộ danh sách xe, số ngày cọc, ngày bảo lãnh và ngày sớm (DMS40_FnExp_Calc_FnExp_PmDcDtl)</li>
+        <li><code>POST /api/fn-exp/preview</code> — Xem trước kết quả tính toán chi phí CPTC &amp; CKTT từ danh sách xe và tỷ lệ lãi suất</li>
+        <li><code>POST /api/fn-exp/{id}/dlr-approve1</code> — Kế toán đại lý thẩm định duyệt bảng tính cấp 1 (DMS40_FnExp_Calc_FnExp_PmDc_DlrApproved1Multi)</li>
+        <li><code>POST /api/fn-exp/{id}/dlr-sign</code> — Giám đốc đại lý ký số điện tử CA cấp 2 xác nhận bảng tính (DMS40_FnExp_Calc_FnExp_PmDc_DlrApproved2)</li>
+        <li><code>POST /api/fn-exp/{id}/htc-approve1</code> — Chuyên viên QLPP &amp; Tài chính HTC thẩm định duyệt cấp 1 (DMS40_FnExp_Calc_FnExp_PmDc_HTCApproved1Multi)</li>
+        <li><code>POST /api/fn-exp/{id}/htc-sign</code> — Lãnh đạo HTC phê duyệt ký số CA hoàn tất bảng tính (DMS40_FnExp_Calc_FnExp_PmDc_HTCApproved2)</li>
+        <li><code>POST /api/fn-exp/{id}/settle</code> — Kế toán hoàn tất quyết toán chi trả qua UNC ngân hàng hoặc bù trừ công nợ xe (Settled)</li>
+        <li><code>POST /api/fn-exp/{id}/cancel</code> — Hủy bảng tính kèm lý do (DMS40_FnExp_Calc_FnExp_PmDc_HTCCancelMulti)</li>
+        <li><code>PUT /api/fn-exp/{id}/details</code> — Điều chỉnh số ngày cọc, bảo lãnh, chiết khấu và tự động tái tính toán bảng kê (DMS40_FnExp_Calc_FnExp_PmDc_Update)</li>
+        <li><code>POST /api/fn-exp/{id}/vehicles</code> — Bổ sung xe vào bảng tính nháp</li>
+        <li><code>DELETE /api/fn-exp/{id}/vehicles/{detailId}</code> — Xóa 1 xe khỏi bảng tính nháp</li>
+        <li><code>DELETE /api/fn-exp/{id}</code> — Xóa toàn bộ bảng tính nháp</li>
+        <li><code>GET /api/fn-exp/{id}/advice</code> — Sinh dữ liệu mẫu in Bảng kê quyết toán CPTC &amp; CKTT gửi Đại lý (CR Advice) kèm thuật toán đọc tiền bằng chữ tiếng Việt tài chính ngân hàng</li>
+        <li><code>GET /api/fn-exp/summary</code> — Báo cáo tổng hợp KPI bảng tính CPTC &amp; CKTT toàn hệ thống</li>
+        <li><code>GET /api/fn-exp/candidates</code> — Danh sách xe ứng viên đủ điều kiện tính hỗ trợ CPTC &amp; CKTT</li>
       </ul>
     </div>
   </div>
@@ -3908,6 +4305,7 @@
       document.getElementById('tab-guaranteeClaim').style.display = tabName === 'guaranteeClaim' ? 'block' : 'none';
       document.getElementById('tab-paymentAVN').style.display = tabName === 'paymentAVN' ? 'block' : 'none';
       document.getElementById('tab-paymentGPS').style.display = tabName === 'paymentGPS' ? 'block' : 'none';
+      document.getElementById('tab-fnExp').style.display = tabName === 'fnExp' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -3924,6 +4322,7 @@
       document.getElementById('tab-newGuaranteeClaim').style.display = tabName === 'newGuaranteeClaim' ? 'block' : 'none';
       document.getElementById('tab-newPaymentAVN').style.display = tabName === 'newPaymentAVN' ? 'block' : 'none';
       document.getElementById('tab-newPaymentGPS').style.display = tabName === 'newPaymentGPS' ? 'block' : 'none';
+      document.getElementById('tab-newFnExp').style.display = tabName === 'newFnExp' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
@@ -3943,23 +4342,25 @@
           (tabName === 'guaranteeClaim' && i === 12) ||
           (tabName === 'paymentAVN' && i === 13) ||
           (tabName === 'paymentGPS' && i === 14) ||
-          (tabName === 'newBatch' && i === 15) ||
-          (tabName === 'newPayout' && i === 16) ||
-          (tabName === 'newDiscount' && i === 17) ||
-          (tabName === 'newGuarantee' && i === 18) ||
-          (tabName === 'newMortgage' && i === 19) ||
-          (tabName === 'newRedeem' && i === 20) ||
-          (tabName === 'newPaymentOrder' && i === 21) ||
-          (tabName === 'newBankBill' && i === 22) ||
-          (tabName === 'newPaymentPDI' && i === 23) ||
-          (tabName === 'newPenaltyDelay' && i === 24) ||
-          (tabName === 'newTransportIns' && i === 25) ||
-          (tabName === 'newPaymentStorage' && i === 26) ||
-          (tabName === 'newGuaranteeExt' && i === 27) ||
-          (tabName === 'newGuaranteeClaim' && i === 28) ||
-          (tabName === 'newPaymentAVN' && i === 29) ||
-          (tabName === 'newPaymentGPS' && i === 30) ||
-          (tabName === 'apiDocs' && i === 31));
+          (tabName === 'fnExp' && i === 15) ||
+          (tabName === 'newBatch' && i === 16) ||
+          (tabName === 'newPayout' && i === 17) ||
+          (tabName === 'newDiscount' && i === 18) ||
+          (tabName === 'newGuarantee' && i === 19) ||
+          (tabName === 'newMortgage' && i === 20) ||
+          (tabName === 'newRedeem' && i === 21) ||
+          (tabName === 'newPaymentOrder' && i === 22) ||
+          (tabName === 'newBankBill' && i === 23) ||
+          (tabName === 'newPaymentPDI' && i === 24) ||
+          (tabName === 'newPenaltyDelay' && i === 25) ||
+          (tabName === 'newTransportIns' && i === 26) ||
+          (tabName === 'newPaymentStorage' && i === 27) ||
+          (tabName === 'newGuaranteeExt' && i === 28) ||
+          (tabName === 'newGuaranteeClaim' && i === 29) ||
+          (tabName === 'newPaymentAVN' && i === 30) ||
+          (tabName === 'newPaymentGPS' && i === 31) ||
+          (tabName === 'newFnExp' && i === 32) ||
+          (tabName === 'apiDocs' && i === 33));
       });
 
       if (tabName === 'reconcile') loadBatches();
@@ -3977,6 +4378,7 @@
       else if (tabName === 'guaranteeClaim') { loadGuaranteeClaims(); loadGuaranteeClaimSummary(); }
       else if (tabName === 'paymentAVN') { loadPaymentAVNs(); loadPaymentAVNSummary(); }
       else if (tabName === 'paymentGPS') { loadPaymentGPSs(); loadPaymentGPSSummary(); }
+      else if (tabName === 'fnExp') { loadFnExpStatements(); loadFnExpSummary(); }
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====
@@ -11229,6 +11631,667 @@
       }
     }
 
+    // ===== TAB: BẢNG TÍNH HỖ TRỢ CHI PHÍ TÀI CHÍNH (CPTC) & CHIẾT KHẤU THANH TOÁN TCG (CKTT) CHO ĐẠI LÝ =====
+    let currentFnExpId = null;
+
+    async function loadFnExpSummary() {
+      try {
+        const res = await fetch('/api/fn-exp/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng bảng tính CPTC & CKTT';
+        document.getElementById('stat1').textContent = `${d.totalStatements} (Đã ký CA: ${d.signedCount + d.settledCount})`;
+        document.getElementById('statLabel2').textContent = 'Tổng xe được hỗ trợ CPTC';
+        document.getElementById('stat2').textContent = `${d.totalVehiclesSubsidized} xe (CKTT: ${d.totalEarlyPaymentDiscountSubsidized >= 1e9 ? (d.totalEarlyPaymentDiscountSubsidized / 1e9).toFixed(2) + ' tỷ đ' : Number(d.totalEarlyPaymentDiscountSubsidized).toLocaleString('vi-VN') + ' đ'})`;
+        document.getElementById('statLabel3').textContent = 'Tổng tiền CPTC hỗ trợ';
+        document.getElementById('stat3').textContent = (d.totalFnAmountSubsidized >= 1e9 ? (d.totalFnAmountSubsidized / 1e9).toFixed(2) + ' tỷ đ' : Number(d.totalFnAmountSubsidized).toLocaleString('vi-VN') + ' đ');
+        document.getElementById('statLabel4').textContent = 'Đã quyết toán chuyển tiền (UNC)';
+        document.getElementById('stat4').textContent = (d.totalSettlementDisbursed >= 1e9 ? (d.totalSettlementDisbursed / 1e9).toFixed(2) + ' tỷ đ' : Number(d.totalSettlementDisbursed).toLocaleString('vi-VN') + ' đ');
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadFnExpStatements() {
+      await loadFnExpSummary();
+      const dealer = document.getElementById('filterFnExpDealer').value;
+      const status = document.getElementById('filterFnExpStatus').value;
+      const from = document.getElementById('filterFnExpFrom').value;
+      const to = document.getElementById('filterFnExpTo').value;
+
+      let url = '/api/fn-exp?';
+      if (dealer) url += 'dealerCode=' + encodeURIComponent(dealer) + '&';
+      if (status) url += 'status=' + encodeURIComponent(status) + '&';
+      if (from) url += 'fromDate=' + encodeURIComponent(from) + '&';
+      if (to) url += 'toDate=' + encodeURIComponent(to) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('fnExpTableBody');
+        tbody.innerHTML = '';
+
+        if (list.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="17" class="muted" style="text-align:center;">Không tìm thấy bảng tính CPTC &amp; CKTT nào phù hợp.</td></tr>';
+          return;
+        }
+
+        list.forEach(s => {
+          const tr = document.createElement('tr');
+          const badgeClass = s.status === 'Draft' ? 'badge-warning' :
+                             s.status === 'DlrApproved1' ? 'badge-info' :
+                             s.status === 'DlrSigned' ? 'badge-info' :
+                             s.status === 'HTCApproved1' ? 'badge-info' :
+                             s.status === 'HTCSigned' ? 'badge-success' :
+                             s.status === 'Settled' ? 'badge-success' : 'badge-danger';
+          const statusText = s.status === 'Draft' ? 'Dự thảo (Draft)' :
+                             s.status === 'DlrApproved1' ? 'ĐL Duyệt 1' :
+                             s.status === 'DlrSigned' ? 'ĐL Đã Ký CA' :
+                             s.status === 'HTCApproved1' ? 'HTC Duyệt 1' :
+                             s.status === 'HTCSigned' ? 'HTC Ký CA' :
+                             s.status === 'Settled' ? 'Đã Quyết Toán' : 'Đã Hủy';
+
+          const caStatusText = (s.dlrSignStatus === 'Signed' && s.htcSignStatus === 'Signed')
+            ? '<span class="badge badge-success">CA 2 Bên</span>'
+            : (s.dlrSignStatus === 'Signed' ? '<span class="badge badge-info">ĐL Đã Ký</span>' : '<span class="badge badge-warning">Chưa Ký</span>');
+
+          tr.innerHTML = `
+            <td><strong><code>${s.caNo}</code></strong></td>
+            <td><strong>${s.dealerName}</strong><br><small class="muted">${s.dealerCode}</small></td>
+            <td>${s.termFrom} &rarr; ${s.termTo}</td>
+            <td><small class="muted">${s.termPrevFrom} &rarr; ${s.termPrevTo}</small></td>
+            <td style="text-align:right;">${s.fnExpPercent}%</td>
+            <td style="text-align:right;">${s.pmtDsTCGPercent}%</td>
+            <td style="text-align:center;"><strong>${s.totalVehicles}</strong></td>
+            <td style="text-align:right;">${Number(s.totalFnDepositAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right;">${Number(s.totalFnGrtAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; font-weight:600; color:var(--primary);">${Number(s.totalFnAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; font-weight:600; color:var(--success);">${Number(s.totalPDAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; font-weight:700; color:var(--success); font-size:1.05em;">${Number(s.totalSettlementAmount).toLocaleString('vi-VN')} đ</td>
+            <td><span class="badge ${badgeClass}">${statusText}</span></td>
+            <td>${caStatusText}</td>
+            <td><small><code>${s.bankTxnRef || '-'}</code></small></td>
+            <td><small class="muted">${new Date(s.createdAt).toLocaleDateString('vi-VN')}</small></td>
+            <td>
+              <div style="display:flex; gap:4px;">
+                <button class="secondary" style="padding:2px 8px; font-size:.8em;" onclick="viewFnExpDetail(${s.id})">Chi Tiết</button>
+                <button class="secondary" style="padding:2px 8px; font-size:.8em;" onclick="openFnExpAdviceModal(${s.id})">Advice</button>
+              </div>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+      } catch(e) { console.error(e); }
+    }
+
+    async function viewFnExpDetail(id) {
+      currentFnExpId = id;
+      try {
+        const res = await fetch(`/api/fn-exp/${id}`, { headers });
+        if (!res.ok) { alert('Không thể lấy chi tiết bảng tính #' + id); return; }
+        const s = await res.json();
+
+        document.getElementById('detFnExpTitle').textContent = `Chi Tiết Bảng Tính #${s.id} — Số: ${s.caNo}`;
+        document.getElementById('detFnExpSubtitle').textContent = s.caName || '';
+
+        document.getElementById('detFnExpDealer').textContent = `${s.dealerName} (${s.dealerCode})`;
+        document.getElementById('detFnExpTerm').textContent = `${s.termFrom} đến ${s.termTo}`;
+        document.getElementById('detFnExpTermPrev').textContent = `${s.termPrevFrom} đến ${s.termPrevTo}`;
+
+        document.getElementById('detFnExpRate').textContent = `${s.fnExpPercent}%/năm`;
+        document.getElementById('detFnExpPmtDsRate').textContent = `${s.pmtDsTCGPercent}%`;
+
+        const badgeClass = s.status === 'Draft' ? 'badge-warning' :
+                           s.status === 'DlrApproved1' ? 'badge-info' :
+                           s.status === 'DlrSigned' ? 'badge-info' :
+                           s.status === 'HTCApproved1' ? 'badge-info' :
+                           s.status === 'HTCSigned' ? 'badge-success' :
+                           s.status === 'Settled' ? 'badge-success' : 'badge-danger';
+        document.getElementById('detFnExpStatusBadge').innerHTML = `<span class="badge ${badgeClass}">${s.status}</span>`;
+
+        document.getElementById('detFnExpTotalFn').textContent = `${Number(s.totalFnAmount).toLocaleString('vi-VN')} đ (Cọc: ${Number(s.totalFnDepositAmount).toLocaleString('vi-VN')} đ, BL: ${Number(s.totalFnGrtAmount).toLocaleString('vi-VN')} đ)`;
+        document.getElementById('detFnExpTotalPD').textContent = `${Number(s.totalPDAmount).toLocaleString('vi-VN')} đ`;
+        document.getElementById('detFnExpGrandTotal').textContent = `${Number(s.totalSettlementAmount).toLocaleString('vi-VN')} đ`;
+
+        document.getElementById('detFnExpDlrSign').innerHTML = s.dlrSignStatus === 'Signed'
+          ? `<span style="color:var(--success); font-weight:600;">✓ Đã ký:</span> ${s.dlrSignUser || ''} (${s.dlrSignDTime ? new Date(s.dlrSignDTime).toLocaleString('vi-VN') : ''})`
+          : '<span class="muted">Chưa ký</span>';
+
+        document.getElementById('detFnExpHTCSign').innerHTML = s.htcSignStatus === 'Signed'
+          ? `<span style="color:var(--success); font-weight:600;">✓ Đã ký:</span> ${s.htcSignUser || ''} (${s.htcSignDTime ? new Date(s.htcSignDTime).toLocaleString('vi-VN') : ''})`
+          : '<span class="muted">Chưa ký</span>';
+
+        document.getElementById('detFnExpUNC').textContent = s.bankTxnRef || (s.status === 'Settled' ? 'Đã thanh toán' : 'Chưa lập UNC');
+
+        // Phân quyền nút quy trình
+        const isDraft = s.status === 'Draft';
+        const isDlrAppr1 = s.status === 'DlrApproved1';
+        const isDlrSigned = s.status === 'DlrSigned';
+        const isHTCAppr1 = s.status === 'HTCApproved1';
+        const isHTCSigned = s.status === 'HTCSigned';
+        const isSettled = s.status === 'Settled';
+        const isCancelled = s.status === 'Cancelled';
+
+        document.getElementById('btnDlrApprove1').style.display = isDraft ? 'inline-block' : 'none';
+        document.getElementById('btnDlrSignCA').style.display = (isDraft || isDlrAppr1) ? 'inline-block' : 'none';
+        document.getElementById('btnHTCApprove1').style.display = isDlrSigned ? 'inline-block' : 'none';
+        document.getElementById('btnHTCSignCA').style.display = isHTCAppr1 ? 'inline-block' : 'none';
+        document.getElementById('btnSettleFnExp').style.display = isHTCSigned ? 'inline-block' : 'none';
+        document.getElementById('btnAddCarFnExp').style.display = isDraft ? 'inline-block' : 'none';
+        document.getElementById('btnCancelFnExp').style.display = (!isSettled && !isCancelled) ? 'inline-block' : 'none';
+        document.getElementById('btnDeleteDraftFnExp').style.display = isDraft ? 'inline-block' : 'none';
+
+        // Bảng danh sách xe
+        document.getElementById('detFnExpCarCount').textContent = s.details.length;
+        const tbody = document.getElementById('fnExpCarsTableBody');
+        tbody.innerHTML = '';
+
+        s.details.forEach((d, idx) => {
+          const tr = document.createElement('tr');
+          const isEditable = isDraft || isDlrAppr1;
+          const editBtn = isEditable
+            ? `<button class="secondary" style="padding:2px 6px; font-size:.78em;" onclick="openEditFnExpDetailModal(${d.id}, '${d.vin}', ${d.fnDepositCountDate}, ${d.fnGrtCountDate}, '${d.totalCompletedDate || ''}', ${d.pdCountDate}, '${d.remark || ''}')">Sửa</button>`
+            : '';
+          const delBtn = isDraft
+            ? `<button class="secondary" style="padding:2px 6px; font-size:.78em; color:#dc3545;" onclick="deleteFnExpVehicle(${s.id}, ${d.id})">Xóa</button>`
+            : '';
+
+          tr.innerHTML = `
+            <td style="text-align:center;">${idx + 1}</td>
+            <td><strong><code>${d.vin}</code></strong><br><small class="muted">${d.soCode || '-'}</small></td>
+            <td><strong>${d.modelName || d.modelCode}</strong><br><small class="muted">${d.specDescription || d.specCode || ''} (${d.colorName || ''})</small></td>
+            <td style="text-align:center;"><span class="badge ${d.assemblyType === 'CBU' ? 'badge-warning' : 'badge-info'}">${d.assemblyType}</span></td>
+            <td style="text-align:right;">${Number(d.unitPriceActual).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:center;"><small>${d.sodDepositDutyEndDate || '-'}</small></td>
+            <td style="text-align:center;"><small><strong>${d.totalCompletedDate || '-'}</strong></small></td>
+            <td style="text-align:center;"><small>${d.dateEnd || '-'}</small></td>
+            <td style="text-align:center;">${d.fnDepositCountDate} ngày</td>
+            <td style="text-align:right;">${Number(d.fnDepositAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:center;">${d.fnGrtCountDate} ngày</td>
+            <td style="text-align:right;">${Number(d.fnGrtAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; font-weight:600; color:var(--primary);">${Number(d.fnTotalAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:center;">${d.pdCountDate} ngày</td>
+            <td style="text-align:right; font-weight:600; color:var(--success);">${Number(d.pdAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; font-weight:700; color:var(--success); font-size:1.05em;">${Number(d.carTotalSettlement).toLocaleString('vi-VN')} đ</td>
+            <td>
+              <div style="display:flex; gap:3px;">
+                ${editBtn}
+                ${delBtn}
+              </div>
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        document.getElementById('cardFnExpDetail').style.display = 'block';
+        document.getElementById('cardFnExpDetail').scrollIntoView({ behavior: 'smooth' });
+      } catch(e) { console.error(e); }
+    }
+
+    function closeFnExpDetailCard() {
+      document.getElementById('cardFnExpDetail').style.display = 'none';
+      currentFnExpId = null;
+    }
+
+    async function dlrApprove1FnExp(id) {
+      if (!confirm('Xác nhận Đại lý duyệt cấp 1 thẩm định bảng tính này?')) return;
+      try {
+        const res = await fetch(`/api/fn-exp/${id}/dlr-approve1`, {
+          method: 'POST', headers, body: JSON.stringify({ approverName: 'KeToanTruongDaiLy' })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đại lý đã duyệt cấp 1 thành công!');
+        viewFnExpDetail(id);
+        loadFnExpStatements();
+      } catch(e) { console.error(e); }
+    }
+
+    async function dlrSignCAFnExp(id) {
+      if (!confirm('Xác nhận Giám đốc Đại lý thực hiện ký số điện tử CA cấp 2?')) return;
+      try {
+        const res = await fetch(`/api/fn-exp/${id}/dlr-sign`, {
+          method: 'POST', headers, body: JSON.stringify({
+            signerName: 'GiamDocDaiLy',
+            filePath: `CR_DMS40_FnExp_${id}_DlrSigned.pdf`
+          })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đại lý đã ký số điện tử CA thành công!');
+        viewFnExpDetail(id);
+        loadFnExpStatements();
+      } catch(e) { console.error(e); }
+    }
+
+    async function htcApprove1FnExp(id) {
+      if (!confirm('Xác nhận Chuyên viên QLPP & Tài chính HTC thẩm định duyệt cấp 1?')) return;
+      try {
+        const res = await fetch(`/api/fn-exp/${id}/htc-approve1`, {
+          method: 'POST', headers, body: JSON.stringify({ approverName: 'NguyenQuocTuan_ChuyenVienTaiChinhHTC' })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('HTC đã thẩm định duyệt cấp 1 thành công!');
+        viewFnExpDetail(id);
+        loadFnExpStatements();
+      } catch(e) { console.error(e); }
+    }
+
+    async function htcSignCAFnExp(id) {
+      if (!confirm('Xác nhận Ban Lãnh đạo HTC ký số điện tử CA duyệt quyết toán?')) return;
+      try {
+        const res = await fetch(`/api/fn-exp/${id}/htc-sign`, {
+          method: 'POST', headers, body: JSON.stringify({
+            signerName: 'PhoTongGiamDocTaiChinhHTC',
+            filePath: `CR_DMS40_FnExp_${id}_HTCSigned.pdf`
+          })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Ban Lãnh đạo HTC đã ký số điện tử CA phê duyệt quyết toán thành công!');
+        viewFnExpDetail(id);
+        loadFnExpStatements();
+      } catch(e) { console.error(e); }
+    }
+
+    async function settleFnExp(id) {
+      const txnRef = prompt('Nhập số bút toán / số Ủy nhiệm chi UNC ngân hàng thanh toán:', `UNC-FNEXP-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(1000+Math.random()*9000)}`);
+      if (!txnRef) return;
+      try {
+        const res = await fetch(`/api/fn-exp/${id}/settle`, {
+          method: 'POST', headers, body: JSON.stringify({
+            bankTxnRef: txnRef,
+            settledBy: 'PhamThiMai_KeToanThanhToanHTC'
+          })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã hoàn tất quyết toán chi trả chuyển khoản UNC ngân hàng!');
+        viewFnExpDetail(id);
+        loadFnExpStatements();
+      } catch(e) { console.error(e); }
+    }
+
+    async function cancelFnExp(id) {
+      const reason = prompt('Nhập lý do hủy bảng tính CPTC & CKTT:');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/fn-exp/${id}/cancel`, {
+          method: 'POST', headers, body: JSON.stringify({
+            reason: reason,
+            cancelledBy: 'NguyenQuocTuan_ChuyenVienTaiChinhHTC'
+          })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã hủy bảng tính thành công!');
+        viewFnExpDetail(id);
+        loadFnExpStatements();
+      } catch(e) { console.error(e); }
+    }
+
+    async function deleteDraftFnExp(id) {
+      if (!confirm(`Xác nhận xóa vĩnh viễn bảng tính nháp #${id}?`)) return;
+      try {
+        const res = await fetch(`/api/fn-exp/${id}`, { method: 'DELETE', headers });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã xóa bảng tính nháp thành công!');
+        closeFnExpDetailCard();
+        loadFnExpStatements();
+      } catch(e) { console.error(e); }
+    }
+
+    async function openFnExpAdviceModal(id) {
+      try {
+        const res = await fetch(`/api/fn-exp/${id}/advice`, { headers });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        const adv = await res.json();
+
+        const content = document.getElementById('fnExpAdviceContent');
+        content.innerHTML = `
+          <div style="text-align:center; margin-bottom:16px;">
+            <h3 style="margin:0; text-transform:uppercase;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</h3>
+            <p style="margin:2px 0;">Độc lập - Tự do - Hạnh phúc</p>
+            <p style="margin:8px 0 0; font-size:1.15em; font-weight:700; color:var(--primary);">BẢNG KÊ QUYẾT TOÁN HỖ TRỢ CHI PHÍ TÀI CHÍNH &amp; CHIẾT KHẤU THANH TOÁN TCG</p>
+            <p style="margin:2px 0;"><em>(Kỳ quyết toán: ${adv.termFromFormatted} đến ${adv.termToFormatted} — Mẫu CR_DMS40_FnExp)</em></p>
+          </div>
+
+          <div style="display:flex; justify-content:space-between; margin-bottom:12px;">
+            <div>
+              <div><strong>Số Bảng Tính:</strong> <code>${adv.caNo}</code></div>
+              <div><strong>Đơn Vị Thụ Hưởng:</strong> <strong>${adv.dealerName}</strong> (Mã: <code>${adv.dealerCode}</code>)</div>
+              <div><strong>Tiêu Đề:</strong> ${adv.caName}</div>
+              <div><strong>Trạng Thái Quyết Toán:</strong> <span class="badge badge-info">${adv.statusText}</span></div>
+            </div>
+            <div style="text-align:right;">
+              <div><strong>Ngày In Bảng Kê:</strong> ${adv.printDate}</div>
+              <div><strong>Lãi Suất CPTC:</strong> <span style="font-weight:700; color:var(--primary);">${adv.fnExpPercent}%/năm</span></div>
+              <div><strong>Chiết Khấu TCG:</strong> <span style="font-weight:700; color:var(--success);">${adv.pmtDsTCGPercent}%</span></div>
+              <div><strong>Mã Bút Toán UNC:</strong> <code>${adv.bankTxnRef || 'Chưa chi trả'}</code></div>
+            </div>
+          </div>
+
+          <table style="width:100%; border-collapse:collapse; margin-top:10px; font-size:.84em;">
+            <thead>
+              <tr style="background:rgba(127,127,127,.1);">
+                <th style="border:1px solid var(--border); padding:6px; text-align:center;">STT</th>
+                <th style="border:1px solid var(--border); padding:6px;">Số Khung (VIN)</th>
+                <th style="border:1px solid var(--border); padding:6px;">Dòng Xe</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:center;">Loại</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:right;">Đơn Giá Xe</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:center;">Ngày TT 100%</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:center;">Ngày Cọc</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:right;">CPTC Cọc</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:center;">Ngày BL</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:right;">CPTC Bảo Lãnh</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:right;">Tổng CPTC</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:center;">Ngày Sớm</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:right;">CKTT Sớm</th>
+                <th style="border:1px solid var(--border); padding:6px; text-align:right;">Tổng Dòng Xe</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${adv.items.map(it => `
+                <tr>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:center;">${it.no}</td>
+                  <td style="border:1px solid var(--border); padding:6px;"><code>${it.vin}</code></td>
+                  <td style="border:1px solid var(--border); padding:6px;">${it.modelName}</td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:center;">${it.assemblyType}</td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:right;">${Number(it.unitPriceActual).toLocaleString('vi-VN')}</td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:center;">${it.totalCompletedDate || '-'}</td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:center;">${it.fnDepositCountDate}</td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:right;">${Number(it.fnDepositAmount).toLocaleString('vi-VN')}</td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:center;">${it.fnGrtCountDate}</td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:right;">${Number(it.fnGrtAmount).toLocaleString('vi-VN')}</td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:right; font-weight:600; color:var(--primary);">${Number(it.fnTotalAmount).toLocaleString('vi-VN')}</td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:center;">${it.pdCountDate}</td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:right; font-weight:600; color:var(--success);">${Number(it.pdAmount).toLocaleString('vi-VN')}</td>
+                  <td style="border:1px solid var(--border); padding:6px; text-align:right; font-weight:700;">${Number(it.carTotalSettlement).toLocaleString('vi-VN')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+            <tfoot>
+              <tr style="background:rgba(127,127,127,.05); font-weight:700;">
+                <td colspan="4" style="border:1px solid var(--border); padding:8px; text-align:center;">TỔNG CỘNG (${adv.totalVehicles} XE)</td>
+                <td colspan="3" style="border:1px solid var(--border); padding:8px;"></td>
+                <td style="border:1px solid var(--border); padding:8px; text-align:right;">${Number(adv.totalFnDepositAmount).toLocaleString('vi-VN')}</td>
+                <td></td>
+                <td style="border:1px solid var(--border); padding:8px; text-align:right;">${Number(adv.totalFnGrtAmount).toLocaleString('vi-VN')}</td>
+                <td style="border:1px solid var(--border); padding:8px; text-align:right; color:var(--primary);">${Number(adv.totalFnAmount).toLocaleString('vi-VN')}</td>
+                <td></td>
+                <td style="border:1px solid var(--border); padding:8px; text-align:right; color:var(--success);">${Number(adv.totalPDAmount).toLocaleString('vi-VN')}</td>
+                <td style="border:1px solid var(--border); padding:8px; text-align:right; font-size:1.1em; color:var(--success);">${Number(adv.totalSettlementAmount).toLocaleString('vi-VN')} đ</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <div style="margin-top:14px; padding:10px; background:rgba(127,127,127,.05); border-radius:6px;">
+            <div><strong>Tổng số tiền quyết toán chi trả bằng chữ:</strong> <span style="font-style:italic; font-weight:700;">${adv.totalSettlementInWords}</span></div>
+          </div>
+
+          <div style="display:flex; justify-content:space-around; margin-top:30px; text-align:center;">
+            <div>
+              <strong>ĐẠI DIỆN ĐẠI LÝ PHÂN PHỐI</strong><br>
+              <span class="muted" style="font-size:.85em;">(Ký số điện tử CA xác nhận)</span><br><br><br>
+              <div><strong>${adv.dlrSignInfo}</strong></div>
+            </div>
+            <div>
+              <strong>BAN TÀI CHÍNH KẾ TOÁN HTC</strong><br>
+              <span class="muted" style="font-size:.85em;">(Ký số điện tử CA phê duyệt)</span><br><br><br>
+              <div><strong>${adv.htcSignInfo}</strong></div>
+            </div>
+          </div>
+        `;
+        document.getElementById('modalFnExpAdvice').style.display = 'block';
+      } catch(e) { console.error(e); }
+    }
+
+    function closeFnExpAdviceModal() {
+      document.getElementById('modalFnExpAdvice').style.display = 'none';
+    }
+
+    function openEditFnExpDetailModal(detailId, vin, depDays, grtDays, completedDate, pdDays, remark) {
+      document.getElementById('editFnExpDetailId').value = detailId;
+      document.getElementById('editFnExpVin').value = vin;
+      document.getElementById('editFnExpDepDays').value = depDays;
+      document.getElementById('editFnExpGrtDays').value = grtDays;
+      document.getElementById('editFnExpCompletedDate').value = completedDate || '';
+      document.getElementById('editFnExpPDDays').value = pdDays;
+      document.getElementById('editFnExpRemark').value = remark || '';
+      document.getElementById('modalEditFnExpDetail').style.display = 'block';
+    }
+
+    function closeEditFnExpDetailModal() {
+      document.getElementById('modalEditFnExpDetail').style.display = 'none';
+    }
+
+    async function submitEditFnExpDetail() {
+      const detailId = parseInt(document.getElementById('editFnExpDetailId').value);
+      const depDays = parseInt(document.getElementById('editFnExpDepDays').value) || 0;
+      const grtDays = parseInt(document.getElementById('editFnExpGrtDays').value) || 0;
+      const completedDate = document.getElementById('editFnExpCompletedDate').value;
+      const pdDays = parseInt(document.getElementById('editFnExpPDDays').value) || 0;
+      const remark = document.getElementById('editFnExpRemark').value.trim();
+
+      const item = {
+        detailId: detailId,
+        fnDepositCountDate: depDays,
+        fnGrtCountDate: grtDays,
+        totalCompletedDate: completedDate ? new Date(completedDate).toISOString() : null,
+        pdCountDate: pdDays,
+        remark: remark
+      };
+
+      try {
+        const res = await fetch(`/api/fn-exp/${currentFnExpId}/details`, {
+          method: 'PUT', headers, body: JSON.stringify({ items: [item] })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã cập nhật chi tiết dòng xe và tự động tính toán lại bảng kê CPTC & CKTT!');
+        closeEditFnExpDetailModal();
+        viewFnExpDetail(currentFnExpId);
+        loadFnExpStatements();
+      } catch(e) { console.error(e); }
+    }
+
+    async function deleteFnExpVehicle(statementId, detailId) {
+      if (!confirm(`Xác nhận xóa xe #${detailId} khỏi bảng tính nháp?`)) return;
+      try {
+        const res = await fetch(`/api/fn-exp/${statementId}/vehicles/${detailId}`, {
+          method: 'DELETE', headers
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã xóa dòng xe khỏi bảng tính.');
+        viewFnExpDetail(statementId);
+        loadFnExpStatements();
+      } catch(e) { console.error(e); }
+    }
+
+    function openAddFnExpVehicleModal(id) {
+      currentFnExpId = id;
+      document.getElementById('inpAddFnExpVin').value = `KMHCT81EPHU${Math.floor(100000 + Math.random()*900000)}`;
+      document.getElementById('modalAddFnExpVehicle').style.display = 'block';
+    }
+
+    function closeAddFnExpVehicleModal() {
+      document.getElementById('modalAddFnExpVehicle').style.display = 'none';
+    }
+
+    async function submitAddFnExpVehicle() {
+      const vin = document.getElementById('inpAddFnExpVin').value.trim();
+      if (!vin) { alert('Vui lòng nhập số khung VIN.'); return; }
+      const model = document.getElementById('inpAddFnExpModel').value;
+      const modelName = document.getElementById('inpAddFnExpModel').options[document.getElementById('inpAddFnExpModel').selectedIndex].text;
+      const assembly = document.getElementById('inpAddFnExpAssembly').value;
+      const price = parseInt(document.getElementById('inpAddFnExpPrice').value) || 989000000;
+      const depDays = parseInt(document.getElementById('inpAddFnExpDepDays').value) || 25;
+      const grtDays = parseInt(document.getElementById('inpAddFnExpGrtDays').value) || 20;
+      const pdDays = parseInt(document.getElementById('inpAddFnExpPDDays').value) || 10;
+      const remark = document.getElementById('inpAddFnExpRemark').value.trim();
+
+      const vehicle = {
+        vin: vin,
+        carId: `CAR-FN-${Math.floor(100+Math.random()*900)}`,
+        modelCode: model,
+        modelName: modelName,
+        assemblyType: assembly,
+        unitPriceActual: price,
+        fnDepositCountDate: depDays,
+        fnGrtCountDate: grtDays,
+        pdCountDate: pdDays,
+        remark: remark
+      };
+
+      try {
+        const res = await fetch(`/api/fn-exp/${currentFnExpId}/vehicles`, {
+          method: 'POST', headers, body: JSON.stringify({ items: [vehicle] })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert(`Đã thêm xe ${vin} vào bảng tính thành công!`);
+        closeAddFnExpVehicleModal();
+        viewFnExpDetail(currentFnExpId);
+        loadFnExpStatements();
+      } catch(e) { console.error(e); }
+    }
+
+    function onNewFnExpDealerChange() {
+      loadCandidateVehiclesForNewFnExp();
+    }
+
+    async function loadCandidateVehiclesForNewFnExp() {
+      const dealer = document.getElementById('inpNewFnExpDealerCode').value;
+      try {
+        const res = await fetch(`/api/fn-exp/candidates?dealerCode=${encodeURIComponent(dealer)}`, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const jsonEl = document.getElementById('inpNewFnExpVehiclesJson');
+        jsonEl.value = JSON.stringify(list, null, 2);
+      } catch(e) { console.error(e); }
+    }
+
+    async function previewNewFnExpCalculation() {
+      const jsonEl = document.getElementById('inpNewFnExpVehiclesJson');
+      const raw = jsonEl.value.trim();
+      if (!raw) { alert('Vui lòng nhập hoặc nạp danh sách xe trước.'); return; }
+      let items;
+      try {
+        items = JSON.parse(raw);
+      } catch(e) { alert('Cú pháp JSON không hợp lệ: ' + e.message); return; }
+
+      const fnExpPercent = parseFloat(document.getElementById('inpNewFnExpPercent').value) || 8.5;
+      const pmtDsTCGPercent = parseFloat(document.getElementById('inpNewFnExpPmtDsPercent').value) || 1.2;
+
+      try {
+        const res = await fetch('/api/fn-exp/preview', {
+          method: 'POST', credentials: 'omit',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ fnExpPercent, pmtDsTCGPercent, items })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        const prev = await res.json();
+
+        const box = document.getElementById('divFnExpPreviewBox');
+        box.style.display = 'block';
+
+        const sumContent = document.getElementById('previewFnExpSummaryContent');
+        sumContent.innerHTML = `
+          <div><strong>Số Xe:</strong> <span style="font-size:1.1em; font-weight:700;">${prev.totalVehicles}</span></div>
+          <div><strong>CPTC Cọc:</strong> <span style="font-weight:600;">${Number(prev.totalFnDepositAmount).toLocaleString('vi-VN')} đ</span></div>
+          <div><strong>CPTC Bảo Lãnh:</strong> <span style="font-weight:600;">${Number(prev.totalFnGrtAmount).toLocaleString('vi-VN')} đ</span></div>
+          <div><strong>Tổng CPTC:</strong> <span style="font-weight:700; color:var(--primary);">${Number(prev.totalFnAmount).toLocaleString('vi-VN')} đ</span></div>
+          <div><strong>Tổng CKTT TCG:</strong> <span style="font-weight:700; color:var(--success);">${Number(prev.totalPDAmount).toLocaleString('vi-VN')} đ</span></div>
+          <div><strong>TỔNG QUYẾT TOÁN:</strong> <span style="font-weight:700; font-size:1.15em; color:var(--success);">${Number(prev.totalSettlementAmount).toLocaleString('vi-VN')} đ</span></div>
+        `;
+
+        const tblCont = document.getElementById('previewFnExpTableContainer');
+        tblCont.innerHTML = `
+          <table style="width:100%; border-collapse:collapse; font-size:.82em;">
+            <thead>
+              <tr style="background:rgba(127,127,127,.1);">
+                <th style="padding:4px; border:1px solid var(--border);">VIN</th>
+                <th style="padding:4px; border:1px solid var(--border);">Model</th>
+                <th style="padding:4px; border:1px solid var(--border);">Loại</th>
+                <th style="padding:4px; border:1px solid var(--border); text-align:right;">Đơn Giá</th>
+                <th style="padding:4px; border:1px solid var(--border); text-align:center;">Ngày Cọc</th>
+                <th style="padding:4px; border:1px solid var(--border); text-align:right;">CPTC Cọc</th>
+                <th style="padding:4px; border:1px solid var(--border); text-align:center;">Ngày BL</th>
+                <th style="padding:4px; border:1px solid var(--border); text-align:right;">CPTC BL</th>
+                <th style="padding:4px; border:1px solid var(--border); text-align:right;">Tổng CPTC</th>
+                <th style="padding:4px; border:1px solid var(--border); text-align:center;">Ngày Sớm</th>
+                <th style="padding:4px; border:1px solid var(--border); text-align:right;">Tiền CKTT</th>
+                <th style="padding:4px; border:1px solid var(--border); text-align:right;">Tổng Xe</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${prev.items.map(it => `
+                <tr>
+                  <td style="padding:4px; border:1px solid var(--border);"><code>${it.vin}</code></td>
+                  <td style="padding:4px; border:1px solid var(--border);">${it.modelCode}</td>
+                  <td style="padding:4px; border:1px solid var(--border); text-align:center;">${it.assemblyType}</td>
+                  <td style="padding:4px; border:1px solid var(--border); text-align:right;">${Number(it.unitPriceActual).toLocaleString('vi-VN')}</td>
+                  <td style="padding:4px; border:1px solid var(--border); text-align:center;">${it.fnDepositCountDate}</td>
+                  <td style="padding:4px; border:1px solid var(--border); text-align:right;">${Number(it.fnDepositAmount).toLocaleString('vi-VN')}</td>
+                  <td style="padding:4px; border:1px solid var(--border); text-align:center;">${it.fnGrtCountDate}</td>
+                  <td style="padding:4px; border:1px solid var(--border); text-align:right;">${Number(it.fnGrtAmount).toLocaleString('vi-VN')}</td>
+                  <td style="padding:4px; border:1px solid var(--border); text-align:right; color:var(--primary); font-weight:600;">${Number(it.fnTotalAmount).toLocaleString('vi-VN')}</td>
+                  <td style="padding:4px; border:1px solid var(--border); text-align:center;">${it.pdCountDate}</td>
+                  <td style="padding:4px; border:1px solid var(--border); text-align:right; color:var(--success); font-weight:600;">${Number(it.pdAmount).toLocaleString('vi-VN')}</td>
+                  <td style="padding:4px; border:1px solid var(--border); text-align:right; font-weight:700;">${Number(it.carTotalSettlement).toLocaleString('vi-VN')}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        `;
+      } catch(e) { console.error(e); }
+    }
+
+    async function submitCreateFnExpStatement() {
+      const msg = document.getElementById('submitNewFnExpMsg');
+      try {
+        const rawJson = document.getElementById('inpNewFnExpVehiclesJson').value.trim();
+        if (!rawJson) { alert('Vui lòng nhập hoặc nạp danh sách xe trước.'); return; }
+        const items = JSON.parse(rawJson);
+
+        const dealerSel = document.getElementById('inpNewFnExpDealerCode');
+        const dealerCode = dealerSel.value;
+        const dealerName = dealerSel.options[dealerSel.selectedIndex].text.split(' (')[0];
+
+        const payload = {
+          caNo: document.getElementById('inpNewFnExpNo').value.trim() || null,
+          dealerCode: dealerCode,
+          dealerName: dealerName,
+          caName: document.getElementById('inpNewFnExpName').value.trim() || null,
+          termFrom: document.getElementById('inpNewFnExpTermFrom').value,
+          termTo: document.getElementById('inpNewFnExpTermTo').value,
+          termPrevFrom: document.getElementById('inpNewFnExpTermPrevFrom').value,
+          termPrevTo: document.getElementById('inpNewFnExpTermPrevTo').value,
+          fnExpPercent: parseFloat(document.getElementById('inpNewFnExpPercent').value) || 8.5,
+          pmtDsTCGPercent: parseFloat(document.getElementById('inpNewFnExpPmtDsPercent').value) || 1.2,
+          remark: document.getElementById('inpNewFnExpRemark').value.trim(),
+          createdBy: 'NguyenQuocTuan_ChuyenVienTaiChinhHTC',
+          items: items
+        };
+
+        msg.textContent = 'Đang khởi tạo bảng tính CPTC & CKTT...';
+        const res = await fetch('/api/fn-exp', {
+          method: 'POST', headers, body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Bảng tính: ${data.caNo} (Tổng quyết toán: ${Number(data.totalSettlementAmount).toLocaleString('vi-VN')} đ)`;
+        setTimeout(() => {
+          showTab('fnExp');
+          viewFnExpDetail(data.id);
+        }, 800);
+      } catch(e) {
+        msg.textContent = 'Lỗi cú pháp JSON: ' + e.message;
+      }
+    }
+
+    function loadSampleFnExpData() {
+      loadCandidateVehiclesForNewFnExp();
+    }
+
     // Khởi tạo
     loadSampleData();
     loadSamplePayoutData();
@@ -11241,6 +12304,7 @@
     loadSampleGuaranteeClaimData();
     loadSampleAVNData();
     loadSampleGPSData();
+    loadSampleFnExpData();
     loadBatches();
   </script>
 </body>

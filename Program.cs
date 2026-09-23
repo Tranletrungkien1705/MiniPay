@@ -42,6 +42,7 @@ builder.Services.AddScoped<GuaranteeExtensionService>();
 builder.Services.AddScoped<BankGuaranteeClaimService>();
 builder.Services.AddScoped<PaymentAVNService>();
 builder.Services.AddScoped<PaymentGPSService>();
+builder.Services.AddScoped<FinancialExpenseService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -5088,6 +5089,347 @@ app.MapGet("/api/payment-gps/providers", () =>
     return Results.Ok(providers);
 });
 
+// =========================================================================
+// QUẢN LÝ BẢNG TÍNH HỖ TRỢ CHI PHÍ TÀI CHÍNH (CPTC) & CHIẾT KHẤU THANH TOÁN TCG (CKTT)
+// Tương ứng module DMS40_FnExp_Calc_FnExp_PmDc trong BizHTC.Payment / 0.41.CalcFnExp & FrmDMS40_2019_MngDMS40_FnExp_Calc_FnExp_PmDc
+// =========================================================================
+
+// 1) Danh sách bảng tính CPTC & CKTT TCG
+app.MapGet("/api/fn-exp", async (FinancialExpenseService fnService, ITenantContext tc, string? dealerCode, string? status, DateTime? fromDate, DateTime? toDate) =>
+{
+    var list = await fnService.GetStatementsAsync(tc.OrgId, dealerCode, status, fromDate, toDate);
+    return Results.Ok(list.Select(s => new
+    {
+        s.Id,
+        s.CaNo,
+        s.DealerCode,
+        s.DealerName,
+        s.CAName,
+        TermFrom = s.TermFrom.ToString("yyyy-MM-dd"),
+        TermTo = s.TermTo.ToString("yyyy-MM-dd"),
+        TermPrevFrom = s.TermPrevFrom.ToString("yyyy-MM-dd"),
+        TermPrevTo = s.TermPrevTo.ToString("yyyy-MM-dd"),
+        s.FnExpPercent,
+        s.PmtDsTCGPercent,
+        s.TotalVehicles,
+        s.TotalFnDepositAmount,
+        s.TotalFnGrtAmount,
+        s.TotalFnAmount,
+        s.TotalPDAmount,
+        s.TotalSettlementAmount,
+        Status = s.Status.ToString(),
+        DlrSignStatus = s.DlrSignStatus.ToString(),
+        s.DlrSignUser,
+        s.DlrSignDTime,
+        HTCSignStatus = s.HTCSignStatus.ToString(),
+        s.HTCSignUser,
+        s.HTCSignDTime,
+        s.DlrAppr1By,
+        s.DlrAppr1DTime,
+        s.HTCAppr1By,
+        s.HTCAppr1DTime,
+        s.SettledBy,
+        s.SettledAt,
+        s.BankTxnRef,
+        s.FilePathFnExp,
+        s.FilePathPmtDc,
+        s.Remark,
+        s.CreatedBy,
+        s.CreatedAt
+    }));
+});
+
+// 2) Báo cáo thống kê Dashboard KPI CPTC & CKTT
+app.MapGet("/api/fn-exp/summary", async (FinancialExpenseService fnService, ITenantContext tc) =>
+{
+    var summary = await fnService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
+// 3) Danh sách xe ứng viên đủ điều kiện tính CPTC & CKTT
+app.MapGet("/api/fn-exp/candidates", (FinancialExpenseService fnService, string? dealerCode) =>
+{
+    var candidates = fnService.GetCandidateVehicles(dealerCode);
+    return Results.Ok(candidates);
+});
+
+// 4) Xem trước tính toán CPTC & CKTT (Preview Calculation)
+app.MapPost("/api/fn-exp/preview", (PreviewFinancialExpenseDto dto, FinancialExpenseService fnService) =>
+{
+    try
+    {
+        var preview = fnService.PreviewCalculation(dto.FnExpPercent, dto.PmtDsTCGPercent, dto.Items ?? []);
+        return Results.Ok(preview);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 5) Lập bảng tính CPTC & CKTT TCG mới
+app.MapPost("/api/fn-exp", async (CreateFinancialExpenseStatementDto dto, FinancialExpenseService fnService, ITenantContext tc) =>
+{
+    try
+    {
+        var statement = await fnService.CreateStatementAsync(
+            tc.OrgId,
+            dto.CaNo,
+            dto.DealerCode,
+            dto.DealerName,
+            dto.CAName,
+            dto.TermFrom,
+            dto.TermTo,
+            dto.TermPrevFrom,
+            dto.TermPrevTo,
+            dto.FnExpPercent ?? 8.5m,
+            dto.PmtDsTCGPercent ?? 1.2m,
+            dto.Remark,
+            dto.CreatedBy,
+            dto.Items
+        );
+        return Results.Ok(statement);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Chi tiết 1 bảng tính kèm danh sách xe
+app.MapGet("/api/fn-exp/{id:long}", async (long id, FinancialExpenseService fnService, ITenantContext tc) =>
+{
+    var statement = await fnService.GetStatementByIdAsync(id, tc.OrgId);
+    if (statement == null) return Results.NotFound(new { error = $"Không tìm thấy bảng tính #{id}." });
+
+    return Results.Ok(new
+    {
+        statement.Id,
+        statement.CaNo,
+        statement.DealerCode,
+        statement.DealerName,
+        statement.CAName,
+        TermFrom = statement.TermFrom.ToString("yyyy-MM-dd"),
+        TermTo = statement.TermTo.ToString("yyyy-MM-dd"),
+        TermPrevFrom = statement.TermPrevFrom.ToString("yyyy-MM-dd"),
+        TermPrevTo = statement.TermPrevTo.ToString("yyyy-MM-dd"),
+        statement.FnExpPercent,
+        statement.PmtDsTCGPercent,
+        statement.TotalVehicles,
+        statement.TotalFnDepositAmount,
+        statement.TotalFnGrtAmount,
+        statement.TotalFnAmount,
+        statement.TotalPDAmount,
+        statement.TotalSettlementAmount,
+        Status = statement.Status.ToString(),
+        DlrSignStatus = statement.DlrSignStatus.ToString(),
+        statement.DlrSignUser,
+        statement.DlrSignDTime,
+        HTCSignStatus = statement.HTCSignStatus.ToString(),
+        statement.HTCSignUser,
+        statement.HTCSignDTime,
+        statement.DlrAppr1By,
+        statement.DlrAppr1DTime,
+        statement.HTCAppr1By,
+        statement.HTCAppr1DTime,
+        statement.SettledBy,
+        statement.SettledAt,
+        statement.BankTxnRef,
+        statement.CancelBy,
+        statement.CancelDTime,
+        statement.CancelReason,
+        statement.FilePathFnExp,
+        statement.FilePathPmtDc,
+        statement.Remark,
+        statement.CreatedBy,
+        statement.CreatedAt,
+        Details = statement.Details.OrderBy(d => d.Id).Select(d => new
+        {
+            d.Id,
+            d.StatementId,
+            d.CaNo,
+            d.CarId,
+            d.VIN,
+            d.ModelCode,
+            d.ModelName,
+            d.SpecCode,
+            d.SpecDescription,
+            d.ColorName,
+            d.SOCode,
+            AssemblyType = d.AssemblyType.ToString(),
+            d.UnitPriceActual,
+            SodApprovedDate = d.SodApprovedDate?.ToString("yyyy-MM-dd"),
+            SodDepositDutyEndDate = d.SodDepositDutyEndDate?.ToString("yyyy-MM-dd"),
+            TotalCompletedDate = d.TotalCompletedDate?.ToString("yyyy-MM-dd"),
+            DateStart = d.DateStart?.ToString("yyyy-MM-dd"),
+            DateEnd = d.DateEnd?.ToString("yyyy-MM-dd"),
+            d.TermActual,
+            d.FnDepositCountDate,
+            d.FnDepositAmount,
+            d.FnGrtCountDate,
+            d.FnGrtAmount,
+            d.FnTotalAmount,
+            d.PDCountDate,
+            d.PDAmount,
+            d.CarTotalSettlement,
+            Status = d.Status.ToString(),
+            d.Remark
+        })
+    });
+});
+
+// 7) Đại lý duyệt thẩm định cấp 1 (DlrApprove1)
+app.MapPost("/api/fn-exp/{id:long}/dlr-approve1", async (long id, ApproveFnExpDto? dto, FinancialExpenseService fnService, ITenantContext tc) =>
+{
+    try
+    {
+        var s = await fnService.DlrApprove1Async(id, tc.OrgId, dto?.ApproverName);
+        return Results.Ok(new { message = $"Đại lý duyệt cấp 1 bảng tính #{id} thành công.", Status = s.Status.ToString(), s.DlrAppr1By, s.DlrAppr1DTime });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 8) Đại lý ký số điện tử CA cấp 2 (DlrSignCA)
+app.MapPost("/api/fn-exp/{id:long}/dlr-sign", async (long id, SignFnExpCADto? dto, FinancialExpenseService fnService, ITenantContext tc) =>
+{
+    try
+    {
+        var s = await fnService.DlrSignCAAsync(id, tc.OrgId, dto?.SignerName, dto?.FilePath);
+        return Results.Ok(new { message = $"Đại lý ký số CA bảng tính #{id} thành công.", Status = s.Status.ToString(), DlrSignStatus = s.DlrSignStatus.ToString(), s.DlrSignUser, s.DlrSignDTime });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 9) HTC Chuyên viên tài chính thẩm định duyệt cấp 1 (HTCApprove1)
+app.MapPost("/api/fn-exp/{id:long}/htc-approve1", async (long id, ApproveFnExpDto? dto, FinancialExpenseService fnService, ITenantContext tc) =>
+{
+    try
+    {
+        var s = await fnService.HTCApprove1Async(id, tc.OrgId, dto?.ApproverName);
+        return Results.Ok(new { message = $"HTC thẩm định duyệt cấp 1 bảng tính #{id} thành công.", Status = s.Status.ToString(), s.HTCAppr1By, s.HTCAppr1DTime });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 10) HTC Lãnh đạo ký số điện tử CA cấp 2 (HTCSignCA)
+app.MapPost("/api/fn-exp/{id:long}/htc-sign", async (long id, SignFnExpCADto? dto, FinancialExpenseService fnService, ITenantContext tc) =>
+{
+    try
+    {
+        var s = await fnService.HTCSignCAAsync(id, tc.OrgId, dto?.SignerName, dto?.FilePath);
+        return Results.Ok(new { message = $"HTC phê duyệt ký số CA bảng tính #{id} thành công.", Status = s.Status.ToString(), HTCSignStatus = s.HTCSignStatus.ToString(), s.HTCSignUser, s.HTCSignDTime });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 11) Kế toán quyết toán chi trả chuyển khoản UNC ngân hàng (Settled)
+app.MapPost("/api/fn-exp/{id:long}/settle", async (long id, SettleFnExpDto? dto, FinancialExpenseService fnService, ITenantContext tc) =>
+{
+    try
+    {
+        var s = await fnService.SettleAsync(id, tc.OrgId, dto?.BankTxnRef, dto?.SettledBy);
+        return Results.Ok(new { message = $"Quyết toán chuyển tiền bảng tính #{id} thành công.", Status = s.Status.ToString(), s.BankTxnRef, s.SettledBy, s.SettledAt, s.TotalSettlementAmount });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 12) Hủy bảng tính (Cancel)
+app.MapPost("/api/fn-exp/{id:long}/cancel", async (long id, CancelFnExpDto? dto, FinancialExpenseService fnService, ITenantContext tc) =>
+{
+    try
+    {
+        var s = await fnService.CancelAsync(id, tc.OrgId, dto?.Reason, dto?.CancelledBy);
+        return Results.Ok(new { message = $"Đã hủy bảng tính #{id}.", Status = s.Status.ToString(), s.CancelReason, s.CancelBy, s.CancelDTime });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 13) Cập nhật chi tiết xe & tự động tái tính toán bảng kê
+app.MapPut("/api/fn-exp/{id:long}/details", async (long id, UpdateFnExpDetailsRequestDto dto, FinancialExpenseService fnService, ITenantContext tc) =>
+{
+    try
+    {
+        var s = await fnService.UpdateDetailsAsync(id, tc.OrgId, dto.Items ?? []);
+        return Results.Ok(s);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 14) Thêm xe vào bảng tính nháp
+app.MapPost("/api/fn-exp/{id:long}/vehicles", async (long id, ImportFnExpVehiclesDto dto, FinancialExpenseService fnService, ITenantContext tc) =>
+{
+    try
+    {
+        var s = await fnService.AddVehiclesAsync(id, tc.OrgId, dto.Items ?? []);
+        return Results.Ok(s);
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 15) Xóa xe khỏi bảng tính nháp
+app.MapDelete("/api/fn-exp/{id:long}/vehicles/{detailId:long}", async (long id, long detailId, FinancialExpenseService fnService, ITenantContext tc) =>
+{
+    try
+    {
+        var s = await fnService.RemoveVehicleAsync(id, detailId, tc.OrgId);
+        return Results.Ok(s);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 16) Xóa toàn bộ bảng tính nháp
+app.MapDelete("/api/fn-exp/{id:long}", async (long id, FinancialExpenseService fnService, ITenantContext tc) =>
+{
+    try
+    {
+        await fnService.DeleteDraftAsync(id, tc.OrgId);
+        return Results.Ok(new { message = $"Đã xóa bảng tính #{id} thành công." });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 17) Sinh dữ liệu mẫu in Bảng kê Quyết toán CPTC & CKTT gửi Đại lý (CR Advice)
+app.MapGet("/api/fn-exp/{id:long}/advice", async (long id, FinancialExpenseService fnService, ITenantContext tc) =>
+{
+    var advice = await fnService.GenerateAdviceAsync(id, tc.OrgId);
+    if (advice == null) return Results.NotFound(new { error = $"Không tìm thấy bảng tính #{id}." });
+    return Results.Ok(advice);
+});
+
 app.Run();
 
 record CreatePayDto(long Amount, string? OrderId, string? OrderInfo, string? BankCode);
@@ -5307,4 +5649,31 @@ record RejectPaymentGPSDto(string Reason, string? RejecterName);
 record CancelPaymentGPSDto(string? Reason);
 record ImportPaymentGPSVehiclesDto(List<PaymentGPSItemInputDto> Items);
 record UpdatePaymentGPSDetailsRequestDto(List<UpdatePaymentGPSDetailItemDto> Items);
+
+record CreateFinancialExpenseStatementDto(
+    string? CaNo,
+    string DealerCode,
+    string? DealerName,
+    string? CAName,
+    DateTime TermFrom,
+    DateTime TermTo,
+    DateTime TermPrevFrom,
+    DateTime TermPrevTo,
+    decimal? FnExpPercent,
+    decimal? PmtDsTCGPercent,
+    string? Remark,
+    string? CreatedBy,
+    List<FinancialExpenseItemInputDto> Items
+);
+record PreviewFinancialExpenseDto(
+    decimal FnExpPercent,
+    decimal PmtDsTCGPercent,
+    List<FinancialExpenseItemInputDto>? Items
+);
+record ApproveFnExpDto(string? ApproverName);
+record SignFnExpCADto(string? SignerName, string? FilePath);
+record SettleFnExpDto(string? BankTxnRef, string? SettledBy);
+record CancelFnExpDto(string? Reason, string? CancelledBy);
+record UpdateFnExpDetailsRequestDto(List<UpdateFnExpDetailItemDto>? Items);
+record ImportFnExpVehiclesDto(List<FinancialExpenseItemInputDto>? Items);
 

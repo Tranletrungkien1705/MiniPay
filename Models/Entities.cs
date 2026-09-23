@@ -103,6 +103,14 @@ public enum GPSSignCAStatus { Pending = 0, Signed = 1 }
 
 public enum PaymentGPSDetailStatus { Pending = 0, Approved = 1, Adjusted = 2, Cancelled = 3 }
 
+public enum FinancialExpenseStatus { Draft = 0, DlrApproved1 = 1, DlrSigned = 2, HTCApproved1 = 3, HTCSigned = 4, Settled = 5, Cancelled = 6 }
+
+public enum FnExpSignCAStatus { Pending = 0, Signed = 1 }
+
+public enum FinancialExpenseDetailStatus { Active = 0, Excluded = 1 }
+
+public enum VehicleAssemblyType { CKD = 0, CBU = 1 }
+
 /// <summary>Ý định thanh toán (payment intent) — 1 dòng / 1 lần khởi tạo cổng.</summary>
 public sealed class PaymentIntent
 {
@@ -1279,6 +1287,213 @@ public sealed class CandidateVehicleGPSDto
     public DateTime GPSMapVINDateTime { get; set; }
     public DateTime? DealDate { get; set; }
     public long DefaultDailyPrice { get; set; }
+}
+
+/// <summary>Bảng tính Hỗ trợ Chi phí Tài chính (CPTC) và Chiết khấu Thanh toán TCG (CKTT) cho Đại lý — tương ứng DMS40_FnExp_Calc_FnExp_PmDc trong BizHTC.Payment / 0.41.CalcFnExp &amp; FrmDMS40_2019_MngDMS40_FnExp_Calc_FnExp_PmDc.</summary>
+public sealed class FinancialExpenseStatement
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string CaNo { get; set; } = "";                             // Số bảng tính chi phí tài chính (CANO)
+    public string DealerCode { get; set; } = "";                     // Mã đại lý thụ hưởng (DEALERCODE)
+    public string DealerName { get; set; } = "";                     // Tên đại lý phân phối
+    public string CAName { get; set; } = "";                         // Tiêu đề / tên đợt quyết toán (CANAME)
+    public DateTime TermFrom { get; set; }                           // Kỳ tính CPTC từ ngày (TERMFROM)
+    public DateTime TermTo { get; set; }                             // Kỳ tính CPTC đến ngày (TERMTO)
+    public DateTime TermPrevFrom { get; set; }                       // Kỳ tính CPTC trước từ ngày (TERMPREVFROM)
+    public DateTime TermPrevTo { get; set; }                         // Kỳ tính CPTC trước đến ngày (TERMPREVTO)
+    public decimal FnExpPercent { get; set; } = 8.5m;                // Tỷ lệ lãi suất hỗ trợ chi phí tài chính %/năm (FNEXPPERCENT)
+    public decimal PmtDsTCGPercent { get; set; } = 1.2m;             // Tỷ lệ chiết khấu thanh toán sớm TCG % (PMTDSTCGPERCENT)
+    public int TotalVehicles { get; set; }                           // Tổng số xe trong bảng tính
+    public long TotalFnDepositAmount { get; set; }                   // Tổng tiền CPTC tiền cọc (FNDEPOSITAMOUNT)
+    public long TotalFnGrtAmount { get; set; }                       // Tổng tiền CPTC bảo lãnh (FNGRTAMOUNT)
+    public long TotalFnAmount { get; set; }                          // Tổng tiền hỗ trợ chi phí tài chính (= TotalFnDeposit + TotalFnGrt)
+    public long TotalPDAmount { get; set; }                          // Tổng tiền chiết khấu thanh toán sớm TCG (PDAMOUNT)
+    public long TotalSettlementAmount { get; set; }                  // Tổng tiền quyết toán hỗ trợ đại lý (= TotalFnAmount + TotalPDAmount)
+    public FinancialExpenseStatus Status { get; set; } = FinancialExpenseStatus.Draft; // Trạng thái bảng kê
+    public FnExpSignCAStatus DlrSignStatus { get; set; } = FnExpSignCAStatus.Pending; // Trạng thái ký số ĐL (DLRSIGNSTATUS)
+    public string? DlrSignUser { get; set; }                         // Giám đốc đại lý ký số CA
+    public DateTime? DlrSignDTime { get; set; }                      // Thời điểm đại lý ký số CA
+    public FnExpSignCAStatus HTCSignStatus { get; set; } = FnExpSignCAStatus.Pending; // Trạng thái ký số HTC (HTCSIGNSTATUS)
+    public string? HTCSignUser { get; set; }                         // Lãnh đạo HTC/HTV ký số CA
+    public DateTime? HTCSignDTime { get; set; }                      // Thời điểm HTC ký số CA
+    public string? DlrAppr1By { get; set; }                          // Kế toán trưởng đại lý thẩm định duyệt cấp 1 (DLRAPPR1BY)
+    public DateTime? DlrAppr1DTime { get; set; }                     // Thời điểm đại lý duyệt cấp 1
+    public string? HTCAppr1By { get; set; }                          // Chuyên viên QLPP&TC HTC thẩm định duyệt cấp 1 (HTCAPPR1BY)
+    public DateTime? HTCAppr1DTime { get; set; }                     // Thời điểm HTC duyệt cấp 1
+    public string? SettledBy { get; set; }                           // Kế toán thanh toán lập UNC quyết toán
+    public DateTime? SettledAt { get; set; }                         // Thời điểm hoàn tất quyết toán
+    public string? BankTxnRef { get; set; }                          // Số UNC / mã giao dịch ngân hàng chuyển khoản
+    public string? CancelBy { get; set; }                            // Người hủy bảng tính
+    public DateTime? CancelDTime { get; set; }                       // Thời điểm hủy bảng tính
+    public string? CancelReason { get; set; }                        // Lý do hủy bảng tính
+    public string? FilePathFnExp { get; set; }                       // Đường dẫn file chứng từ CPTC ký số CA
+    public string? FilePathPmtDc { get; set; }                       // Đường dẫn file chứng từ CKTT ký số CA
+    public string? Remark { get; set; }                              // Ghi chú đợt quyết toán
+    public string? CreatedBy { get; set; }                           // Người lập bảng tính
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    public List<FinancialExpenseDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết dòng xe tính CPTC và CKTT — tương ứng DMS40_FnExp_Calc_FnExp_PmDcDtl trong BizHTC.Payment.</summary>
+public sealed class FinancialExpenseDetail
+{
+    public long Id { get; set; }
+    public long StatementId { get; set; }
+    public Guid OrgId { get; set; }
+    public string CaNo { get; set; } = "";                           // Số bảng tính (CANO)
+    public string? CarId { get; set; }                               // Mã xe nội bộ kho HTC (CARID)
+    public string VIN { get; set; } = "";                            // Số khung xe (17 ký tự VIN)
+    public string ModelCode { get; set; } = "";                      // Mã model xe (SANTAFE, TUCSON, CRETA, ACCENT, CUSTIN, IONIQ5...)
+    public string? ModelName { get; set; }                           // Tên thương mại mẫu xe
+    public string? SpecCode { get; set; }                            // Mã đặc tả phiên bản xe
+    public string? SpecDescription { get; set; }                     // Diễn giải phiên bản xe
+    public string? ColorName { get; set; }                           // Màu sắc ngoại thất
+    public string? SOCode { get; set; }                              // Số đơn đặt hàng bán buôn (SOCODE)
+    public VehicleAssemblyType AssemblyType { get; set; } = VehicleAssemblyType.CKD; // Phân loại: CKD (lắp ráp) hoặc CBU (nhập khẩu)
+    public long UnitPriceActual { get; set; }                        // Giá trị thực tế của xe sau chiết khấu bán buôn (UNITPRICEACTUAL)
+    public DateTime? SodApprovedDate { get; set; }                   // Ngày xác nhận đơn hàng xe (SODAPPROVEDDATE)
+    public DateTime? SodDepositDutyEndDate { get; set; }             // Hạn nộp tiền cọc hợp đồng (SODDEPOSITDUTYENDDATE)
+    public DateTime? TotalCompletedDate { get; set; }                // Ngày đại lý hoàn tất thanh toán 100% giá trị xe (TOTALCOMPLETEDDATE)
+    public DateTime? DateStart { get; set; }                         // Ngày bắt đầu hiệu lực bảo lãnh/khoản vay (DATESTART)
+    public DateTime? DateEnd { get; set; }                           // Ngày kết thúc nghĩa vụ thanh toán / hạn bảo lãnh (DATEEND)
+    public int TermActual { get; set; }                              // Kỳ hạn tài trợ thực tế (ngày) (TERMACTUAL)
+    public int FnDepositCountDate { get; set; }                      // Số ngày hỗ trợ chi phí tài chính tiền cọc (FNDEPOSITCOUNTDATE)
+    public long FnDepositAmount { get; set; }                        // Số tiền CPTC tiền cọc (FNDEPOSITAMOUNT)
+    public int FnGrtCountDate { get; set; }                          // Số ngày hỗ trợ chi phí tài chính bảo lãnh (FNGRTCOUNTDATE)
+    public long FnGrtAmount { get; set; }                            // Số tiền CPTC bảo lãnh (FNGRTAMOUNT)
+    public long FnTotalAmount { get; set; }                          // Tổng số tiền CPTC của xe (= FnDepositAmount + FnGrtAmount)
+    public int PDCountDate { get; set; }                             // Số ngày thanh toán sớm hưởng chiết khấu (PDCOUNTDATE)
+    public long PDAmount { get; set; }                               // Số tiền chiết khấu thanh toán sớm TCG (PDAMOUNT)
+    public long CarTotalSettlement { get; set; }                     // Tổng tiền hỗ trợ quyết toán dòng xe (= FnTotalAmount + PDAmount)
+    public FinancialExpenseDetailStatus Status { get; set; } = FinancialExpenseDetailStatus.Active; // Trạng thái dòng
+    public string? Remark { get; set; }                              // Ghi chú chi tiết xe
+}
+
+public sealed class FinancialExpenseItemInputDto
+{
+    public string VIN { get; set; } = "";
+    public string? CarId { get; set; }
+    public string ModelCode { get; set; } = "";
+    public string? ModelName { get; set; }
+    public string? SpecCode { get; set; }
+    public string? SpecDescription { get; set; }
+    public string? ColorName { get; set; }
+    public string? SOCode { get; set; }
+    public string AssemblyType { get; set; } = "CKD"; // "CKD" hoặc "CBU"
+    public long UnitPriceActual { get; set; }
+    public DateTime? SodApprovedDate { get; set; }
+    public DateTime? SodDepositDutyEndDate { get; set; }
+    public DateTime? TotalCompletedDate { get; set; }
+    public DateTime? DateStart { get; set; }
+    public DateTime? DateEnd { get; set; }
+    public int? TermActual { get; set; }
+    public int? FnDepositCountDate { get; set; }
+    public int? FnGrtCountDate { get; set; }
+    public int? PDCountDate { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class UpdateFnExpDetailItemDto
+{
+    public long DetailId { get; set; }
+    public int? FnDepositCountDate { get; set; }
+    public int? FnGrtCountDate { get; set; }
+    public int? PDCountDate { get; set; }
+    public DateTime? TotalCompletedDate { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class FinancialExpenseAdviceDto
+{
+    public string CaNo { get; set; } = "";
+    public string CAName { get; set; } = "";
+    public string DealerCode { get; set; } = "";
+    public string DealerName { get; set; } = "";
+    public string TermFromFormatted { get; set; } = "";
+    public string TermToFormatted { get; set; } = "";
+    public string TermPrevFromFormatted { get; set; } = "";
+    public string TermPrevToFormatted { get; set; } = "";
+    public decimal FnExpPercent { get; set; }
+    public decimal PmtDsTCGPercent { get; set; }
+    public int TotalVehicles { get; set; }
+    public long TotalFnDepositAmount { get; set; }
+    public long TotalFnGrtAmount { get; set; }
+    public long TotalFnAmount { get; set; }
+    public long TotalPDAmount { get; set; }
+    public long TotalSettlementAmount { get; set; }
+    public string TotalSettlementInWords { get; set; } = "";
+    public string StatusText { get; set; } = "";
+    public string DlrSignInfo { get; set; } = "";
+    public string HTCSignInfo { get; set; } = "";
+    public string? BankTxnRef { get; set; }
+    public string PrintDate { get; set; } = "";
+    public List<FinancialExpenseDetailAdviceDto> Items { get; set; } = [];
+}
+
+public sealed class FinancialExpenseDetailAdviceDto
+{
+    public int No { get; set; }
+    public string VIN { get; set; } = "";
+    public string ModelCode { get; set; } = "";
+    public string ModelName { get; set; } = "";
+    public string SOCode { get; set; } = "";
+    public string AssemblyType { get; set; } = "";
+    public long UnitPriceActual { get; set; }
+    public string? TotalCompletedDate { get; set; }
+    public string? DateEnd { get; set; }
+    public int FnDepositCountDate { get; set; }
+    public long FnDepositAmount { get; set; }
+    public int FnGrtCountDate { get; set; }
+    public long FnGrtAmount { get; set; }
+    public long FnTotalAmount { get; set; }
+    public int PDCountDate { get; set; }
+    public long PDAmount { get; set; }
+    public long CarTotalSettlement { get; set; }
+    public string Status { get; set; } = "";
+}
+
+public sealed class FinancialExpenseSummaryDto
+{
+    public int TotalStatements { get; set; }
+    public int DraftCount { get; set; }
+    public int PendingDlrApprovalCount { get; set; }
+    public int PendingHTCApprovalCount { get; set; }
+    public int SignedCount { get; set; }
+    public int SettledCount { get; set; }
+    public int CancelledCount { get; set; }
+    public int TotalVehiclesSubsidized { get; set; }
+    public long TotalFnDepositSubsidized { get; set; }
+    public long TotalFnGrtSubsidized { get; set; }
+    public long TotalFnAmountSubsidized { get; set; }
+    public long TotalEarlyPaymentDiscountSubsidized { get; set; }
+    public long TotalSettlementDisbursed { get; set; }
+}
+
+public sealed class CandidateVehicleFnExpDto
+{
+    public string VIN { get; set; } = "";
+    public string? CarId { get; set; }
+    public string DealerCode { get; set; } = "";
+    public string DealerName { get; set; } = "";
+    public string ModelCode { get; set; } = "";
+    public string ModelName { get; set; } = "";
+    public string SpecCode { get; set; } = "";
+    public string SpecDescription { get; set; } = "";
+    public string ColorName { get; set; } = "";
+    public string SOCode { get; set; } = "";
+    public string AssemblyType { get; set; } = "CKD";
+    public long UnitPriceActual { get; set; }
+    public DateTime SodApprovedDate { get; set; }
+    public DateTime SodDepositDutyEndDate { get; set; }
+    public DateTime TotalCompletedDate { get; set; }
+    public DateTime DateStart { get; set; }
+    public DateTime DateEnd { get; set; }
+    public int TermActual { get; set; }
+    public int FnDepositCountDate { get; set; }
+    public int FnGrtCountDate { get; set; }
+    public int PDCountDate { get; set; }
 }
 
 

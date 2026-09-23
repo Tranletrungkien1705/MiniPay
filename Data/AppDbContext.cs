@@ -40,6 +40,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<PaymentGPS> PaymentGPSs => Set<PaymentGPS>();
     public DbSet<PaymentGPSDetail> PaymentGPSDetails => Set<PaymentGPSDetail>();
     public DbSet<UnitPriceGPS> UnitPriceGPSs => Set<UnitPriceGPS>();
+    public DbSet<FinancialExpenseStatement> FnExpStatements => Set<FinancialExpenseStatement>();
+    public DbSet<FinancialExpenseDetail> FnExpDetails => Set<FinancialExpenseDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -205,5 +207,17 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<PaymentGPSDetail>().HasIndex(x => new { x.OrgId, x.VIN });
 
         b.Entity<UnitPriceGPS>().HasIndex(x => new { x.OrgId, x.ContractNo }).IsUnique();
+
+        b.Entity<FinancialExpenseStatement>().HasIndex(x => new { x.OrgId, x.CaNo }).IsUnique();
+        b.Entity<FinancialExpenseStatement>().HasIndex(x => new { x.OrgId, x.DealerCode });
+        b.Entity<FinancialExpenseStatement>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<FinancialExpenseStatement>().Property(x => x.DlrSignStatus).HasConversion<int>();
+        b.Entity<FinancialExpenseStatement>().Property(x => x.HTCSignStatus).HasConversion<int>();
+        b.Entity<FinancialExpenseStatement>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.StatementId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<FinancialExpenseDetail>().Property(x => x.AssemblyType).HasConversion<int>();
+        b.Entity<FinancialExpenseDetail>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<FinancialExpenseDetail>().HasIndex(x => x.StatementId);
+        b.Entity<FinancialExpenseDetail>().HasIndex(x => new { x.OrgId, x.VIN });
     }
 }
