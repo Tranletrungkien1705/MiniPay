@@ -4617,3 +4617,152 @@ public sealed class TransportFeeVersionStatDto
     public long TotalFeeValue { get; set; }
     public decimal AvgFeeValue { get; set; }
 }
+
+// ==========================================
+// Nghiệp vụ Quản lý Hóa đơn GTGT Nhà máy sản xuất TCG (TCG Factory VAT Invoice Management)
+// Tương ứng bảng VAT_TCGInvoice, VAT_TCGInvoiceDetail trong TERP.BizHTC/BizHTC.InvoiceHTC_TCG.cs
+// (VAT_TCGInvoiceGet / VAT_TCGInvoiceCreate / VAT_TCGInvoiceApprove / VAT_TCGInvoiceUpdate /
+//  VAT_TCGInvoiceDelete / VAT_TCGInvoiceDetailDelete / VAT_TCGInvoice_GenTCGInvoiceNo)
+// và các màn hình FrmMngTCGInvoice, FrmNewTCGInvoice, FrmImportNewTCGInvoice, FrmThuHoiHDTCG
+// trong TERP.HTCClient/Views/Sales/PrintVAT hệ nguồn HTC 2010.
+// ==========================================
+
+/// <summary>Trạng thái hóa đơn GTGT TCG — tương ứng VatTCGStatus trong VAT_TCGInvoice (P tạo → F duyệt / C hủy).</summary>
+public enum TCGInvoiceStatus
+{
+    Pending = 0,   // 'P' — Mới lập, chờ duyệt (Stage.Pending)
+    Finished = 1,  // 'F' — Đã duyệt hoàn tất (Stage.Finished)
+    Cancelled = 2  // 'C' — Đã hủy (Stage.Cancel)
+}
+
+/// <summary>Trạng thái từng dòng xe trong hóa đơn TCG — tương ứng TCGStatusDetail trong VAT_TCGInvoiceDetail.</summary>
+public enum TCGInvoiceDetailStatus
+{
+    Pending = 0,   // 'P' — Chờ duyệt
+    Finished = 1,  // 'F' — Đã duyệt
+    Cancelled = 2  // 'C' — Đã hủy
+}
+
+/// <summary>Loại hóa đơn nguồn — tương ứng SourceInvoiceCode trong VAT_TCGInvoice (INVOICE / INVOICEADJ / INVOICEREPLACE).</summary>
+public enum TCGInvoiceSource
+{
+    Invoice = 0,         // Hóa đơn gốc
+    InvoiceAdj = 1,      // Hóa đơn điều chỉnh
+    InvoiceReplace = 2   // Hóa đơn thay thế
+}
+
+/// <summary>
+/// Hóa đơn GTGT do Nhà máy sản xuất (TCG) xuất cho HTC — tương ứng bảng VAT_TCGInvoice.
+/// Là nguồn chứng từ đầu vào để HTC xuất hóa đơn GTGT bán buôn cho đại lý (VAT_HTCInvoice).
+/// </summary>
+public sealed class TCGInvoice
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string TCGInvoiceCode { get; set; } = "";                 // Mã hóa đơn TCG nội bộ (TCGInvoiceCode)
+    public TCGInvoiceSource SourceInvoiceCode { get; set; } = TCGInvoiceSource.Invoice; // Loại hóa đơn nguồn (SourceInvoiceCode)
+    public string? InvoiceAdjType { get; set; }                      // Loại điều chỉnh (InvoiceAdjType)
+    public string InvoiceIDType { get; set; } = "TCG";               // Loại mẫu hóa đơn (InvoiceIDType — luôn 'TCG')
+    public string? InvoiceIDCode { get; set; }                       // Mã mẫu số hóa đơn (InvoiceIDCode — phạm vi dãy số)
+    public string? RefNo { get; set; }                               // Số tham chiếu hóa đơn gốc (RefNo — khi điều chỉnh/thay thế)
+    public TCGInvoiceStatus VatTCGStatus { get; set; } = TCGInvoiceStatus.Pending; // Trạng thái hóa đơn (VatTCGStatus)
+    public string? TCGInvoiceNo { get; set; }                        // Số hóa đơn TCG (TCGInvoiceNo — 7 ký tự, NULL lúc tạo)
+    public DateTime? TCGInvoiceDate { get; set; }                    // Ngày hóa đơn TCG (TCGInvoiceDate — NULL lúc tạo)
+    public string? OS_HDDT_InvoiceCode { get; set; }                 // Mã hóa đơn điện tử (OS_HDDT_InvoiceCode)
+    public string? OS_HDDT_RefNo { get; set; }                       // Số tham chiếu HĐĐT (OS_HDDT_RefNo)
+    public string? VAT { get; set; }                                 // Thuế suất GTGT áp dụng (VAT)
+    public string? FlagView { get; set; }                            // Cờ hiển thị (FlagView)
+    public string? TInvoiceCode { get; set; }                        // Mã hóa đơn tạm (TInvoiceCode)
+    public string? FlagImport { get; set; }                          // Cờ nhập khẩu (FlagImport)
+    public string? FlagisHTC { get; set; }                           // Cờ pháp nhân HTC/HTV (FlagisHTC)
+    public string? Remark { get; set; }                              // Ghi chú (Remark)
+    public string? CreatedBy { get; set; }                           // Người lập (CreatedBy)
+    public DateTime CreatedAt { get; set; } = DateTime.Now;          // Ngày lập (CreatedDate)
+    public string? ApprovedBy { get; set; }                          // Người duyệt (ApprovedBy)
+    public DateTime? ApprovedAt { get; set; }                        // Ngày duyệt (ApprovedDate)
+    public string? CancelledBy { get; set; }                         // Người hủy (LogLUBy khi hủy)
+    public DateTime? CancelledAt { get; set; }                       // Ngày hủy
+
+    public List<TCGInvoiceDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết dòng xe trong hóa đơn GTGT TCG — tương ứng bảng VAT_TCGInvoiceDetail.</summary>
+public sealed class TCGInvoiceDetail
+{
+    public long Id { get; set; }
+    public long TCGInvoiceId { get; set; }
+    public Guid OrgId { get; set; }
+    public string TCGInvoiceCode { get; set; } = "";                 // Mã hóa đơn TCG (TCGInvoiceCode - denormalized)
+    public string VIN { get; set; } = "";                            // Số khung xe (VIN - 17 ký tự)
+    public long TCGUnitPrice { get; set; }                           // Đơn giá đã gồm thuế GTGT (TCGUnitPrice)
+    public decimal TCGVAT { get; set; }                              // Thuế suất GTGT dòng xe (TCGVAT %)
+    public long TInvoicePrice { get; set; }                          // Đơn giá trước thuế (TInvoicePrice)
+    public string? BrandName { get; set; }                           // Nhãn hiệu xe (BrandName)
+    public string? CarType { get; set; }                             // Loại xe (CarType)
+    public DateTime? CustomsClearanceDate { get; set; }              // Ngày thông quan (CustomsClearanceDate — bắt buộc với xe CBU)
+    public string? InvoiceNoFactory { get; set; }                    // Số hóa đơn nhà máy (InvoiceNoFactory — bắt buộc với xe CKD)
+    public string? ProductionMonth { get; set; }                     // Tháng sản xuất (ProductionMonth — yyyyMM)
+    public TCGInvoiceDetailStatus TCGStatusDetail { get; set; } = TCGInvoiceDetailStatus.Pending; // Trạng thái dòng (TCGStatusDetail)
+    public string? Remark { get; set; }                              // Ghi chú dòng xe
+}
+
+public sealed class CreateTCGInvoiceDto
+{
+    public string? TCGInvoiceCode { get; set; }
+    public string? InvoiceIDCode { get; set; }
+    public string? InvoiceIDType { get; set; }
+    public string? VAT { get; set; }
+    public string? FlagisHTC { get; set; }
+    public string? Remark { get; set; }
+    public string? CreatedBy { get; set; }
+    public List<TCGInvoiceItemInputDto> Items { get; set; } = [];
+}
+
+public sealed class TCGInvoiceItemInputDto
+{
+    public string VIN { get; set; } = "";
+    public long TCGUnitPrice { get; set; }
+    public decimal? TCGVAT { get; set; }
+    public string? BrandName { get; set; }
+    public string? CarType { get; set; }
+    public DateTime? CustomsClearanceDate { get; set; }
+    public string? InvoiceNoFactory { get; set; }
+    public string? ProductionMonth { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class UpdateTCGInvoiceDto
+{
+    public string TCGInvoiceNo { get; set; } = "";
+    public DateTime? TCGInvoiceDate { get; set; }
+    public string? OS_HDDT_InvoiceCode { get; set; }
+    public string? OS_HDDT_RefNo { get; set; }
+    public string? UpdatedBy { get; set; }
+}
+
+public sealed class ApproveTCGInvoiceDto
+{
+    public bool Approve { get; set; } = true;   // true = duyệt (P→F), false = hủy (F→C)
+    public string? ApproverName { get; set; }
+    public string? Reason { get; set; }
+}
+
+public sealed class TCGInvoiceSummaryDto
+{
+    public int TotalInvoices { get; set; }
+    public int PendingCount { get; set; }        // Chờ duyệt (P)
+    public int FinishedCount { get; set; }       // Đã duyệt (F)
+    public int CancelledCount { get; set; }      // Đã hủy (C)
+    public int TotalVehicles { get; set; }
+    public long TotalAmount { get; set; }        // Tổng tiền đã gồm thuế GTGT
+    public long TotalVATAmount { get; set; }     // Tổng tiền thuế GTGT
+    public List<TCGInvoiceBrandStatDto> ByBrand { get; set; } = [];
+}
+
+public sealed class TCGInvoiceBrandStatDto
+{
+    public string BrandName { get; set; } = "";
+    public int InvoiceCount { get; set; }
+    public int VehicleCount { get; set; }
+    public long TotalAmount { get; set; }
+}

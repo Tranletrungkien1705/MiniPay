@@ -115,6 +115,7 @@
     <button class="tab-btn" onclick="showTab('calendar')">Lịch Làm Việc &amp; Hạn Nộp Cọc (Mst_Calendar)</button>
     <button class="tab-btn" onclick="showTab('dealerContract')">Hợp Đồng Mua Bán Xe Đại Lý (DMS40_CT_DealerContract)</button>
     <button class="tab-btn" onclick="showTab('transportFee')">Phiên Bản Cước Phí Vận Tải (Mst_TranspFeeVer)</button>
+    <button class="tab-btn" onclick="showTab('tcgInvoice')">Hóa Đơn GTGT Nhà Máy TCG (VAT_TCGInvoice)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -6506,6 +6507,72 @@
     </div>
   </div>
 
+  <!-- TAB: Hóa Đơn GTGT Nhà Máy Sản Xuất TCG (VAT_TCGInvoice / FrmMngTCGInvoice) -->
+  <div id="tab-tcgInvoice" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="margin:0;">Hóa Đơn GTGT Nhà Máy Sản Xuất TCG (VAT_TCGInvoice)</h3>
+        <button class="secondary" onclick="loadTcgInvoices(); loadTcgInvoiceSummary();">Làm mới</button>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+        <input id="tcgFilterCode" placeholder="Mã hóa đơn (TCG-...)" style="max-width:200px;" />
+        <input id="tcgFilterNo" placeholder="Số hóa đơn (0001)" style="max-width:160px;" />
+        <input id="tcgFilterVin" placeholder="Số khung VIN..." style="max-width:200px;" />
+        <input id="tcgFilterBrand" placeholder="Nhãn hiệu (HYUNDAI...)" style="max-width:180px;" />
+        <select id="tcgFilterStatus" style="max-width:180px;">
+          <option value="">-- Trạng thái --</option>
+          <option value="Pending">Chờ duyệt (P)</option>
+          <option value="Finished">Đã duyệt (F)</option>
+          <option value="Cancelled">Đã hủy (C)</option>
+        </select>
+        <input id="tcgFilterQuery" placeholder="Từ khóa (VIN, ghi chú...)" style="max-width:220px;" />
+        <button onclick="loadTcgInvoices()">Tìm kiếm</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Mã HĐ TCG</th>
+              <th>Số HĐ</th>
+              <th>Ngày HĐ</th>
+              <th>Mẫu HĐ</th>
+              <th>VAT</th>
+              <th>Số Xe</th>
+              <th>Tổng Tiền</th>
+              <th>Trạng Thái</th>
+              <th>Người Lập</th>
+              <th>Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="tblTcgInvoicesBody">
+            <tr><td colspan="10" style="text-align:center; padding:20px;" class="muted">Đang tải danh sách hóa đơn TCG...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Form lập hóa đơn TCG mới -->
+    <div class="card" style="margin-top:18px;">
+      <h3 style="margin-top:0;">Lập hóa đơn GTGT TCG mới</h3>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+        <div><label>Mã hóa đơn TCG (bỏ trống để tự sinh)</label><input id="tcgCode" placeholder="TCG-202505-xxx" /></div>
+        <div><label>Mã mẫu hóa đơn (InvoiceIDCode)</label><input id="tcgInvoiceIDCode" placeholder="1C25TAA" /></div>
+        <div><label>Thuế suất GTGT (%)</label><input id="tcgVAT" placeholder="10" value="10" /></div>
+        <div><label>Pháp nhân (FlagisHTC)</label><input id="tcgFlagisHTC" placeholder="1 = HTC" value="1" /></div>
+        <div><label>Ghi chú</label><input id="tcgRemark" placeholder="Ghi chú..." /></div>
+      </div>
+      <div style="margin-top:14px;">
+        <label style="font-weight:600;">Danh sách xe trong hóa đơn</label>
+        <div id="tcgItems" style="display:flex; flex-direction:column; gap:8px; margin-top:8px;"></div>
+        <button class="secondary" style="margin-top:8px;" onclick="addTcgItemRow()">+ Thêm dòng xe</button>
+      </div>
+      <div style="margin-top:14px;">
+        <span id="tcgCreateMsg" style="margin-right:12px; color:var(--primary); font-weight:500;"></span>
+        <button onclick="submitCreateTcgInvoice()">Lập hóa đơn TCG</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB: Cập Nhật Chứng Từ Kế Toán (Accounting Voucher / Accounting Record No bulk update) -->
   <div id="tab-accountingVoucher" style="display:none;">
     <div class="card">
@@ -7673,6 +7740,7 @@
       document.getElementById('tab-accountingVoucher').style.display = tabName === 'accountingVoucher' ? 'block' : 'none';
       document.getElementById('tab-calendar').style.display = tabName === 'calendar' ? 'block' : 'none';
       document.getElementById('tab-dealerContract').style.display = tabName === 'dealerContract' ? 'block' : 'none';
+      document.getElementById('tab-tcgInvoice').style.display = tabName === 'tcgInvoice' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -7741,6 +7809,7 @@
       else if (tabName === 'calendar') { loadCalendar(); loadCalendarSummary(); }
       else if (tabName === 'dealerContract') { loadDealerContracts(); loadDealerContractSummary(); }
       else if (tabName === 'transportFee') { loadTransportFeeVersions(); loadTransportFeeSummary(); }
+      else if (tabName === 'tcgInvoice') { loadTcgInvoices(); loadTcgInvoiceSummary(); }
       else if (tabName === 'newHtcInvoice') { loadSampleHtcInvoiceFormData(); }
     }
 
@@ -19897,6 +19966,187 @@
         ['dcDlrCtrNo','dcDealerCode','dcDealerName','dcBankCodeMD','dcBankNameMD','dcContractDate','dcRemark'].forEach(id => document.getElementById(id).value = '');
         document.getElementById('dcItems').innerHTML = '';
         loadDealerContracts(); loadDealerContractSummary();
+      } catch (e) { msg.style.color = 'red'; msg.textContent = 'Lỗi: ' + e.message; }
+    }
+
+    // ===== TAB: HÓA ĐƠN GTGT NHÀ MÁY TCG (VAT_TCGInvoice / FrmMngTCGInvoice) =====
+    function addTcgItemRow(vin, unitPrice, brandName, carType, productionMonth) {
+      const wrap = document.getElementById('tcgItems');
+      if (!wrap) return;
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex; gap:8px; align-items:center; flex-wrap:wrap;';
+      row.innerHTML = `
+        <input class="tcg-vin" placeholder="Số khung VIN *" style="max-width:200px;" value="${vin || ''}" />
+        <input class="tcg-unit-price" type="number" placeholder="Đơn giá gồm VAT (VND)" style="max-width:180px;" value="${unitPrice != null ? unitPrice : ''}" />
+        <input class="tcg-brand" placeholder="Nhãn hiệu (HYUNDAI)" style="max-width:150px;" value="${brandName || ''}" />
+        <input class="tcg-car-type" placeholder="Loại xe (SANTAFE)" style="max-width:150px;" value="${carType || ''}" />
+        <input class="tcg-prod-month" placeholder="Tháng SX (2025-03)" style="max-width:140px;" value="${productionMonth || ''}" />
+        <button class="secondary" onclick="this.parentElement.remove()">Xóa</button>`;
+      wrap.appendChild(row);
+    }
+
+    async function loadTcgInvoices() {
+      const body = document.getElementById('tblTcgInvoicesBody');
+      if (!body) return;
+      body.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px;" class="muted">Đang tải...</td></tr>';
+      try {
+        const params = new URLSearchParams();
+        const code = document.getElementById('tcgFilterCode')?.value?.trim();
+        const no = document.getElementById('tcgFilterNo')?.value?.trim();
+        const vin = document.getElementById('tcgFilterVin')?.value?.trim();
+        const brand = document.getElementById('tcgFilterBrand')?.value?.trim();
+        const status = document.getElementById('tcgFilterStatus')?.value;
+        const query = document.getElementById('tcgFilterQuery')?.value?.trim();
+        if (code) params.set('code', code);
+        if (no) params.set('invoiceNo', no);
+        if (vin) params.set('vin', vin);
+        if (brand) params.set('brandName', brand);
+        if (status) params.set('status', status);
+        if (query) params.set('query', query);
+        const res = await fetch('/api/tcg-invoices?' + params.toString(), { headers });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const list = await res.json();
+        if (!list.length) {
+          body.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px;" class="muted">Chưa có hóa đơn TCG.</td></tr>';
+          return;
+        }
+        const stLabel = { Pending: '<span class="muted">Chờ duyệt (P)</span>', Finished: '<span style="color:green;">Đã duyệt (F)</span>', Cancelled: '<span style="color:red;">Đã hủy (C)</span>' };
+        body.innerHTML = list.map(x => `
+          <tr>
+            <td><strong>${x.tcgInvoiceCode || ''}</strong></td>
+            <td>${x.tcgInvoiceNo || '—'}</td>
+            <td>${x.tcgInvoiceDate ? new Date(x.tcgInvoiceDate).toLocaleDateString('vi-VN') : '—'}</td>
+            <td>${x.invoiceIDCode || ''}</td>
+            <td>${x.vat || ''}%</td>
+            <td>${x.totalVehicles}</td>
+            <td>${Number(x.totalAmount).toLocaleString('vi-VN')} đ</td>
+            <td>${stLabel[x.status] || x.status || ''}</td>
+            <td>${x.createdBy || ''}</td>
+            <td style="white-space:nowrap;">
+              <button class="secondary" onclick="viewTcgInvoice(${x.id})">Xem</button>
+              ${x.status === 'Pending' ? `<button onclick="tcgApprove(${x.id}, true)">Duyệt</button>` : ''}
+              ${x.status === 'Pending' ? `<button class="secondary" onclick="tcgSetNo(${x.id})">Gán số HĐ</button>` : ''}
+              ${x.status === 'Finished' ? `<button class="secondary" onclick="tcgApprove(${x.id}, false)">Hủy</button>` : ''}
+              ${x.status === 'Pending' ? `<button class="secondary" onclick="tcgDelete(${x.id})">Xóa</button>` : ''}
+            </td>
+          </tr>`).join('');
+      } catch (e) {
+        body.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px; color:red;">Lỗi tải dữ liệu: ' + e.message + '</td></tr>';
+      }
+    }
+
+    async function loadTcgInvoiceSummary() {
+      try {
+        const res = await fetch('/api/tcg-invoices/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng hóa đơn TCG';
+        document.getElementById('stat1').textContent = d.totalInvoices;
+        document.getElementById('statLabel2').textContent = 'Chờ duyệt / Đã duyệt';
+        document.getElementById('stat2').textContent = d.pendingCount + ' / ' + d.finishedCount;
+        document.getElementById('statLabel3').textContent = 'Tổng số xe';
+        document.getElementById('stat3').textContent = d.totalVehicles;
+        document.getElementById('statLabel4').textContent = 'Tổng tiền (gồm VAT)';
+        document.getElementById('stat4').textContent = Number(d.totalAmount).toLocaleString('vi-VN') + ' đ';
+      } catch (e) { console.error(e); }
+    }
+
+    async function viewTcgInvoice(id) {
+      try {
+        const res = await fetch('/api/tcg-invoices/' + id, { headers });
+        if (!res.ok) { alert('Không tải được chi tiết.'); return; }
+        const d = await res.json();
+        const rows = (d.details || []).map(x => `
+          <tr>
+            <td>${x.vin}</td><td>${x.brandName || ''}</td><td>${x.carType || ''}</td>
+            <td>${Number(x.tcgUnitPrice).toLocaleString('vi-VN')} đ</td>
+            <td>${x.tcgVat}%</td>
+            <td>${Number(x.tInvoicePrice).toLocaleString('vi-VN')} đ</td>
+            <td>${x.productionMonth || ''}</td>
+            <td>${x.status}</td>
+          </tr>`).join('');
+        const html = `
+          <div style="font-size:14px; line-height:1.7;">
+            <p><strong>Mã HĐ TCG:</strong> ${d.tcgInvoiceCode} &nbsp; <strong>Số HĐ:</strong> ${d.tcgInvoiceNo || '—'} &nbsp; <strong>Ngày HĐ:</strong> ${d.tcgInvoiceDate ? new Date(d.tcgInvoiceDate).toLocaleDateString('vi-VN') : '—'}</p>
+            <p><strong>Mẫu HĐ:</strong> ${d.invoiceIDCode || ''} &nbsp; <strong>VAT:</strong> ${d.vat || ''}% &nbsp; <strong>Trạng thái:</strong> ${d.status}</p>
+            <p><strong>Tổng tiền (gồm VAT):</strong> ${Number(d.totalAmount).toLocaleString('vi-VN')} đ &nbsp; <strong>Tiền thuế GTGT:</strong> ${Number(d.totalVATAmount).toLocaleString('vi-VN')} đ</p>
+            <p><strong>Ghi chú:</strong> ${d.remark || ''}</p>
+            <table style="margin-top:10px;"><thead><tr><th>VIN</th><th>Nhãn hiệu</th><th>Loại xe</th><th>Đơn giá gồm VAT</th><th>VAT</th><th>Đơn giá trước thuế</th><th>Tháng SX</th><th>Trạng thái</th></tr></thead><tbody>${rows}</tbody></table>
+          </div>`;
+        const w = window.open('', '_blank', 'width=1000,height=700');
+        w.document.write('<html><head><title>Hóa đơn TCG ' + d.tcgInvoiceCode + '</title></head><body style="font-family:sans-serif; padding:20px;"><h2>Hóa đơn GTGT Nhà máy sản xuất TCG</h2>' + html + '</body></html>');
+        w.document.close();
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function tcgApprove(id, approve) {
+      const label = approve ? 'Duyệt' : 'Hủy';
+      if (!confirm(label + ' hóa đơn TCG #' + id + '?')) return;
+      try {
+        const res = await fetch('/api/tcg-invoices/' + id + '/approve', { method: 'POST', headers, body: JSON.stringify({ approve: approve, approverName: 'Admin_HTC' }) });
+        const d = await res.json();
+        if (!res.ok) { alert(d.error || 'Lỗi thao tác.'); return; }
+        loadTcgInvoices(); loadTcgInvoiceSummary();
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function tcgSetNo(id) {
+      try {
+        const genRes = await fetch('/api/tcg-invoices/gen-invoice-no', { headers });
+        const gen = genRes.ok ? await genRes.json() : { tcgInvoiceNo: '' };
+        const no = prompt('Nhập số hóa đơn TCG (7 ký tự số):', gen.tcgInvoiceNo || '');
+        if (no === null) return;
+        const res = await fetch('/api/tcg-invoices/' + id, { method: 'PUT', headers, body: JSON.stringify({ tcgInvoiceNo: no.trim(), tcgInvoiceDate: new Date().toISOString().slice(0, 10) }) });
+        const d = await res.json();
+        if (!res.ok) { alert(d.error || 'Lỗi cập nhật số hóa đơn.'); return; }
+        loadTcgInvoices(); loadTcgInvoiceSummary();
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function tcgDelete(id) {
+      if (!confirm('Xóa hóa đơn TCG #' + id + '? Chỉ xóa được khi đang chờ duyệt.')) return;
+      try {
+        const res = await fetch('/api/tcg-invoices/' + id, { method: 'DELETE', headers });
+        const d = await res.json();
+        if (!res.ok) { alert(d.error || 'Lỗi xóa.'); return; }
+        loadTcgInvoices(); loadTcgInvoiceSummary();
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function submitCreateTcgInvoice() {
+      const msg = document.getElementById('tcgCreateMsg');
+      msg.textContent = '';
+      const items = [];
+      document.querySelectorAll('#tcgItems > div').forEach(row => {
+        const vin = row.querySelector('.tcg-vin')?.value?.trim();
+        if (!vin) return;
+        items.push({
+          vin: vin,
+          tcgUnitPrice: Number(row.querySelector('.tcg-unit-price')?.value || 0),
+          tcgVat: Number(document.getElementById('tcgVAT').value || 0),
+          brandName: row.querySelector('.tcg-brand')?.value?.trim() || null,
+          carType: row.querySelector('.tcg-car-type')?.value?.trim() || null,
+          productionMonth: row.querySelector('.tcg-prod-month')?.value?.trim() || null
+        });
+      });
+      const payload = {
+        tcgInvoiceCode: document.getElementById('tcgCode').value.trim() || null,
+        invoiceIDCode: document.getElementById('tcgInvoiceIDCode').value.trim() || null,
+        vat: document.getElementById('tcgVAT').value.trim() || null,
+        flagisHTC: document.getElementById('tcgFlagisHTC').value.trim() || null,
+        remark: document.getElementById('tcgRemark').value.trim() || null,
+        createdBy: 'Admin_HTC',
+        items: items
+      };
+      if (!items.length) { msg.style.color = 'red'; msg.textContent = 'Cần ít nhất 1 dòng xe.'; return; }
+      try {
+        const res = await fetch('/api/tcg-invoices', { method: 'POST', headers, body: JSON.stringify(payload) });
+        const d = await res.json();
+        if (!res.ok) { msg.style.color = 'red'; msg.textContent = d.error || 'Lỗi lập hóa đơn.'; return; }
+        msg.style.color = 'green'; msg.textContent = 'Đã lập hóa đơn TCG ' + d.tcgInvoiceCode + ' thành công.';
+        ['tcgCode','tcgInvoiceIDCode','tcgRemark'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('tcgItems').innerHTML = '';
+        loadTcgInvoices(); loadTcgInvoiceSummary();
       } catch (e) { msg.style.color = 'red'; msg.textContent = 'Lỗi: ' + e.message; }
     }
 

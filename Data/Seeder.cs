@@ -12852,5 +12852,81 @@ public static class Seeder
             );
             await db.SaveChangesAsync();
         }
+
+        // Dữ liệu mẫu Hóa đơn GTGT Nhà máy sản xuất TCG (VAT_TCGInvoice / FrmMngTCGInvoice)
+        if (!await db.TCGInvoices.AnyAsync(x => x.OrgId == TenantContext.DefaultOrgId))
+        {
+            db.TCGInvoices.AddRange(
+                new TCGInvoice
+                {
+                    OrgId = TenantContext.DefaultOrgId,
+                    TCGInvoiceCode = "TCG-202505-001",
+                    SourceInvoiceCode = TCGInvoiceSource.Invoice,
+                    InvoiceIDType = "TCG",
+                    InvoiceIDCode = "1C25TAA",
+                    VatTCGStatus = TCGInvoiceStatus.Finished,
+                    TCGInvoiceNo = "0000001",
+                    TCGInvoiceDate = DateTime.Today.AddDays(-20),
+                    VAT = "10",
+                    FlagisHTC = "1",
+                    Remark = "Hóa đơn GTGT nhà máy TCG xuất cho HTC lô xe Santa Fe & Tucson nhập kho",
+                    CreatedBy = "Admin_HTC",
+                    CreatedAt = DateTime.Today.AddDays(-22),
+                    ApprovedBy = "KeToanTruong_HTC",
+                    ApprovedAt = DateTime.Today.AddDays(-20),
+                    Details =
+                    {
+                        new TCGInvoiceDetail { OrgId = TenantContext.DefaultOrgId, TCGInvoiceCode = "TCG-202505-001", VIN = "KMHST81D8PU123001", TCGUnitPrice = 1_100_000_000, TCGVAT = 10, TInvoicePrice = 1_000_000_000, BrandName = "HYUNDAI", CarType = "SANTAFE", ProductionMonth = "2025-03", TCGStatusDetail = TCGInvoiceDetailStatus.Finished },
+                        new TCGInvoiceDetail { OrgId = TenantContext.DefaultOrgId, TCGInvoiceCode = "TCG-202505-001", VIN = "KMHJ3813DPU123002", TCGUnitPrice = 880_000_000, TCGVAT = 10, TInvoicePrice = 800_000_000, BrandName = "HYUNDAI", CarType = "TUCSON", ProductionMonth = "2025-03", TCGStatusDetail = TCGInvoiceDetailStatus.Finished }
+                    }
+                },
+                new TCGInvoice
+                {
+                    OrgId = TenantContext.DefaultOrgId,
+                    TCGInvoiceCode = "TCG-202505-002",
+                    SourceInvoiceCode = TCGInvoiceSource.Invoice,
+                    InvoiceIDType = "TCG",
+                    InvoiceIDCode = "1C25TAA",
+                    VatTCGStatus = TCGInvoiceStatus.Pending,
+                    TCGInvoiceNo = null,
+                    TCGInvoiceDate = null,
+                    VAT = "10",
+                    FlagisHTC = "1",
+                    Remark = "Hóa đơn GTGT nhà máy TCG lô xe Palisade nhập khẩu CBU, chờ duyệt",
+                    CreatedBy = "Admin_HTC",
+                    CreatedAt = DateTime.Today.AddDays(-3),
+                    Details =
+                    {
+                        new TCGInvoiceDetail { OrgId = TenantContext.DefaultOrgId, TCGInvoiceCode = "TCG-202505-002", VIN = "KMHST81D8PU123004", TCGUnitPrice = 1_650_000_000, TCGVAT = 10, TInvoicePrice = 1_500_000_000, BrandName = "HYUNDAI", CarType = "PALISADE", CustomsClearanceDate = DateTime.Today.AddDays(-10), ProductionMonth = "2025-02", TCGStatusDetail = TCGInvoiceDetailStatus.Pending },
+                        new TCGInvoiceDetail { OrgId = TenantContext.DefaultOrgId, TCGInvoiceCode = "TCG-202505-002", VIN = "KMHST81D8PU123005", TCGUnitPrice = 1_320_000_000, TCGVAT = 10, TInvoicePrice = 1_200_000_000, BrandName = "HYUNDAI", CarType = "PALISADE", CustomsClearanceDate = DateTime.Today.AddDays(-10), ProductionMonth = "2025-02", TCGStatusDetail = TCGInvoiceDetailStatus.Pending }
+                    }
+                },
+                new TCGInvoice
+                {
+                    OrgId = TenantContext.DefaultOrgId,
+                    TCGInvoiceCode = "TCG-202505-003",
+                    SourceInvoiceCode = TCGInvoiceSource.Invoice,
+                    InvoiceIDType = "TCG",
+                    InvoiceIDCode = "1C25TAA",
+                    VatTCGStatus = TCGInvoiceStatus.Cancelled,
+                    TCGInvoiceNo = "0000002",
+                    TCGInvoiceDate = DateTime.Today.AddDays(-15),
+                    VAT = "10",
+                    FlagisHTC = "1",
+                    Remark = "Hóa đơn GTGT nhà máy TCG lô xe Accent bị hủy do sai thông tin",
+                    CreatedBy = "Admin_HTC",
+                    CreatedAt = DateTime.Today.AddDays(-18),
+                    ApprovedBy = "KeToanTruong_HTC",
+                    ApprovedAt = DateTime.Today.AddDays(-15),
+                    CancelledBy = "KeToanTruong_HTC",
+                    CancelledAt = DateTime.Today.AddDays(-12),
+                    Details =
+                    {
+                        new TCGInvoiceDetail { OrgId = TenantContext.DefaultOrgId, TCGInvoiceCode = "TCG-202505-003", VIN = "KMHCT41D8PU123006", TCGUnitPrice = 550_000_000, TCGVAT = 10, TInvoicePrice = 500_000_000, BrandName = "HYUNDAI", CarType = "ACCENT", ProductionMonth = "2025-01", TCGStatusDetail = TCGInvoiceDetailStatus.Cancelled }
+                    }
+                }
+            );
+            await db.SaveChangesAsync();
+        }
     }
 }

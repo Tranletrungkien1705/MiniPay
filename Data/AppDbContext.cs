@@ -76,6 +76,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<StorageRearrangeDetail> StorageRearrangeDetails => Set<StorageRearrangeDetail>();
     public DbSet<TransportFeeVersion> TransportFeeVersions => Set<TransportFeeVersion>();
     public DbSet<TransportFeeRate> TransportFeeRates => Set<TransportFeeRate>();
+    public DbSet<TCGInvoice> TCGInvoices => Set<TCGInvoice>();
+    public DbSet<TCGInvoiceDetail> TCGInvoiceDetails => Set<TCGInvoiceDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -443,5 +445,16 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<TransportFeeRate>().HasIndex(x => new { x.OrgId, x.TFVCode });
         b.Entity<TransportFeeRate>().HasIndex(x => new { x.OrgId, x.TransporterCode });
         b.Entity<TransportFeeRate>().HasIndex(x => new { x.OrgId, x.ProvinceCodeFrom, x.DistrictCodeFrom, x.ProvinceCodeTo, x.DistrictCodeTo });
+
+        b.Entity<TCGInvoice>().HasIndex(x => new { x.OrgId, x.TCGInvoiceCode }).IsUnique();
+        b.Entity<TCGInvoice>().HasIndex(x => new { x.OrgId, x.TCGInvoiceNo });
+        b.Entity<TCGInvoice>().Property(x => x.SourceInvoiceCode).HasConversion<int>();
+        b.Entity<TCGInvoice>().Property(x => x.VatTCGStatus).HasConversion<int>();
+        b.Entity<TCGInvoice>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.TCGInvoiceId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<TCGInvoiceDetail>().Property(x => x.TCGStatusDetail).HasConversion<int>();
+        b.Entity<TCGInvoiceDetail>().HasIndex(x => x.TCGInvoiceId);
+        b.Entity<TCGInvoiceDetail>().HasIndex(x => new { x.OrgId, x.VIN });
+        b.Entity<TCGInvoiceDetail>().HasIndex(x => new { x.OrgId, x.TCGInvoiceCode });
     }
 }

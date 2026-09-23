@@ -59,6 +59,7 @@ builder.Services.AddScoped<PaymentCalendarService>();
 builder.Services.AddScoped<DealerContractService>();
 builder.Services.AddScoped<StorageRearrangeService>();
 builder.Services.AddScoped<TransportFeeVersionService>();
+builder.Services.AddScoped<TCGInvoiceService>();
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
     o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
@@ -8364,6 +8365,218 @@ app.MapDelete("/api/transport-fee-versions/{id:long}", async (long id, Transport
         if (!ok) return Results.NotFound(new { error = $"Không tìm thấy phiên bản cước phí #{id}." });
         return Results.Ok(new { deleted = true, id });
     }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// ===== Hóa đơn GTGT Nhà máy sản xuất TCG (VAT_TCGInvoice / FrmMngTCGInvoice) =====
+
+// 1) Lập hóa đơn TCG mới (VAT_TCGInvoiceCreate)
+app.MapPost("/api/tcg-invoices", async (CreateTCGInvoiceDto dto, TCGInvoiceService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.CreateAsync(tc.OrgId, dto);
+        return Results.Created($"/api/tcg-invoices/{entity.Id}", new
+        {
+            entity.Id,
+            entity.TCGInvoiceCode,
+            sourceInvoiceCode = entity.SourceInvoiceCode.ToString(),
+            entity.InvoiceIDType,
+            entity.InvoiceIDCode,
+            entity.TCGInvoiceNo,
+            entity.TCGInvoiceDate,
+            entity.VAT,
+            status = entity.VatTCGStatus.ToString(),
+            entity.FlagisHTC,
+            entity.Remark,
+            entity.CreatedBy,
+            entity.CreatedAt,
+            totalVehicles = entity.Details.Count,
+            totalAmount = entity.Details.Sum(d => d.TCGUnitPrice),
+            details = entity.Details.Select(d => new
+            {
+                d.Id,
+                d.VIN,
+                d.TCGUnitPrice,
+                d.TCGVAT,
+                d.TInvoicePrice,
+                d.BrandName,
+                d.CarType,
+                d.CustomsClearanceDate,
+                d.InvoiceNoFactory,
+                d.ProductionMonth,
+                status = d.TCGStatusDetail.ToString(),
+                d.Remark
+            })
+        });
+    }
+    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 2) Danh sách hóa đơn TCG (VAT_TCGInvoiceGet)
+app.MapGet("/api/tcg-invoices", async (
+    string? code,
+    string? invoiceNo,
+    string? status,
+    string? vin,
+    string? brandName,
+    string? query,
+    DateTime? fromDate,
+    DateTime? toDate,
+    TCGInvoiceService svc,
+    ITenantContext tc) =>
+{
+    var list = await svc.GetListAsync(tc.OrgId, code, invoiceNo, status, vin, brandName, query, fromDate, toDate);
+    return Results.Ok(list.Select(x => new
+    {
+        x.Id,
+        x.TCGInvoiceCode,
+        sourceInvoiceCode = x.SourceInvoiceCode.ToString(),
+        x.InvoiceIDType,
+        x.InvoiceIDCode,
+        x.TCGInvoiceNo,
+        x.TCGInvoiceDate,
+        x.VAT,
+        status = x.VatTCGStatus.ToString(),
+        x.FlagisHTC,
+        x.Remark,
+        x.CreatedBy,
+        x.CreatedAt,
+        x.ApprovedBy,
+        x.ApprovedAt,
+        x.CancelledAt,
+        totalVehicles = x.Details.Count,
+        totalAmount = x.Details.Sum(d => d.TCGUnitPrice)
+    }));
+});
+
+// 3) Báo cáo dashboard tổng hợp hóa đơn TCG
+app.MapGet("/api/tcg-invoices/summary", async (TCGInvoiceService svc, ITenantContext tc) =>
+{
+    var summary = await svc.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
+// 4) Chi tiết 1 hóa đơn TCG kèm danh sách dòng xe (VAT_TCGInvoiceGet)
+app.MapGet("/api/tcg-invoices/{id:long}", async (long id, TCGInvoiceService svc, ITenantContext tc) =>
+{
+    var entity = await svc.GetByIdAsync(tc.OrgId, id);
+    if (entity == null) return Results.NotFound(new { error = $"Không tìm thấy hóa đơn TCG #{id}." });
+    return Results.Ok(new
+    {
+        entity.Id,
+        entity.TCGInvoiceCode,
+        sourceInvoiceCode = entity.SourceInvoiceCode.ToString(),
+        entity.InvoiceIDType,
+        entity.InvoiceIDCode,
+        entity.RefNo,
+        entity.TCGInvoiceNo,
+        entity.TCGInvoiceDate,
+        entity.OS_HDDT_InvoiceCode,
+        entity.OS_HDDT_RefNo,
+        entity.VAT,
+        status = entity.VatTCGStatus.ToString(),
+        entity.FlagisHTC,
+        entity.Remark,
+        entity.CreatedBy,
+        entity.CreatedAt,
+        entity.ApprovedBy,
+        entity.ApprovedAt,
+        entity.CancelledBy,
+        entity.CancelledAt,
+        totalVehicles = entity.Details.Count,
+        totalAmount = entity.Details.Sum(d => d.TCGUnitPrice),
+        totalVATAmount = entity.Details.Sum(d => d.TCGUnitPrice - d.TInvoicePrice),
+        details = entity.Details.OrderBy(d => d.Id).Select(d => new
+        {
+            d.Id,
+            d.VIN,
+            d.TCGUnitPrice,
+            d.TCGVAT,
+            d.TInvoicePrice,
+            d.BrandName,
+            d.CarType,
+            d.CustomsClearanceDate,
+            d.InvoiceNoFactory,
+            d.ProductionMonth,
+            status = d.TCGStatusDetail.ToString(),
+            d.Remark
+        })
+    });
+});
+
+// 5) Duyệt / Hủy hóa đơn TCG (VAT_TCGInvoiceApprove)
+app.MapPost("/api/tcg-invoices/{id:long}/approve", async (long id, ApproveTCGInvoiceDto? dto, TCGInvoiceService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.ApproveAsync(tc.OrgId, id, dto ?? new ApproveTCGInvoiceDto());
+        return Results.Ok(new
+        {
+            entity.Id,
+            entity.TCGInvoiceCode,
+            status = entity.VatTCGStatus.ToString(),
+            entity.ApprovedBy,
+            entity.ApprovedAt,
+            entity.CancelledBy,
+            entity.CancelledAt
+        });
+    }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 6) Cập nhật số hóa đơn & ngày hóa đơn TCG (VAT_TCGInvoiceUpdate)
+app.MapPut("/api/tcg-invoices/{id:long}", async (long id, UpdateTCGInvoiceDto dto, TCGInvoiceService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.UpdateAsync(tc.OrgId, id, dto);
+        return Results.Ok(new
+        {
+            entity.Id,
+            entity.TCGInvoiceCode,
+            entity.TCGInvoiceNo,
+            entity.TCGInvoiceDate,
+            entity.OS_HDDT_InvoiceCode,
+            entity.OS_HDDT_RefNo,
+            status = entity.VatTCGStatus.ToString()
+        });
+    }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 7) Sinh số hóa đơn TCG kế tiếp (VAT_TCGInvoice_GenTCGInvoiceNo)
+app.MapGet("/api/tcg-invoices/gen-invoice-no", async (string? invoiceIdCode, TCGInvoiceService svc, ITenantContext tc) =>
+{
+    var no = await svc.GenerateInvoiceNoAsync(tc.OrgId, invoiceIdCode);
+    return Results.Ok(new { tcgInvoiceNo = no });
+});
+
+// 8) Xóa hóa đơn TCG (VAT_TCGInvoiceDelete — chỉ khi Pending)
+app.MapDelete("/api/tcg-invoices/{id:long}", async (long id, TCGInvoiceService svc, ITenantContext tc) =>
+{
+    try
+    {
+        bool ok = await svc.DeleteAsync(tc.OrgId, id);
+        if (!ok) return Results.NotFound(new { error = $"Không tìm thấy hóa đơn TCG #{id}." });
+        return Results.Ok(new { deleted = true, id });
+    }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 9) Xóa 1 dòng xe khỏi hóa đơn TCG (VAT_TCGInvoiceDetailDelete — chỉ khi Pending)
+app.MapDelete("/api/tcg-invoices/{id:long}/details", async (long id, string vin, TCGInvoiceService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.DeleteDetailAsync(tc.OrgId, id, vin);
+        return Results.Ok(new { entity.Id, entity.TCGInvoiceCode, totalVehicles = entity.Details.Count });
+    }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
     catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
 });
 
