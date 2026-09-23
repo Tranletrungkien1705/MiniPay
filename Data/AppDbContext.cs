@@ -67,6 +67,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<BankDealer> BankDealers => Set<BankDealer>();
     public DbSet<AccountingVoucherUpdate> AccountingVoucherUpdates => Set<AccountingVoucherUpdate>();
     public DbSet<AccountingVoucherUpdateDetail> AccountingVoucherUpdateDetails => Set<AccountingVoucherUpdateDetail>();
+    public DbSet<BankStatementAutoApproveBatch> AutoApproveBatches => Set<BankStatementAutoApproveBatch>();
+    public DbSet<BankStatementAutoApproveDetail> AutoApproveDetails => Set<BankStatementAutoApproveDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -386,5 +388,17 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<AccountingVoucherUpdateDetail>().Property(x => x.Status).HasConversion<int>();
         b.Entity<AccountingVoucherUpdateDetail>().HasIndex(x => x.AccountingVoucherUpdateId);
         b.Entity<AccountingVoucherUpdateDetail>().HasIndex(x => new { x.OrgId, x.PaymentNo });
+
+        b.Entity<BankStatementAutoApproveBatch>().HasIndex(x => new { x.OrgId, x.BatchNo }).IsUnique();
+        b.Entity<BankStatementAutoApproveBatch>().HasIndex(x => new { x.OrgId, x.BankCode });
+        b.Entity<BankStatementAutoApproveBatch>().Property(x => x.Mode).HasConversion<int>();
+        b.Entity<BankStatementAutoApproveBatch>().Property(x => x.Channel).HasConversion<int>();
+        b.Entity<BankStatementAutoApproveBatch>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<BankStatementAutoApproveBatch>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.BatchId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<BankStatementAutoApproveDetail>().Property(x => x.MatchStatus).HasConversion<int>();
+        b.Entity<BankStatementAutoApproveDetail>().HasIndex(x => x.BatchId);
+        b.Entity<BankStatementAutoApproveDetail>().HasIndex(x => new { x.OrgId, x.PaymentNo });
+        b.Entity<BankStatementAutoApproveDetail>().HasIndex(x => new { x.OrgId, x.BankTxnNo });
     }
 }

@@ -54,6 +54,7 @@ builder.Services.AddScoped<HTCInvoiceService>();
 builder.Services.AddScoped<LetterOfCreditService>();
 builder.Services.AddScoped<BankDealerService>();
 builder.Services.AddScoped<AccountingVoucherService>();
+builder.Services.AddScoped<BankStatementAutoApproveService>();
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
     o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
@@ -7525,6 +7526,144 @@ app.MapPost("/api/accounting-vouchers/{id:long}/cancel", async (long id, Account
     {
         var entity = await svc.CancelAsync(tc.OrgId, id);
         return Results.Ok(entity);
+    }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// ===== Duyệt tự động Thanh toán theo Sổ phụ Ngân hàng (Bank Statement Auto-Approve / TCF) =====
+// Tương ứng FrmMngPM_ApproveAuto + FrmMngPM.btnAutoAppA/btnAutoAppF + LayTTSoPhu
+// + SalesService.OS_DMS_TCF_WA_Bank_BankStatementDtl_Get / PaymentPaymentApprove_Approve /
+// PaymentPaymentConfirm_MultiAndpushTCF trong hệ nguồn 2010.HTC.
+
+// 1) Chạy duyệt tự động thanh toán theo sổ phụ ngân hàng (Duyệt tự động A/F)
+app.MapPost("/api/auto-approve/run", async (RunAutoApproveDto dto, BankStatementAutoApproveService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var batch = await svc.RunAsync(tc.OrgId, dto);
+        return Results.Ok(new
+        {
+            batch.Id,
+            batch.BatchNo,
+            mode = batch.Mode.ToString(),
+            channel = batch.Channel.ToString(),
+            batch.BankCode,
+            batch.AccountNo,
+            batch.StatementFrom,
+            batch.StatementTo,
+            batch.TotalRecords,
+            batch.MatchedCount,
+            batch.ApprovedCount,
+            batch.SkippedCount,
+            batch.TotalAmount,
+            batch.MatchedAmount,
+            status = batch.Status.ToString(),
+            batch.CreatedBy,
+            batch.CreatedAt,
+            batch.CompletedAt,
+            batch.Remark,
+            details = batch.Details.Select(d => new
+            {
+                d.Id,
+                d.BankTxnNo,
+                d.TxnTime,
+                d.Amount,
+                d.SenderAccount,
+                d.ReceiverAccount,
+                d.Remark,
+                d.PaymentNo,
+                d.DealerCode,
+                d.AccountingRecordNo,
+                d.TcfAutoId,
+                d.TcfBsInputNo,
+                d.TcfMaGiaoDich,
+                matchStatus = d.MatchStatus.ToString(),
+                d.DiscrepancyReason,
+                d.MatchedAt
+            })
+        });
+    }
+    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 2) Lấy danh sách các lô duyệt tự động kèm bộ lọc
+app.MapGet("/api/auto-approve/batches", async (
+    string? status,
+    string? mode,
+    string? bankCode,
+    DateTime? fromDate,
+    DateTime? toDate,
+    BankStatementAutoApproveService svc,
+    ITenantContext tc) =>
+{
+    var list = await svc.GetListAsync(tc.OrgId, status, mode, bankCode, fromDate, toDate);
+    return Results.Ok(list.Select(x => new
+    {
+        x.Id,
+        x.BatchNo,
+        mode = x.Mode.ToString(),
+        channel = x.Channel.ToString(),
+        x.BankCode,
+        x.AccountNo,
+        x.StatementFrom,
+        x.StatementTo,
+        x.TotalRecords,
+        x.MatchedCount,
+        x.ApprovedCount,
+        x.SkippedCount,
+        x.TotalAmount,
+        x.MatchedAmount,
+        status = x.Status.ToString(),
+        x.CreatedBy,
+        x.CreatedAt,
+        x.CompletedAt,
+        x.Remark,
+        details = x.Details.Select(d => new
+        {
+            d.Id,
+            d.BankTxnNo,
+            d.TxnTime,
+            d.Amount,
+            d.SenderAccount,
+            d.ReceiverAccount,
+            d.Remark,
+            d.PaymentNo,
+            d.DealerCode,
+            d.AccountingRecordNo,
+            d.TcfAutoId,
+            d.TcfBsInputNo,
+            d.TcfMaGiaoDich,
+            matchStatus = d.MatchStatus.ToString(),
+            d.DiscrepancyReason,
+            d.MatchedAt
+        })
+    }));
+});
+
+// 3) Báo cáo dashboard tổng hợp các lô duyệt tự động
+app.MapGet("/api/auto-approve/summary", async (BankStatementAutoApproveService svc, ITenantContext tc) =>
+{
+    var summary = await svc.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
+// 4) Chi tiết 1 lô duyệt tự động theo ID
+app.MapGet("/api/auto-approve/batches/{id:long}", async (long id, BankStatementAutoApproveService svc, ITenantContext tc) =>
+{
+    var batch = await svc.GetByIdAsync(tc.OrgId, id);
+    if (batch == null) return Results.NotFound(new { error = $"Không tìm thấy lô duyệt tự động #{id}." });
+    return Results.Ok(batch);
+});
+
+// 5) Hủy lô duyệt tự động (chỉ khi còn Draft)
+app.MapPost("/api/auto-approve/batches/{id:long}/cancel", async (long id, BankStatementAutoApproveService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var batch = await svc.CancelAsync(tc.OrgId, id);
+        return Results.Ok(new { batch.Id, batch.BatchNo, status = batch.Status.ToString() });
     }
     catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
     catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }

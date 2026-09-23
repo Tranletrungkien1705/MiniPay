@@ -3995,3 +3995,139 @@ public sealed class AccountingVoucherBatchStatDto
     public int SkippedItems { get; set; }
     public DateTime CreatedAt { get; set; }
 }
+
+// ============================================================================================
+// Nghiệp vụ: Duyệt tự động Thanh toán theo Sổ phụ Ngân hàng (Bank Statement Auto-Approve / TCF)
+// Tương ứng hệ nguồn 2010.HTC:
+//   - TERP.HTCClient/Views/Sales/Payment/FrmMngPM_ApproveAuto.cs (dialog chọn Online/Offline + khoảng ngày tiền về)
+//   - TERP.HTCClient/Views/Sales/Payment/FrmMngPM.cs (btnAutoAppA / btnAutoAppF / LayTTSoPhu)
+//   - TERP.HTCClient/DbServices/SalesService.cs (OS_DMS_TCF_WA_Bank_BankStatementDtl_Get,
+//       PaymentPaymentApprove_Approve, PaymentPaymentConfirm_MultiAndpushTCF)
+//   - TERP.BizHTC/DataWH/BizHTC.zTemp.cs (PaymentPaymentApprove_Approve, PaymentPaymentApproveX_20210601,
+//       PaymentPaymentConfirmX_20210601)
+//
+// Nghiệp vụ: Kế toán tải sổ phụ ngân hàng (Bank Statement) trong khoảng ngày tiền về, hệ thống tự động
+// so khớp từng dòng sổ phụ với phiếu thanh toán (Pmt_Payment) đang chờ duyệt (Pending) hoặc đã duyệt (Approved):
+//   - Bước A (Duyệt tự động A): phiếu Pending khớp sổ phụ -> chuyển Approved, ghi nhận số chứng từ kế toán,
+//     ngày tiền về, mã giao dịch TCF, cờ đối chiếu TCF.
+//   - Bước F (Duyệt tự động F): phiếu Approved khớp sổ phụ -> chuyển Finished (hoàn tất), đẩy dữ liệu đối chiếu
+//     sang hệ thống TCF (OS_DMS_TCF_WA_OSDMS_Bank_BankStatementDtl_UpdateX).
+// Mỗi lần chạy tạo 1 lô (batch) kèm danh sách dòng đối chiếu để truy vết.
+// ============================================================================================
+
+/// <summary>Lô duyệt tự động thanh toán theo sổ phụ ngân hàng (tương ứng 1 lần bấm "Duyệt tự động A/F").</summary>
+public sealed class BankStatementAutoApproveBatch
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string BatchNo { get; set; } = "";                 // Số lô duyệt tự động (AUTO-yyyyMMddHHmmss-xxx)
+    public AutoApproveMode Mode { get; set; } = AutoApproveMode.ApproveA; // Chế độ: A (Pending->Approved) hoặc F (Approved->Finished)
+    public TcfChannel Channel { get; set; } = TcfChannel.Online;          // Kênh đối chiếu TCF: Online / Offline
+    public string BankCode { get; set; } = "";                // Mã ngân hàng của sổ phụ (VCB, TCB, MBB, CTG...)
+    public string? AccountNo { get; set; }                    // Số tài khoản nhận tiền
+    public DateTime StatementFrom { get; set; }               // Ngày tiền về từ (dateFrom)
+    public DateTime StatementTo { get; set; }                 // Ngày tiền về đến (dateTo)
+    public int TotalRecords { get; set; }                     // Tổng số dòng sổ phụ đưa vào đối chiếu
+    public int MatchedCount { get; set; }                     // Số dòng khớp được phiếu thanh toán
+    public int ApprovedCount { get; set; }                    // Số phiếu đã duyệt/hoàn tất thành công
+    public int SkippedCount { get; set; }                     // Số dòng bị bỏ qua (không khớp / sai trạng thái)
+    public long TotalAmount { get; set; }                     // Tổng số tiền các dòng sổ phụ
+    public long MatchedAmount { get; set; }                   // Tổng số tiền các dòng khớp
+    public AutoApproveBatchStatus Status { get; set; } = AutoApproveBatchStatus.Draft; // Trạng thái lô
+    public string? CreatedBy { get; set; }                    // Người chạy duyệt tự động
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public DateTime? CompletedAt { get; set; }                // Thời điểm hoàn tất lô
+    public string? Remark { get; set; }
+
+    public List<BankStatementAutoApproveDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết 1 dòng đối chiếu sổ phụ ngân hàng với 1 phiếu thanh toán.</summary>
+public sealed class BankStatementAutoApproveDetail
+{
+    public long Id { get; set; }
+    public long BatchId { get; set; }
+    public Guid OrgId { get; set; }
+    public string BankTxnNo { get; set; } = "";               // Số giao dịch ngân hàng (sổ phụ)
+    public DateTime TxnTime { get; set; }                     // Thời điểm giao dịch (ngày tiền về)
+    public long Amount { get; set; }                          // Số tiền giao dịch
+    public string? SenderAccount { get; set; }                // Tài khoản chuyển (đại lý)
+    public string? ReceiverAccount { get; set; }              // Tài khoản nhận
+    public string? Remark { get; set; }                       // Nội dung chuyển khoản (RemarkTranfer)
+    public string? PaymentNo { get; set; }                    // Số phiếu thanh toán khớp được (Pmt_Payment.PaymentNo)
+    public string? DealerCode { get; set; }                   // Mã đại lý
+    public string? AccountingRecordNo { get; set; }           // Số chứng từ kế toán ghi nhận
+    public string? TcfAutoId { get; set; }                    // Mã tự động TCF (TCF_AutoId)
+    public string? TcfBsInputNo { get; set; }                 // Số nhập sổ phụ TCF (TCF_BSInputNo)
+    public string? TcfMaGiaoDich { get; set; }                // Mã giao dịch TCF (TCF_MaGiaoDich)
+    public AutoApproveMatchStatus MatchStatus { get; set; } = AutoApproveMatchStatus.Unmatched; // Kết quả đối chiếu
+    public string? DiscrepancyReason { get; set; }            // Lý do không khớp / bỏ qua
+    public DateTime? MatchedAt { get; set; }                  // Thời điểm xử lý dòng
+}
+
+public enum AutoApproveMode { ApproveA = 0, ApproveF = 1 }
+public enum TcfChannel { Online = 0, Offline = 1 }
+public enum AutoApproveBatchStatus { Draft = 0, Completed = 1, Cancelled = 2 }
+public enum AutoApproveMatchStatus { Unmatched = 0, Matched = 1, Approved = 2, Skipped = 3 }
+
+/// <summary>1 dòng sổ phụ ngân hàng đầu vào để đối chiếu (tương ứng Bank_BankStatementDtl).</summary>
+public sealed class BankStatementLineInputDto
+{
+    public string BankTxnNo { get; set; } = "";
+    public DateTime TxnTime { get; set; }
+    public long Amount { get; set; }
+    public string? SenderAccount { get; set; }
+    public string? ReceiverAccount { get; set; }
+    public string? Remark { get; set; }
+    public string? PaymentNo { get; set; }                    // Số phiếu thanh toán gợi ý (nếu sổ phụ có sẵn)
+    public string? DealerCode { get; set; }
+    public string? AccountingRecordNo { get; set; }
+    public string? TcfAutoId { get; set; }
+    public string? TcfBsInputNo { get; set; }
+    public string? TcfMaGiaoDich { get; set; }
+}
+
+/// <summary>Yêu cầu chạy duyệt tự động thanh toán theo sổ phụ (tương ứng FrmMngPM_ApproveAuto + LayTTSoPhu).</summary>
+public sealed class RunAutoApproveDto
+{
+    public string? BatchNo { get; set; }
+    public AutoApproveMode Mode { get; set; } = AutoApproveMode.ApproveA;
+    public TcfChannel Channel { get; set; } = TcfChannel.Online;
+    public string BankCode { get; set; } = "";
+    public string? AccountNo { get; set; }
+    public DateTime StatementFrom { get; set; }
+    public DateTime StatementTo { get; set; }
+    public string? CreatedBy { get; set; }
+    public string? Remark { get; set; }
+    public List<BankStatementLineInputDto> Items { get; set; } = [];
+}
+
+/// <summary>Báo cáo tổng hợp các lô duyệt tự động thanh toán theo sổ phụ.</summary>
+public sealed class AutoApproveSummaryDto
+{
+    public int TotalBatches { get; set; }
+    public int CompletedCount { get; set; }
+    public int DraftCount { get; set; }
+    public int CancelledCount { get; set; }
+    public int TotalRecords { get; set; }
+    public int MatchedCount { get; set; }
+    public int ApprovedCount { get; set; }
+    public int SkippedCount { get; set; }
+    public long TotalAmount { get; set; }
+    public long MatchedAmount { get; set; }
+    public double MatchRatePercent { get; set; }
+    public List<AutoApproveBatchStatDto> RecentBatches { get; set; } = [];
+}
+
+public sealed class AutoApproveBatchStatDto
+{
+    public long Id { get; set; }
+    public string BatchNo { get; set; } = "";
+    public string Mode { get; set; } = "";
+    public string BankCode { get; set; } = "";
+    public int TotalRecords { get; set; }
+    public int MatchedCount { get; set; }
+    public int ApprovedCount { get; set; }
+    public string Status { get; set; } = "";
+    public DateTime CreatedAt { get; set; }
+}
