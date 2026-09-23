@@ -3908,3 +3908,90 @@ public sealed class BankDealerBankStatDto
     public int PmtEnabledCount { get; set; }
     public decimal TotalCreditAmount { get; set; }
 }
+
+/// <summary>
+/// Lịch sử Cập nhật Chứng từ Kế toán (Accounting Voucher / Accounting Record No update log).
+/// Tương ứng nghiệp vụ FrmUpdateChungTuKT + SalesService.UpdateCTKT + Pmt_Payment_UpdateFinancial
+/// trong hệ nguồn 2010.HTC (TERP.HTCClient/Views/Sales/Payment & TERP.BizHTC/TCFIntergration).
+///
+/// Nghiệp vụ: kế toán cập nhật HÀNG LOẠT số chứng từ kế toán (AccountingRecordNo) cho các phiếu
+/// thanh toán (Pmt_Payment) đã hoàn tất (Stage.Finished), phục vụ ghi sổ / đối chiếu sổ quỹ.
+/// Mỗi lần cập nhật tạo 1 lô (batch) kèm danh sách dòng chi tiết để truy vết.
+/// </summary>
+public sealed class AccountingVoucherUpdate
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string BatchNo { get; set; } = "";                 // Số lô cập nhật chứng từ (CTKT-yyyyMM-xxx)
+    public string? Description { get; set; }                   // Diễn giải lô cập nhật
+    public int TotalItems { get; set; }                        // Tổng số phiếu thanh toán trong lô
+    public int UpdatedItems { get; set; }                      // Số phiếu cập nhật thành công
+    public int SkippedItems { get; set; }                      // Số phiếu bị bỏ qua (không tồn tại / chưa hoàn tất)
+    public AccountingVoucherUpdateStatus Status { get; set; } = AccountingVoucherUpdateStatus.Draft; // Trạng thái lô
+    public string? CreatedBy { get; set; }                     // Người lập lô cập nhật
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public string? AppliedBy { get; set; }                     // Người áp dụng (ghi sổ) lô cập nhật
+    public DateTime? AppliedAt { get; set; }                   // Thời điểm áp dụng
+    public string? Remark { get; set; }
+
+    public List<AccountingVoucherUpdateDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết 1 dòng cập nhật chứng từ kế toán cho 1 phiếu thanh toán — tương ứng #input_Pmt_Payment trong Pmt_Payment_UpdateFinancial.</summary>
+public sealed class AccountingVoucherUpdateDetail
+{
+    public long Id { get; set; }
+    public long AccountingVoucherUpdateId { get; set; }
+    public Guid OrgId { get; set; }
+    public string PaymentNo { get; set; } = "";               // Số phiếu thanh toán (Pmt_Payment.PaymentNo)
+    public string? OldAccountingRecordNo { get; set; }         // Số chứng từ kế toán cũ (trước cập nhật)
+    public string? NewAccountingRecordNo { get; set; }         // Số chứng từ kế toán mới (AccountingRecordNo)
+    public AccountingVoucherUpdateDetailStatus Status { get; set; } = AccountingVoucherUpdateDetailStatus.Pending; // Kết quả xử lý dòng
+    public string? Note { get; set; }                          // Ghi chú / lý do bỏ qua
+}
+
+public enum AccountingVoucherUpdateStatus { Draft = 0, Applied = 1, Cancelled = 2 }
+public enum AccountingVoucherUpdateDetailStatus { Pending = 0, Updated = 1, Skipped = 2 }
+
+public sealed class CreateAccountingVoucherUpdateDto
+{
+    public string? BatchNo { get; set; }
+    public string? Description { get; set; }
+    public string? CreatedBy { get; set; }
+    public string? Remark { get; set; }
+    public List<AccountingVoucherItemInputDto> Items { get; set; } = [];
+}
+
+public sealed class AccountingVoucherItemInputDto
+{
+    public string PaymentNo { get; set; } = "";
+    public string? NewAccountingRecordNo { get; set; }
+}
+
+public sealed class ApplyAccountingVoucherUpdateDto
+{
+    public string? AppliedBy { get; set; }
+}
+
+public sealed class AccountingVoucherUpdateSummaryDto
+{
+    public int TotalBatches { get; set; }
+    public int DraftCount { get; set; }
+    public int AppliedCount { get; set; }
+    public int CancelledCount { get; set; }
+    public int TotalItems { get; set; }
+    public int UpdatedItems { get; set; }
+    public int SkippedItems { get; set; }
+    public List<AccountingVoucherBatchStatDto> RecentBatches { get; set; } = [];
+}
+
+public sealed class AccountingVoucherBatchStatDto
+{
+    public long Id { get; set; }
+    public string BatchNo { get; set; } = "";
+    public string Status { get; set; } = "";
+    public int TotalItems { get; set; }
+    public int UpdatedItems { get; set; }
+    public int SkippedItems { get; set; }
+    public DateTime CreatedAt { get; set; }
+}

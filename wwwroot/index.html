@@ -111,6 +111,7 @@
     <button class="tab-btn" onclick="showTab('carDocReq')">Hồ Sơ Gốc Xe (Car Doc Request / DNGT)</button>
     <button class="tab-btn" onclick="showTab('htcInvoice')">Hóa Đơn VAT Bán Buôn (VAT E-Invoice)</button>
     <button class="tab-btn" onclick="showTab('bankDealer')">Danh Mục Ngân Hàng - Đại Lý (Bank-Dealer)</button>
+    <button class="tab-btn" onclick="showTab('accountingVoucher')">Cập Nhật Chứng Từ Kế Toán (CTKT)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -6352,6 +6353,66 @@
     </div>
   </div>
 
+  <!-- TAB: Cập Nhật Chứng Từ Kế Toán (Accounting Voucher / Accounting Record No bulk update) -->
+  <div id="tab-accountingVoucher" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="margin:0;">Cập nhật Chứng từ Kế toán (FrmUpdateChungTuKT / Pmt_Payment_UpdateFinancial)</h3>
+        <button class="secondary" onclick="loadAccountingVouchers(); loadAccountingVoucherSummary();">Làm mới</button>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+        <select id="avFilterStatus" style="max-width:180px;">
+          <option value="">-- Trạng thái --</option>
+          <option value="Draft">Chờ áp dụng (Draft)</option>
+          <option value="Applied">Đã ghi sổ (Applied)</option>
+          <option value="Cancelled">Đã hủy (Cancelled)</option>
+        </select>
+        <input id="avFilterQuery" placeholder="Từ khóa (số lô, diễn giải...)" style="max-width:240px;" />
+        <button onclick="loadAccountingVouchers()">Tìm kiếm</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Lô</th>
+              <th>Diễn Giải</th>
+              <th>Tổng Dòng</th>
+              <th>Đã Cập Nhật</th>
+              <th>Bỏ Qua</th>
+              <th>Trạng Thái</th>
+              <th>Người Lập</th>
+              <th>Ngày Lập</th>
+              <th>Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="tblAccountingVouchersBody">
+            <tr><td colspan="9" style="text-align:center; padding:20px;" class="muted">Đang tải danh sách lô cập nhật chứng từ...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Form lập lô cập nhật chứng từ kế toán -->
+    <div class="card" style="margin-top:18px;">
+      <h3 style="margin-top:0;">Lập lô cập nhật chứng từ kế toán</h3>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+        <div><label>Số lô (để trống tự sinh)</label><input id="avBatchNo" placeholder="CTKT-yyyyMM-xxx" /></div>
+        <div><label>Diễn giải</label><input id="avDescription" placeholder="Cập nhật số chứng từ kế toán..." /></div>
+        <div><label>Người lập</label><input id="avCreatedBy" placeholder="KeToanTongHop" /></div>
+        <div><label>Ghi chú</label><input id="avRemark" placeholder="Ghi chú..." /></div>
+      </div>
+      <div style="margin-top:12px;">
+        <label style="font-weight:500;">Danh sách phiếu thanh toán cần cập nhật (Số phiếu | Số chứng từ kế toán mới)</label>
+        <div id="avItems" style="margin-top:8px; display:flex; flex-direction:column; gap:8px;"></div>
+        <button class="secondary" style="margin-top:8px;" onclick="addAvItemRow()">+ Thêm dòng</button>
+      </div>
+      <div style="margin-top:14px;">
+        <span id="avCreateMsg" style="margin-right:12px; color:var(--primary); font-weight:500;"></span>
+        <button onclick="submitCreateAccountingVoucher()">Lập lô cập nhật</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB: Lập Hóa Đơn GTGT Bán Buôn Xe Mới (+ Lập Hóa Đơn VAT) -->
   <div id="tab-newHtcInvoice" style="display:none;">
     <div class="card">
@@ -7368,6 +7429,7 @@
       document.getElementById('tab-carDocReq').style.display = tabName === 'carDocReq' ? 'block' : 'none';
       document.getElementById('tab-htcInvoice').style.display = tabName === 'htcInvoice' ? 'block' : 'none';
       document.getElementById('tab-bankDealer').style.display = tabName === 'bankDealer' ? 'block' : 'none';
+      document.getElementById('tab-accountingVoucher').style.display = tabName === 'accountingVoucher' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -7432,6 +7494,7 @@
       else if (tabName === 'newCarDocReq') { loadSampleCarDocReqData(); }
       else if (tabName === 'htcInvoice') { loadHtcInvoices(); loadHtcInvoiceSummary(); }
       else if (tabName === 'bankDealer') { loadBankDealers(); loadBankDealerSummary(); }
+      else if (tabName === 'accountingVoucher') { loadAccountingVouchers(); loadAccountingVoucherSummary(); }
       else if (tabName === 'newHtcInvoice') { loadSampleHtcInvoiceFormData(); }
     }
 
@@ -19245,6 +19308,135 @@
         loadBankDealers(); loadBankDealerSummary();
       } catch (e) { alert('Lỗi: ' + e.message); }
     }
+
+    // ===== TAB: CẬP NHẬT CHỨNG TỪ KẾ TOÁN (FrmUpdateChungTuKT / Pmt_Payment_UpdateFinancial) =====
+    function addAvItemRow(paymentNo, newRecordNo) {
+      const wrap = document.getElementById('avItems');
+      if (!wrap) return;
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex; gap:8px; align-items:center;';
+      row.innerHTML = `
+        <input class="av-payment-no" placeholder="Số phiếu thanh toán (PM-...)" style="max-width:260px;" value="${paymentNo || ''}" />
+        <input class="av-new-record-no" placeholder="Số chứng từ kế toán mới (PKT-...)" style="max-width:260px;" value="${newRecordNo || ''}" />
+        <button class="secondary" onclick="this.parentElement.remove()">Xóa</button>`;
+      wrap.appendChild(row);
+    }
+
+    async function loadAccountingVouchers() {
+      const body = document.getElementById('tblAccountingVouchersBody');
+      if (!body) return;
+      try {
+        const params = new URLSearchParams();
+        const status = document.getElementById('avFilterStatus').value;
+        const query = document.getElementById('avFilterQuery').value.trim();
+        if (status) params.set('status', status);
+        if (query) params.set('query', query);
+        const res = await fetch('/api/accounting-vouchers?' + params.toString(), { headers });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const list = await res.json();
+        if (!list.length) {
+          body.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px;" class="muted">Chưa có lô cập nhật chứng từ kế toán.</td></tr>';
+          return;
+        }
+        const statusLabel = (s) => s === 'Applied' ? '<span style="color:green;">Đã ghi sổ</span>' : (s === 'Cancelled' ? '<span class="muted">Đã hủy</span>' : '<span style="color:orange;">Chờ áp dụng</span>');
+        body.innerHTML = list.map(x => `
+          <tr>
+            <td><b>${x.batchNo}</b></td>
+            <td>${x.description || ''}</td>
+            <td>${x.totalItems}</td>
+            <td>${x.updatedItems}</td>
+            <td>${x.skippedItems}</td>
+            <td>${statusLabel(x.status)}</td>
+            <td>${x.createdBy || ''}</td>
+            <td>${x.createdAt ? new Date(x.createdAt).toLocaleString('vi-VN') : ''}</td>
+            <td>
+              ${x.status === 'Draft' ? `<button onclick="applyAccountingVoucher(${x.id})">Áp dụng</button> <button class="secondary" onclick="cancelAccountingVoucher(${x.id})">Hủy</button>` : ''}
+              <button class="secondary" onclick="viewAccountingVoucher(${x.id})">Xem</button>
+            </td>
+          </tr>`).join('');
+      } catch (e) {
+        body.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px; color:red;">Lỗi tải dữ liệu: ' + e.message + '</td></tr>';
+      }
+    }
+
+    async function loadAccountingVoucherSummary() {
+      try {
+        const res = await fetch('/api/accounting-vouchers/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng lô cập nhật chứng từ';
+        document.getElementById('stat1').textContent = d.totalBatches;
+        document.getElementById('statLabel2').textContent = 'Chờ áp dụng / Đã ghi sổ';
+        document.getElementById('stat2').textContent = d.draftCount + ' / ' + d.appliedCount;
+        document.getElementById('statLabel3').textContent = 'Tổng dòng / Đã cập nhật';
+        document.getElementById('stat3').textContent = d.totalItems + ' / ' + d.updatedItems;
+        document.getElementById('statLabel4').textContent = 'Số dòng bỏ qua';
+        document.getElementById('stat4').textContent = d.skippedItems;
+      } catch (e) { console.error(e); }
+    }
+
+    async function submitCreateAccountingVoucher() {
+      const msg = document.getElementById('avCreateMsg');
+      msg.textContent = '';
+      const items = [];
+      document.querySelectorAll('#avItems > div').forEach(row => {
+        const paymentNo = row.querySelector('.av-payment-no').value.trim();
+        const newRecordNo = row.querySelector('.av-new-record-no').value.trim();
+        if (paymentNo) items.push({ paymentNo, newAccountingRecordNo: newRecordNo || null });
+      });
+      if (!items.length) { msg.style.color = 'red'; msg.textContent = 'Cần nhập ít nhất 1 dòng phiếu thanh toán.'; return; }
+      const payload = {
+        batchNo: document.getElementById('avBatchNo').value.trim() || null,
+        description: document.getElementById('avDescription').value.trim() || null,
+        createdBy: document.getElementById('avCreatedBy').value.trim() || null,
+        remark: document.getElementById('avRemark').value.trim() || null,
+        items
+      };
+      try {
+        const res = await fetch('/api/accounting-vouchers', { method: 'POST', headers, body: JSON.stringify(payload) });
+        const d = await res.json();
+        if (!res.ok) { msg.style.color = 'red'; msg.textContent = d.error || 'Lỗi lập lô.'; return; }
+        msg.style.color = 'green'; msg.textContent = 'Đã lập lô cập nhật chứng từ ' + d.batchNo + ' thành công.';
+        ['avBatchNo','avDescription','avCreatedBy','avRemark'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('avItems').innerHTML = '';
+        addAvItemRow();
+        loadAccountingVouchers(); loadAccountingVoucherSummary();
+      } catch (e) { msg.style.color = 'red'; msg.textContent = 'Lỗi: ' + e.message; }
+    }
+
+    async function applyAccountingVoucher(id) {
+      if (!confirm('Áp dụng ghi sổ lô cập nhật chứng từ #' + id + '?')) return;
+      try {
+        const res = await fetch('/api/accounting-vouchers/' + id + '/apply', { method: 'POST', headers, body: JSON.stringify({ appliedBy: 'KeToanTruong' }) });
+        const d = await res.json();
+        if (!res.ok) { alert(d.error || 'Lỗi áp dụng.'); return; }
+        alert('Đã áp dụng: cập nhật ' + d.updatedItems + ' dòng, bỏ qua ' + d.skippedItems + ' dòng.');
+        loadAccountingVouchers(); loadAccountingVoucherSummary();
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function cancelAccountingVoucher(id) {
+      if (!confirm('Hủy lô cập nhật chứng từ #' + id + '?')) return;
+      try {
+        const res = await fetch('/api/accounting-vouchers/' + id + '/cancel', { method: 'POST', headers });
+        const d = await res.json();
+        if (!res.ok) { alert(d.error || 'Lỗi hủy.'); return; }
+        loadAccountingVouchers(); loadAccountingVoucherSummary();
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function viewAccountingVoucher(id) {
+      try {
+        const res = await fetch('/api/accounting-vouchers/' + id, { headers });
+        if (!res.ok) { alert('Không tải được chi tiết.'); return; }
+        const d = await res.json();
+        const lines = (d.details || []).map(x =>
+          `- ${x.paymentNo}: ${x.oldAccountingRecordNo || '(trống)'} -> ${x.newAccountingRecordNo || '(trống)'} [${x.status}] ${x.note || ''}`).join('\n');
+        alert(`Lô ${d.batchNo} (${d.status})\n${d.description || ''}\n\n${lines}`);
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    addAvItemRow();
   </script>
 </body>
 </html>

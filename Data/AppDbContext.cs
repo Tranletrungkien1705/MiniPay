@@ -65,6 +65,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<LetterOfCredit> LettersOfCredit => Set<LetterOfCredit>();
     public DbSet<LetterOfCreditDetail> LetterOfCreditDetails => Set<LetterOfCreditDetail>();
     public DbSet<BankDealer> BankDealers => Set<BankDealer>();
+    public DbSet<AccountingVoucherUpdate> AccountingVoucherUpdates => Set<AccountingVoucherUpdate>();
+    public DbSet<AccountingVoucherUpdateDetail> AccountingVoucherUpdateDetails => Set<AccountingVoucherUpdateDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -376,5 +378,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<BankDealer>().HasIndex(x => new { x.OrgId, x.DealerCode });
         b.Entity<BankDealer>().HasIndex(x => new { x.OrgId, x.BankCode });
         b.Entity<BankDealer>().Property(x => x.Status).HasConversion<int>();
+
+        b.Entity<AccountingVoucherUpdate>().HasIndex(x => new { x.OrgId, x.BatchNo }).IsUnique();
+        b.Entity<AccountingVoucherUpdate>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<AccountingVoucherUpdate>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.AccountingVoucherUpdateId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<AccountingVoucherUpdateDetail>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<AccountingVoucherUpdateDetail>().HasIndex(x => x.AccountingVoucherUpdateId);
+        b.Entity<AccountingVoucherUpdateDetail>().HasIndex(x => new { x.OrgId, x.PaymentNo });
     }
 }

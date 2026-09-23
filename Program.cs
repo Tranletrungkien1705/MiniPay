@@ -53,6 +53,7 @@ builder.Services.AddScoped<CarDocReqService>();
 builder.Services.AddScoped<HTCInvoiceService>();
 builder.Services.AddScoped<LetterOfCreditService>();
 builder.Services.AddScoped<BankDealerService>();
+builder.Services.AddScoped<AccountingVoucherService>();
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
     o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
@@ -7437,6 +7438,96 @@ app.MapDelete("/api/bank-dealers/{id:long}", async (long id, BankDealerService s
     var ok = await svc.DeleteAsync(tc.OrgId, id);
     if (!ok) return Results.NotFound(new { error = $"Không tìm thấy dòng Ngân hàng - Đại lý #{id}." });
     return Results.Ok(new { deleted = true, id });
+});
+
+// ===== Cập nhật Chứng từ Kế toán (Accounting Voucher / Accounting Record No bulk update) =====
+// Tương ứng FrmUpdateChungTuKT + SalesService.UpdateCTKT + Pmt_Payment_UpdateFinancial trong hệ nguồn 2010.HTC.
+
+// 1) Lấy danh sách lô cập nhật chứng từ kế toán kèm bộ lọc
+app.MapGet("/api/accounting-vouchers", async (
+    string? status,
+    string? query,
+    DateTime? fromDate,
+    DateTime? toDate,
+    AccountingVoucherService svc,
+    ITenantContext tc) =>
+{
+    var list = await svc.GetListAsync(tc.OrgId, status, query, fromDate, toDate);
+    return Results.Ok(list.Select(x => new
+    {
+        x.Id,
+        x.BatchNo,
+        x.Description,
+        x.TotalItems,
+        x.UpdatedItems,
+        x.SkippedItems,
+        status = x.Status.ToString(),
+        x.CreatedBy,
+        x.CreatedAt,
+        x.AppliedBy,
+        x.AppliedAt,
+        x.Remark,
+        details = x.Details.Select(d => new
+        {
+            d.Id,
+            d.PaymentNo,
+            d.OldAccountingRecordNo,
+            d.NewAccountingRecordNo,
+            status = d.Status.ToString(),
+            d.Note
+        })
+    }));
+});
+
+// 2) Báo cáo dashboard tổng hợp các lô cập nhật chứng từ kế toán
+app.MapGet("/api/accounting-vouchers/summary", async (AccountingVoucherService svc, ITenantContext tc) =>
+{
+    var summary = await svc.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
+// 3) Chi tiết 1 lô cập nhật chứng từ kế toán theo ID
+app.MapGet("/api/accounting-vouchers/{id:long}", async (long id, AccountingVoucherService svc, ITenantContext tc) =>
+{
+    var entity = await svc.GetByIdAsync(tc.OrgId, id);
+    if (entity == null) return Results.NotFound(new { error = $"Không tìm thấy lô cập nhật chứng từ #{id}." });
+    return Results.Ok(entity);
+});
+
+// 4) Lập lô cập nhật chứng từ kế toán mới (FrmUpdateChungTuKT)
+app.MapPost("/api/accounting-vouchers", async (CreateAccountingVoucherUpdateDto dto, AccountingVoucherService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.CreateAsync(tc.OrgId, dto);
+        return Results.Created($"/api/accounting-vouchers/{entity.Id}", entity);
+    }
+    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 5) Áp dụng lô cập nhật chứng từ kế toán (Pmt_Payment_UpdateFinancial)
+app.MapPost("/api/accounting-vouchers/{id:long}/apply", async (long id, ApplyAccountingVoucherUpdateDto? dto, AccountingVoucherService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.ApplyAsync(tc.OrgId, id, dto);
+        return Results.Ok(entity);
+    }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 6) Hủy lô cập nhật chứng từ kế toán
+app.MapPost("/api/accounting-vouchers/{id:long}/cancel", async (long id, AccountingVoucherService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.CancelAsync(tc.OrgId, id);
+        return Results.Ok(entity);
+    }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
 });
 
 app.Run();
