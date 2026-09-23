@@ -105,6 +105,7 @@
     <button class="tab-btn" onclick="showTab('disbursement')">Đề Nghị GD Ngân Hàng (Disbursement)</button>
     <button class="tab-btn" onclick="showTab('cancelBankMD')">Hủy Gán Bảo Lãnh (Cancel Bank MD)</button>
     <button class="tab-btn" onclick="showTab('insurance')">Thu Bảo Hiểm Bồi Thường (Insurance Claim)</button>
+    <button class="tab-btn" onclick="showTab('supplier')">Chi Trả NCC Phụ Tùng (Supplier Payment)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -126,6 +127,8 @@
     <button class="tab-btn" onclick="showTab('newCancelBankMD')">+ Lập Đề Nghị Hủy Gán NHBL</button>
     <button class="tab-btn" onclick="showTab('newInsurancePayment')">+ Lập Phiếu Thu Bảo Hiểm</button>
     <button class="tab-btn" onclick="showTab('newInsuranceDebit')">+ Lập Nợ Bồi Thường RO</button>
+    <button class="tab-btn" onclick="showTab('newSupplierPayment')">+ Lập Phiếu Chi NCC</button>
+    <button class="tab-btn" onclick="showTab('newSupplierDebit')">+ Lập Nợ Nhập Kho Mới</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -5005,6 +5008,315 @@
     </div>
   </div>
 
+  <!-- TAB: QUẢN LÝ CÔNG NỢ & THANH TOÁN NHÀ CUNG CẤP PHỤ TÙNG (Supplier Payment & Settlement) -->
+  <div id="tab-supplier" style="display:none;">
+    <!-- Thống kê KPI -->
+    <div class="row" style="margin-bottom:16px;">
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Tổng Hóa Đơn Nhập Kho</div>
+        <div id="suppStatTotalInvoices" style="font-size:1.4em; font-weight:bold; color:var(--primary); margin-top:4px;">0</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Tổng Tiền Mua Phụ Tùng</div>
+        <div id="suppStatTotalDebtAmt" style="font-size:1.3em; font-weight:bold; color:var(--text); margin-top:4px;">0 đ</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Đã Chi Thanh Toán</div>
+        <div id="suppStatTotalPaidAmt" style="font-size:1.3em; font-weight:bold; color:var(--success); margin-top:4px;">0 đ</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Dư Nợ Phải Trả NCC</div>
+        <div id="suppStatRemainingDebt" style="font-size:1.3em; font-weight:bold; color:var(--danger); margin-top:4px;">0 đ</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Tỷ Lệ Quyết Toán Nợ</div>
+        <div id="suppStatSettlementRate" style="font-size:1.4em; font-weight:bold; color:var(--primary); margin-top:4px;">0%</div>
+      </div>
+    </div>
+
+    <!-- Bộ lọc & Thao tác -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <div>
+            <label class="muted" style="font-size:.85em; display:block;">Nhà Cung Cấp:</label>
+            <select id="filterSupplierCode" onchange="loadSupplierData()" style="padding:4px 8px;">
+              <option value="">-- Tất cả nhà cung cấp --</option>
+              <option value="MOBIS-VN">Mobis Auto Parts - Phụ tùng chính hãng</option>
+              <option value="BOSCH-VN">Bosch Việt Nam - Gạt mưa, bugi & cảm biến</option>
+              <option value="CASTROL-VN">Castrol BP Petco - Dầu nhớt động cơ</option>
+              <option value="MICHELIN-VN">Michelin Việt Nam - Lốp xe ô tô</option>
+              <option value="3M-VN">3M Việt Nam - Phim cách nhiệt & chăm sóc xe</option>
+              <option value="DENSO-VN">Denso Việt Nam - Máy phát & điện lạnh</option>
+              <option value="PPG-VN">Sơn PPG Việt Nam - Sơn ô tô công nghiệp</option>
+            </select>
+          </div>
+          <div>
+            <label class="muted" style="font-size:.85em; display:block;">Tìm kiếm (PNK / Mã PO / Số phiếu / Nhóm):</label>
+            <input type="text" id="filterSupplierKeyword" placeholder="Nhập từ khóa..." onkeyup="if(event.key==='Enter') loadSupplierData()" style="padding:4px 8px; width:220px;">
+          </div>
+          <button class="secondary" onclick="loadSupplierData()" style="margin-top:16px;">Lọc Dữ Liệu</button>
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="secondary" onclick="showTab('newSupplierDebit')">+ Lập Nợ Nhập Kho Mới</button>
+          <button onclick="showTab('newSupplierPayment')">+ Lập Phiếu Chi NCC</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Danh sách Phiếu Chi Thanh Toán Nhà Cung Cấp -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="margin:0;">Lịch Sử Phiếu Chi Thanh Toán Nhà Cung Cấp (Ser_Payment / FrmSupplierPaymentCreate)</h3>
+        <span class="muted" style="font-size:.85em;">Phân bổ tự động theo thuật toán FIFO vào các phiếu nhập kho phụ tùng còn nợ</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Phiếu Chi</th>
+              <th>Ngày Chi</th>
+              <th>Nhà Cung Cấp</th>
+              <th>Người Nhận Tiền</th>
+              <th>Số Tiền Chi</th>
+              <th>Hình Thức</th>
+              <th>Ngân Hàng / Bút Toán</th>
+              <th>Đã Phân Bổ</th>
+              <th>Trạng Thái</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="supplierPaymentTableBody">
+            <tr><td colspan="10" class="muted" style="text-align:center;">Đang tải danh sách phiếu chi...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Danh sách Hồ Sơ Nợ Nhập Kho Phụ Tùng -->
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="margin:0;">Danh Sách Khoản Nợ Theo Phiếu Nhập Kho Phụ Tùng (Ser_SupplierDebit)</h3>
+        <span class="muted" style="font-size:.85em;">Khoản phải trả các nhà cung ứng linh kiện &amp; phụ tùng vật tư xưởng dịch vụ ô tô</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Mã Công Nợ</th>
+              <th>Phiếu Nhập (PNK)</th>
+              <th>Ngày Nhập</th>
+              <th>Đơn Hàng (PO)</th>
+              <th>Nhà Cung Cấp</th>
+              <th>Nhóm Phụ Tùng</th>
+              <th>Hạn Thanh Toán</th>
+              <th>Tiền Nhập Kho</th>
+              <th>Đã Chi Trả</th>
+              <th>Còn Phải Trả</th>
+              <th>Trạng Thái</th>
+            </tr>
+          </thead>
+          <tbody id="supplierDebitTableBody">
+            <tr><td colspan="11" class="muted" style="text-align:center;">Đang tải danh sách nợ nhập kho...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Lập Phiếu Chi Thanh Toán Nhà Cung Cấp Mới -->
+  <div id="tab-newSupplierPayment" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <div>
+          <h3 style="margin:0;">Lập Phiếu Chi Thanh Toán Nhà Cung Cấp Mới (Ser_Payment / FrmSupplierPaymentCreate)</h3>
+          <p class="muted" style="margin:2px 0 0;">Chi tiền thanh toán công nợ mua phụ tùng, vật tư xe ô tô và tự động phân bổ FIFO trừ nợ các phiếu nhập kho PNK.</p>
+        </div>
+        <button class="secondary" onclick="showTab('supplier')">Về Danh Sách</button>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Nhà Cung Cấp Thụ Hưởng *:</label>
+          <select id="inpNewSuppPmtCode" onchange="loadEligibleDebitsForNewSupplierPayment()">
+            <option value="MOBIS-VN">Công ty TNHH Mobis Auto Parts Việt Nam (Phụ tùng chính hãng)</option>
+            <option value="BOSCH-VN">Công ty TNHH Robert Bosch Việt Nam (Gạt mưa, bugi, cảm biến)</option>
+            <option value="CASTROL-VN">Công ty TNHH Castrol BP Petco Việt Nam (Dầu nhớt động cơ)</option>
+            <option value="MICHELIN-VN">Công ty TNHH Michelin Việt Nam (Lốp xe ô tô)</option>
+            <option value="3M-VN">Công ty TNHH 3M Việt Nam (Phim cách nhiệt & chăm sóc xe)</option>
+            <option value="DENSO-VN">Công ty TNHH Denso Việt Nam (Máy phát & điện lạnh ô tô)</option>
+            <option value="PPG-VN">Công ty TNHH Sơn PPG Việt Nam (Sơn ô tô công nghiệp)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Số Tiền Thanh Toán Xuất Quỹ (VND) *:</label>
+          <input type="number" id="inpNewSuppPmtAmount" value="30000000" step="1000000">
+        </div>
+        <div class="col">
+          <label class="muted">Ngày Chi Trả *:</label>
+          <input type="date" id="inpNewSuppPmtDate">
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Người Nhận Tiền / Đại Diện NCC *:</label>
+          <input type="text" id="inpNewSuppPmtPersonName" value="Nguyễn Văn Hùng (Kế toán công nợ NCC)">
+        </div>
+        <div class="col">
+          <label class="muted">Số CMT/CCCD Người Nhận:</label>
+          <input type="text" id="inpNewSuppPmtIDCard" value="001088019283">
+        </div>
+        <div class="col">
+          <label class="muted">Số Điện Thoại:</label>
+          <input type="text" id="inpNewSuppPmtPhone" value="024-3768-9988">
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Phương Thức Thanh Toán:</label>
+          <select id="inpNewSuppPmtMethod">
+            <option value="0">Ủy nhiệm chi chuyển khoản ngân hàng (BankTransfer)</option>
+            <option value="1">Cổng thanh toán điện tử VNPay QR B2B</option>
+            <option value="2">Ví điện tử MoMo B2B</option>
+            <option value="3">Tiền mặt xuất quỹ thủ quỹ</option>
+            <option value="4">Bù trừ công nợ đối ứng linh kiện</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Ngân Hàng Trích Nợ / Chi Tiền:</label>
+          <select id="inpNewSuppPmtBankCode">
+            <option value="CTG">VietinBank - Ngân hàng TMCP Công Thương Việt Nam</option>
+            <option value="TCB">Techcombank - Ngân hàng TMCP Kỹ Thương Việt Nam</option>
+            <option value="VCB">Vietcombank - Ngân hàng TMCP Ngoại Thương</option>
+            <option value="MBB">MBBank - Ngân hàng TMCP Quân Đội</option>
+            <option value="VPB">VPBank - Ngân hàng TMCP Việt Nam Thịnh Vượng</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Mã Giao Dịch UNC / Bút Toán Ngân Hàng:</label>
+          <input type="text" id="inpNewSuppPmtBankTxnRef" value="UNC-202505-889912">
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label class="muted">Ghi Chú Đợt Chi Trả:</label>
+        <input type="text" id="inpNewSuppPmtNote" value="Thanh toán công nợ mua phụ tùng linh kiện bảo dưỡng xe định kỳ">
+      </div>
+
+      <!-- Danh sách phiếu nhập kho còn nợ sẽ được phân bổ FIFO -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin:16px 0 8px;">
+        <h4 style="margin:0;">Phiếu Nhập Kho Phụ Tùng Sẽ Được Tự Động Phân Bổ (FIFO: Nợ cũ trừ trước)</h4>
+        <button class="secondary" onclick="loadEligibleDebitsForNewSupplierPayment()">Tải Lại Danh Sách Nợ</button>
+      </div>
+
+      <div style="overflow-x:auto; margin-bottom:12px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Mã Khoản Nợ</th>
+              <th>Phiếu Nhập Kho</th>
+              <th>Đơn Hàng PO</th>
+              <th>Nhóm Phụ Tùng</th>
+              <th>Ngày Nhập Kho</th>
+              <th>Hạn Nợ</th>
+              <th>Tiền Nhập Kho</th>
+              <th>Đã Thanh Toán</th>
+              <th>Còn Phải Trả</th>
+            </tr>
+          </thead>
+          <tbody id="eligibleSupplierDebitsTableBody">
+            <tr><td colspan="9" class="muted" style="text-align:center;">Chọn nhà cung cấp để xem các phiếu nhập kho còn nợ.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+        <span id="submitNewSuppPmtMsg" style="margin-right:12px; align-self:center; color:var(--primary); font-weight:500;"></span>
+        <button class="secondary" onclick="showTab('supplier')">Hủy Bỏ</button>
+        <button onclick="submitCreateSupplierPayment()">Tạo Phiếu Chi &amp; Tự Động Phân Bổ Nợ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Lập Hồ Sơ Nợ Nhập Kho Phụ Tùng Mới -->
+  <div id="tab-newSupplierDebit" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; border-bottom:1px solid var(--border); padding-bottom:8px;">
+        <div>
+          <h3 style="margin:0;">Lập Hồ Sơ Công Nợ Nhập Kho Phụ Tùng Mới (Ser_SupplierDebit / FrmSuplierDebitCreate)</h3>
+          <p class="muted" style="margin:2px 0 0;">Ghi nhận công nợ phải trả theo Phiếu nhập kho linh kiện, phụ tùng và vật tư thay thế cho xưởng dịch vụ ô tô.</p>
+        </div>
+        <button class="secondary" onclick="showTab('supplier')">Về Danh Sách</button>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Nhà Cung Cấp Phụ Tùng *:</label>
+          <select id="inpNewSuppDebCode">
+            <option value="MOBIS-VN">Công ty TNHH Mobis Auto Parts Việt Nam</option>
+            <option value="BOSCH-VN">Công ty TNHH Robert Bosch Việt Nam</option>
+            <option value="CASTROL-VN">Công ty TNHH Castrol BP Petco Việt Nam</option>
+            <option value="MICHELIN-VN">Công ty TNHH Michelin Việt Nam</option>
+            <option value="3M-VN">Công ty TNHH 3M Việt Nam</option>
+            <option value="DENSO-VN">Công ty TNHH Denso Việt Nam</option>
+            <option value="PPG-VN">Công ty TNHH Sơn PPG Việt Nam</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Số Phiếu Nhập Kho (StockInNo) *:</label>
+          <input type="text" id="inpNewSuppDebStockInNo" value="PNK-2025-0520">
+        </div>
+        <div class="col">
+          <label class="muted">Số Đơn Hàng Phụ Tùng (OrderPartNo / PO):</label>
+          <input type="text" id="inpNewSuppDebOrderPartNo" value="PO-2025-0525">
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Nhóm Phụ Tùng / Chủng Loại *:</label>
+          <input type="text" id="inpNewSuppDebCategory" value="Bộ má phanh đĩa gốm & Lọc dầu nhớt động cơ">
+        </div>
+        <div class="col">
+          <label class="muted">Số Tiền Nhập Kho (VND) *:</label>
+          <input type="number" id="inpNewSuppDebAmount" value="38500000" step="500000">
+        </div>
+        <div class="col">
+          <label class="muted">Hạn Thanh Toán Cam Kết:</label>
+          <input type="date" id="inpNewSuppDebDueDate">
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label class="muted">Diễn Giải Lô Linh Kiện / Ghi Chú:</label>
+        <input type="text" id="inpNewSuppDebNote" value="Nhập kho 60 bộ lọc nhớt Santa Fe 2.5 và 40 bộ má phanh Tucson gốm cao cấp">
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+        <span id="submitNewSuppDebMsg" style="margin-right:12px; align-self:center; color:var(--primary); font-weight:500;"></span>
+        <button class="secondary" onclick="showTab('supplier')">Hủy Bỏ</button>
+        <button onclick="submitCreateSupplierDebit()">Ghi Nhận Công Nợ Nhập Kho</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal In Giấy Báo Chi Tiền Thanh Toán Nhà Cung Cấp Phụ Tùng (SerPaymentPaperRpt Advice) -->
+  <div id="modalSupplierPaymentAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:960px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.2em;">PHIẾU CHI THANH TOÁN TIỀN NHÀ CUNG CẤP PHỤ TÙNG (SerPaymentPaperRpt)</h2>
+        <button class="secondary" onclick="closeSupplierAdviceModal()">Đóng [X]</button>
+      </div>
+      <div id="supplierAdviceContent" style="margin-top:16px; font-size:.9em; line-height:1.6;"></div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('supplierAdviceContent').innerText); alert('Đã sao chép nội dung Phiếu chi vào clipboard!');">Sao Chép Nội Dung</button>
+        <button onclick="window.print()">In Phiếu Chi</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB 5: API Docs -->
   <div id="tab-apiDocs" style="display:none;">
     <div class="card">
@@ -5313,6 +5625,21 @@
         <li><code>GET /api/insurance-payments/{id}/advice</code> — Sinh dữ liệu mẫu in Phiếu Thu Tiền Quyết Toán Bồi Thường Bảo Hiểm (SerPaymentPaperRpt Advice)</li>
         <li><code>GET /api/insurance-payments/summary</code> — Báo cáo tổng hợp Dashboard KPI công nợ &amp; thanh toán bảo hiểm</li>
       </ul>
+      <h3>Nghiệp Vụ Quản Lý Công Nợ &amp; Thanh Toán Nhà Cung Cấp Phụ Tùng (Supplier Payment &amp; Settlement - BizCarSv.Debit.cs / FrmSupplierPaymentCreate)</h3>
+      <ul>
+        <li><code>POST /api/supplier-payments/debits</code> — Tạo hồ sơ công nợ phải trả theo Phiếu nhập kho phụ tùng/vật tư ô tô (Ser_SupplierDebit / FrmSuplierDebitCreate)</li>
+        <li><code>GET /api/supplier-payments/debits</code> — Danh sách công nợ phải trả NCC (hỗ trợ lọc theo <code>supplierCode</code>, <code>status</code>, <code>keyword</code>, <code>fromDate</code>, <code>toDate</code>)</li>
+        <li><code>GET /api/supplier-payments/debits/{id}</code> — Chi tiết 1 hồ sơ công nợ nhà cung cấp</li>
+        <li><code>GET /api/supplier-payments/debits/eligible/{supplierCode}</code> — Danh sách phiếu nhập kho còn nợ của một nhà cung cấp để phân bổ</li>
+        <li><code>POST /api/supplier-payments</code> — Lập phiếu chi thanh toán nhà cung cấp mới (Tự động phân bổ FIFO trừ nợ phiếu nhập kho theo SerPaymentCreate)</li>
+        <li><code>GET /api/supplier-payments</code> — Danh sách phiếu chi thanh toán NCC (lọc theo <code>supplierCode</code>, <code>status</code>, <code>method</code>)</li>
+        <li><code>GET /api/supplier-payments/{id}</code> — Chi tiết phiếu chi thanh toán kèm bảng phân bổ từng phiếu nhập kho</li>
+        <li><code>POST /api/supplier-payments/{id}/confirm</code> — Kế toán trưởng thẩm định xác nhận duyệt chi (Draft &rarr; Confirmed)</li>
+        <li><code>POST /api/supplier-payments/{id}/settle</code> — Hoàn tất xuất quỹ / chuyển khoản UNC ngân hàng và chốt sổ kế toán (Confirmed &rarr; Settled)</li>
+        <li><code>POST /api/supplier-payments/{id}/cancel</code> — Hủy phiếu chi và tự động HOÀN TÁC (ROLLBACK) nợ trên các phiếu nhập kho</li>
+        <li><code>GET /api/supplier-payments/{id}/advice</code> — Sinh dữ liệu mẫu in Phiếu Chi Thanh Toán Tiền Nhà Cung Cấp Phụ Tùng (SerPaymentPaperRpt Advice)</li>
+        <li><code>GET /api/supplier-payments/summary</code> — Báo cáo tổng hợp Dashboard KPI công nợ &amp; thanh toán nhà cung cấp</li>
+      </ul>
     </div>
   </div>
 
@@ -5342,6 +5669,7 @@
       document.getElementById('tab-disbursement').style.display = tabName === 'disbursement' ? 'block' : 'none';
       document.getElementById('tab-cancelBankMD').style.display = tabName === 'cancelBankMD' ? 'block' : 'none';
       document.getElementById('tab-insurance').style.display = tabName === 'insurance' ? 'block' : 'none';
+      document.getElementById('tab-supplier').style.display = tabName === 'supplier' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -5363,6 +5691,8 @@
       document.getElementById('tab-newCancelBankMD').style.display = tabName === 'newCancelBankMD' ? 'block' : 'none';
       document.getElementById('tab-newInsurancePayment').style.display = tabName === 'newInsurancePayment' ? 'block' : 'none';
       document.getElementById('tab-newInsuranceDebit').style.display = tabName === 'newInsuranceDebit' ? 'block' : 'none';
+      document.getElementById('tab-newSupplierPayment').style.display = tabName === 'newSupplierPayment' ? 'block' : 'none';
+      document.getElementById('tab-newSupplierDebit').style.display = tabName === 'newSupplierDebit' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
@@ -5386,28 +5716,31 @@
           (tabName === 'disbursement' && i === 16) ||
           (tabName === 'cancelBankMD' && i === 17) ||
           (tabName === 'insurance' && i === 18) ||
-          (tabName === 'newBatch' && i === 19) ||
-          (tabName === 'newPayout' && i === 20) ||
-          (tabName === 'newDiscount' && i === 21) ||
-          (tabName === 'newGuarantee' && i === 22) ||
-          (tabName === 'newMortgage' && i === 23) ||
-          (tabName === 'newRedeem' && i === 24) ||
-          (tabName === 'newPaymentOrder' && i === 25) ||
-          (tabName === 'newBankBill' && i === 26) ||
-          (tabName === 'newPaymentPDI' && i === 27) ||
-          (tabName === 'newPenaltyDelay' && i === 28) ||
-          (tabName === 'newTransportIns' && i === 29) ||
-          (tabName === 'newPaymentStorage' && i === 30) ||
-          (tabName === 'newGuaranteeExt' && i === 31) ||
-          (tabName === 'newGuaranteeClaim' && i === 32) ||
-          (tabName === 'newPaymentAVN' && i === 33) ||
-          (tabName === 'newPaymentGPS' && i === 34) ||
-          (tabName === 'newFnExp' && i === 35) ||
-          (tabName === 'newDisbursement' && i === 36) ||
-          (tabName === 'newCancelBankMD' && i === 37) ||
-          (tabName === 'newInsurancePayment' && i === 38) ||
-          (tabName === 'newInsuranceDebit' && i === 39) ||
-          (tabName === 'apiDocs' && i === 40));
+          (tabName === 'supplier' && i === 19) ||
+          (tabName === 'newBatch' && i === 20) ||
+          (tabName === 'newPayout' && i === 21) ||
+          (tabName === 'newDiscount' && i === 22) ||
+          (tabName === 'newGuarantee' && i === 23) ||
+          (tabName === 'newMortgage' && i === 24) ||
+          (tabName === 'newRedeem' && i === 25) ||
+          (tabName === 'newPaymentOrder' && i === 26) ||
+          (tabName === 'newBankBill' && i === 27) ||
+          (tabName === 'newPaymentPDI' && i === 28) ||
+          (tabName === 'newPenaltyDelay' && i === 29) ||
+          (tabName === 'newTransportIns' && i === 30) ||
+          (tabName === 'newPaymentStorage' && i === 31) ||
+          (tabName === 'newGuaranteeExt' && i === 32) ||
+          (tabName === 'newGuaranteeClaim' && i === 33) ||
+          (tabName === 'newPaymentAVN' && i === 34) ||
+          (tabName === 'newPaymentGPS' && i === 35) ||
+          (tabName === 'newFnExp' && i === 36) ||
+          (tabName === 'newDisbursement' && i === 37) ||
+          (tabName === 'newCancelBankMD' && i === 38) ||
+          (tabName === 'newInsurancePayment' && i === 39) ||
+          (tabName === 'newInsuranceDebit' && i === 40) ||
+          (tabName === 'newSupplierPayment' && i === 41) ||
+          (tabName === 'newSupplierDebit' && i === 42) ||
+          (tabName === 'apiDocs' && i === 43));
       });
 
       if (tabName === 'reconcile') loadBatches();
@@ -5430,6 +5763,8 @@
       else if (tabName === 'cancelBankMD') { loadCancelBankMDList(); loadCancelBankMDSummary(); }
       else if (tabName === 'insurance') { loadInsuranceData(); }
       else if (tabName === 'newInsurancePayment') { loadEligibleDebitsForNewPayment(); }
+      else if (tabName === 'supplier') { loadSupplierData(); }
+      else if (tabName === 'newSupplierPayment') { loadEligibleDebitsForNewSupplierPayment(); }
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====
@@ -14785,6 +15120,455 @@
       }
     }
 
+    // ===== TAB: QUẢN LÝ CÔNG NỢ & THANH TOÁN NHÀ CUNG CẤP PHỤ TÙNG (Supplier Payment & Settlement) =====
+    async function loadSupplierSummary() {
+      try {
+        const res = await fetch('/api/supplier-payments/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('suppStatTotalInvoices').textContent = d.totalInvoices;
+        document.getElementById('suppStatTotalDebtAmt').textContent = Number(d.totalDebtAmount).toLocaleString('vi-VN') + ' đ';
+        document.getElementById('suppStatTotalPaidAmt').textContent = Number(d.totalPaidAmount).toLocaleString('vi-VN') + ' đ';
+        document.getElementById('suppStatRemainingDebt').textContent = Number(d.totalRemainingDebt).toLocaleString('vi-VN') + ' đ';
+        document.getElementById('suppStatSettlementRate').textContent = d.settlementRate + '%';
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadSupplierPayments() {
+      const suppCode = document.getElementById('filterSupplierCode').value;
+      let url = '/api/supplier-payments?';
+      if (suppCode) url += 'supplierCode=' + encodeURIComponent(suppCode) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('supplierPaymentTableBody');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="10" class="muted" style="text-align:center;">Chưa có phiếu chi thanh toán nhà cung cấp nào.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(p => {
+          let badge = 'badge-info';
+          let stLabel = p.status;
+          if (p.status === 'Settled') { badge = 'badge-success'; stLabel = 'Đã Quyết Toán'; }
+          else if (p.status === 'Confirmed') { badge = 'badge-primary'; stLabel = 'Đã Duyệt Chi'; }
+          else if (p.status === 'Draft') { badge = 'muted'; stLabel = 'Bản Nháp'; }
+          else if (p.status === 'Cancelled') { badge = 'badge-danger'; stLabel = 'Đã Hủy'; }
+
+          let methodText = p.paymentMethod === 0 ? 'Chuyển khoản UNC' :
+                           p.paymentMethod === 1 ? 'VNPay QR B2B' :
+                           p.paymentMethod === 2 ? 'MoMo B2B' :
+                           p.paymentMethod === 3 ? 'Tiền mặt xuất quỹ' : 'Bù trừ linh kiện';
+
+          let bankInfo = p.bankCode ? `<strong>${p.bankCode}</strong>` : '-';
+          if (p.bankTxnRef) bankInfo += `<br><small class="muted">${p.bankTxnRef}</small>`;
+
+          return `
+            <tr>
+              <td><strong>${p.paymentNo}</strong></td>
+              <td>${p.payDate ? p.payDate.slice(0, 10) : '-'}</td>
+              <td><strong>${p.supplierName}</strong><br><small class="muted">${p.supplierCode}</small></td>
+              <td>${p.payPersonName}<br><small class="muted">${p.payPersonPhone || ''}</small></td>
+              <td style="text-align:right; font-weight:bold; color:var(--primary);">${Number(p.paymentAmount).toLocaleString('vi-VN')} đ</td>
+              <td><span class="badge badge-info">${methodText}</span></td>
+              <td>${bankInfo}</td>
+              <td style="text-align:right; color:var(--success); font-weight:600;">${Number(p.totalAllocated).toLocaleString('vi-VN')} đ</td>
+              <td><span class="badge ${badge}">${stLabel}</span></td>
+              <td>
+                <button class="secondary" style="padding:2px 6px; font-size:.8em;" onclick="viewSupplierPaymentAdvice(${p.id})">In Phiếu</button>
+                ${p.status === 'Draft' ? `<button style="padding:2px 6px; font-size:.8em;" onclick="confirmSupplierPayment(${p.id})">Duyệt Chi</button>` : ''}
+                ${(p.status === 'Confirmed' || p.status === 'Draft') ? `<button class="secondary" style="padding:2px 6px; font-size:.8em; color:var(--success);" onclick="settleSupplierPayment(${p.id})">Quyết Toán</button>` : ''}
+                ${p.status !== 'Cancelled' ? `<button class="secondary" style="padding:2px 6px; font-size:.8em; color:var(--danger);" onclick="cancelSupplierPayment(${p.id})">Hủy</button>` : ''}
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadSupplierDebits() {
+      const suppCode = document.getElementById('filterSupplierCode').value;
+      const kw = document.getElementById('filterSupplierKeyword').value.trim();
+      let url = '/api/supplier-payments/debits?';
+      if (suppCode) url += 'supplierCode=' + encodeURIComponent(suppCode) + '&';
+      if (kw) url += 'keyword=' + encodeURIComponent(kw) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('supplierDebitTableBody');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="11" class="muted" style="text-align:center;">Chưa có khoản nợ nhập kho phụ tùng nào phù hợp.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(d => {
+          let badge = 'badge-info';
+          let stLabel = d.status;
+          if (d.status === 'Settled') { badge = 'badge-success'; stLabel = 'Đã Tất Toán'; }
+          else if (d.status === 'PartiallyPaid') { badge = 'badge-warning'; stLabel = 'Trả Một Phần'; }
+          else if (d.status === 'Pending') { badge = 'badge-danger'; stLabel = 'Chờ Thanh Toán'; }
+          else if (d.status === 'Cancelled') { badge = 'muted'; stLabel = 'Đã Hủy'; }
+
+          return `
+            <tr>
+              <td><code>${d.debitNo}</code></td>
+              <td><strong>${d.stockInNo}</strong></td>
+              <td>${d.stockInDate ? d.stockInDate.slice(0, 10) : '-'}</td>
+              <td><code>${d.orderPartNo || '-'}</code></td>
+              <td><strong>${d.supplierName}</strong></td>
+              <td>${d.category || '-'}</td>
+              <td>${d.dueDate ? d.dueDate.slice(0, 10) : '-'}</td>
+              <td style="text-align:right;">${Number(d.debitAmount).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; color:var(--success);">${Number(d.paidAmount).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; font-weight:bold; color:${d.remainAmount === 0 ? 'var(--success)' : 'var(--danger)'};">${Number(d.remainAmount).toLocaleString('vi-VN')} đ</td>
+              <td><span class="badge ${badge}">${stLabel}</span></td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadSupplierData() {
+      await loadSupplierSummary();
+      await loadSupplierPayments();
+      await loadSupplierDebits();
+    }
+
+    async function confirmSupplierPayment(id) {
+      if (!confirm('Kế toán trưởng xác nhận duyệt chi thanh toán cho nhà cung cấp?')) return;
+      try {
+        const res = await fetch(`/api/supplier-payments/${id}/confirm`, {
+          method: 'POST', headers, body: JSON.stringify({ confirmedBy: 'TranDinhTuan_KeToanTruong' })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        await loadSupplierData();
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function settleSupplierPayment(id) {
+      const txnRef = prompt('Nhập số bút toán UNC / mã giao dịch ngân hàng hoàn tất thanh toán:', `UNC-TCB-202505-${Math.floor(100000 + Math.random() * 900000)}`);
+      if (!txnRef) return;
+      try {
+        const res = await fetch(`/api/supplier-payments/${id}/settle`, {
+          method: 'POST', headers, body: JSON.stringify({ settledBy: 'NguyenThiThu_KeToanThanhToan', bankTxnRef: txnRef })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        await loadSupplierData();
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function cancelSupplierPayment(id) {
+      const reason = prompt('Nhập lý do hủy phiếu chi (hệ thống sẽ tự động hoàn tác nợ trên các phiếu nhập kho):', 'Chứng từ nhập kho có điều chỉnh hoặc lệnh chi bị thu hồi');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/supplier-payments/${id}/cancel`, {
+          method: 'POST', headers, body: JSON.stringify({ reason: reason, cancelledBy: 'TranDinhTuan_KeToanTruong' })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã hủy phiếu chi và hoàn tác công nợ các phiếu nhập kho thành công!');
+        await loadSupplierData();
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function viewSupplierPaymentAdvice(id) {
+      try {
+        const res = await fetch(`/api/supplier-payments/${id}/advice`, { headers });
+        if (!res.ok) { alert('Không tìm thấy phiếu chi.'); return; }
+        const a = await res.json();
+
+        let detailsHtml = a.details.map(d => `
+          <tr>
+            <td style="text-align:center;">${d.no}</td>
+            <td><strong>${d.stockInNo}</strong></td>
+            <td><code>${d.orderPartNo || '-'}</code></td>
+            <td><code>${d.debitNo}</code></td>
+            <td style="text-align:right;">${Number(d.debitAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right;">${Number(d.debitAmountBefore).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; font-weight:700; color:var(--primary);">${Number(d.paymentDetailAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; color:${d.debitAmountLeft === 0 ? 'var(--success)' : 'var(--danger)'}; font-weight:600;">${Number(d.debitAmountLeft).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:center;"><span class="badge ${d.debitAmountLeft === 0 ? 'badge-success' : 'badge-warning'}">${d.statusAfterPayment}</span></td>
+          </tr>
+        `).join('');
+
+        const html = `
+          <div style="border:2px solid var(--border); padding:20px; background:#fff; color:#000;">
+            <div style="display:flex; justify-content:space-between; border-bottom:2px solid #000; padding-bottom:12px; margin-bottom:16px;">
+              <div>
+                <h3 style="margin:0; text-transform:uppercase; color:#000;">CÔNG TY CỔ PHẦN LIÊN DOANH Ô TÔ HYUNDAI THÀNH CÔNG VIỆT NAM</h3>
+                <p style="margin:2px 0 0; font-size:.85em; color:#555;">Khu công nghiệp Gián Khẩu, Huyện Gia Viễn, Tỉnh Ninh Bình</p>
+                <p style="margin:2px 0 0; font-size:.85em; color:#555;">Phòng Kế Toán Tài Chính &amp; Quản Lý Phụ Tùng Dịch Vụ</p>
+              </div>
+              <div style="text-align:right;">
+                <h4 style="margin:0; color:#000;">Mẫu biểu: SerPaymentPaperRpt</h4>
+                <p style="margin:2px 0 0; font-size:.85em; color:#555;">Số phiếu: <strong>${a.paymentNo}</strong></p>
+                <p style="margin:2px 0 0; font-size:.85em; color:#555;">Ngày in: ${a.printDate}</p>
+              </div>
+            </div>
+
+            <div style="text-align:center; margin-bottom:20px;">
+              <h2 style="margin:0; text-transform:uppercase; letter-spacing:1px; color:#000;">PHIẾU CHI THANH TOÁN TIỀN NHÀ CUNG CẤP PHỤ TÙNG</h2>
+              <p style="margin:4px 0 0; font-style:italic; font-size:.9em; color:#555;">(Thanh toán công nợ mua phụ tùng, linh kiện và vật tư sửa chữa ô tô)</p>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; font-size:.95em;">
+              <div><strong>Nhà cung cấp thụ hưởng:</strong> ${a.supplierName} (<code>${a.supplierCode}</code>)</div>
+              <div><strong>Hình thức thanh toán:</strong> ${a.paymentMethodText}</div>
+              <div><strong>Địa chỉ nhà cung cấp:</strong> ${a.supplierAddress || '-'}</div>
+              <div><strong>Ngân hàng chuyển tiền:</strong> ${a.bankName || a.bankCode || 'Quỹ tiền mặt'}</div>
+              <div><strong>Người nhận tiền / đại diện NCC:</strong> ${a.payPersonName} ${a.payPersonPhone ? '(' + a.payPersonPhone + ')' : ''}</div>
+              <div><strong>Số tài khoản thụ hưởng:</strong> ${a.bankAccountNo || '-'}</div>
+              <div><strong>Số CMT/CCCD người nhận:</strong> ${a.payPersonIDCardNo || '-'}</div>
+              <div><strong>Số bút toán / Mã UNC:</strong> ${a.bankTxnRef || '-'}</div>
+              <div><strong>Trạng thái phiếu chi:</strong> <strong>${a.statusText}</strong></div>
+              <div><strong>Người lập phiếu chi:</strong> ${a.createdBy || '-'}</div>
+            </div>
+
+            <div style="margin:16px 0 6px;">
+              <strong>DANH SÁCH PHIẾU NHẬP KHO ĐƯỢC PHÂN BỔ THANH TOÁN (FIFO):</strong>
+            </div>
+
+            <table style="width:100%; border-collapse:collapse; margin-bottom:14px; font-size:.9em;">
+              <thead>
+                <tr style="background:#f1f5f9; color:#000; border-top:1px solid #000; border-bottom:1px solid #000;">
+                  <th style="padding:6px; border:1px solid #ccc; text-align:center;">STT</th>
+                  <th style="padding:6px; border:1px solid #ccc;">Số Phiếu Nhập (PNK)</th>
+                  <th style="padding:6px; border:1px solid #ccc;">Đơn Hàng (PO)</th>
+                  <th style="padding:6px; border:1px solid #ccc;">Mã Công Nợ</th>
+                  <th style="padding:6px; border:1px solid #ccc; text-align:right;">Tiền Nợ Gốc</th>
+                  <th style="padding:6px; border:1px solid #ccc; text-align:right;">Dư Nợ Trước</th>
+                  <th style="padding:6px; border:1px solid #ccc; text-align:right;">Chi Đợt Này</th>
+                  <th style="padding:6px; border:1px solid #ccc; text-align:right;">Dư Nợ Sau</th>
+                  <th style="padding:6px; border:1px solid #ccc; text-align:center;">Tình Trạng</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${detailsHtml}
+              </tbody>
+            </table>
+
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; padding:12px; margin-bottom:16px;">
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span>Tổng số tiền xuất chi thanh toán:</span>
+                <strong style="font-size:1.15em; color:#0284c7;">${Number(a.paymentAmount).toLocaleString('vi-VN')} VND</strong>
+              </div>
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span>Tổng số tiền đã phân bổ xóa nợ các phiếu nhập kho:</span>
+                <strong style="color:#16a34a;">${Number(a.totalAllocated).toLocaleString('vi-VN')} VND</strong>
+              </div>
+              ${a.unallocatedAmount > 0 ? `
+              <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                <span>Số tiền chi thừa / tạm ứng lưu kỳ sau:</span>
+                <strong style="color:#d97706;">${Number(a.unallocatedAmount).toLocaleString('vi-VN')} VND</strong>
+              </div>` : ''}
+              <div style="margin-top:6px; font-style:italic;">
+                <strong>Bằng chữ:</strong> ${a.paymentAmountInWords}
+              </div>
+              <div style="margin-top:4px;">
+                <strong>Diễn giải:</strong> ${a.note || '-'}
+              </div>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr 1fr; text-align:center; margin-top:24px; padding-top:10px;">
+              <div>
+                <strong>NGƯỜI NHẬN TIỀN / ĐẠI DIỆN NCC</strong><br>
+                <small style="color:#666;">(Ký, ghi rõ họ tên)</small><br><br><br><br>
+                <strong>${a.payPersonName}</strong>
+              </div>
+              <div>
+                <strong>KẾ TOÁN THANH TOÁN</strong><br>
+                <small style="color:#666;">(Ký, ghi rõ họ tên)</small><br><br><br><br>
+                <strong>${a.settledBy || a.createdBy || 'KeToanThanhToan'}</strong>
+              </div>
+              <div>
+                <strong>KẾ TOÁN TRƯỞNG / THỦ QUỸ</strong><br>
+                <small style="color:#666;">(Ký, đóng dấu)</small><br><br><br><br>
+                <strong>${a.confirmedBy || 'TranDinhTuan_KeToanTruong'}</strong>
+              </div>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('supplierAdviceContent').innerHTML = html;
+        document.getElementById('modalSupplierPaymentAdvice').style.display = 'block';
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    function closeSupplierAdviceModal() {
+      document.getElementById('modalSupplierPaymentAdvice').style.display = 'none';
+    }
+
+    async function loadEligibleDebitsForNewSupplierPayment() {
+      const suppCode = document.getElementById('inpNewSuppPmtCode').value;
+      const tbody = document.getElementById('eligibleSupplierDebitsTableBody');
+      if (!suppCode) {
+        tbody.innerHTML = '<tr><td colspan="9" class="muted" style="text-align:center;">Chọn nhà cung cấp để xem phiếu nhập kho còn nợ.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = '<tr><td colspan="9" class="muted" style="text-align:center;">Đang tải danh sách nợ...</td></tr>';
+      try {
+        const res = await fetch(`/api/supplier-payments/debits/eligible/${encodeURIComponent(suppCode)}`, { headers });
+        if (!res.ok) {
+          tbody.innerHTML = '<tr><td colspan="9" class="muted" style="text-align:center;">Không thể tải danh sách nợ.</td></tr>';
+          return;
+        }
+        const list = await res.json();
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="9" class="muted" style="text-align:center; color:var(--success);">Nhà cung cấp này hiện không có khoản nợ nhập kho nào tồn đọng!</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(d => `
+          <tr>
+            <td><code>${d.debitNo}</code></td>
+            <td><strong>${d.stockInNo}</strong></td>
+            <td><code>${d.orderPartNo || '-'}</code></td>
+            <td>${d.category || '-'}</td>
+            <td>${d.debitDate ? d.debitDate.slice(0, 10) : '-'}</td>
+            <td>${d.dueDate ? d.dueDate.slice(0, 10) : '-'}</td>
+            <td style="text-align:right;">${Number(d.debitAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; color:var(--success);">${Number(d.paidAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; font-weight:bold; color:var(--danger);">${Number(d.remainAmount).toLocaleString('vi-VN')} đ</td>
+          </tr>
+        `).join('');
+      } catch(e) {
+        tbody.innerHTML = '<tr><td colspan="9" class="muted" style="text-align:center; color:var(--danger);">Lỗi tải dữ liệu.</td></tr>';
+      }
+    }
+
+    async function submitCreateSupplierPayment() {
+      const msg = document.getElementById('submitNewSuppPmtMsg');
+      const suppCode = document.getElementById('inpNewSuppPmtCode').value;
+      const amount = parseInt(document.getElementById('inpNewSuppPmtAmount').value) || 0;
+      const payDate = document.getElementById('inpNewSuppPmtDate').value;
+      const personName = document.getElementById('inpNewSuppPmtPersonName').value.trim();
+      const idCard = document.getElementById('inpNewSuppPmtIDCard').value.trim();
+      const phone = document.getElementById('inpNewSuppPmtPhone').value.trim();
+      const method = parseInt(document.getElementById('inpNewSuppPmtMethod').value) || 0;
+      const bankCode = document.getElementById('inpNewSuppPmtBankCode').value;
+      const bankTxnRef = document.getElementById('inpNewSuppPmtBankTxnRef').value.trim();
+      const note = document.getElementById('inpNewSuppPmtNote').value.trim();
+
+      if (amount <= 0) {
+        alert('Số tiền thanh toán phải lớn hơn 0.');
+        return;
+      }
+      if (!personName) {
+        alert('Tên người nhận tiền / đại diện NCC không được để trống.');
+        return;
+      }
+
+      const payload = {
+        supplierCode: suppCode,
+        paymentAmount: amount,
+        payDate: payDate ? new Date(payDate) : new Date(),
+        payPersonName: personName,
+        payPersonIDCardNo: idCard,
+        payPersonPhone: phone,
+        paymentMethod: method,
+        bankCode: bankCode,
+        bankTxnRef: bankTxnRef,
+        note: note,
+        autoAllocateFifo: true
+      };
+
+      msg.textContent = 'Đang lập phiếu chi & tự động phân bổ nợ...';
+      try {
+        const res = await fetch('/api/supplier-payments', {
+          method: 'POST', headers, body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Số phiếu chi: ${data.paymentNo} (Đã phân bổ: ${Number(data.totalAllocated).toLocaleString('vi-VN')} đ)`;
+        setTimeout(() => {
+          showTab('supplier');
+          loadSupplierData();
+        }, 800);
+      } catch(e) { msg.textContent = 'Lỗi: ' + e.message; }
+    }
+
+    async function submitCreateSupplierDebit() {
+      const msg = document.getElementById('submitNewSuppDebMsg');
+      const suppCode = document.getElementById('inpNewSuppDebCode').value;
+      const stockInNo = document.getElementById('inpNewSuppDebStockInNo').value.trim();
+      const orderPartNo = document.getElementById('inpNewSuppDebOrderPartNo').value.trim();
+      const category = document.getElementById('inpNewSuppDebCategory').value.trim();
+      const amount = parseInt(document.getElementById('inpNewSuppDebAmount').value) || 0;
+      const dueDate = document.getElementById('inpNewSuppDebDueDate').value;
+      const note = document.getElementById('inpNewSuppDebNote').value.trim();
+
+      if (!stockInNo) {
+        alert('Số phiếu nhập kho (StockInNo) không được để trống.');
+        return;
+      }
+      if (amount <= 0) {
+        alert('Số tiền nhập kho phải lớn hơn 0.');
+        return;
+      }
+
+      const payload = {
+        supplierCode: suppCode,
+        stockInNo: stockInNo,
+        orderPartNo: orderPartNo,
+        category: category,
+        debitAmount: amount,
+        dueDate: dueDate ? new Date(dueDate) : null,
+        note: note
+      };
+
+      msg.textContent = 'Đang ghi nhận công nợ nhập kho...';
+      try {
+        const res = await fetch('/api/supplier-payments/debits', {
+          method: 'POST', headers, body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Mã nợ: ${data.debitNo} (Phiếu nhập: ${data.stockInNo})`;
+        setTimeout(() => {
+          showTab('supplier');
+          loadSupplierData();
+        }, 800);
+      } catch(e) { msg.textContent = 'Lỗi: ' + e.message; }
+    }
+
+    function loadSampleSupplierData() {
+      const today = new Date().toISOString().split('T')[0];
+      const inpDate = document.getElementById('inpNewSuppPmtDate');
+      if (inpDate) inpDate.value = today;
+      const inpDueDate = document.getElementById('inpNewSuppDebDueDate');
+      if (inpDueDate) {
+        const d = new Date();
+        d.setDate(d.getDate() + 30);
+        inpDueDate.value = d.toISOString().split('T')[0];
+      }
+    }
+
     // Khởi tạo
     loadSampleData();
     loadSamplePayoutData();
@@ -14801,6 +15585,7 @@
     loadSampleDisbursementData();
     loadSampleCancelBankMDData();
     loadSampleInsuranceData();
+    loadSampleSupplierData();
     loadBatches();
   </script>
 </body>

@@ -50,6 +50,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<InsuranceClaimDebit> InsuranceClaimDebits => Set<InsuranceClaimDebit>();
     public DbSet<InsurancePayment> InsurancePayments => Set<InsurancePayment>();
     public DbSet<InsurancePaymentDetail> InsurancePaymentDetails => Set<InsurancePaymentDetail>();
+    public DbSet<SupplierDebit> SupplierDebits => Set<SupplierDebit>();
+    public DbSet<SupplierPayment> SupplierPayments => Set<SupplierPayment>();
+    public DbSet<SupplierPaymentDetail> SupplierPaymentDetails => Set<SupplierPaymentDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -274,5 +277,20 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<InsurancePaymentDetail>().HasIndex(x => x.PaymentId);
         b.Entity<InsurancePaymentDetail>().HasIndex(x => x.DebitId);
         b.Entity<InsurancePaymentDetail>().HasIndex(x => new { x.OrgId, x.RONo });
+
+        b.Entity<SupplierDebit>().HasIndex(x => new { x.OrgId, x.DebitNo }).IsUnique();
+        b.Entity<SupplierDebit>().HasIndex(x => new { x.OrgId, x.SupplierCode });
+        b.Entity<SupplierDebit>().HasIndex(x => new { x.OrgId, x.StockInNo });
+        b.Entity<SupplierDebit>().Property(x => x.Status).HasConversion<int>();
+
+        b.Entity<SupplierPayment>().HasIndex(x => new { x.OrgId, x.PaymentNo }).IsUnique();
+        b.Entity<SupplierPayment>().HasIndex(x => new { x.OrgId, x.SupplierCode });
+        b.Entity<SupplierPayment>().Property(x => x.PaymentMethod).HasConversion<int>();
+        b.Entity<SupplierPayment>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<SupplierPayment>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.PaymentId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<SupplierPaymentDetail>().HasIndex(x => x.PaymentId);
+        b.Entity<SupplierPaymentDetail>().HasIndex(x => x.DebitId);
+        b.Entity<SupplierPaymentDetail>().HasIndex(x => new { x.OrgId, x.StockInNo });
     }
 }

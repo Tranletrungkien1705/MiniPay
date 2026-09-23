@@ -46,6 +46,7 @@ builder.Services.AddScoped<FinancialExpenseService>();
 builder.Services.AddScoped<BankingDisbursementService>();
 builder.Services.AddScoped<CancelBankMDService>();
 builder.Services.AddScoped<InsurancePaymentService>();
+builder.Services.AddScoped<SupplierPaymentService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -6158,6 +6159,194 @@ app.MapGet("/api/insurance-payments/{id:long}/advice", async (long id, Insurance
 app.MapGet("/api/insurance-payments/summary", async (InsurancePaymentService insService, ITenantContext tc) =>
 {
     var summary = await insService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
+// ===== Quản Lý Công Nợ & Thanh Toán Quyết Toán Cho Nhà Cung Cấp Phụ Tùng / Dịch Vụ Xe Ô Tô (Supplier Debit & Payment / BizCarSv.Debit.cs) =====
+
+// 1) Lập hồ sơ công nợ nhà cung cấp mới theo phiếu nhập kho phụ tùng (Ser_SupplierDebit / FrmSuplierDebitCreate)
+app.MapPost("/api/supplier-payments/debits", async (CreateSupplierDebitDto dto, SupplierPaymentService suppService, ITenantContext tc) =>
+{
+    try
+    {
+        var debit = await suppService.CreateDebitAsync(tc.OrgId, dto);
+        return Results.Created($"/api/supplier-payments/debits/{debit.Id}", debit);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 2) Tìm kiếm danh sách công nợ phải trả nhà cung cấp (SerSupplierDebitDetailGet / FrmSupplierDebitSearch)
+app.MapGet("/api/supplier-payments/debits", async (
+    string? supplierCode,
+    string? status,
+    string? keyword,
+    DateTime? fromDate,
+    DateTime? toDate,
+    SupplierPaymentService suppService,
+    ITenantContext tc) =>
+{
+    SupplierDebitStatus? st = null;
+    if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<SupplierDebitStatus>(status, true, out var parsedSt))
+        st = parsedSt;
+
+    var list = await suppService.GetDebitsAsync(tc.OrgId, supplierCode, st, keyword, fromDate, toDate);
+    return Results.Ok(list);
+});
+
+// 3) Chi tiết 1 hồ sơ công nợ nhà cung cấp
+app.MapGet("/api/supplier-payments/debits/{id:long}", async (long id, SupplierPaymentService suppService, ITenantContext tc) =>
+{
+    var debit = await suppService.GetDebitByIdAsync(id, tc.OrgId);
+    if (debit == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ nợ #{id}." });
+    return Results.Ok(debit);
+});
+
+// 4) Lấy danh sách phiếu nhập kho còn nợ của một nhà cung cấp (để phân bổ thanh toán)
+app.MapGet("/api/supplier-payments/debits/eligible/{supplierCode}", async (string supplierCode, SupplierPaymentService suppService, ITenantContext tc) =>
+{
+    var list = await suppService.GetEligibleDebitsAsync(tc.OrgId, supplierCode);
+    return Results.Ok(list);
+});
+
+// 5) Lập phiếu chi thanh toán nhà cung cấp mới (Tự động phân bổ FIFO trừ nợ phiếu nhập kho - SerPaymentCreate)
+app.MapPost("/api/supplier-payments", async (CreateSupplierPaymentDto dto, SupplierPaymentService suppService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await suppService.CreatePaymentAsync(tc.OrgId, dto);
+        return Results.Created($"/api/supplier-payments/{payment.Id}", payment);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Tìm kiếm danh sách phiếu chi thanh toán nhà cung cấp (FrmSupplierPaymentCreate)
+app.MapGet("/api/supplier-payments", async (
+    string? supplierCode,
+    string? status,
+    string? method,
+    DateTime? fromDate,
+    DateTime? toDate,
+    SupplierPaymentService suppService,
+    ITenantContext tc) =>
+{
+    SupplierPaymentStatus? st = null;
+    if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<SupplierPaymentStatus>(status, true, out var parsedSt))
+        st = parsedSt;
+
+    SupplierPaymentMethod? m = null;
+    if (!string.IsNullOrWhiteSpace(method) && Enum.TryParse<SupplierPaymentMethod>(method, true, out var parsedM))
+        m = parsedM;
+
+    var list = await suppService.GetPaymentsAsync(tc.OrgId, supplierCode, st, m, fromDate, toDate);
+    return Results.Ok(list);
+});
+
+// 7) Chi tiết 1 phiếu chi thanh toán nhà cung cấp kèm danh sách phân bổ phiếu nhập kho
+app.MapGet("/api/supplier-payments/{id:long}", async (long id, SupplierPaymentService suppService, ITenantContext tc) =>
+{
+    var payment = await suppService.GetPaymentByIdAsync(id, tc.OrgId);
+    if (payment == null) return Results.NotFound(new { error = $"Không tìm thấy phiếu chi #{id}." });
+    return Results.Ok(payment);
+});
+
+// 8) Kế toán trưởng thẩm định xác nhận phiếu chi nhà cung cấp (Draft -> Confirmed)
+app.MapPost("/api/supplier-payments/{id:long}/confirm", async (long id, ConfirmSupplierPaymentDto? dto, SupplierPaymentService suppService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await suppService.ConfirmPaymentAsync(id, tc.OrgId, dto);
+        return Results.Ok(new
+        {
+            message = $"Đã xác nhận phiếu chi #{payment.PaymentNo} thành công.",
+            payment.Id,
+            payment.PaymentNo,
+            Status = payment.Status.ToString(),
+            payment.ConfirmedBy,
+            payment.ConfirmedAt
+        });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 9) Hoàn tất xuất quỹ / chuyển khoản ngân hàng UNC và chốt sổ kế toán (Confirmed -> Settled)
+app.MapPost("/api/supplier-payments/{id:long}/settle", async (long id, SettleSupplierPaymentDto? dto, SupplierPaymentService suppService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await suppService.SettlePaymentAsync(id, tc.OrgId, dto);
+        return Results.Ok(new
+        {
+            message = $"Đã quyết toán hoàn tất phiếu chi #{payment.PaymentNo}.",
+            payment.Id,
+            payment.PaymentNo,
+            Status = payment.Status.ToString(),
+            payment.SettledBy,
+            payment.SettledAt,
+            payment.BankTxnRef
+        });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 10) Hủy phiếu chi thanh toán nhà cung cấp và HOÀN TÁC (ROLLBACK) nợ trên các phiếu nhập kho
+app.MapPost("/api/supplier-payments/{id:long}/cancel", async (long id, CancelSupplierPaymentDto dto, SupplierPaymentService suppService, ITenantContext tc) =>
+{
+    try
+    {
+        var payment = await suppService.CancelPaymentAsync(id, tc.OrgId, dto);
+        return Results.Ok(new
+        {
+            message = $"Đã hủy phiếu chi #{payment.PaymentNo} và hoàn tác nợ trên các phiếu nhập kho thành công.",
+            payment.Id,
+            payment.PaymentNo,
+            Status = payment.Status.ToString(),
+            payment.CancelledBy,
+            payment.CancelledAt,
+            payment.CancelReason
+        });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 11) Sinh dữ liệu mẫu in Phiếu Chi Thanh Toán Tiền Nhà Cung Cấp Phụ Tùng (Advice - SerPaymentPaperRpt)
+app.MapGet("/api/supplier-payments/{id:long}/advice", async (long id, SupplierPaymentService suppService, ITenantContext tc) =>
+{
+    var advice = await suppService.GenerateAdviceAsync(id, tc.OrgId);
+    if (advice == null) return Results.NotFound(new { error = $"Không tìm thấy phiếu chi #{id}." });
+    return Results.Ok(advice);
+});
+
+// 12) Dashboard KPI tổng hợp công nợ và quyết toán nhà cung cấp
+app.MapGet("/api/supplier-payments/summary", async (SupplierPaymentService suppService, ITenantContext tc) =>
+{
+    var summary = await suppService.GetSummaryAsync(tc.OrgId);
     return Results.Ok(summary);
 });
 

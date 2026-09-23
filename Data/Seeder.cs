@@ -1230,6 +1230,84 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_InsurancePaymentDetails_PaymentId"" ON ""InsurancePaymentDetails"" (""PaymentId"");
                 CREATE INDEX IF NOT EXISTS ""IX_InsurancePaymentDetails_DebitId"" ON ""InsurancePaymentDetails"" (""DebitId"");
                 CREATE INDEX IF NOT EXISTS ""IX_InsurancePaymentDetails_OrgId_RONo"" ON ""InsurancePaymentDetails"" (""OrgId"", ""RONo"");
+
+                CREATE TABLE IF NOT EXISTS ""SupplierDebits"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""DebitNo"" TEXT NOT NULL,
+                    ""SupplierCode"" TEXT NOT NULL,
+                    ""SupplierName"" TEXT NOT NULL,
+                    ""SupplierPhone"" TEXT NULL,
+                    ""SupplierAddress"" TEXT NULL,
+                    ""StockInNo"" TEXT NOT NULL,
+                    ""StockInDate"" TEXT NULL,
+                    ""OrderPartNo"" TEXT NULL,
+                    ""Category"" TEXT NULL,
+                    ""DebitDate"" TEXT NOT NULL,
+                    ""DueDate"" TEXT NOT NULL,
+                    ""DebitAmount"" INTEGER NOT NULL,
+                    ""PaidAmount"" INTEGER NOT NULL,
+                    ""RemainAmount"" INTEGER NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""Note"" TEXT NULL,
+                    ""CreatedBy"" TEXT NULL,
+                    ""CreatedAt"" TEXT NOT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_SupplierDebits_OrgId_DebitNo"" ON ""SupplierDebits"" (""OrgId"", ""DebitNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_SupplierDebits_OrgId_SupplierCode"" ON ""SupplierDebits"" (""OrgId"", ""SupplierCode"");
+                CREATE INDEX IF NOT EXISTS ""IX_SupplierDebits_OrgId_StockInNo"" ON ""SupplierDebits"" (""OrgId"", ""StockInNo"");
+
+                CREATE TABLE IF NOT EXISTS ""SupplierPayments"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""PaymentNo"" TEXT NOT NULL,
+                    ""SupplierCode"" TEXT NOT NULL,
+                    ""SupplierName"" TEXT NOT NULL,
+                    ""PayDate"" TEXT NOT NULL,
+                    ""PayPersonName"" TEXT NOT NULL,
+                    ""PayPersonIDCardNo"" TEXT NULL,
+                    ""PayPersonPhone"" TEXT NULL,
+                    ""PaymentAmount"" INTEGER NOT NULL,
+                    ""PaymentMethod"" INTEGER NOT NULL,
+                    ""BankCode"" TEXT NULL,
+                    ""BankName"" TEXT NULL,
+                    ""BankAccountNo"" TEXT NULL,
+                    ""BankTxnRef"" TEXT NULL,
+                    ""TotalAllocated"" INTEGER NOT NULL,
+                    ""UnallocatedAmount"" INTEGER NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""Note"" TEXT NULL,
+                    ""CreatedBy"" TEXT NULL,
+                    ""CreatedAt"" TEXT NOT NULL,
+                    ""ConfirmedBy"" TEXT NULL,
+                    ""ConfirmedAt"" TEXT NULL,
+                    ""SettledBy"" TEXT NULL,
+                    ""SettledAt"" TEXT NULL,
+                    ""CancelledBy"" TEXT NULL,
+                    ""CancelledAt"" TEXT NULL,
+                    ""CancelReason"" TEXT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_SupplierPayments_OrgId_PaymentNo"" ON ""SupplierPayments"" (""OrgId"", ""PaymentNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_SupplierPayments_OrgId_SupplierCode"" ON ""SupplierPayments"" (""OrgId"", ""SupplierCode"");
+
+                CREATE TABLE IF NOT EXISTS ""SupplierPaymentDetails"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""PaymentId"" INTEGER NOT NULL,
+                    ""DebitId"" INTEGER NOT NULL,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""DebitNo"" TEXT NOT NULL,
+                    ""StockInNo"" TEXT NOT NULL,
+                    ""OrderPartNo"" TEXT NULL,
+                    ""DebitAmount"" INTEGER NOT NULL,
+                    ""DebitAmountBefore"" INTEGER NOT NULL,
+                    ""PaymentDetailAmount"" INTEGER NOT NULL,
+                    ""DebitAmountLeft"" INTEGER NOT NULL,
+                    ""Remark"" TEXT NULL,
+                    CONSTRAINT ""FK_SupplierPaymentDetails_SupplierPayments_PaymentId"" FOREIGN KEY (""PaymentId"") REFERENCES ""SupplierPayments"" (""Id"") ON DELETE CASCADE
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_SupplierPaymentDetails_PaymentId"" ON ""SupplierPaymentDetails"" (""PaymentId"");
+                CREATE INDEX IF NOT EXISTS ""IX_SupplierPaymentDetails_DebitId"" ON ""SupplierPaymentDetails"" (""DebitId"");
+                CREATE INDEX IF NOT EXISTS ""IX_SupplierPaymentDetails_OrgId_StockInNo"" ON ""SupplierPaymentDetails"" (""OrgId"", ""StockInNo"");
             ");
         }
         else if (db.Database.IsNpgsql())
@@ -2437,6 +2515,83 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_InsurancePaymentDetails_PaymentId"" ON ""InsurancePaymentDetails"" (""PaymentId"");
                 CREATE INDEX IF NOT EXISTS ""IX_InsurancePaymentDetails_DebitId"" ON ""InsurancePaymentDetails"" (""DebitId"");
                 CREATE INDEX IF NOT EXISTS ""IX_InsurancePaymentDetails_OrgId_RONo"" ON ""InsurancePaymentDetails"" (""OrgId"", ""RONo"");
+
+                CREATE TABLE IF NOT EXISTS ""SupplierDebits"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""OrgId"" uuid NOT NULL,
+                    ""DebitNo"" text NOT NULL,
+                    ""SupplierCode"" text NOT NULL,
+                    ""SupplierName"" text NOT NULL,
+                    ""SupplierPhone"" text NULL,
+                    ""SupplierAddress"" text NULL,
+                    ""StockInNo"" text NOT NULL,
+                    ""StockInDate"" timestamp without time zone NULL,
+                    ""OrderPartNo"" text NULL,
+                    ""Category"" text NULL,
+                    ""DebitDate"" timestamp without time zone NOT NULL,
+                    ""DueDate"" timestamp without time zone NOT NULL,
+                    ""DebitAmount"" bigint NOT NULL,
+                    ""PaidAmount"" bigint NOT NULL,
+                    ""RemainAmount"" bigint NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""Note"" text NULL,
+                    ""CreatedBy"" text NULL,
+                    ""CreatedAt"" timestamp without time zone NOT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_SupplierDebits_OrgId_DebitNo"" ON ""SupplierDebits"" (""OrgId"", ""DebitNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_SupplierDebits_OrgId_SupplierCode"" ON ""SupplierDebits"" (""OrgId"", ""SupplierCode"");
+                CREATE INDEX IF NOT EXISTS ""IX_SupplierDebits_OrgId_StockInNo"" ON ""SupplierDebits"" (""OrgId"", ""StockInNo"");
+
+                CREATE TABLE IF NOT EXISTS ""SupplierPayments"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""OrgId"" uuid NOT NULL,
+                    ""PaymentNo"" text NOT NULL,
+                    ""SupplierCode"" text NOT NULL,
+                    ""SupplierName"" text NOT NULL,
+                    ""PayDate"" timestamp without time zone NOT NULL,
+                    ""PayPersonName"" text NOT NULL,
+                    ""PayPersonIDCardNo"" text NULL,
+                    ""PayPersonPhone"" text NULL,
+                    ""PaymentAmount"" bigint NOT NULL,
+                    ""PaymentMethod"" integer NOT NULL,
+                    ""BankCode"" text NULL,
+                    ""BankName"" text NULL,
+                    ""BankAccountNo"" text NULL,
+                    ""BankTxnRef"" text NULL,
+                    ""TotalAllocated"" bigint NOT NULL,
+                    ""UnallocatedAmount"" bigint NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""Note"" text NULL,
+                    ""CreatedBy"" text NULL,
+                    ""CreatedAt"" timestamp without time zone NOT NULL,
+                    ""ConfirmedBy"" text NULL,
+                    ""ConfirmedAt"" timestamp without time zone NULL,
+                    ""SettledBy"" text NULL,
+                    ""SettledAt"" timestamp without time zone NULL,
+                    ""CancelledBy"" text NULL,
+                    ""CancelledAt"" timestamp without time zone NULL,
+                    ""CancelReason"" text NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_SupplierPayments_OrgId_PaymentNo"" ON ""SupplierPayments"" (""OrgId"", ""PaymentNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_SupplierPayments_OrgId_SupplierCode"" ON ""SupplierPayments"" (""OrgId"", ""SupplierCode"");
+
+                CREATE TABLE IF NOT EXISTS ""SupplierPaymentDetails"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""PaymentId"" bigint NOT NULL REFERENCES ""SupplierPayments"" (""Id"") ON DELETE CASCADE,
+                    ""DebitId"" bigint NOT NULL,
+                    ""OrgId"" uuid NOT NULL,
+                    ""DebitNo"" text NOT NULL,
+                    ""StockInNo"" text NOT NULL,
+                    ""OrderPartNo"" text NULL,
+                    ""DebitAmount"" bigint NOT NULL,
+                    ""DebitAmountBefore"" bigint NOT NULL,
+                    ""PaymentDetailAmount"" bigint NOT NULL,
+                    ""DebitAmountLeft"" bigint NOT NULL,
+                    ""Remark"" text NULL
+                );
+                CREATE INDEX IF NOT EXISTS ""IX_SupplierPaymentDetails_PaymentId"" ON ""SupplierPaymentDetails"" (""PaymentId"");
+                CREATE INDEX IF NOT EXISTS ""IX_SupplierPaymentDetails_DebitId"" ON ""SupplierPaymentDetails"" (""DebitId"");
+                CREATE INDEX IF NOT EXISTS ""IX_SupplierPaymentDetails_OrgId_StockInNo"" ON ""SupplierPaymentDetails"" (""OrgId"", ""StockInNo"");
             ");
         }
 
@@ -9233,6 +9388,416 @@ public static class Seeder
                     PaymentDetailAmount = 6_000_000,
                     DebitAmountLeft = 6_800_000,
                     Remark = "Thanh toán một phần nợ RO"
+                }
+            );
+
+            await db.SaveChangesAsync();
+        }
+
+        // ===== 20. Seed Dữ liệu mẫu Công Nợ & Thanh Toán Quyết Toán Nhà Cung Cấp Phụ Tùng (Supplier Payment) =====
+        if (!await db.SupplierDebits.AnyAsync())
+        {
+            var sd1 = new SupplierDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-SUPP-202505-001",
+                SupplierCode = "MOBIS-VN",
+                SupplierName = "Công ty TNHH Mobis Auto Parts Việt Nam",
+                SupplierPhone = "024-3768-9988",
+                SupplierAddress = "Lô E3, KCN Thăng Long, Huyện Đông Anh, Hà Nội",
+                StockInNo = "PNK-2025-0501",
+                StockInDate = DateTime.Today.AddDays(-25),
+                OrderPartNo = "PO-2025-0480",
+                Category = "Linh kiện gầm máy & Lọc dầu nhớt Santa Fe/Tucson",
+                DebitDate = DateTime.Today.AddDays(-25),
+                DueDate = DateTime.Today.AddDays(5),
+                DebitAmount = 35_000_000,
+                PaidAmount = 35_000_000,
+                RemainAmount = 0,
+                Status = SupplierDebitStatus.Settled,
+                Note = "Nhập kho 100 bộ lọc dầu, 50 bộ lọc gió động cơ và cảm biến khí nạp",
+                CreatedBy = "VuVanChien_ThuKho",
+                CreatedAt = DateTime.Today.AddDays(-25)
+            };
+
+            var sd2 = new SupplierDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-SUPP-202505-002",
+                SupplierCode = "MOBIS-VN",
+                SupplierName = "Công ty TNHH Mobis Auto Parts Việt Nam",
+                SupplierPhone = "024-3768-9988",
+                SupplierAddress = "Lô E3, KCN Thăng Long, Huyện Đông Anh, Hà Nội",
+                StockInNo = "PNK-2025-0502",
+                StockInDate = DateTime.Today.AddDays(-22),
+                OrderPartNo = "PO-2025-0485",
+                Category = "Má phanh đĩa trước sau & Cụm moay-ơ Creta/Accent",
+                DebitDate = DateTime.Today.AddDays(-22),
+                DueDate = DateTime.Today.AddDays(8),
+                DebitAmount = 22_500_000,
+                PaidAmount = 22_500_000,
+                RemainAmount = 0,
+                Status = SupplierDebitStatus.Settled,
+                Note = "Lô má phanh đĩa gốm chính hãng nhập khẩu Mobis Hàn Quốc",
+                CreatedBy = "VuVanChien_ThuKho",
+                CreatedAt = DateTime.Today.AddDays(-22)
+            };
+
+            var sd3 = new SupplierDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-SUPP-202505-003",
+                SupplierCode = "MOBIS-VN",
+                SupplierName = "Công ty TNHH Mobis Auto Parts Việt Nam",
+                SupplierPhone = "024-3768-9988",
+                SupplierAddress = "Lô E3, KCN Thăng Long, Huyện Đông Anh, Hà Nội",
+                StockInNo = "PNK-2025-0503",
+                StockInDate = DateTime.Today.AddDays(-15),
+                OrderPartNo = "PO-2025-0492",
+                Category = "Đèn pha Full LED & Gương chiếu hậu gập điện Palisade",
+                DebitDate = DateTime.Today.AddDays(-15),
+                DueDate = DateTime.Today.AddDays(15),
+                DebitAmount = 48_000_000,
+                PaidAmount = 7_500_000,
+                RemainAmount = 40_500_000,
+                Status = SupplierDebitStatus.PartiallyPaid,
+                Note = "Cụm đèn pha thích ứng thông minh IFS và mặt gương sấy điện",
+                CreatedBy = "NguyenVanHieu_ThuKho",
+                CreatedAt = DateTime.Today.AddDays(-15)
+            };
+
+            var sd4 = new SupplierDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-SUPP-202505-004",
+                SupplierCode = "MOBIS-VN",
+                SupplierName = "Công ty TNHH Mobis Auto Parts Việt Nam",
+                SupplierPhone = "024-3768-9988",
+                SupplierAddress = "Lô E3, KCN Thăng Long, Huyện Đông Anh, Hà Nội",
+                StockInNo = "PNK-2025-0504",
+                StockInDate = DateTime.Today.AddDays(-3),
+                OrderPartNo = "PO-2025-0510",
+                Category = "Càng chữ A & Giảm xóc hơi điện tử Custin",
+                DebitDate = DateTime.Today.AddDays(-3),
+                DueDate = DateTime.Today.AddDays(27),
+                DebitAmount = 31_000_000,
+                PaidAmount = 0,
+                RemainAmount = 31_000_000,
+                Status = SupplierDebitStatus.Pending,
+                Note = "Lô giảm xóc trước sau cho xe Custin 2.0 Turbo",
+                CreatedBy = "NguyenVanHieu_ThuKho",
+                CreatedAt = DateTime.Today.AddDays(-3)
+            };
+
+            var sd5 = new SupplierDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-SUPP-202505-005",
+                SupplierCode = "BOSCH-VN",
+                SupplierName = "Công ty TNHH Robert Bosch Việt Nam",
+                SupplierPhone = "028-6258-3690",
+                SupplierAddress = "Tầng 14, Tòa nhà Deutsches Haus, 33 Lê Duẩn, Quận 1, TP. HCM",
+                StockInNo = "PNK-2025-0505",
+                StockInDate = DateTime.Today.AddDays(-18),
+                OrderPartNo = "PO-2025-0488",
+                Category = "Cần gạt mưa Aerotwin & Bugi Iridium cao cấp",
+                DebitDate = DateTime.Today.AddDays(-18),
+                DueDate = DateTime.Today.AddDays(12),
+                DebitAmount = 18_500_000,
+                PaidAmount = 18_500_000,
+                RemainAmount = 0,
+                Status = SupplierDebitStatus.Settled,
+                Note = "Gạt mưa silicon đa năng và 120 chiếc bugi đánh lửa Bosch kép",
+                CreatedBy = "VuVanChien_ThuKho",
+                CreatedAt = DateTime.Today.AddDays(-18)
+            };
+
+            var sd6 = new SupplierDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-SUPP-202505-006",
+                SupplierCode = "BOSCH-VN",
+                SupplierName = "Công ty TNHH Robert Bosch Việt Nam",
+                SupplierPhone = "028-6258-3690",
+                SupplierAddress = "Tầng 14, Tòa nhà Deutsches Haus, 33 Lê Duẩn, Quận 1, TP. HCM",
+                StockInNo = "PNK-2025-0506",
+                StockInDate = DateTime.Today.AddDays(-5),
+                OrderPartNo = "PO-2025-0505",
+                Category = "Cảm biến áp suất lốp TPMS & Còi sên ô tô 12V",
+                DebitDate = DateTime.Today.AddDays(-5),
+                DueDate = DateTime.Today.AddDays(25),
+                DebitAmount = 14_200_000,
+                PaidAmount = 0,
+                RemainAmount = 14_200_000,
+                Status = SupplierDebitStatus.Pending,
+                Note = "Cảm biến van trong tích hợp Bluetooth và còi sên âm lượng cao",
+                CreatedBy = "NguyenVanHieu_ThuKho",
+                CreatedAt = DateTime.Today.AddDays(-5)
+            };
+
+            var sd7 = new SupplierDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-SUPP-202505-007",
+                SupplierCode = "CASTROL-VN",
+                SupplierName = "Công ty TNHH Castrol BP Petco Việt Nam",
+                SupplierPhone = "028-3821-9153",
+                SupplierAddress = "Lầu 9, Tòa nhà Times Square, 22-36 Nguyễn Huệ, Quận 1, TP. HCM",
+                StockInNo = "PNK-2025-0507",
+                StockInDate = DateTime.Today.AddDays(-10),
+                OrderPartNo = "PO-2025-0498",
+                Category = "Dầu nhớt tổng hợp Castrol Magnatec & Edge 5W-30",
+                DebitDate = DateTime.Today.AddDays(-10),
+                DueDate = DateTime.Today.AddDays(20),
+                DebitAmount = 32_000_000,
+                PaidAmount = 0,
+                RemainAmount = 32_000_000,
+                Status = SupplierDebitStatus.Pending,
+                Note = "40 thùng dầu Castrol Magnatec Stop-Start 5W-30 và dầu cầu hộp số ATF",
+                CreatedBy = "VuVanChien_ThuKho",
+                CreatedAt = DateTime.Today.AddDays(-10)
+            };
+
+            var sd8 = new SupplierDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-SUPP-202505-008",
+                SupplierCode = "MICHELIN-VN",
+                SupplierName = "Công ty TNHH Michelin Việt Nam",
+                SupplierPhone = "028-3824-3456",
+                SupplierAddress = "Tầng 10, Tòa nhà Empress Tower, 138-142 Hai Bà Trưng, Quận 1, TP. HCM",
+                StockInNo = "PNK-2025-0508",
+                StockInDate = DateTime.Today.AddDays(-7),
+                OrderPartNo = "PO-2025-0502",
+                Category = "Lốp xe ô tô Michelin Primacy 4 & Pilot Sport SUV",
+                DebitDate = DateTime.Today.AddDays(-7),
+                DueDate = DateTime.Today.AddDays(23),
+                DebitAmount = 45_600_000,
+                PaidAmount = 0,
+                RemainAmount = 45_600_000,
+                Status = SupplierDebitStatus.Pending,
+                Note = "24 quả lốp kích thước 235/55R19 cho Santa Fe và 235/60R18 cho Tucson",
+                CreatedBy = "NguyenVanHieu_ThuKho",
+                CreatedAt = DateTime.Today.AddDays(-7)
+            };
+
+            var sd9 = new SupplierDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-SUPP-202505-009",
+                SupplierCode = "3M-VN",
+                SupplierName = "Công ty TNHH 3M Việt Nam",
+                SupplierPhone = "028-5416-0429",
+                SupplierAddress = "Tầng 20, Tòa nhà Mapletree Business Centre, 1060 Nguyễn Văn Linh, Quận 7, TP. HCM",
+                StockInNo = "PNK-2025-0509",
+                StockInDate = DateTime.Today.AddDays(-4),
+                OrderPartNo = "PO-2025-0508",
+                Category = "Phim cách nhiệt Crystalline & Hóa chất phủ gầm ceramic",
+                DebitDate = DateTime.Today.AddDays(-4),
+                DueDate = DateTime.Today.AddDays(26),
+                DebitAmount = 26_800_000,
+                PaidAmount = 0,
+                RemainAmount = 26_800_000,
+                Status = SupplierDebitStatus.Pending,
+                Note = "5 cuộn phim cách nhiệt quang học 3M Crystalline và 30 chai xịt gầm chống rỉ",
+                CreatedBy = "VuVanChien_ThuKho",
+                CreatedAt = DateTime.Today.AddDays(-4)
+            };
+
+            var sd10 = new SupplierDebit
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                DebitNo = "DEB-SUPP-202505-010",
+                SupplierCode = "PPG-VN",
+                SupplierName = "Công ty TNHH Sơn PPG Việt Nam",
+                SupplierPhone = "0274-375-7260",
+                SupplierAddress = "Đường số 6, KCN Việt Hương 1, Thị xã Thuận An, Bình Dương",
+                StockInNo = "PNK-2025-0510",
+                StockInDate = DateTime.Today.AddDays(-1),
+                OrderPartNo = "PO-2025-0515",
+                Category = "Sơn ô tô công nghiệp Deltron gốc nước & Dầu bóng 2K",
+                DebitDate = DateTime.Today.AddDays(-1),
+                DueDate = DateTime.Today.AddDays(29),
+                DebitAmount = 17_500_000,
+                PaidAmount = 0,
+                RemainAmount = 17_500_000,
+                Status = SupplierDebitStatus.Pending,
+                Note = "Sơn pha màu vi tính chuẩn code màu Hyundai Trắng Tuyết, Đen Ngọc, Đỏ Mận",
+                CreatedBy = "NguyenVanHieu_ThuKho",
+                CreatedAt = DateTime.Today.AddDays(-1)
+            };
+
+            db.SupplierDebits.AddRange(sd1, sd2, sd3, sd4, sd5, sd6, sd7, sd8, sd9, sd10);
+            await db.SaveChangesAsync();
+
+            // Phiếu chi 1: Thanh toán cho Mobis 65,000,000 VND (chuyển khoản VietinBank CTG)
+            // Phân bổ: 35M cho PNK 1 (tất toán), 22.5M cho PNK 2 (tất toán), 7.5M cho PNK 3 (trả một phần)
+            var sp1 = new SupplierPayment
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PaymentNo = "PM-SUPP-202505-001",
+                SupplierCode = "MOBIS-VN",
+                SupplierName = "Công ty TNHH Mobis Auto Parts Việt Nam",
+                PayDate = DateTime.Today.AddDays(-10),
+                PayPersonName = "Nguyễn Văn Hùng (Kế toán công nợ Mobis)",
+                PayPersonIDCardNo = "001088019283",
+                PayPersonPhone = "024-3768-9988",
+                PaymentAmount = 65_000_000,
+                PaymentMethod = SupplierPaymentMethod.BankTransfer,
+                BankCode = "CTG",
+                BankName = "VietinBank - CN Đống Đa",
+                BankAccountNo = "113000088999",
+                BankTxnRef = "UNC-CTG-202505-00981",
+                TotalAllocated = 65_000_000,
+                UnallocatedAmount = 0,
+                Status = SupplierPaymentStatus.Settled,
+                Note = "Thanh toán công nợ đợt 1 tháng 05/2025 cho 3 phiếu nhập kho phụ tùng chính hãng",
+                CreatedBy = "NguyenThiThu_KeToanThanhToan",
+                ConfirmedBy = "TranDinhTuan_KeToanTruong",
+                ConfirmedAt = DateTime.Today.AddDays(-10),
+                SettledBy = "NguyenThiThu_KeToanThanhToan",
+                SettledAt = DateTime.Today.AddDays(-10),
+                CreatedAt = DateTime.Today.AddDays(-10)
+            };
+            db.SupplierPayments.Add(sp1);
+            await db.SaveChangesAsync();
+
+            db.SupplierPaymentDetails.AddRange(
+                new SupplierPaymentDetail
+                {
+                    PaymentId = sp1.Id,
+                    DebitId = sd1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DebitNo = sd1.DebitNo,
+                    StockInNo = sd1.StockInNo,
+                    OrderPartNo = sd1.OrderPartNo,
+                    DebitAmount = 35_000_000,
+                    DebitAmountBefore = 35_000_000,
+                    PaymentDetailAmount = 35_000_000,
+                    DebitAmountLeft = 0,
+                    Remark = "Tất toán toàn bộ nợ phiếu nhập kho"
+                },
+                new SupplierPaymentDetail
+                {
+                    PaymentId = sp1.Id,
+                    DebitId = sd2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DebitNo = sd2.DebitNo,
+                    StockInNo = sd2.StockInNo,
+                    OrderPartNo = sd2.OrderPartNo,
+                    DebitAmount = 22_500_000,
+                    DebitAmountBefore = 22_500_000,
+                    PaymentDetailAmount = 22_500_000,
+                    DebitAmountLeft = 0,
+                    Remark = "Tất toán toàn bộ nợ phiếu nhập kho"
+                },
+                new SupplierPaymentDetail
+                {
+                    PaymentId = sp1.Id,
+                    DebitId = sd3.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DebitNo = sd3.DebitNo,
+                    StockInNo = sd3.StockInNo,
+                    OrderPartNo = sd3.OrderPartNo,
+                    DebitAmount = 48_000_000,
+                    DebitAmountBefore = 48_000_000,
+                    PaymentDetailAmount = 7_500_000,
+                    DebitAmountLeft = 40_500_000,
+                    Remark = "Thanh toán một phần nợ phiếu nhập kho"
+                }
+            );
+
+            // Phiếu chi 2: Thanh toán cho Bosch 18,500,000 VND (cổng VNPay QR B2B)
+            var sp2 = new SupplierPayment
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PaymentNo = "PM-SUPP-202505-002",
+                SupplierCode = "BOSCH-VN",
+                SupplierName = "Công ty TNHH Robert Bosch Việt Nam",
+                PayDate = DateTime.Today.AddDays(-6),
+                PayPersonName = "Trần Minh Đức (Đại diện kinh doanh Bosch)",
+                PayPersonIDCardNo = "079090012345",
+                PayPersonPhone = "028-6258-3690",
+                PaymentAmount = 18_500_000,
+                PaymentMethod = SupplierPaymentMethod.VnPay,
+                BankCode = "VCB",
+                BankName = "Vietcombank - CN Tân Định",
+                BankAccountNo = "0071008899221",
+                BankTxnRef = "VNPAY-B2B-8839102",
+                TotalAllocated = 18_500_000,
+                UnallocatedAmount = 0,
+                Status = SupplierPaymentStatus.Settled,
+                Note = "Thanh toán qua cổng VNPay QR hóa đơn gạt mưa và bugi Bosch",
+                CreatedBy = "NguyenThiThu_KeToanThanhToan",
+                ConfirmedBy = "TranDinhTuan_KeToanTruong",
+                ConfirmedAt = DateTime.Today.AddDays(-6),
+                SettledBy = "NguyenThiThu_KeToanThanhToan",
+                SettledAt = DateTime.Today.AddDays(-6),
+                CreatedAt = DateTime.Today.AddDays(-6)
+            };
+            db.SupplierPayments.Add(sp2);
+            await db.SaveChangesAsync();
+
+            db.SupplierPaymentDetails.Add(
+                new SupplierPaymentDetail
+                {
+                    PaymentId = sp2.Id,
+                    DebitId = sd5.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DebitNo = sd5.DebitNo,
+                    StockInNo = sd5.StockInNo,
+                    OrderPartNo = sd5.OrderPartNo,
+                    DebitAmount = 18_500_000,
+                    DebitAmountBefore = 18_500_000,
+                    PaymentDetailAmount = 18_500_000,
+                    DebitAmountLeft = 0,
+                    Remark = "Tất toán toàn bộ nợ phiếu nhập kho"
+                }
+            );
+
+            // Phiếu chi 3: Đã lập & Kế toán trưởng thẩm định duyệt chi cho Castrol 32,000,000 VND (chờ xuất tiền UNC Techcombank)
+            var sp3 = new SupplierPayment
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                PaymentNo = "PM-SUPP-202505-003",
+                SupplierCode = "CASTROL-VN",
+                SupplierName = "Công ty TNHH Castrol BP Petco Việt Nam",
+                PayDate = DateTime.Today,
+                PayPersonName = "Lê Quốc Bảo (Thủ quỹ đối tác Castrol)",
+                PayPersonIDCardNo = "079085023456",
+                PayPersonPhone = "028-3821-9153",
+                PaymentAmount = 32_000_000,
+                PaymentMethod = SupplierPaymentMethod.BankTransfer,
+                BankCode = "TCB",
+                BankName = "Techcombank - Hội Sở Chính",
+                BankAccountNo = "19028833990011",
+                BankTxnRef = "UNC-TCB-202505-00512",
+                TotalAllocated = 32_000_000,
+                UnallocatedAmount = 0,
+                Status = SupplierPaymentStatus.Confirmed,
+                Note = "Kế toán trưởng đã duyệt lệnh chi thanh toán tiền dầu nhờn Castrol, chuẩn bị đẩy UNC",
+                CreatedBy = "NguyenThiThu_KeToanThanhToan",
+                ConfirmedBy = "TranDinhTuan_KeToanTruong",
+                ConfirmedAt = DateTime.Today,
+                CreatedAt = DateTime.Today
+            };
+            db.SupplierPayments.Add(sp3);
+            await db.SaveChangesAsync();
+
+            db.SupplierPaymentDetails.Add(
+                new SupplierPaymentDetail
+                {
+                    PaymentId = sp3.Id,
+                    DebitId = sd7.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    DebitNo = sd7.DebitNo,
+                    StockInNo = sd7.StockInNo,
+                    OrderPartNo = sd7.OrderPartNo,
+                    DebitAmount = 32_000_000,
+                    DebitAmountBefore = 32_000_000,
+                    PaymentDetailAmount = 32_000_000,
+                    DebitAmountLeft = 0,
+                    Remark = "Tất toán toàn bộ nợ phiếu nhập kho"
                 }
             );
 

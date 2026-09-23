@@ -2204,3 +2204,258 @@ public sealed class EligibleDebitForPaymentDto
     public long RemainAmount { get; set; }
     public string Status { get; set; } = "";
 }
+
+// ==========================================
+// Nghiệp vụ Quản lý Công Nợ & Thanh Toán Quyết Toán Cho Nhà Cung Cấp Phụ Tùng / Dịch Vụ Xe Ô Tô
+// (Automotive Spare Parts & Service Supplier Debit & Settlement Payment Management)
+// Tương ứng BizCarSv.Debit.cs (SerSupplierDebitDetailGet, SerPaymentCreate, SerPaymentUpdate, SerPaymentDelete, SerPaymentPaperRpt)
+// và FrmSupplierPaymentCreate, FrmSupplierDebitSearch, FrmSuplierDebitCreate trong TERP.HTCServiceClient/Views/Debit hệ nguồn HTC 2010.
+// ==========================================
+
+/// <summary>Trạng thái khoản công nợ nhà cung cấp phụ tùng/vật tư xe — tương ứng Ser_CusDebit (DebitType='3' SupplierDebit).</summary>
+public enum SupplierDebitStatus
+{
+    Pending = 0,        // Chờ thanh toán (chưa thanh toán đồng nào)
+    PartiallyPaid = 1,  // Đã thanh toán một phần (RemainAmount > 0)
+    Settled = 2,        // Đã tất toán hoàn tất 100% (RemainAmount == 0)
+    Cancelled = 3       // Hủy khoản công nợ
+}
+
+/// <summary>Hình thức thanh toán công nợ nhà cung cấp — tương ứng PaymentType trong Ser_Payment.</summary>
+public enum SupplierPaymentMethod
+{
+    BankTransfer = 0,   // Ủy nhiệm chi chuyển khoản ngân hàng (UNC)
+    VnPay = 1,          // Cổng thanh toán điện tử VNPay QR B2B
+    Momo = 2,           // Ví điện tử MoMo B2B
+    Cash = 3,           // Tiền mặt xuất quỹ
+    Offset = 4          // Bù trừ công nợ đối ứng phụ tùng/linh kiện bảo hành
+}
+
+/// <summary>Trạng thái Phiếu chi thanh toán nhà cung cấp — tương ứng Ser_Payment (PaymentType='3' SupplierPayment).</summary>
+public enum SupplierPaymentStatus
+{
+    Draft = 0,          // Mới lập phiếu chi dự thảo
+    Confirmed = 1,      // Kế toán trưởng thẩm định xác nhận chi
+    Settled = 2,        // Đã xuất quỹ / chuyển khoản ngân hàng thành công
+    Cancelled = 3       // Hủy phiếu chi thanh toán (rollback nợ nhập kho)
+}
+
+/// <summary>Khoản nợ phải trả phát sinh từ nhập kho linh kiện/phụ tùng ô tô — tương ứng Ser_CusDebit (DebitType='3') trong BizCarSv.</summary>
+public sealed class SupplierDebit
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string DebitNo { get; set; } = "";             // Số hồ sơ công nợ (DEB-SUPP-202505-001)
+    public string SupplierCode { get; set; } = "";        // Mã nhà cung cấp (MOBIS-VN, BOSCH-VN, CASTROL-VN...)
+    public string SupplierName { get; set; } = "";        // Tên nhà cung cấp phụ tùng/vật tư
+    public string? SupplierPhone { get; set; }            // Điện thoại nhà cung cấp
+    public string? SupplierAddress { get; set; }          // Địa chỉ nhà cung cấp
+    public string StockInNo { get; set; } = "";           // Số phiếu nhập kho phụ tùng / vật tư (PNK-2025-0501)
+    public DateTime? StockInDate { get; set; }            // Ngày nhập kho thực tế
+    public string? OrderPartNo { get; set; }              // Số đơn đặt hàng phụ tùng PO tham chiếu (PO-2025-0512)
+    public string? Category { get; set; }                 // Nhóm phụ tùng (Linh kiện gầm máy, Dầu mỡ nhờn, Thân vỏ sơn sấy, Lốp xe...)
+    public DateTime DebitDate { get; set; } = DateTime.Now; // Ngày phát sinh công nợ
+    public DateTime DueDate { get; set; } = DateTime.Now.AddDays(30); // Hạn thanh toán cam kết
+    public long DebitAmount { get; set; }                 // Giá trị công nợ ban đầu (VND)
+    public long PaidAmount { get; set; }                  // Lũy kế đã thanh toán (VND)
+    public long RemainAmount { get; set; }                // Số tiền nợ còn lại (VND)
+    public SupplierDebitStatus Status { get; set; } = SupplierDebitStatus.Pending; // Trạng thái công nợ
+    public string? Note { get; set; }                     // Diễn giải / ghi chú phiếu nhập
+    public string? CreatedBy { get; set; }                // Người lập nợ (thủ kho / kế toán kho)
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+}
+
+/// <summary>Phiếu chi thanh toán công nợ nhà cung cấp phụ tùng — tương ứng Ser_Payment (PaymentType='3' SupplierPayment) trong BizCarSv.</summary>
+public sealed class SupplierPayment
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string PaymentNo { get; set; } = "";           // Số phiếu chi (PM-SUPP-202505-001)
+    public string SupplierCode { get; set; } = "";        // Mã nhà cung cấp
+    public string SupplierName { get; set; } = "";        // Tên nhà cung cấp
+    public DateTime PayDate { get; set; } = DateTime.Now; // Ngày chi trả
+    public string PayPersonName { get; set; } = "";       // Người nhận tiền bên NCC hoặc thủ quỹ chi tiền
+    public string? PayPersonIDCardNo { get; set; }        // Số CMT / CCCD
+    public string? PayPersonPhone { get; set; }           // Điện thoại liên hệ
+    public long PaymentAmount { get; set; }               // Tổng số tiền thanh toán (VND)
+    public SupplierPaymentMethod PaymentMethod { get; set; } = SupplierPaymentMethod.BankTransfer; // Hình thức thanh toán
+    public string? BankCode { get; set; }                 // Mã ngân hàng chuyển khoản (CTG, VCB, MBB, TCB...)
+    public string? BankName { get; set; }                 // Tên ngân hàng
+    public string? BankAccountNo { get; set; }            // Số tài khoản ngân hàng thụ hưởng của NCC
+    public string? BankTxnRef { get; set; }               // Mã giao dịch UNC / số bút toán ngân hàng
+    public long TotalAllocated { get; set; }              // Tổng tiền đã phân bổ xóa nợ các phiếu nhập kho
+    public long UnallocatedAmount { get; set; }           // Số tiền chi trả thừa / tạm ứng đợt sau (nếu có)
+    public SupplierPaymentStatus Status { get; set; } = SupplierPaymentStatus.Confirmed; // Trạng thái phiếu chi
+    public string? Note { get; set; }                     // Ghi chú thanh toán
+    public string? CreatedBy { get; set; }                // Kế toán lập phiếu chi
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+    public string? ConfirmedBy { get; set; }              // Kế toán trưởng thẩm định duyệt chi
+    public DateTime? ConfirmedAt { get; set; }            // Ngày giờ duyệt chi
+    public string? SettledBy { get; set; }                // Thủ quỹ xuất tiền / kế toán UNC ngân hàng
+    public DateTime? SettledAt { get; set; }              // Ngày giờ tất toán chi tiền
+    public string? CancelledBy { get; set; }              // Người hủy phiếu chi
+    public DateTime? CancelledAt { get; set; }            // Ngày giờ hủy
+    public string? CancelReason { get; set; }             // Lý do hủy phiếu chi
+
+    public List<SupplierPaymentDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết phân bổ thanh toán cho từng khoản nợ nhập kho — tương ứng Ser_PaymentDetail trong BizCarSv.</summary>
+public sealed class SupplierPaymentDetail
+{
+    public long Id { get; set; }
+    public long PaymentId { get; set; }
+    public long DebitId { get; set; }
+    public Guid OrgId { get; set; }
+    public string DebitNo { get; set; } = "";             // Số hồ sơ nợ
+    public string StockInNo { get; set; } = "";           // Số phiếu nhập kho phụ tùng
+    public string? OrderPartNo { get; set; }              // Số đơn hàng phụ tùng
+    public long DebitAmount { get; set; }                 // Tổng nợ gốc ban đầu của phiếu nhập kho
+    public long DebitAmountBefore { get; set; }           // Dư nợ của phiếu nhập TRƯỚC khi thanh toán
+    public long PaymentDetailAmount { get; set; }         // Số tiền phân bổ thanh toán đợt này
+    public long DebitAmountLeft { get; set; }             // Dư nợ của phiếu nhập SAU khi thanh toán
+    public string? Remark { get; set; }                   // Diễn giải phân bổ (tất toán phiếu nhập / thanh toán 1 phần)
+}
+
+public sealed class CreateSupplierDebitDto
+{
+    public string? DebitNo { get; set; }
+    public string SupplierCode { get; set; } = "";
+    public string? SupplierName { get; set; }
+    public string? SupplierPhone { get; set; }
+    public string? SupplierAddress { get; set; }
+    public string StockInNo { get; set; } = "";
+    public DateTime? StockInDate { get; set; }
+    public string? OrderPartNo { get; set; }
+    public string? Category { get; set; }
+    public DateTime? DebitDate { get; set; }
+    public DateTime? DueDate { get; set; }
+    public long DebitAmount { get; set; }
+    public string? Note { get; set; }
+    public string? CreatedBy { get; set; }
+}
+
+public sealed class CreateSupplierPaymentDto
+{
+    public string? PaymentNo { get; set; }
+    public string SupplierCode { get; set; } = "";
+    public string? SupplierName { get; set; }
+    public DateTime? PayDate { get; set; }
+    public string PayPersonName { get; set; } = "";
+    public string? PayPersonIDCardNo { get; set; }
+    public string? PayPersonPhone { get; set; }
+    public long PaymentAmount { get; set; }
+    public SupplierPaymentMethod? PaymentMethod { get; set; }
+    public string? BankCode { get; set; }
+    public string? BankName { get; set; }
+    public string? BankAccountNo { get; set; }
+    public string? BankTxnRef { get; set; }
+    public string? Note { get; set; }
+    public bool AutoAllocateFifo { get; set; } = true;
+    public List<SupplierManualAllocationItemDto>? ManualAllocations { get; set; }
+}
+
+public sealed class SupplierManualAllocationItemDto
+{
+    public long DebitId { get; set; }
+    public long Amount { get; set; }
+}
+
+public sealed class ConfirmSupplierPaymentDto
+{
+    public string? ConfirmedBy { get; set; } = "KeToanTruong";
+}
+
+public sealed class SettleSupplierPaymentDto
+{
+    public string? SettledBy { get; set; } = "KeToanThanhToan";
+    public string? BankTxnRef { get; set; }
+}
+
+public sealed class CancelSupplierPaymentDto
+{
+    public string Reason { get; set; } = "";
+    public string? CancelledBy { get; set; }
+}
+
+public sealed class SupplierPaymentAdviceDto
+{
+    public string PaymentNo { get; set; } = "";
+    public string PrintDate { get; set; } = "";
+    public string SupplierCode { get; set; } = "";
+    public string SupplierName { get; set; } = "";
+    public string? SupplierAddress { get; set; }
+    public string? SupplierPhone { get; set; }
+    public string PayPersonName { get; set; } = "";
+    public string? PayPersonIDCardNo { get; set; }
+    public string? PayPersonPhone { get; set; }
+    public string PaymentMethodText { get; set; } = "";
+    public string? BankCode { get; set; }
+    public string? BankName { get; set; }
+    public string? BankAccountNo { get; set; }
+    public string? BankTxnRef { get; set; }
+    public long PaymentAmount { get; set; }
+    public string PaymentAmountInWords { get; set; } = "";
+    public long TotalAllocated { get; set; }
+    public long UnallocatedAmount { get; set; }
+    public string StatusText { get; set; } = "";
+    public string? Note { get; set; }
+    public string? CreatedBy { get; set; }
+    public string? ConfirmedBy { get; set; }
+    public string? SettledBy { get; set; }
+    public List<SupplierPaymentDetailAdviceDto> Details { get; set; } = [];
+}
+
+public sealed class SupplierPaymentDetailAdviceDto
+{
+    public int No { get; set; }
+    public string DebitNo { get; set; } = "";
+    public string StockInNo { get; set; } = "";
+    public string? OrderPartNo { get; set; }
+    public long DebitAmount { get; set; }
+    public long DebitAmountBefore { get; set; }
+    public long PaymentDetailAmount { get; set; }
+    public long DebitAmountLeft { get; set; }
+    public string StatusAfterPayment { get; set; } = "";
+}
+
+public sealed class SupplierDebitSummaryDto
+{
+    public int TotalInvoices { get; set; }
+    public int PendingInvoices { get; set; }
+    public int PartiallyPaidInvoices { get; set; }
+    public int SettledInvoices { get; set; }
+    public int CancelledInvoices { get; set; }
+    public long TotalDebtAmount { get; set; }
+    public long TotalPaidAmount { get; set; }
+    public long TotalRemainingDebt { get; set; }
+    public decimal SettlementRate { get; set; }
+    public int TotalPaymentReceipts { get; set; }
+    public long TotalReceiptsAmount { get; set; }
+    public List<SupplierStatDto> SupplierStats { get; set; } = [];
+}
+
+public sealed class SupplierStatDto
+{
+    public string SupplierCode { get; set; } = "";
+    public string SupplierName { get; set; } = "";
+    public int InvoiceCount { get; set; }
+    public long TotalDebtAmount { get; set; }
+    public long TotalPaidAmount { get; set; }
+    public long RemainingDebt { get; set; }
+}
+
+public sealed class EligibleSupplierDebitDto
+{
+    public long Id { get; set; }
+    public string DebitNo { get; set; } = "";
+    public string StockInNo { get; set; } = "";
+    public string? OrderPartNo { get; set; }
+    public string? Category { get; set; }
+    public DateTime DebitDate { get; set; }
+    public DateTime DueDate { get; set; }
+    public long DebitAmount { get; set; }
+    public long PaidAmount { get; set; }
+    public long RemainAmount { get; set; }
+    public string Status { get; set; } = "";
+}
