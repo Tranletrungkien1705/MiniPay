@@ -131,6 +131,14 @@ public enum BankDealerStatus { Active = 0, Inactive = 1 }
 
 public enum PaymentTermStatus { Active = 0, Inactive = 1 }
 
+// ===== Yêu cầu điều chuyển vận tải kho (Storage Rearrange Transport Request - Sto_StorageRearrange) =====
+
+/// <summary>Trạng thái lệnh điều chuyển kho (Sto_StorageRearrange.RearrangeStatus: P/A1/A2/R).</summary>
+public enum StorageRearrangeStatus { Pending = 0, Approved1 = 1, Approved2 = 2, Rejected = 3 }
+
+/// <summary>Trạng thái dòng xe điều chuyển (Sto_StorageRearrangeDetail.RearrangeDtlStatus: P/A1/A2/R).</summary>
+public enum StorageRearrangeDetailStatus { Pending = 0, Approved1 = 1, Approved2 = 2, Rejected = 3 }
+
 /// <summary>Ý định thanh toán (payment intent) — 1 dòng / 1 lần khởi tạo cổng.</summary>
 public sealed class PaymentIntent
 {
@@ -4379,4 +4387,106 @@ public sealed class DealerContractBankStatDto
     public int ContractCount { get; set; }
     public int VehicleCount { get; set; }
     public long TotalAmount { get; set; }
+}// ===== Yêu cầu điều chuyển vận tải kho (Storage Rearrange Transport Request) =====
+
+/// <summary>
+/// Lệnh yêu cầu điều chuyển xe giữa các kho (Sto_StorageRearrange).
+/// Tương ứng Sto_StorageRearrange trong TERP.BizHTC/Backup/DataWH/Biz.HTC.WH.cs
+/// (StorageStorageRearrangeCreate / _Approve1 / _Approve2 / _DetailUpdate) và màn hình
+/// FrmMngSC, FrmNewSC trong TERP.HTCClient/Views/Sales/Purchase hệ nguồn HTC 2010.
+///
+/// Nghiệp vụ: lập lệnh điều chuyển xe từ kho hiện tại (StorageCodeFrom) sang kho đích (StorageCodeTo)
+/// kèm danh sách VIN, quy trình phê duyệt 2 cấp:
+///   Pending (P) → Duyệt cấp 1 (A1) → Duyệt cấp 2 (A2) / Từ chối (R).
+/// </summary>
+public sealed class StorageRearrange
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string StorageRearrangeNo { get; set; } = "";       // Số lệnh điều chuyển (StorageRearrangeNo)
+    public StorageRearrangeStatus RearrangeStatus { get; set; } = StorageRearrangeStatus.Pending; // Trạng thái lệnh (RearrangeStatus)
+    public string? Remark { get; set; }                        // Ghi chú (Remark)
+    public string? CreatedBy { get; set; }                     // Người lập (CreatedBy)
+    public DateTime CreatedAt { get; set; } = DateTime.Now;    // Ngày lập (CreatedDate)
+    public string? ApprovedBy1 { get; set; }                   // Người duyệt cấp 1 (ApprovedBy1)
+    public DateTime? ApprovedAt1 { get; set; }                 // Thời điểm duyệt cấp 1 (ApprovedDate1)
+    public string? ApprovedBy2 { get; set; }                   // Người duyệt cấp 2 (ApprovedBy2)
+    public DateTime? ApprovedAt2 { get; set; }                 // Thời điểm duyệt cấp 2 (ApprovedDate2)
+
+    public List<StorageRearrangeDetail> Details { get; set; } = [];
+}
+
+/// <summary>
+/// Chi tiết dòng xe điều chuyển kho (Sto_StorageRearrangeDetail).
+/// </summary>
+public sealed class StorageRearrangeDetail
+{
+    public long Id { get; set; }
+    public long StorageRearrangeId { get; set; }
+    public Guid OrgId { get; set; }
+    public string StorageRearrangeNo { get; set; } = "";       // Số lệnh điều chuyển (StorageRearrangeNo - denormalized)
+    public string VIN { get; set; } = "";                      // Số khung xe (VIN)
+    public string StorageCodeFrom { get; set; } = "";          // Kho xuất (StorageCodeFrom - lấy từ kho hiện tại của xe)
+    public string StorageCodeTo { get; set; } = "";            // Kho đến (StorageCodeTo)
+    public DateTime ExpectedStartDate { get; set; } = DateTime.Today; // Ngày vận tải dự kiến (ExpectedStartDate)
+    public DateTime? ExpectedEndDate { get; set; }             // Ngày giao xe dự kiến (ExpectedEndDate)
+    public string? Remark { get; set; }                        // Ghi chú dòng (Remark)
+    public StorageRearrangeDetailStatus RearrangeDtlStatus { get; set; } = StorageRearrangeDetailStatus.Pending; // Trạng thái dòng (RearrangeDtlStatus)
+    public string? ConfirmBy { get; set; }                     // Người xác nhận (ConfirmBy)
+    public DateTime? ConfirmDate { get; set; }                 // Ngày xác nhận (ConfirmDate)
+}
+
+public sealed class CreateStorageRearrangeDto
+{
+    public string? StorageRearrangeNo { get; set; }
+    public string? Remark { get; set; }
+    public string? CreatedBy { get; set; }
+    public List<StorageRearrangeItemInputDto> Items { get; set; } = [];
+}
+
+public sealed class StorageRearrangeItemInputDto
+{
+    public string VIN { get; set; } = "";
+    public string? StorageCodeFrom { get; set; }               // Kho xuất (nếu bỏ trống sẽ để rỗng — hệ nguồn tự lấy kho hiện tại của xe)
+    public string StorageCodeTo { get; set; } = "";
+    public DateTime? ExpectedStartDate { get; set; }
+    public DateTime? ExpectedEndDate { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class ApproveStorageRearrangeDto
+{
+    public string? ApproverName { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class RejectStorageRearrangeDto
+{
+    public string Reason { get; set; } = "";
+    public string? RejecterName { get; set; }
+}
+
+public sealed class UpdateStorageRearrangeDetailDto
+{
+    public string VIN { get; set; } = "";
+    public DateTime? ExpectedEndDate { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class StorageRearrangeSummaryDto
+{
+    public int TotalRequests { get; set; }
+    public int PendingCount { get; set; }                      // Chờ duyệt cấp 1 (RearrangeStatus=Pending)
+    public int Approved1Count { get; set; }                    // Đã duyệt cấp 1, chờ duyệt cấp 2
+    public int Approved2Count { get; set; }                    // Đã duyệt hoàn tất (RearrangeStatus=Approved2)
+    public int RejectedCount { get; set; }
+    public int TotalVehicles { get; set; }
+    public List<StorageRearrangeStorageStatDto> ByStorageTo { get; set; } = [];
+}
+
+public sealed class StorageRearrangeStorageStatDto
+{
+    public string StorageCodeTo { get; set; } = "";
+    public int RequestCount { get; set; }
+    public int VehicleCount { get; set; }
 }

@@ -57,6 +57,7 @@ builder.Services.AddScoped<AccountingVoucherService>();
 builder.Services.AddScoped<BankStatementAutoApproveService>();
 builder.Services.AddScoped<PaymentCalendarService>();
 builder.Services.AddScoped<DealerContractService>();
+builder.Services.AddScoped<StorageRearrangeService>();
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
     o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
@@ -8000,6 +8001,193 @@ app.MapPost("/api/dealer-contracts/{id:long}/dlr-cancel", async (long id, Cancel
             status = entity.DlrCtrStatus.ToString(),
             entity.CancelledBy,
             entity.CancelledAt
+        });
+    }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// ===== Yêu cầu Điều chuyển Vận tải Kho (Storage Rearrange Transport Request - Sto_StorageRearrange / FrmMngSC) =====
+
+// 1) Lập lệnh điều chuyển kho mới (StorageStorageRearrangeCreate)
+app.MapPost("/api/storage-rearranges", async (CreateStorageRearrangeDto dto, StorageRearrangeService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.CreateAsync(tc.OrgId, dto);
+        return Results.Created($"/api/storage-rearranges/{entity.Id}", new
+        {
+            entity.Id,
+            entity.StorageRearrangeNo,
+            status = entity.RearrangeStatus.ToString(),
+            entity.Remark,
+            entity.CreatedBy,
+            entity.CreatedAt,
+            totalVehicles = entity.Details.Count,
+            details = entity.Details.Select(d => new
+            {
+                d.Id,
+                d.VIN,
+                d.StorageCodeFrom,
+                d.StorageCodeTo,
+                d.ExpectedStartDate,
+                d.ExpectedEndDate,
+                status = d.RearrangeDtlStatus.ToString(),
+                d.Remark
+            })
+        });
+    }
+    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 2) Danh sách lệnh điều chuyển kho (StorageStorageRearrangeGet)
+app.MapGet("/api/storage-rearranges", async (
+    string? storageRearrangeNo,
+    string? status,
+    string? storageCodeTo,
+    string? query,
+    DateTime? fromDate,
+    DateTime? toDate,
+    StorageRearrangeService svc,
+    ITenantContext tc) =>
+{
+    var list = await svc.GetListAsync(tc.OrgId, storageRearrangeNo, status, storageCodeTo, query, fromDate, toDate);
+    return Results.Ok(list.Select(x => new
+    {
+        x.Id,
+        x.StorageRearrangeNo,
+        status = x.RearrangeStatus.ToString(),
+        x.Remark,
+        x.CreatedBy,
+        x.CreatedAt,
+        x.ApprovedBy1,
+        x.ApprovedAt1,
+        x.ApprovedBy2,
+        x.ApprovedAt2,
+        totalVehicles = x.Details.Count
+    }));
+});
+
+// 3) Báo cáo dashboard tổng hợp lệnh điều chuyển kho
+app.MapGet("/api/storage-rearranges/summary", async (StorageRearrangeService svc, ITenantContext tc) =>
+{
+    var summary = await svc.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
+// 4) Chi tiết 1 lệnh điều chuyển kho kèm danh sách VIN (StorageStorageRearrangeGet)
+app.MapGet("/api/storage-rearranges/{id:long}", async (long id, StorageRearrangeService svc, ITenantContext tc) =>
+{
+    var entity = await svc.GetByIdAsync(tc.OrgId, id);
+    if (entity == null) return Results.NotFound(new { error = $"Không tìm thấy lệnh điều chuyển #{id}." });
+    return Results.Ok(new
+    {
+        entity.Id,
+        entity.StorageRearrangeNo,
+        status = entity.RearrangeStatus.ToString(),
+        entity.Remark,
+        entity.CreatedBy,
+        entity.CreatedAt,
+        entity.ApprovedBy1,
+        entity.ApprovedAt1,
+        entity.ApprovedBy2,
+        entity.ApprovedAt2,
+        totalVehicles = entity.Details.Count,
+        details = entity.Details.OrderBy(d => d.Id).Select(d => new
+        {
+            d.Id,
+            d.VIN,
+            d.StorageCodeFrom,
+            d.StorageCodeTo,
+            d.ExpectedStartDate,
+            d.ExpectedEndDate,
+            status = d.RearrangeDtlStatus.ToString(),
+            d.ConfirmBy,
+            d.ConfirmDate,
+            d.Remark
+        })
+    });
+});
+
+// 5) Duyệt cấp 1 lệnh điều chuyển (StorageStorageRearrangeApprove1)
+app.MapPost("/api/storage-rearranges/{id:long}/approve1", async (long id, ApproveStorageRearrangeDto? dto, StorageRearrangeService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.Approve1Async(tc.OrgId, id, dto ?? new ApproveStorageRearrangeDto());
+        return Results.Ok(new
+        {
+            entity.Id,
+            entity.StorageRearrangeNo,
+            status = entity.RearrangeStatus.ToString(),
+            entity.ApprovedBy1,
+            entity.ApprovedAt1
+        });
+    }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 6) Duyệt cấp 2 — hoàn tất lệnh điều chuyển (StorageStorageRearrangeApprove2)
+app.MapPost("/api/storage-rearranges/{id:long}/approve2", async (long id, ApproveStorageRearrangeDto? dto, StorageRearrangeService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.Approve2Async(tc.OrgId, id, dto ?? new ApproveStorageRearrangeDto());
+        return Results.Ok(new
+        {
+            entity.Id,
+            entity.StorageRearrangeNo,
+            status = entity.RearrangeStatus.ToString(),
+            entity.ApprovedBy2,
+            entity.ApprovedAt2
+        });
+    }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 7) Từ chối lệnh điều chuyển (StorageStorageRearrangeApprove1/2 với FlagUnapprove=Active)
+app.MapPost("/api/storage-rearranges/{id:long}/reject", async (long id, RejectStorageRearrangeDto dto, StorageRearrangeService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.RejectAsync(tc.OrgId, id, dto);
+        return Results.Ok(new
+        {
+            entity.Id,
+            entity.StorageRearrangeNo,
+            status = entity.RearrangeStatus.ToString(),
+            entity.Remark
+        });
+    }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 8) Cập nhật ngày giao xe dự kiến / ghi chú 1 dòng VIN (StorageStorageRearrangeDetailUpdate)
+app.MapPost("/api/storage-rearranges/{id:long}/update-detail", async (long id, UpdateStorageRearrangeDetailDto dto, StorageRearrangeService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.UpdateDetailAsync(tc.OrgId, id, dto);
+        return Results.Ok(new
+        {
+            entity.Id,
+            entity.StorageRearrangeNo,
+            status = entity.RearrangeStatus.ToString(),
+            details = entity.Details.OrderBy(d => d.Id).Select(d => new
+            {
+                d.Id,
+                d.VIN,
+                d.StorageCodeFrom,
+                d.StorageCodeTo,
+                d.ExpectedStartDate,
+                d.ExpectedEndDate,
+                status = d.RearrangeDtlStatus.ToString(),
+                d.Remark
+            })
         });
     }
     catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }

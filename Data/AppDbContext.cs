@@ -72,6 +72,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<CalendarEntry> CalendarEntries => Set<CalendarEntry>();
     public DbSet<DealerContract> DealerContracts => Set<DealerContract>();
     public DbSet<DealerContractDetail> DealerContractDetails => Set<DealerContractDetail>();
+    public DbSet<StorageRearrange> StorageRearranges => Set<StorageRearrange>();
+    public DbSet<StorageRearrangeDetail> StorageRearrangeDetails => Set<StorageRearrangeDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -421,5 +423,14 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<DealerContractDetail>().HasIndex(x => x.DealerContractId);
         b.Entity<DealerContractDetail>().HasIndex(x => new { x.OrgId, x.VIN });
         b.Entity<DealerContractDetail>().HasIndex(x => new { x.OrgId, x.DlrCtrNo });
+
+        b.Entity<StorageRearrange>().HasIndex(x => new { x.OrgId, x.StorageRearrangeNo }).IsUnique();
+        b.Entity<StorageRearrange>().Property(x => x.RearrangeStatus).HasConversion<int>();
+        b.Entity<StorageRearrange>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.StorageRearrangeId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<StorageRearrangeDetail>().Property(x => x.RearrangeDtlStatus).HasConversion<int>();
+        b.Entity<StorageRearrangeDetail>().HasIndex(x => x.StorageRearrangeId);
+        b.Entity<StorageRearrangeDetail>().HasIndex(x => new { x.OrgId, x.VIN });
+        b.Entity<StorageRearrangeDetail>().HasIndex(x => new { x.OrgId, x.StorageRearrangeNo });
     }
 }
