@@ -48,6 +48,7 @@ builder.Services.AddScoped<CancelBankMDService>();
 builder.Services.AddScoped<InsurancePaymentService>();
 builder.Services.AddScoped<SupplierPaymentService>();
 builder.Services.AddScoped<CustomerPaymentService>();
+builder.Services.AddScoped<ContractCancellationService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -6539,6 +6540,205 @@ app.MapGet("/api/customer-payments/summary", async (CustomerPaymentService cusSe
 {
     var summary = await cusService.GetSummaryAsync(tc.OrgId);
     return Results.Ok(summary);
+});
+
+// ==========================================
+// Nghiệp Vụ Quản Lý Thỏa Thuận Hủy Hợp Đồng Mua Bán Xe & Quyết Toán Nghĩa Vụ Tài Chính (BizHTC.Contract / DMS40.Contract)
+// Dlr_ContractCancel, Dlr_ContractCancelDtl, Dlr_ContractCancelCar, FrmDMS40_DlrCtr_CancelMinutes
+// ==========================================
+
+// 1) Lấy danh sách biên bản thỏa thuận hủy hợp đồng
+app.MapGet("/api/contract-cancels", async (
+    string? status,
+    string? dealer,
+    string? settlementType,
+    string? query,
+    ContractCancellationService cancelService,
+    ITenantContext tc) =>
+{
+    var list = await cancelService.GetListAsync(tc.OrgId, status, dealer, settlementType, query);
+    return Results.Ok(list);
+});
+
+// 2) Báo cáo KPI tổng hợp số liệu biên bản thỏa thuận hủy & quyết toán tài chính
+app.MapGet("/api/contract-cancels/summary", async (ContractCancellationService cancelService, ITenantContext tc) =>
+{
+    var summary = await cancelService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
+// 3) Lấy chi tiết biên bản thỏa thuận hủy theo ID
+app.MapGet("/api/contract-cancels/{id:long}", async (long id, ContractCancellationService cancelService, ITenantContext tc) =>
+{
+    var item = await cancelService.GetByIdAsync(tc.OrgId, id);
+    if (item == null) return Results.NotFound(new { error = $"Không tìm thấy biên bản thỏa thuận hủy #{id}." });
+    return Results.Ok(item);
+});
+
+// 4) Lấy dữ liệu mẫu in Biên Bản Thỏa Thuận Hủy Hợp Đồng & Thanh Quyết Toán Nghĩa Vụ Tài Chính (kèm đọc số tiền thành chữ)
+app.MapGet("/api/contract-cancels/{id:long}/advice", async (long id, ContractCancellationService cancelService, ITenantContext tc) =>
+{
+    try
+    {
+        var advice = await cancelService.GenerateAdviceAsync(tc.OrgId, id);
+        return Results.Ok(advice);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.NotFound(new { error = ex.Message });
+    }
+});
+
+// 5) Tạo mới biên bản thỏa thuận hủy hợp đồng & phương án quyết toán (Dlr_ContractCancel_Save)
+app.MapPost("/api/contract-cancels", async (CreateContractCancelDto dto, ContractCancellationService cancelService, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await cancelService.CreateAsync(tc.OrgId, dto);
+        return Results.Ok(entity);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Cập nhật biên bản thỏa thuận hủy ở trạng thái Draft
+app.MapPut("/api/contract-cancels/{id:long}", async (long id, UpdateContractCancelDto dto, ContractCancellationService cancelService, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await cancelService.UpdateAsync(tc.OrgId, id, dto);
+        return Results.Ok(entity);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 7) Thêm xe vào biên bản thỏa thuận hủy Draft
+app.MapPost("/api/contract-cancels/{id:long}/items", async (long id, ContractCancelItemInputDto itemDto, ContractCancellationService cancelService, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await cancelService.AddDetailAsync(tc.OrgId, id, itemDto);
+        return Results.Ok(entity);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 8) Xóa xe khỏi biên bản thỏa thuận hủy Draft
+app.MapDelete("/api/contract-cancels/{id:long}/items/{detailId:long}", async (long id, long detailId, ContractCancellationService cancelService, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await cancelService.RemoveDetailAsync(tc.OrgId, id, detailId);
+        return Results.Ok(entity);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 9) Xóa biên bản thỏa thuận hủy Draft
+app.MapDelete("/api/contract-cancels/{id:long}", async (long id, ContractCancellationService cancelService, ITenantContext tc) =>
+{
+    try
+    {
+        await cancelService.DeleteDraftAsync(tc.OrgId, id);
+        return Results.Ok(new { message = $"Đã xóa biên bản thỏa thuận hủy #{id} thành công." });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 10) Trình thẩm định phương án tài chính hủy hợp đồng (Draft -> Submitted)
+app.MapPost("/api/contract-cancels/{id:long}/submit", async (long id, SubmitContractCancelDto? dto, ContractCancellationService cancelService, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await cancelService.SubmitAsync(tc.OrgId, id, dto ?? new SubmitContractCancelDto());
+        return Results.Ok(entity);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 11) Lãnh đạo HTC phê duyệt thỏa thuận hủy xe (Dlr_ContractCancel_ApproveMulti)
+app.MapPost("/api/contract-cancels/{id:long}/approve", async (long id, ApproveContractCancelDto? dto, ContractCancellationService cancelService, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await cancelService.ApproveAsync(tc.OrgId, id, dto ?? new ApproveContractCancelDto());
+        return Results.Ok(entity);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 12) Kế toán hoàn tất thanh quyết toán tài chính: Chi trả UNC hoàn cọc / phạt cọc / giải phóng bảo lãnh
+app.MapPost("/api/contract-cancels/{id:long}/settle", async (long id, SettleContractCancelDto? dto, ContractCancellationService cancelService, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await cancelService.SettleAsync(tc.OrgId, id, dto ?? new SettleContractCancelDto());
+        return Results.Ok(entity);
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 13) Từ chối đề nghị thỏa thuận hủy hợp đồng
+app.MapPost("/api/contract-cancels/{id:long}/reject", async (long id, RejectContractCancelDto dto, ContractCancellationService cancelService, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await cancelService.RejectAsync(tc.OrgId, id, dto);
+        return Results.Ok(entity);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 14) Hủy biên bản thỏa thuận hủy hợp đồng (Dlr_ContractCancel_CancelMulti)
+app.MapPost("/api/contract-cancels/{id:long}/cancel", async (long id, CancelContractCancelDto dto, ContractCancellationService cancelService, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await cancelService.CancelAsync(tc.OrgId, id, dto);
+        return Results.Ok(entity);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
 });
 
 app.Run();

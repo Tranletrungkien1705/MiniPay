@@ -2733,3 +2733,263 @@ public sealed class EligibleCustomerDebitDto
     public long RemainAmount { get; set; }
     public string Status { get; set; } = "";
 }
+
+// ==========================================
+// Nghiệp vụ Quản lý Biên Bản Thỏa Thuận Hủy Hợp Đồng Mua Bán Xe Ô Tô & Quyết Toán Nghĩa Vụ Tài Chính
+// (Automotive Sales Contract Cancellation & Financial Settlement Management)
+// Tương ứng BizHTC.Contract.cs (Dlr_ContractCancel, Dlr_ContractCancelDtl, Dlr_ContractCancelCar,
+// Dlr_ContractCancel_Save, Dlr_ContractCancel_ApproveMulti, Dlr_ContractCancel_CancelMulti, Dlr_ContractCancel_Get_New20230306)
+// và FrmDMS40_DlrCtr_CancelMinutes.cs, FrmMngDMS40_DlrCtr_CancelMinutesHtc.cs trong TERP.HTCClient/Views/Sales/DMS40 hệ nguồn HTC 2010.
+// ==========================================
+
+/// <summary>Trạng thái biên bản thỏa thuận hủy hợp đồng & quyết toán tài chính — tương ứng ContractCancelStatus trong BizHTC.</summary>
+public enum ContractCancelStatus
+{
+    Draft = 0,      // Mới lập dự thảo biên bản thỏa thuận hủy (Đại lý hoặc Sales Admin khởi tạo)
+    Submitted = 1,  // Đã trình thẩm định phương án tài chính (Chờ HTC Finance & Sales phê duyệt)
+    Approved = 2,   // Lãnh đạo HTC phê duyệt chấp thuận hủy & phương án quyết toán tài chính
+    Settled = 3,    // Đã hoàn tất thanh quyết toán tài chính (Hoàn cọc qua UNC / Tịch thu phạt cọc / Giải tỏa bảo lãnh)
+    Rejected = 4,   // Bị từ chối đề nghị hủy (kèm lý do không đáp ứng điều kiện hợp đồng)
+    Cancelled = 5   // Hủy biên bản thỏa thuận (các bên tiếp tục thực hiện hợp đồng mua bán xe)
+}
+
+/// <summary>Hình thức thỏa thuận xử lý nghĩa vụ tài chính khi hủy hợp đồng — tương ứng ContractUpdateType trong BizHTC.Contract.</summary>
+public enum ContractCancelSettlementType
+{
+    RefundDeposit = 0,    // Hoàn trả tiền cọc cho đại lý qua UNC ngân hàng (lỗi từ nhà phân phối hoặc bất khả kháng)
+    ForfeitDeposit = 1,   // Tịch thu tiền cọc sung công quỹ vi phạm hợp đồng (lỗi đại lý chậm thanh toán / tự ý hủy)
+    TransferDeposit = 2,  // Điều chuyển tiền cọc đã nộp sang hợp đồng / phụ lục xe mới khác
+    ReleaseGuarantee = 3, // Thông báo ngân hàng giải tỏa nghĩa vụ Thư bảo lãnh thanh toán (giải phóng hạn mức tín dụng)
+    MixedSettlement = 4   // Quyết toán hỗn hợp (kết hợp hoàn cọc một phần, phạt một phần và giải tỏa bảo lãnh)
+}
+
+/// <summary>Trạng thái từng dòng xe trong biên bản thỏa thuận hủy — tương ứng ContractCancelDtlStatus trong BizHTC.</summary>
+public enum ContractCancelDetailStatus
+{
+    Pending = 0,    // Chờ xử lý xe
+    Approved = 1,   // Đã duyệt hủy xe
+    Settled = 2,    // Đã hoàn tất quyết toán tài chính xe
+    Cancelled = 3   // Hủy dòng xe
+}
+
+/// <summary>Biên bản thỏa thuận hủy hợp đồng mua bán xe & quyết toán nghĩa vụ tài chính — tương ứng Dlr_ContractCancel trong BizHTC.</summary>
+public sealed class ContractCancellation
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string ContractCancelNo { get; set; } = "";             // Số biên bản hủy (ví dụ: DCC-202505-001, tương ứng ContractCNo trong BizHTC)
+    public string DlrContractNo { get; set; } = "";                // Số hợp đồng / phụ lục xe bị hủy (ví dụ: HDMB-2025-TC01)
+    public string DealerCode { get; set; } = "";                   // Mã đại lý (DEALERCODE)
+    public string DealerName { get; set; } = "";                   // Tên đại lý phân phối
+    public DateTime CancelDate { get; set; } = DateTime.Today;     // Ngày lập biên bản thỏa thuận hủy
+    public ContractCancelSettlementType SettlementType { get; set; } = ContractCancelSettlementType.RefundDeposit; // Hình thức xử lý tài chính
+    public string? BankCode { get; set; }                          // Mã ngân hàng liên quan (CTG, VPB, MBB, TCB, VCB...)
+    public string? BankName { get; set; }                          // Tên ngân hàng
+    public string? BankGuaranteeNo { get; set; }                   // Số Thư bảo lãnh ngân hàng cần giải tỏa (nếu có)
+    public int TotalVehicles { get; set; }                         // Tổng số lượng xe hủy trong biên bản
+    public long TotalContractAmount { get; set; }                  // Tổng giá trị xe bị hủy theo hợp đồng (VND)
+    public long TotalDepositPaid { get; set; }                     // Tổng số tiền cọc đại lý đã nộp trước đó (VND)
+    public long TotalRefundAmount { get; set; }                    // Tổng số tiền cọc hoàn trả lại cho đại lý (VND)
+    public long TotalPenaltyAmount { get; set; }                   // Tổng số tiền cọc bị tịch thu nộp phạt vi phạm HĐ (VND)
+    public long TotalGuaranteeRelease { get; set; }                // Tổng giá trị bảo lãnh ngân hàng cần giải tỏa (VND)
+    public string? TransferContractNo { get; set; }                // Số hợp đồng mới nhận chuyển cọc (nếu hình thức TransferDeposit)
+    public ContractCancelStatus Status { get; set; } = ContractCancelStatus.Draft; // Trạng thái biên bản
+    public string CancelReason { get; set; } = "";                 // Lý do thỏa thuận hủy hợp đồng
+    public string? BankTxnRef { get; set; }                        // Mã bút toán / Số lệnh chi UNC hoàn tiền cọc ngân hàng
+    public string? SettledBy { get; set; }                         // Kế toán thanh toán thực hiện quyết toán
+    public DateTime? SettledAt { get; set; }                       // Thời điểm hoàn tất quyết toán tài chính
+    public string? ApprovedBy { get; set; }                        // Lãnh đạo HTC phê duyệt biên bản
+    public DateTime? ApprovedAt { get; set; }                      // Thời điểm duyệt
+    public string? RejectReason { get; set; }                      // Lý do từ chối nếu có
+    public string? CancelReasonText { get; set; }                  // Lý do hủy biên bản
+    public string? Remark { get; set; }                            // Ghi chú / điều khoản bổ sung
+    public string? CreatedBy { get; set; }                         // Người lập biên bản
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    public List<ContractCancelDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết dòng xe ô tô trong biên bản hủy & phân bổ quyết toán — tương ứng Dlr_ContractCancelDtl & Dlr_ContractCancelCar trong BizHTC.</summary>
+public sealed class ContractCancelDetail
+{
+    public long Id { get; set; }
+    public long CancellationId { get; set; }
+    public Guid OrgId { get; set; }
+    public string ContractCancelNo { get; set; } = "";             // Số biên bản hủy
+    public string VIN { get; set; } = "";                          // Số khung xe (17 ký tự VIN)
+    public string? CarId { get; set; }                             // Mã xe nội bộ kho HTC
+    public string ModelCode { get; set; } = "";                    // Mã model xe (SANTAFE, TUCSON, CRETA, ACCENT, ELANTRA...)
+    public string? ModelName { get; set; }                         // Tên thương mại mẫu xe
+    public string? SpecCode { get; set; }                          // Mã phiên bản đặc tả kỹ thuật
+    public string? ColorCode { get; set; }                         // Mã màu sơn ngoại thất
+    public long UnitPrice { get; set; }                            // Đơn giá bán xe theo hợp đồng (VND)
+    public long DepositPaid { get; set; }                          // Tiền cọc đã nộp phân bổ cho xe (VND)
+    public long RefundAmount { get; set; }                         // Tiền cọc hoàn trả lại cho xe (VND)
+    public long PenaltyAmount { get; set; }                        // Tiền phạt cọc vi phạm hợp đồng (VND)
+    public long GuaranteeAmount { get; set; }                      // Giá trị bảo lãnh ngân hàng cần giải tỏa của xe (VND)
+    public string? TransferContractNo { get; set; }                // Hợp đồng mới nhận điều chuyển tiền cọc
+    public ContractCancelDetailStatus Status { get; set; } = ContractCancelDetailStatus.Pending; // Trạng thái dòng
+    public string? Remark { get; set; }                            // Ghi chú dòng xe
+}
+
+public sealed class CreateContractCancelDto
+{
+    public string? ContractCancelNo { get; set; }
+    public string DlrContractNo { get; set; } = "";
+    public string DealerCode { get; set; } = "";
+    public string? DealerName { get; set; }
+    public DateTime? CancelDate { get; set; }
+    public ContractCancelSettlementType SettlementType { get; set; } = ContractCancelSettlementType.RefundDeposit;
+    public string? BankCode { get; set; }
+    public string? BankName { get; set; }
+    public string? BankGuaranteeNo { get; set; }
+    public string? TransferContractNo { get; set; }
+    public string CancelReason { get; set; } = "";
+    public string? Remark { get; set; }
+    public string? CreatedBy { get; set; }
+    public List<ContractCancelItemInputDto> Items { get; set; } = [];
+}
+
+public sealed class ContractCancelItemInputDto
+{
+    public string VIN { get; set; } = "";
+    public string? CarId { get; set; }
+    public string ModelCode { get; set; } = "";
+    public string? ModelName { get; set; }
+    public string? SpecCode { get; set; }
+    public string? ColorCode { get; set; }
+    public long UnitPrice { get; set; }
+    public long? DepositPaid { get; set; }
+    public long? RefundAmount { get; set; }
+    public long? PenaltyAmount { get; set; }
+    public long? GuaranteeAmount { get; set; }
+    public string? TransferContractNo { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class UpdateContractCancelDto
+{
+    public ContractCancelSettlementType? SettlementType { get; set; }
+    public string? BankCode { get; set; }
+    public string? BankName { get; set; }
+    public string? BankGuaranteeNo { get; set; }
+    public string? TransferContractNo { get; set; }
+    public string? CancelReason { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class AddCarToCancelDto
+{
+    public ContractCancelItemInputDto Item { get; set; } = new();
+}
+
+public sealed class SubmitContractCancelDto
+{
+    public string? SubmitterName { get; set; } = "ChuyenVienQuanLyDaiLy";
+}
+
+public sealed class ApproveContractCancelDto
+{
+    public string? ApproverName { get; set; } = "PhoTongGiamDocKinhDoanh_HTC";
+    public string? Remark { get; set; }
+}
+
+public sealed class SettleContractCancelDto
+{
+    public string? SettlerName { get; set; } = "KeToanTruong_HTC";
+    public string? BankTxnRef { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class RejectContractCancelDto
+{
+    public string Reason { get; set; } = "";
+    public string? RejecterName { get; set; }
+}
+
+public sealed class CancelContractCancelDto
+{
+    public string Reason { get; set; } = "";
+    public string? CancellerName { get; set; }
+}
+
+public sealed class ContractCancelAdviceDto
+{
+    public string ContractCancelNo { get; set; } = "";
+    public string DlrContractNo { get; set; } = "";
+    public string PrintDate { get; set; } = "";
+    public string CancelDate { get; set; } = "";
+    public string DealerCode { get; set; } = "";
+    public string DealerName { get; set; } = "";
+    public string SettlementTypeText { get; set; } = "";
+    public string? BankCode { get; set; }
+    public string? BankName { get; set; }
+    public string? BankGuaranteeNo { get; set; }
+    public string? TransferContractNo { get; set; }
+    public int TotalVehicles { get; set; }
+    public long TotalContractAmount { get; set; }
+    public long TotalDepositPaid { get; set; }
+    public long TotalRefundAmount { get; set; }
+    public string TotalRefundAmountInWords { get; set; } = "";
+    public long TotalPenaltyAmount { get; set; }
+    public string TotalPenaltyAmountInWords { get; set; } = "";
+    public long TotalGuaranteeRelease { get; set; }
+    public string TotalGuaranteeReleaseInWords { get; set; } = "";
+    public string StatusText { get; set; } = "";
+    public string CancelReason { get; set; } = "";
+    public string? BankTxnRef { get; set; }
+    public string? CreatedBy { get; set; }
+    public string? ApprovedBy { get; set; }
+    public string? ApprovedAt { get; set; }
+    public string? SettledBy { get; set; }
+    public string? SettledAt { get; set; }
+    public string? Remark { get; set; }
+    public List<ContractCancelDetailAdviceDto> Items { get; set; } = [];
+}
+
+public sealed class ContractCancelDetailAdviceDto
+{
+    public int No { get; set; }
+    public string VIN { get; set; } = "";
+    public string ModelCode { get; set; } = "";
+    public string ModelName { get; set; } = "";
+    public string? SpecCode { get; set; }
+    public string? ColorCode { get; set; }
+    public long UnitPrice { get; set; }
+    public long DepositPaid { get; set; }
+    public long RefundAmount { get; set; }
+    public long PenaltyAmount { get; set; }
+    public long GuaranteeAmount { get; set; }
+    public string? TransferContractNo { get; set; }
+    public string Status { get; set; } = "";
+    public string? Remark { get; set; }
+}
+
+public sealed class ContractCancelSummaryDto
+{
+    public int TotalAgreements { get; set; }
+    public int DraftCount { get; set; }
+    public int SubmittedCount { get; set; }
+    public int ApprovedCount { get; set; }
+    public int SettledCount { get; set; }
+    public int RejectedCount { get; set; }
+    public int CancelledCount { get; set; }
+    public int TotalVehiclesCancelled { get; set; }
+    public long TotalContractAmount { get; set; }
+    public long TotalDepositPaid { get; set; }
+    public long TotalRefundAmount { get; set; }
+    public long TotalPenaltyAmount { get; set; }
+    public long TotalGuaranteeRelease { get; set; }
+    public List<DealerCancelStatDto> TopDealers { get; set; } = [];
+}
+
+public sealed class DealerCancelStatDto
+{
+    public string DealerCode { get; set; } = "";
+    public string DealerName { get; set; } = "";
+    public int AgreementCount { get; set; }
+    public int VehicleCount { get; set; }
+    public long TotalRefundAmount { get; set; }
+    public long TotalPenaltyAmount { get; set; }
+    public long TotalGuaranteeRelease { get; set; }
+}

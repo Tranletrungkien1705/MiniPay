@@ -107,6 +107,7 @@
     <button class="tab-btn" onclick="showTab('insurance')">Thu Bảo Hiểm Bồi Thường (Insurance Claim)</button>
     <button class="tab-btn" onclick="showTab('supplier')">Chi Trả NCC Phụ Tùng (Supplier Payment)</button>
     <button class="tab-btn" onclick="showTab('customer')">Thu Tiền KH Dịch Vụ (Customer Payment)</button>
+    <button class="tab-btn" onclick="showTab('contractCancel')">Hủy HĐ &amp; Quyết Toán Cọc (Contract Cancel)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -132,6 +133,7 @@
     <button class="tab-btn" onclick="showTab('newSupplierDebit')">+ Lập Nợ Nhập Kho Mới</button>
     <button class="tab-btn" onclick="showTab('newCustomerPayment')">+ Lập Phiếu Thu KH</button>
     <button class="tab-btn" onclick="showTab('newCustomerDebit')">+ Lập Nợ Dịch Vụ Mới</button>
+    <button class="tab-btn" onclick="showTab('newContractCancel')">+ Lập Thỏa Thuận Hủy HĐ</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -5652,6 +5654,357 @@
     </div>
   </div>
 
+  <!-- TAB: Quản lý Thỏa Thuận Hủy Hợp Đồng Mua Bán Xe & Quyết Toán Cọc / Bảo Lãnh -->
+  <div id="tab-contractCancel" style="display:none;">
+    <!-- Thống kê KPI -->
+    <div class="row" style="margin-bottom:16px;">
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Tổng Biên Bản Thỏa Thuận</div>
+        <div id="ccStatTotalAgreements" style="font-size:1.4em; font-weight:bold; color:var(--primary); margin-top:4px;">0</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Tổng Số Xe Hủy Giao</div>
+        <div id="ccStatTotalVehicles" style="font-size:1.4em; font-weight:bold; color:var(--text); margin-top:4px;">0 xe</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Tổng Tiền Cọc Đã Nộp</div>
+        <div id="ccStatTotalDepositPaid" style="font-size:1.3em; font-weight:bold; color:var(--primary); margin-top:4px;">0 đ</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Tiền Cọc Hoàn Trả ĐL (UNC)</div>
+        <div id="ccStatTotalRefund" style="font-size:1.3em; font-weight:bold; color:var(--success); margin-top:4px;">0 đ</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Tiền Phạt Cọc Tịch Thu</div>
+        <div id="ccStatTotalPenalty" style="font-size:1.3em; font-weight:bold; color:var(--danger); margin-top:4px;">0 đ</div>
+      </div>
+      <div class="col card" style="text-align:center; padding:12px;">
+        <div class="muted" style="font-size:.85em;">Bảo Lãnh NH Giải Tỏa</div>
+        <div id="ccStatTotalGuaranteeRelease" style="font-size:1.3em; font-weight:bold; color:#0284c7; margin-top:4px;">0 đ</div>
+      </div>
+    </div>
+
+    <!-- Bộ lọc & Thao tác -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
+        <div style="display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+          <div>
+            <label class="muted" style="font-size:.85em; display:block;">Đại Lý Phân Phối:</label>
+            <select id="filterCancelDealer" onchange="loadContractCancels()" style="padding:4px 8px;">
+              <option value="">-- Tất cả đại lý --</option>
+              <option value="VN001">VN001 - Hyundai Hà Nội</option>
+              <option value="VN002">VN002 - Hyundai Tây Hồ</option>
+              <option value="VN005">VN005 - Hyundai Đông Anh</option>
+              <option value="VN012">VN012 - Hyundai Nam Định</option>
+              <option value="VN018">VN018 - Hyundai Hải Phòng</option>
+              <option value="VN034">VN034 - Hyundai Đà Nẵng</option>
+              <option value="VN040">VN040 - Hyundai Việt Hàn (Sài Gòn)</option>
+              <option value="VN041">VN041 - Hyundai Miền Đông</option>
+              <option value="VN054">VN054 - Hyundai Cần Thơ</option>
+            </select>
+          </div>
+          <div>
+            <label class="muted" style="font-size:.85em; display:block;">Trạng Thái:</label>
+            <select id="filterCancelStatus" onchange="loadContractCancels()" style="padding:4px 8px;">
+              <option value="">-- Tất cả trạng thái --</option>
+              <option value="Draft">Draft - Dự thảo</option>
+              <option value="Submitted">Submitted - Đã trình duyệt</option>
+              <option value="Approved">Approved - HTC đã duyệt</option>
+              <option value="Settled">Settled - Đã quyết toán tài chính</option>
+              <option value="Rejected">Rejected - Từ chối</option>
+              <option value="Cancelled">Cancelled - Đã hủy</option>
+            </select>
+          </div>
+          <div>
+            <label class="muted" style="font-size:.85em; display:block;">Hình Thức Xử Lý:</label>
+            <select id="filterCancelSettlementType" onchange="loadContractCancels()" style="padding:4px 8px;">
+              <option value="">-- Tất cả hình thức --</option>
+              <option value="RefundDeposit">Hoàn cọc 100% (UNC ngân hàng)</option>
+              <option value="ForfeitDeposit">Tịch thu phạt cọc vi phạm</option>
+              <option value="TransferDeposit">Chuyển cọc sang HĐ mới</option>
+              <option value="ReleaseGuarantee">Giải phóng bảo lãnh NH</option>
+              <option value="MixedSettlement">Quyết toán hỗn hợp</option>
+            </select>
+          </div>
+          <div>
+            <label class="muted" style="font-size:.85em; display:block;">Tìm kiếm (Mã BB / Số HĐ / Lý do):</label>
+            <input type="text" id="filterCancelKeyword" placeholder="DCC-..., HDMB-..." onkeyup="if(event.key==='Enter') loadContractCancels()" style="padding:4px 8px; width:200px;">
+          </div>
+          <button class="secondary" onclick="loadContractCancels()" style="margin-top:16px;">Lọc Dữ Liệu</button>
+        </div>
+        <div>
+          <button onclick="showTab('newContractCancel')">+ Lập Thỏa Thuận Hủy Mới</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Danh sách Biên Bản Thỏa Thuận Hủy Hợp Đồng & Quyết Toán Tài Chính -->
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 style="margin:0;">Lịch Sử Biên Bản Thỏa Thuận Hủy Hợp Đồng Mua Bán Xe (Dlr_ContractCancel / FrmDMS40_DlrCtr_CancelMinutes)</h3>
+        <span class="muted" style="font-size:.85em;">Xử lý hoàn cọc qua UNC, tịch thu phạt cọc và thông báo giải phóng bảo lãnh ngân hàng</span>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Biên Bản</th>
+              <th>Số Phụ Lục HĐ</th>
+              <th>Ngày Thỏa Thuận</th>
+              <th>Đại Lý Mua Xe</th>
+              <th>Số Xe</th>
+              <th>Tổng Giá Trị Xe</th>
+              <th>Cọc Đã Nộp</th>
+              <th>Cọc Hoàn Trả</th>
+              <th>Tiền Phạt Cọc</th>
+              <th>Bảo Lãnh Giải Tỏa</th>
+              <th>Hình Thức Xử Lý</th>
+              <th>Trạng Thái</th>
+              <th>Thao Tác</th>
+            </tr>
+          </thead>
+          <tbody id="tblContractCancelsBody">
+            <tr><td colspan="13" style="text-align:center;">Đang tải dữ liệu...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: Lập Thỏa Thuận Hủy Hợp Đồng Mới -->
+  <div id="tab-newContractCancel" style="display:none;">
+    <div class="card" style="max-width:1100px; margin:0 auto;">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:12px; margin-bottom:16px;">
+        <div>
+          <h3 style="margin:0;">Lập Thỏa Thuận Hủy Hợp Đồng &amp; Phương Án Quyết Toán Tài Chính</h3>
+          <p class="muted" style="margin:4px 0 0; font-size:.85em;">Tương ứng module Dlr_ContractCancel_Save &amp; FrmDMS40_DlrCtr_CancelMinutes trong hệ thống HTC</p>
+        </div>
+        <button class="secondary" onclick="showTab('contractCancel')">&larr; Quay lại danh sách</button>
+      </div>
+
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+        <div>
+          <label class="muted">Số Phụ Lục Hợp Đồng Mua Bán Xe (*):</label>
+          <input type="text" id="inpNewCCContractNo" placeholder="Ví dụ: HDMB-2025-HN09" value="HDMB-2025-HN09">
+        </div>
+        <div>
+          <label class="muted">Đại Lý Phân Phối (*):</label>
+          <select id="inpNewCCDealerCode">
+            <option value="VN001">VN001 - Công ty CP Ô tô Hyundai Hà Nội</option>
+            <option value="VN002">VN002 - Công ty TNHH Ô tô Hyundai Tây Hồ</option>
+            <option value="VN005">VN005 - Công ty CP Thương mại Dịch vụ Hyundai Đông Anh</option>
+            <option value="VN012">VN012 - Công ty CP Ô tô Hyundai Nam Định</option>
+            <option value="VN018">VN018 - Công ty TNHH Hyundai Hải Phòng</option>
+            <option value="VN034">VN034 - Công ty CP Dịch vụ Tổng hợp Hyundai Đà Nẵng</option>
+            <option value="VN040">VN040 - Công ty CP Ô tô Hyundai Việt Hàn (Sài Gòn)</option>
+            <option value="VN041">VN041 - Công ty TNHH MTV Hyundai Miền Đông</option>
+            <option value="VN054">VN054 - Công ty CP Hyundai Cần Thơ</option>
+          </select>
+        </div>
+        <div>
+          <label class="muted">Ngày Thỏa Thuận Hủy Hợp Đồng (*):</label>
+          <input type="date" id="inpNewCCCancelDate">
+        </div>
+        <div>
+          <label class="muted">Hình Thức Thỏa Thuận Quyết Toán Tài Chính (*):</label>
+          <select id="inpNewCCSettlementType" onchange="onSettlementTypeChange()">
+            <option value="RefundDeposit">Hoàn trả 100% tiền cọc cho đại lý qua UNC ngân hàng</option>
+            <option value="ForfeitDeposit">Tịch thu phạt tiền cọc vi phạm hợp đồng đại lý</option>
+            <option value="TransferDeposit">Điều chuyển tiền cọc sang hợp đồng / phụ lục xe mới</option>
+            <option value="ReleaseGuarantee">Giải phóng nghĩa vụ Thư bảo lãnh thanh toán ngân hàng</option>
+            <option value="MixedSettlement">Quyết toán hỗn hợp (Hoàn cọc + Phạt cọc + Giải phóng BL)</option>
+          </select>
+        </div>
+        <div>
+          <label class="muted">Ngân Hàng Liên Quan (Hoàn tiền UNC hoặc Bảo lãnh):</label>
+          <select id="inpNewCCBankCode">
+            <option value="">-- Không qua ngân hàng --</option>
+            <option value="CTG">VietinBank - Ngân hàng TMCP Công Thương Việt Nam</option>
+            <option value="MBB">MBBank - Ngân hàng TMCP Quân Đội</option>
+            <option value="VCB">Vietcombank - Ngân hàng Ngoại Thương Việt Nam</option>
+            <option value="TCB">Techcombank - Ngân hàng Kỹ Thương Việt Nam</option>
+            <option value="VPB">VPBank - Ngân hàng Việt Nam Thịnh Vượng</option>
+            <option value="BIDV">BIDV - Ngân hàng Đầu tư và Phát triển Việt Nam</option>
+          </select>
+        </div>
+        <div>
+          <label class="muted">Số Thư Bảo Lãnh Ngân Hàng (nếu giải tỏa BL):</label>
+          <input type="text" id="inpNewCCBankGuaranteeNo" placeholder="Ví dụ: BLTT-CTG-2025-0812">
+        </div>
+        <div id="divTransferContract" style="display:none;">
+          <label class="muted">Số Hợp Đồng / Phụ Lục Mới Nhận Chuyển Cọc:</label>
+          <input type="text" id="inpNewCCTransferContractNo" placeholder="Ví dụ: HDMB-2025-HN15">
+        </div>
+        <div>
+          <label class="muted">Căn Cứ / Lý Do Thỏa Thuận Hủy Hợp Đồng (*):</label>
+          <input type="text" id="inpNewCCCancelReason" placeholder="Nhập lý do hủy (hết hàng, chậm giao xe, vi phạm thanh toán...)" value="Đại lý và Hãng đạt thỏa thuận hủy đơn hàng do thời gian chờ xe nhập khẩu kéo dài quá hạn hợp đồng.">
+        </div>
+      </div>
+
+      <div style="margin-bottom:16px;">
+        <label class="muted">Điều Khoản Bổ Sung / Ghi Chú:</label>
+        <input type="text" id="inpNewCCRemark" placeholder="Ghi chú thêm về điều khoản quyết toán tài chính..." value="Hai bên cam kết không phát sinh bất kỳ khiếu nại tài chính nào sau khi thực hiện xong nghĩa vụ quyết toán.">
+      </div>
+
+      <!-- Bảng danh sách dòng xe hủy -->
+      <div style="margin-bottom:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h4 style="margin:0;">Danh Sách Xe Ô Tô Trong Phụ Lục HĐ Thỏa Thuận Hủy</h4>
+          <div style="display:flex; gap:8px;">
+            <button class="secondary" onclick="autoCalculateNewCCVehicleRows()" style="font-size:.85em;">Tự Động Tính Cọc 15%</button>
+            <button class="secondary" onclick="addVehicleRowToNewCC()" style="font-size:.85em;">+ Thêm Dòng Xe</button>
+          </div>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr style="background:#f8fafc;">
+                <th>Số Khung (VIN)</th>
+                <th>Dòng Xe / Model</th>
+                <th>Mã Bản Kỹ Thuật</th>
+                <th>Màu Ngoại Thất</th>
+                <th>Đơn Giá Xe (VND)</th>
+                <th>Cọc Đã Nộp (VND)</th>
+                <th>Cọc Hoàn (VND)</th>
+                <th>Cọc Phạt (VND)</th>
+                <th>Bảo Lãnh (VND)</th>
+                <th>Xóa</th>
+              </tr>
+            </thead>
+            <tbody id="tblNewCCVehiclesBody">
+              <!-- Sẽ được thêm bằng JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:20px;">
+        <span id="submitNewCCMsg" style="margin-right:12px; align-self:center; color:var(--primary); font-weight:500;"></span>
+        <button class="secondary" onclick="showTab('contractCancel')">Hủy Bỏ</button>
+        <button onclick="submitCreateContractCancel()">Lập Biên Bản Thỏa Thuận Hủy</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Xem Chi Tiết Biên Bản Thỏa Thuận Hủy & Quản Lý Dòng Xe -->
+  <div id="modalContractCancelDetail" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:1050px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.2em;" id="modalCCDetailTitle">CHI TIẾT BIÊN BẢN THỎA THUẬN HỦY HỢP ĐỒNG</h2>
+        <button class="secondary" onclick="closeContractCancelDetailModal()">Đóng [X]</button>
+      </div>
+
+      <div id="modalCCDetailContent" style="margin-top:16px;">
+        <!-- Thông tin Header -->
+      </div>
+
+      <!-- Bảng danh sách dòng xe trong modal -->
+      <div style="margin-top:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+          <h4 style="margin:0;">Danh Sách Xe Ô Tô Hủy &amp; Phân Bổ Quyết Toán Tài Chính</h4>
+          <span id="ccDetailDraftActions" style="display:none;">
+            <button class="secondary" onclick="toggleAddCarFormInModal()" style="font-size:.85em;">+ Thêm Xe Vào Biên Bản</button>
+          </span>
+        </div>
+
+        <!-- Form thêm xe nhanh trong modal (nếu Draft) -->
+        <div id="divModalAddCarForm" style="display:none; background:#f8fafc; border:1px solid #e2e8f0; padding:12px; margin-bottom:12px; border-radius:6px;">
+          <h5 style="margin:0 0 8px;">Thêm Xe Ô Tô Vào Biên Bản Hủy:</h5>
+          <div style="display:grid; grid-template-columns:repeat(4, 1fr); gap:10px; font-size:.9em;">
+            <div>
+              <label class="muted">Số Khung (VIN):</label>
+              <input type="text" id="modalAddVIN" placeholder="17 ký tự VIN">
+            </div>
+            <div>
+              <label class="muted">Model:</label>
+              <select id="modalAddModel">
+                <option value="SANTAFE">SANTAFE</option>
+                <option value="TUCSON">TUCSON</option>
+                <option value="CRETA">CRETA</option>
+                <option value="ACCENT">ACCENT</option>
+                <option value="ELANTRA">ELANTRA</option>
+                <option value="PALISADE">PALISADE</option>
+                <option value="CUSTIN">CUSTIN</option>
+                <option value="IONIQ5">IONIQ5</option>
+              </select>
+            </div>
+            <div>
+              <label class="muted">Đơn Giá Xe (VND):</label>
+              <input type="number" id="modalAddUnitPrice" value="820000000">
+            </div>
+            <div>
+              <label class="muted">Cọc Đã Nộp (VND):</label>
+              <input type="number" id="modalAddDeposit" value="123000000">
+            </div>
+            <div>
+              <label class="muted">Cọc Hoàn Lại (VND):</label>
+              <input type="number" id="modalAddRefund" value="123000000">
+            </div>
+            <div>
+              <label class="muted">Cọc Phạt (VND):</label>
+              <input type="number" id="modalAddPenalty" value="0">
+            </div>
+            <div>
+              <label class="muted">Bảo Lãnh Giải Tỏa (VND):</label>
+              <input type="number" id="modalAddGuarantee" value="0">
+            </div>
+            <div style="display:flex; align-items:flex-end;">
+              <button onclick="submitAddCarFromModal()" style="width:100%;">Lưu Xe</button>
+            </div>
+          </div>
+        </div>
+
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr style="background:#f1f5f9;">
+                <th>STT</th>
+                <th>Số Khung (VIN)</th>
+                <th>Dòng Xe / Phiên Bản</th>
+                <th>Màu Xe</th>
+                <th>Đơn Giá Xe</th>
+                <th>Cọc Đã Nộp</th>
+                <th>Cọc Hoàn Lại</th>
+                <th>Cọc Bị Phạt</th>
+                <th>Bảo Lãnh Giải Tỏa</th>
+                <th>Tình Trạng</th>
+                <th>Thao Tác</th>
+              </tr>
+            </thead>
+            <tbody id="modalCCTableBody">
+              <!-- Render bằng JS -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Thanh công cụ xử lý quy trình luồng duyệt -->
+      <div id="modalCCWorkflowBar" style="margin-top:20px; padding-top:14px; border-top:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:8px;">
+        <div id="modalCCLeftActions" style="display:flex; gap:8px;">
+          <!-- Render nút action theo status bằng JS -->
+        </div>
+        <div style="display:flex; gap:8px;">
+          <button class="secondary" onclick="closeContractCancelDetailModal()">Đóng</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Xem & In Biên Bản Thỏa Thuận Hủy Hợp Đồng & Thanh Quyết Toán Nghĩa Vụ Tài Chính (Mẫu FrmDMS40_DlrCtr_CancelMinutes) -->
+  <div id="modalContractCancelAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:960px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.2em;">BIÊN BẢN THỎA THUẬN HỦY HỢP ĐỒNG &amp; QUYẾT TOÁN TÀI CHÍNH (FrmDMS40_DlrCtr_CancelMinutes)</h2>
+        <button class="secondary" onclick="closeContractCancelAdviceModal()">Đóng [X]</button>
+      </div>
+      <div id="contractCancelAdviceContent" style="margin-top:16px; font-size:.9em; line-height:1.6;"></div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('contractCancelAdviceContent').innerText); alert('Đã sao chép nội dung Biên bản thỏa thuận vào clipboard!');">Sao Chép Văn Bản</button>
+        <button onclick="window.print()">In Biên Bản Thỏa Thuận</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Modal In Giấy Báo Thu Tiền Quyết Toán Dịch Vụ Sửa Chữa (SerPaymentPaperRpt Advice) -->
   <div id="modalCustomerPaymentAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
     <div style="max-width:960px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
@@ -6005,6 +6358,23 @@
         <li><code>GET /api/customer-payments/{id}/advice</code> — Sinh dữ liệu mẫu in Phiếu Thu Tiền Quyết Toán Dịch Vụ Sửa Chữa (SerPaymentPaperRpt Advice)</li>
         <li><code>GET /api/customer-payments/summary</code> — Báo cáo tổng hợp Dashboard KPI công nợ &amp; quyết toán thu tiền dịch vụ khách hàng</li>
       </ul>
+      <h3>Nghiệp Vụ Thỏa Thuận Hủy Hợp Đồng Mua Bán Xe &amp; Quyết Toán Tài Chính (Automotive Contract Cancellation &amp; Settlement - BizHTC.Contract / FrmDMS40_DlrCtr_CancelMinutes)</h3>
+      <ul>
+        <li><code>POST /api/contract-cancels</code> — Lập biên bản thỏa thuận hủy hợp đồng &amp; phương án quyết toán tài chính (Dlr_ContractCancel_Save)</li>
+        <li><code>GET /api/contract-cancels</code> — Danh sách biên bản thỏa thuận hủy (hỗ trợ lọc theo <code>status</code>, <code>dealer</code>, <code>settlementType</code>, <code>query</code>)</li>
+        <li><code>GET /api/contract-cancels/{id}</code> — Chi tiết 1 biên bản thỏa thuận hủy kèm danh mục toàn bộ xe và phân bổ tài chính</li>
+        <li><code>PUT /api/contract-cancels/{id}</code> — Điều chỉnh thông tin biên bản thỏa thuận ở trạng thái dự thảo Draft</li>
+        <li><code>POST /api/contract-cancels/{id}/items</code> — Bổ sung xe vào biên bản thỏa thuận hủy Draft</li>
+        <li><code>DELETE /api/contract-cancels/{id}/items/{detailId}</code> — Xóa xe khỏi biên bản thỏa thuận hủy Draft</li>
+        <li><code>DELETE /api/contract-cancels/{id}</code> — Xóa toàn bộ biên bản thỏa thuận hủy Draft</li>
+        <li><code>POST /api/contract-cancels/{id}/submit</code> — Trình Ban Giám đốc &amp; Tài chính HTC thẩm định thỏa thuận hủy xe (Draft &rarr; Submitted)</li>
+        <li><code>POST /api/contract-cancels/{id}/approve</code> — Lãnh đạo HTC phê duyệt chấp thuận thỏa thuận hủy xe (Dlr_ContractCancel_ApproveMulti)</li>
+        <li><code>POST /api/contract-cancels/{id}/settle</code> — Kế toán hoàn tất quyết toán tài chính: Chuyển khoản hoàn cọc UNC / Tịch thu phạt cọc / Giải tỏa bảo lãnh (Approved &rarr; Settled)</li>
+        <li><code>POST /api/contract-cancels/{id}/reject</code> — Từ chối đề nghị thỏa thuận hủy hợp đồng kèm lý do</li>
+        <li><code>POST /api/contract-cancels/{id}/cancel</code> — Hủy biên bản thỏa thuận (Dlr_ContractCancel_CancelMulti)</li>
+        <li><code>GET /api/contract-cancels/{id}/advice</code> — Sinh dữ liệu mẫu in Biên Bản Thỏa Thuận Hủy Hợp Đồng Mua Bán Xe &amp; Quyết Toán Nghĩa Vụ Tài Chính kèm đọc tiền bằng chữ tiếng Việt</li>
+        <li><code>GET /api/contract-cancels/summary</code> — Báo cáo tổng hợp Dashboard KPI biên bản thỏa thuận hủy, số xe hủy và các khoản tiền tài chính</li>
+      </ul>
     </div>
   </div>
 
@@ -6036,6 +6406,7 @@
       document.getElementById('tab-insurance').style.display = tabName === 'insurance' ? 'block' : 'none';
       document.getElementById('tab-supplier').style.display = tabName === 'supplier' ? 'block' : 'none';
       document.getElementById('tab-customer').style.display = tabName === 'customer' ? 'block' : 'none';
+      document.getElementById('tab-contractCancel').style.display = tabName === 'contractCancel' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -6061,6 +6432,7 @@
       document.getElementById('tab-newSupplierDebit').style.display = tabName === 'newSupplierDebit' ? 'block' : 'none';
       document.getElementById('tab-newCustomerPayment').style.display = tabName === 'newCustomerPayment' ? 'block' : 'none';
       document.getElementById('tab-newCustomerDebit').style.display = tabName === 'newCustomerDebit' ? 'block' : 'none';
+      document.getElementById('tab-newContractCancel').style.display = tabName === 'newContractCancel' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
       document.querySelectorAll('.tab-btn').forEach((b) => {
@@ -6092,6 +6464,7 @@
       else if (tabName === 'newSupplierPayment') { loadEligibleDebitsForNewSupplierPayment(); }
       else if (tabName === 'customer') { loadCustomerData(); }
       else if (tabName === 'newCustomerPayment') { loadEligibleDebitsForNewCustomerPayment(); }
+      else if (tabName === 'contractCancel') { loadContractCancels(); loadContractCancelSummary(); }
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====
@@ -16372,6 +16745,671 @@
       }
     }
 
+    // ===== TAB: THỎA THUẬN HỦY HỢP ĐỒNG & QUYẾT TOÁN CỌC / BẢO LÃNH (Contract Cancellation & Financial Settlement) =====
+    let currentCCId = null;
+
+    function onSettlementTypeChange() {
+      const type = document.getElementById('inpNewCCSettlementType').value;
+      const divTransfer = document.getElementById('divTransferContract');
+      if (divTransfer) {
+        divTransfer.style.display = type === 'TransferDeposit' ? 'block' : 'none';
+      }
+    }
+
+    function addVehicleRowToNewCC(vin = '', model = 'SANTAFE', spec = '2.2 HTRAC', color = 'TRANG', unitPrice = 1150000000, deposit = 172500000, refund = 172500000, penalty = 0, guarantee = 0) {
+      const tbody = document.getElementById('tblNewCCVehiclesBody');
+      if (!tbody) return;
+      const tr = document.createElement('tr');
+      tr.innerHTML = `
+        <td><input type="text" class="cc-vin" placeholder="17 ký tự VIN" value="${vin}" style="width:170px; font-family:monospace; font-size:.9em;"></td>
+        <td>
+          <select class="cc-model" style="width:120px;">
+            <option value="SANTAFE" ${model === 'SANTAFE' ? 'selected' : ''}>SANTAFE</option>
+            <option value="TUCSON" ${model === 'TUCSON' ? 'selected' : ''}>TUCSON</option>
+            <option value="CRETA" ${model === 'CRETA' ? 'selected' : ''}>CRETA</option>
+            <option value="ACCENT" ${model === 'ACCENT' ? 'selected' : ''}>ACCENT</option>
+            <option value="ELANTRA" ${model === 'ELANTRA' ? 'selected' : ''}>ELANTRA</option>
+            <option value="PALISADE" ${model === 'PALISADE' ? 'selected' : ''}>PALISADE</option>
+            <option value="CUSTIN" ${model === 'CUSTIN' ? 'selected' : ''}>CUSTIN</option>
+            <option value="IONIQ5" ${model === 'IONIQ5' ? 'selected' : ''}>IONIQ5</option>
+          </select>
+        </td>
+        <td><input type="text" class="cc-spec" placeholder="Bản kỹ thuật" value="${spec}" style="width:110px;"></td>
+        <td><input type="text" class="cc-color" placeholder="Màu sơn" value="${color}" style="width:80px;"></td>
+        <td><input type="number" class="cc-unitprice" value="${unitPrice}" style="width:120px;" oninput="recalcCCRow(this)"></td>
+        <td><input type="number" class="cc-deposit" value="${deposit}" style="width:110px;"></td>
+        <td><input type="number" class="cc-refund" value="${refund}" style="width:110px;"></td>
+        <td><input type="number" class="cc-penalty" value="${penalty}" style="width:110px;"></td>
+        <td><input type="number" class="cc-guarantee" value="${guarantee}" style="width:110px;"></td>
+        <td style="text-align:center;"><button type="button" class="secondary" style="color:var(--danger); padding:2px 8px;" onclick="this.closest('tr').remove()">&times;</button></td>
+      `;
+      tbody.appendChild(tr);
+    }
+
+    function recalcCCRow(input) {
+      const tr = input.closest('tr');
+      const uPrice = parseInt(input.value) || 0;
+      const dep = Math.round(uPrice * 0.15);
+      const stype = document.getElementById('inpNewCCSettlementType').value;
+      tr.querySelector('.cc-deposit').value = dep;
+      if (stype === 'RefundDeposit') {
+        tr.querySelector('.cc-refund').value = dep;
+        tr.querySelector('.cc-penalty').value = 0;
+        tr.querySelector('.cc-guarantee').value = 0;
+      } else if (stype === 'ForfeitDeposit') {
+        tr.querySelector('.cc-refund').value = 0;
+        tr.querySelector('.cc-penalty').value = dep;
+        tr.querySelector('.cc-guarantee').value = 0;
+      } else if (stype === 'ReleaseGuarantee') {
+        tr.querySelector('.cc-refund').value = 0;
+        tr.querySelector('.cc-penalty').value = 0;
+        tr.querySelector('.cc-guarantee').value = Math.round(uPrice * 0.85);
+      }
+    }
+
+    function autoCalculateNewCCVehicleRows() {
+      const rows = document.querySelectorAll('#tblNewCCVehiclesBody tr');
+      rows.forEach(tr => {
+        const uInput = tr.querySelector('.cc-unitprice');
+        if (uInput) recalcCCRow(uInput);
+      });
+    }
+
+    async function loadContractCancelSummary() {
+      try {
+        const res = await fetch('/api/contract-cancels/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('ccStatTotalAgreements').textContent = d.totalAgreements;
+        document.getElementById('ccStatTotalVehicles').textContent = (d.totalVehiclesCancelled || 0) + ' xe';
+        document.getElementById('ccStatTotalDepositPaid').textContent = Number(d.totalDepositPaid || 0).toLocaleString('vi-VN') + ' đ';
+        document.getElementById('ccStatTotalRefund').textContent = Number(d.totalRefundAmount || 0).toLocaleString('vi-VN') + ' đ';
+        document.getElementById('ccStatTotalPenalty').textContent = Number(d.totalPenaltyAmount || 0).toLocaleString('vi-VN') + ' đ';
+        document.getElementById('ccStatTotalGuaranteeRelease').textContent = Number(d.totalGuaranteeRelease || 0).toLocaleString('vi-VN') + ' đ';
+      } catch(e) { console.error('Lỗi nạp KPI biên bản hủy:', e); }
+    }
+
+    async function loadContractCancels() {
+      const dealer = document.getElementById('filterCancelDealer').value;
+      const status = document.getElementById('filterCancelStatus').value;
+      const sType = document.getElementById('filterCancelSettlementType').value;
+      const kw = document.getElementById('filterCancelKeyword').value.trim();
+
+      let url = '/api/contract-cancels?';
+      if (dealer) url += 'dealer=' + encodeURIComponent(dealer) + '&';
+      if (status) url += 'status=' + encodeURIComponent(status) + '&';
+      if (sType) url += 'settlementType=' + encodeURIComponent(sType) + '&';
+      if (kw) url += 'query=' + encodeURIComponent(kw) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('tblContractCancelsBody');
+        if (!tbody) return;
+
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="13" class="muted" style="text-align:center;">Không có biên bản thỏa thuận hủy hợp đồng nào phù hợp tiêu chí lọc.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(p => {
+          let badge = 'badge-info';
+          let stLabel = p.status;
+          if (p.status === 'Settled' || p.status === 3) { badge = 'badge-success'; stLabel = 'Đã Quyết Toán'; }
+          else if (p.status === 'Approved' || p.status === 2) { badge = 'badge-primary'; stLabel = 'HTC Đã Duyệt'; }
+          else if (p.status === 'Submitted' || p.status === 1) { badge = 'badge-warning'; stLabel = 'Đã Trình Duyệt'; }
+          else if (p.status === 'Draft' || p.status === 0) { badge = 'muted'; stLabel = 'Dự Thảo'; }
+          else if (p.status === 'Rejected' || p.status === 4) { badge = 'badge-danger'; stLabel = 'Từ Chối'; }
+          else if (p.status === 'Cancelled' || p.status === 5) { badge = 'muted'; stLabel = 'Đã Hủy'; }
+
+          let sTypeLabel = 'Hoàn cọc';
+          if (p.settlementType === 'ForfeitDeposit' || p.settlementType === 1) sTypeLabel = 'Tịch thu phạt';
+          else if (p.settlementType === 'TransferDeposit' || p.settlementType === 2) sTypeLabel = 'Chuyển cọc';
+          else if (p.settlementType === 'ReleaseGuarantee' || p.settlementType === 3) sTypeLabel = 'Giải tỏa BL';
+          else if (p.settlementType === 'MixedSettlement' || p.settlementType === 4) sTypeLabel = 'Hỗn hợp';
+
+          const dateStr = p.cancelDate ? new Date(p.cancelDate).toLocaleDateString('vi-VN') : '';
+
+          let actions = `<button class="secondary" onclick="viewContractCancelDetail(${p.id})">Chi Tiết</button>`;
+          actions += ` <button class="secondary" onclick="viewContractCancelAdvice(${p.id})">Mẫu In</button>`;
+
+          if (p.status === 'Draft' || p.status === 0) {
+            actions += ` <button onclick="submitContractCancelForReview(${p.id})" style="margin-left:4px;">Trình Duyệt</button>`;
+            actions += ` <button class="secondary" style="color:var(--danger); margin-left:4px;" onclick="deleteDraftContractCancel(${p.id})">Xóa</button>`;
+          } else if (p.status === 'Submitted' || p.status === 1) {
+            actions += ` <button onclick="approveContractCancel(${p.id})" style="margin-left:4px;">Phê Duyệt</button>`;
+            actions += ` <button class="secondary" style="color:var(--danger); margin-left:4px;" onclick="rejectContractCancel(${p.id})">Từ Chối</button>`;
+          } else if (p.status === 'Approved' || p.status === 2) {
+            actions += ` <button onclick="settleContractCancel(${p.id})" style="background:var(--success); margin-left:4px;">Quyết Toán</button>`;
+            actions += ` <button class="secondary" style="color:var(--danger); margin-left:4px;" onclick="rejectContractCancel(${p.id})">Từ Chối</button>`;
+          }
+
+          if (p.status !== 'Settled' && p.status !== 3 && p.status !== 'Cancelled' && p.status !== 5 && p.status !== 'Draft' && p.status !== 0) {
+            actions += ` <button class="secondary" style="color:var(--danger); margin-left:4px;" onclick="cancelContractCancel(${p.id})">Hủy BB</button>`;
+          }
+
+          return `
+            <tr>
+              <td><strong>${p.contractCancelNo}</strong></td>
+              <td><code>${p.dlrContractNo}</code></td>
+              <td>${dateStr}</td>
+              <td><strong>${p.dealerCode}</strong><br><small class="muted">${p.dealerName}</small></td>
+              <td style="text-align:center;"><strong>${p.totalVehicles}</strong></td>
+              <td style="text-align:right;">${Number(p.totalContractAmount || 0).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; color:var(--primary); font-weight:600;">${Number(p.totalDepositPaid || 0).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; color:var(--success); font-weight:600;">${Number(p.totalRefundAmount || 0).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; color:var(--danger); font-weight:600;">${Number(p.totalPenaltyAmount || 0).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; color:#0284c7; font-weight:600;">${Number(p.totalGuaranteeRelease || 0).toLocaleString('vi-VN')} đ</td>
+              <td><span class="badge badge-info">${sTypeLabel}</span></td>
+              <td><span class="badge ${badge}">${stLabel}</span></td>
+              <td style="white-space:nowrap;">${actions}</td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error('Lỗi tải danh sách biên bản hủy:', e); }
+    }
+
+    async function submitCreateContractCancel() {
+      const msg = document.getElementById('submitNewCCMsg');
+      const ctrNo = document.getElementById('inpNewCCContractNo').value.trim();
+      const dlrSelect = document.getElementById('inpNewCCDealerCode');
+      const dlrCode = dlrSelect.value;
+      const dlrName = dlrSelect.options[dlrSelect.selectedIndex].text.split(' - ')[1] || dlrSelect.options[dlrSelect.selectedIndex].text;
+      const cancelDate = document.getElementById('inpNewCCCancelDate').value;
+      const sType = document.getElementById('inpNewCCSettlementType').value;
+      const bankCode = document.getElementById('inpNewCCBankCode').value || null;
+      const bankGrtNo = document.getElementById('inpNewCCBankGuaranteeNo').value.trim() || null;
+      const trfCtrNo = document.getElementById('inpNewCCTransferContractNo').value.trim() || null;
+      const reason = document.getElementById('inpNewCCCancelReason').value.trim();
+      const remark = document.getElementById('inpNewCCRemark').value.trim() || null;
+
+      if (!ctrNo) { alert('Vui lòng nhập số phụ lục hợp đồng xe.'); return; }
+      if (!dlrCode) { alert('Vui lòng chọn đại lý phân phối.'); return; }
+      if (!reason) { alert('Vui lòng nhập căn cứ / lý do thỏa thuận hủy hợp đồng.'); return; }
+
+      const rows = document.querySelectorAll('#tblNewCCVehiclesBody tr');
+      if (!rows.length) { alert('Vui lòng thêm ít nhất 1 dòng xe ô tô thỏa thuận hủy.'); return; }
+
+      const items = [];
+      for (const tr of rows) {
+        const vin = tr.querySelector('.cc-vin')?.value.trim();
+        if (!vin) continue;
+        const model = tr.querySelector('.cc-model')?.value || 'SANTAFE';
+        const spec = tr.querySelector('.cc-spec')?.value.trim() || '';
+        const color = tr.querySelector('.cc-color')?.value.trim() || 'TRANG';
+        const uPrice = parseInt(tr.querySelector('.cc-unitprice')?.value) || 0;
+        const dep = parseInt(tr.querySelector('.cc-deposit')?.value) || 0;
+        const ref = parseInt(tr.querySelector('.cc-refund')?.value) || 0;
+        const pen = parseInt(tr.querySelector('.cc-penalty')?.value) || 0;
+        const grt = parseInt(tr.querySelector('.cc-guarantee')?.value) || 0;
+
+        items.push({
+          vin: vin,
+          modelCode: model,
+          specCode: spec,
+          colorCode: color,
+          unitPrice: uPrice,
+          depositPaid: dep,
+          refundAmount: ref,
+          penaltyAmount: pen,
+          guaranteeAmount: grt
+        });
+      }
+
+      if (!items.length) { alert('Vui lòng nhập đầy đủ số khung VIN cho ít nhất 1 xe.'); return; }
+
+      const payload = {
+        dlrContractNo: ctrNo,
+        dealerCode: dlrCode,
+        dealerName: dlrName,
+        cancelDate: cancelDate ? new Date(cancelDate) : new Date(),
+        settlementType: sType,
+        bankCode: bankCode,
+        bankGuaranteeNo: bankGrtNo,
+        transferContractNo: trfCtrNo,
+        cancelReason: reason,
+        remark: remark,
+        items: items
+      };
+
+      msg.textContent = 'Đang khởi tạo biên bản thỏa thuận hủy...';
+      try {
+        const res = await fetch('/api/contract-cancels', {
+          method: 'POST', headers, body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Số biên bản: ${data.contractCancelNo}`;
+        setTimeout(() => {
+          showTab('contractCancel');
+          loadContractCancels();
+          loadContractCancelSummary();
+          viewContractCancelDetail(data.id);
+        }, 800);
+      } catch(e) { msg.textContent = 'Lỗi: ' + e.message; }
+    }
+
+    async function viewContractCancelDetail(id) {
+      currentCCId = id;
+      try {
+        const res = await fetch(`/api/contract-cancels/${id}`, { headers });
+        if (!res.ok) { alert('Không tìm thấy biên bản hủy.'); return; }
+        const p = await res.json();
+
+        document.getElementById('modalCCDetailTitle').textContent = `CHI TIẾT BIÊN BẢN THỎA THUẬN HỦY: ${p.contractCancelNo}`;
+
+        let sTypeLabel = 'Hoàn cọc 100% qua UNC ngân hàng';
+        if (p.settlementType === 'ForfeitDeposit' || p.settlementType === 1) sTypeLabel = 'Tịch thu phạt cọc vi phạm hợp đồng';
+        else if (p.settlementType === 'TransferDeposit' || p.settlementType === 2) sTypeLabel = `Chuyển cọc sang HĐ mới (${p.transferContractNo || ''})`;
+        else if (p.settlementType === 'ReleaseGuarantee' || p.settlementType === 3) sTypeLabel = `Giải phóng Thư bảo lãnh NH (${p.bankGuaranteeNo || p.bankCode || ''})`;
+        else if (p.settlementType === 'MixedSettlement' || p.settlementType === 4) sTypeLabel = 'Quyết toán hỗn hợp';
+
+        let badge = 'badge-info';
+        let stLabel = p.status;
+        if (p.status === 'Settled' || p.status === 3) { badge = 'badge-success'; stLabel = 'Đã Hoàn Tất Quyết Toán'; }
+        else if (p.status === 'Approved' || p.status === 2) { badge = 'badge-primary'; stLabel = 'Lãnh Đạo HTC Đã Phê Duyệt'; }
+        else if (p.status === 'Submitted' || p.status === 1) { badge = 'badge-warning'; stLabel = 'Đang Chờ Lãnh Đạo Duyệt'; }
+        else if (p.status === 'Draft' || p.status === 0) { badge = 'muted'; stLabel = 'Dự Thảo Bản Nháp'; }
+        else if (p.status === 'Rejected' || p.status === 4) { badge = 'badge-danger'; stLabel = 'Bị Từ Chối'; }
+        else if (p.status === 'Cancelled' || p.status === 5) { badge = 'muted'; stLabel = 'Đã Hủy Biên Bản'; }
+
+        const cDate = p.cancelDate ? new Date(p.cancelDate).toLocaleDateString('vi-VN') : '';
+
+        const headerHtml = `
+          <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:12px; background:#f8fafc; border:1px solid #e2e8f0; padding:14px; border-radius:6px; font-size:.92em;">
+            <div><strong>Số biên bản:</strong> <span style="color:var(--primary); font-weight:bold;">${p.contractCancelNo}</span></div>
+            <div><strong>Số hợp đồng / Phụ lục:</strong> <code>${p.dlrContractNo}</code></div>
+            <div><strong>Ngày thỏa thuận:</strong> ${cDate}</div>
+            <div><strong>Đại lý mua xe:</strong> ${p.dealerName} (${p.dealerCode})</div>
+            <div><strong>Hình thức xử lý:</strong> <span class="badge badge-info">${sTypeLabel}</span></div>
+            <div><strong>Trạng thái:</strong> <span class="badge ${badge}">${stLabel}</span></div>
+            <div><strong>Ngân hàng đối tác:</strong> ${p.bankName || p.bankCode || 'N/A'}</div>
+            <div><strong>Số thư bảo lãnh:</strong> ${p.bankGuaranteeNo || 'N/A'}</div>
+            <div><strong>Bút toán UNC / Hoàn tiền:</strong> <span style="font-family:monospace; font-weight:600;">${p.bankTxnRef || 'Chưa phát sinh'}</span></div>
+            <div style="grid-column:1 / -1;"><strong>Căn cứ / Lý do hủy:</strong> ${p.cancelReason}</div>
+            ${p.remark ? `<div style="grid-column:1 / -1; color:#555;"><strong>Ghi chú / Nhật ký luồng duyệt:</strong> ${p.remark}</div>` : ''}
+            ${p.rejectReason ? `<div style="grid-column:1 / -1; color:var(--danger); font-weight:600;"><strong>Lý do từ chối:</strong> ${p.rejectReason}</div>` : ''}
+          </div>
+
+          <div style="display:grid; grid-template-columns:repeat(5, 1fr); gap:10px; margin-top:12px;">
+            <div class="card" style="padding:8px 12px; text-align:center; margin:0;">
+              <div class="muted" style="font-size:.8em;">Tổng Số Lượng Xe</div>
+              <div style="font-size:1.2em; font-weight:bold;">${p.totalVehicles} xe</div>
+            </div>
+            <div class="card" style="padding:8px 12px; text-align:center; margin:0;">
+              <div class="muted" style="font-size:.8em;">Tổng Giá Trị Xe</div>
+              <div style="font-size:1.1em; font-weight:bold;">${Number(p.totalContractAmount || 0).toLocaleString('vi-VN')} đ</div>
+            </div>
+            <div class="card" style="padding:8px 12px; text-align:center; margin:0;">
+              <div class="muted" style="font-size:.8em;">Tổng Tiền Cọc Đã Nộp</div>
+              <div style="font-size:1.1em; font-weight:bold; color:var(--primary);">${Number(p.totalDepositPaid || 0).toLocaleString('vi-VN')} đ</div>
+            </div>
+            <div class="card" style="padding:8px 12px; text-align:center; margin:0;">
+              <div class="muted" style="font-size:.8em;">Tiền Cọc Hoàn Trả (UNC)</div>
+              <div style="font-size:1.1em; font-weight:bold; color:var(--success);">${Number(p.totalRefundAmount || 0).toLocaleString('vi-VN')} đ</div>
+            </div>
+            <div class="card" style="padding:8px 12px; text-align:center; margin:0;">
+              <div class="muted" style="font-size:.8em;">Tiền Phạt Cọc Tịch Thu</div>
+              <div style="font-size:1.1em; font-weight:bold; color:var(--danger);">${Number(p.totalPenaltyAmount || 0).toLocaleString('vi-VN')} đ</div>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('modalCCDetailContent').innerHTML = headerHtml;
+
+        // Xử lý danh sách xe
+        const isDraft = (p.status === 'Draft' || p.status === 0);
+        const draftActions = document.getElementById('ccDetailDraftActions');
+        if (draftActions) draftActions.style.display = isDraft ? 'inline-block' : 'none';
+        document.getElementById('divModalAddCarForm').style.display = 'none';
+
+        const tbody = document.getElementById('modalCCTableBody');
+        let idx = 1;
+        tbody.innerHTML = (p.details || []).map(d => {
+          let delBtn = isDraft ? `<button class="secondary" style="color:var(--danger); padding:2px 6px;" onclick="removeCarFromCancel(${p.id}, ${d.id})">Xóa</button>` : '-';
+          return `
+            <tr>
+              <td style="text-align:center;">${idx++}</td>
+              <td><code>${d.vin}</code></td>
+              <td><strong>${d.modelName || d.modelCode}</strong><br><small class="muted">${d.specCode || ''}</small></td>
+              <td>${d.colorCode || ''}</td>
+              <td style="text-align:right;">${Number(d.unitPrice || 0).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; font-weight:600; color:var(--primary);">${Number(d.depositPaid || 0).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; color:var(--success); font-weight:600;">${Number(d.refundAmount || 0).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; color:var(--danger); font-weight:600;">${Number(d.penaltyAmount || 0).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; color:#0284c7; font-weight:600;">${Number(d.guaranteeAmount || 0).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:center;"><span class="badge badge-info">${d.status}</span></td>
+              <td style="text-align:center;">${delBtn}</td>
+            </tr>
+          `;
+        }).join('');
+
+        // Workflow action buttons
+        let actionsHtml = `<button class="secondary" onclick="viewContractCancelAdvice(${p.id})">Xem/In Biên Bản (Advice)</button>`;
+        if (isDraft) {
+          actionsHtml += ` <button onclick="submitContractCancelForReview(${p.id})">Trình Thẩm Định Phương Án</button>`;
+          actionsHtml += ` <button class="secondary" style="color:var(--danger);" onclick="deleteDraftContractCancel(${p.id})">Xóa Bản Nháp</button>`;
+        } else if (p.status === 'Submitted' || p.status === 1) {
+          actionsHtml += ` <button onclick="approveContractCancel(${p.id})" style="background:var(--primary);">Lãnh Đạo Phê Duyệt</button>`;
+          actionsHtml += ` <button class="secondary" style="color:var(--danger);" onclick="rejectContractCancel(${p.id})">Từ Chối</button>`;
+        } else if (p.status === 'Approved' || p.status === 2) {
+          actionsHtml += ` <button onclick="settleContractCancel(${p.id})" style="background:var(--success);">Kế Toán Quyết Toán Tài Chính</button>`;
+          actionsHtml += ` <button class="secondary" style="color:var(--danger);" onclick="rejectContractCancel(${p.id})">Từ Chối</button>`;
+        }
+
+        if (p.status !== 'Settled' && p.status !== 3 && p.status !== 'Cancelled' && p.status !== 5 && !isDraft) {
+          actionsHtml += ` <button class="secondary" style="color:var(--danger);" onclick="cancelContractCancel(${p.id})">Hủy Biên Bản</button>`;
+        }
+
+        document.getElementById('modalCCLeftActions').innerHTML = actionsHtml;
+        document.getElementById('modalContractCancelDetail').style.display = 'block';
+      } catch(e) { alert('Lỗi tải chi tiết biên bản: ' + e.message); }
+    }
+
+    function closeContractCancelDetailModal() {
+      document.getElementById('modalContractCancelDetail').style.display = 'none';
+      currentCCId = null;
+    }
+
+    function toggleAddCarFormInModal() {
+      const div = document.getElementById('divModalAddCarForm');
+      div.style.display = div.style.display === 'none' ? 'block' : 'none';
+    }
+
+    async function submitAddCarFromModal() {
+      if (!currentCCId) return;
+      const vin = document.getElementById('modalAddVIN').value.trim();
+      if (!vin) { alert('Vui lòng nhập số khung VIN.'); return; }
+      const model = document.getElementById('modalAddModel').value;
+      const uPrice = parseInt(document.getElementById('modalAddUnitPrice').value) || 0;
+      const dep = parseInt(document.getElementById('modalAddDeposit').value) || 0;
+      const ref = parseInt(document.getElementById('modalAddRefund').value) || 0;
+      const pen = parseInt(document.getElementById('modalAddPenalty').value) || 0;
+      const grt = parseInt(document.getElementById('modalAddGuarantee').value) || 0;
+
+      const payload = {
+        vin: vin,
+        modelCode: model,
+        unitPrice: uPrice,
+        depositPaid: dep,
+        refundAmount: ref,
+        penaltyAmount: pen,
+        guaranteeAmount: grt
+      };
+
+      try {
+        const res = await fetch(`/api/contract-cancels/${currentCCId}/items`, {
+          method: 'POST', headers, body: JSON.stringify(payload)
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        document.getElementById('modalAddVIN').value = '';
+        await viewContractCancelDetail(currentCCId);
+        await Promise.all([loadContractCancels(), loadContractCancelSummary()]);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function removeCarFromCancel(cancelId, detailId) {
+      if (!confirm('Xác nhận xóa xe này khỏi biên bản thỏa thuận hủy?')) return;
+      try {
+        const res = await fetch(`/api/contract-cancels/${cancelId}/items/${detailId}`, {
+          method: 'DELETE', headers
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        await viewContractCancelDetail(cancelId);
+        await Promise.all([loadContractCancels(), loadContractCancelSummary()]);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function submitContractCancelForReview(id) {
+      if (!confirm('Xác nhận trình Ban Giám đốc & Tài chính HTC thẩm định biên bản hủy hợp đồng?')) return;
+      try {
+        const res = await fetch(`/api/contract-cancels/${id}/submit`, {
+          method: 'POST', headers, body: JSON.stringify({ submitterName: 'ChuyenVienQuanLyDaiLy' })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã trình thẩm định thành công!');
+        if (currentCCId === id) await viewContractCancelDetail(id);
+        await Promise.all([loadContractCancels(), loadContractCancelSummary()]);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function approveContractCancel(id) {
+      const approver = prompt('Nhập họ tên Lãnh đạo HTC phê duyệt:', 'PhoTongGiamDocKinhDoanh_HTC');
+      if (!approver) return;
+      try {
+        const res = await fetch(`/api/contract-cancels/${id}/approve`, {
+          method: 'POST', headers, body: JSON.stringify({ approverName: approver })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Lãnh đạo HTC đã phê duyệt chấp thuận hủy hợp đồng!');
+        if (currentCCId === id) await viewContractCancelDetail(id);
+        await Promise.all([loadContractCancels(), loadContractCancelSummary()]);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function settleContractCancel(id) {
+      const ref = prompt('Nhập mã bút toán / Lệnh chi UNC hoàn tiền cọc ngân hàng:', 'UNC-BIDV-2025' + Math.floor(1000 + Math.random() * 9000));
+      if (!ref) return;
+      try {
+        const res = await fetch(`/api/contract-cancels/${id}/settle`, {
+          method: 'POST', headers, body: JSON.stringify({ settlerName: 'KeToanTruong_HTC', bankTxnRef: ref })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã hoàn tất thanh quyết toán nghĩa vụ tài chính!');
+        if (currentCCId === id) await viewContractCancelDetail(id);
+        await Promise.all([loadContractCancels(), loadContractCancelSummary()]);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function rejectContractCancel(id) {
+      const reason = prompt('Nhập lý do từ chối biên bản thỏa thuận hủy:', 'Không phù hợp chính sách kinh doanh và điều khoản phụ lục hợp đồng');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/contract-cancels/${id}/reject`, {
+          method: 'POST', headers, body: JSON.stringify({ reason: reason, rejecterName: 'GiamDocTaiChinh_HTC' })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã từ chối thỏa thuận hủy hợp đồng.');
+        if (currentCCId === id) await viewContractCancelDetail(id);
+        await Promise.all([loadContractCancels(), loadContractCancelSummary()]);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function cancelContractCancel(id) {
+      const reason = prompt('Nhập lý do hủy bỏ biên bản thỏa thuận:', 'Hai bên thống nhất tiếp tục duy trì thực hiện hợp đồng mua bán xe');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/contract-cancels/${id}/cancel`, {
+          method: 'POST', headers, body: JSON.stringify({ reason: reason, cancellerName: 'Admin' })
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã hủy biên bản thỏa thuận.');
+        if (currentCCId === id) await viewContractCancelDetail(id);
+        await Promise.all([loadContractCancels(), loadContractCancelSummary()]);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function deleteDraftContractCancel(id) {
+      if (!confirm('Xác nhận xóa hoàn toàn dự thảo biên bản hủy này?')) return;
+      try {
+        const res = await fetch(`/api/contract-cancels/${id}`, {
+          method: 'DELETE', headers
+        });
+        if (!res.ok) {
+          const err = await res.json();
+          alert('Lỗi: ' + (err.error || res.statusText));
+          return;
+        }
+        alert('Đã xóa biên bản thỏa thuận nháp thành công.');
+        closeContractCancelDetailModal();
+        await Promise.all([loadContractCancels(), loadContractCancelSummary()]);
+      } catch(e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function viewContractCancelAdvice(id) {
+      try {
+        const res = await fetch(`/api/contract-cancels/${id}/advice`, { headers });
+        if (!res.ok) { alert('Không tìm thấy thông tin biên bản.'); return; }
+        const a = await res.json();
+
+        let detailsHtml = (a.items || []).map(d => `
+          <tr>
+            <td style="text-align:center;">${d.no}</td>
+            <td><code>${d.vin}</code></td>
+            <td><strong>${d.modelName}</strong></td>
+            <td style="text-align:center;">${d.colorCode || ''}</td>
+            <td style="text-align:right;">${Number(d.unitPrice || 0).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; color:var(--primary); font-weight:600;">${Number(d.depositPaid || 0).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; color:var(--success); font-weight:600;">${Number(d.refundAmount || 0).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; color:var(--danger); font-weight:600;">${Number(d.penaltyAmount || 0).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; color:#0284c7; font-weight:600;">${Number(d.guaranteeAmount || 0).toLocaleString('vi-VN')} đ</td>
+          </tr>
+        `).join('');
+
+        const html = `
+          <div style="border:2px solid var(--border); padding:24px; background:#fff; color:#000;">
+            <div style="display:flex; justify-content:space-between; border-bottom:2px solid #000; padding-bottom:12px; margin-bottom:16px;">
+              <div>
+                <h3 style="margin:0; text-transform:uppercase; color:#000;">CÔNG TY CỔ PHẦN LIÊN DOANH Ô TÔ HYUNDAI THÀNH CÔNG VIỆT NAM (HTV)</h3>
+                <p style="margin:2px 0 0; font-size:.85em; color:#555;">Khối Kinh Doanh Ô Tô — Phòng Quản Lý &amp; Phát Triển Hệ Thống Đại Lý</p>
+                <p style="margin:2px 0 0; font-size:.85em; color:#555;">Ban Tài Chính Kế Toán &amp; Quản Lý Tín Dụng Phân Phối</p>
+              </div>
+              <div style="text-align:right;">
+                <h4 style="margin:0; color:#000;">Mẫu biểu: FrmDMS40_DlrCtr_CancelMinutes</h4>
+                <p style="margin:2px 0 0; font-size:.85em; color:#555;">Số biên bản: <strong>${a.contractCancelNo}</strong></p>
+                <p style="margin:2px 0 0; font-size:.85em; color:#555;">Ngày in: ${a.printDate}</p>
+              </div>
+            </div>
+
+            <div style="text-align:center; margin-bottom:20px;">
+              <h2 style="margin:0; text-transform:uppercase; letter-spacing:1px; color:#000;">BIÊN BẢN THỎA THUẬN HỦY HỢP ĐỒNG MUA BÁN XE Ô TÔ</h2>
+              <h3 style="margin:4px 0 0; text-transform:uppercase; font-size:1.1em; color:#000;">VÀ THANH QUYẾT TOÁN NGHĨA VỤ TÀI CHÍNH</h3>
+              <p style="margin:4px 0 0; font-style:italic; font-size:.9em; color:#555;">(Căn cứ Hợp đồng Mua bán Ô tô &amp; Phụ lục số: <strong>${a.dlrContractNo}</strong> ký ngày ${a.cancelDate})</p>
+            </div>
+
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:16px; font-size:.95em;">
+              <div><strong>Bên Giao Xe (Bên A):</strong> HTV - CÔNG TY CP LIÊN DOANH Ô TÔ HYUNDAI THÀNH CÔNG VN</div>
+              <div><strong>Bên Nhận Xe (Bên B):</strong> ${a.dealerName} (Mã: <strong>${a.dealerCode}</strong>)</div>
+              <div><strong>Phương án xử lý tài chính:</strong> <span style="font-weight:bold; color:var(--primary);">${a.settlementTypeText}</span></div>
+              <div><strong>Tình trạng phê duyệt:</strong> <strong>${a.statusText}</strong></div>
+              <div><strong>Ngân hàng đối tác:</strong> ${a.bankName || a.bankCode || 'Thực hiện vốn tự có'}</div>
+              <div><strong>Thư bảo lãnh số:</strong> ${a.bankGuaranteeNo || 'Không áp dụng'}</div>
+              <div><strong>Mã giao dịch / UNC ngân hàng:</strong> <code>${a.bankTxnRef || 'Chưa ghi nhận'}</code></div>
+              <div><strong>Hợp đồng chuyển cọc:</strong> ${a.transferContractNo || 'Không có'}</div>
+              <div style="grid-column:1 / -1;"><strong>Lý do thỏa thuận hủy hợp đồng:</strong> ${a.cancelReason}</div>
+            </div>
+
+            <div style="margin:16px 0 6px;">
+              <strong>I. DANH MỤC XE Ô TÔ THỎA THUẬN HỦY &amp; PHÂN BỔ NGHĨA VỤ TÀI CHÍNH:</strong>
+            </div>
+
+            <table style="width:100%; border-collapse:collapse; margin-bottom:16px; font-size:.9em;" border="1">
+              <thead>
+                <tr style="background:#f1f5f9; color:#000;">
+                  <th style="padding:6px; text-align:center;">STT</th>
+                  <th style="padding:6px;">Số Khung (VIN)</th>
+                  <th style="padding:6px;">Mẫu Xe &amp; Phiên Bản</th>
+                  <th style="padding:6px; text-align:center;">Màu</th>
+                  <th style="padding:6px; text-align:right;">Đơn Giá Xe</th>
+                  <th style="padding:6px; text-align:right;">Cọc Đã Nộp</th>
+                  <th style="padding:6px; text-align:right;">Cọc Hoàn Trả</th>
+                  <th style="padding:6px; text-align:right;">Tiền Phạt Cọc</th>
+                  <th style="padding:6px; text-align:right;">Bảo Lãnh Giải Tỏa</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${detailsHtml}
+              </tbody>
+            </table>
+
+            <div style="background:#f9fafb; border:1px solid #ccc; padding:12px; margin-bottom:18px; font-size:.92em; line-height:1.7;">
+              <strong>II. TỔNG KẾT NGHĨA VỤ THANH QUYẾT TOÁN TÀI CHÍNH:</strong>
+              <div>- Tổng số lượng xe hủy: <strong>${a.totalVehicles} xe</strong> | Tổng giá trị hợp đồng hủy: <strong>${Number(a.totalContractAmount).toLocaleString('vi-VN')} VNĐ</strong></div>
+              <div>- Tổng tiền đặt cọc đại lý đã nộp: <strong>${Number(a.totalDepositPaid).toLocaleString('vi-VN')} VNĐ</strong></div>
+              <div>- Tổng tiền hoàn trả cho đại lý (qua UNC): <strong style="color:var(--success); font-size:1.1em;">${Number(a.totalRefundAmount).toLocaleString('vi-VN')} VNĐ</strong></div>
+              <div><em>(Bằng chữ hoàn cọc: ${a.totalRefundAmountInWords})</em></div>
+              <div>- Tổng tiền phạt cọc vi phạm nộp sung công quỹ: <strong style="color:var(--danger); font-size:1.1em;">${Number(a.totalPenaltyAmount).toLocaleString('vi-VN')} VNĐ</strong></div>
+              <div><em>(Bằng chữ phạt cọc: ${a.totalPenaltyAmountInWords})</em></div>
+              <div>- Tổng giá trị bảo lãnh ngân hàng đề nghị giải tỏa hạn mức: <strong style="color:#0284c7; font-size:1.1em;">${Number(a.totalGuaranteeRelease).toLocaleString('vi-VN')} VNĐ</strong></div>
+              <div><em>(Bằng chữ giải tỏa BL: ${a.totalGuaranteeReleaseInWords})</em></div>
+              ${a.remark ? `<div>- Điều khoản bổ sung: <em>${a.remark}</em></div>` : ''}
+            </div>
+
+            <div style="display:flex; justify-content:space-between; text-align:center; margin-top:30px;">
+              <div style="flex:1;">
+                <strong>ĐẠI DIỆN ĐẠI LÝ (BÊN B)</strong><br>
+                <em>(Ký, ghi rõ họ tên &amp; đóng dấu)</em><br><br><br><br>
+                <strong>${a.dealerName}</strong>
+              </div>
+              <div style="flex:1;">
+                <strong>KẾ TOÁN TRƯỞNG HTV</strong><br>
+                <em>(Xác nhận quyết toán tài chính)</em><br><br><br><br>
+                <strong>${a.settledBy || 'Ban Kế Toán Thanh Toán'}</strong>
+              </div>
+              <div style="flex:1;">
+                <strong>TỔNG GIÁM ĐỐC HTV (BÊN A)</strong><br>
+                <em>(Phê duyệt chấp thuận hủy HĐ)</em><br><br><br><br>
+                <strong>${a.approvedBy || 'Ban Tổng Giám Đốc'}</strong>
+              </div>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('contractCancelAdviceContent').innerHTML = html;
+        document.getElementById('modalContractCancelAdvice').style.display = 'block';
+      } catch(e) { alert('Lỗi tải phiếu in biên bản: ' + e.message); }
+    }
+
+    function closeContractCancelAdviceModal() {
+      document.getElementById('modalContractCancelAdvice').style.display = 'none';
+    }
+
+    function loadSampleContractCancelData() {
+      const today = new Date().toISOString().split('T')[0];
+      const inpDate = document.getElementById('inpNewCCCancelDate');
+      if (inpDate) inpDate.value = today;
+
+      const tbody = document.getElementById('tblNewCCVehiclesBody');
+      if (tbody && tbody.children.length === 0) {
+        addVehicleRowToNewCC('KMHTU81DPNU500121', 'TUCSON', '1.6 T-GDi Turbo AWD', 'TRANG', 1020000000, 153000000, 153000000, 0, 0);
+        addVehicleRowToNewCC('KMHAC81EPNU500122', 'ACCENT', '1.5 AT Đặc Biệt', 'DEN', 560000000, 84000000, 84000000, 0, 0);
+      }
+    }
+
     // Khởi tạo
     loadSampleData();
     loadSamplePayoutData();
@@ -16390,6 +17428,7 @@
     loadSampleInsuranceData();
     loadSampleSupplierData();
     loadSampleCustomerData();
+    loadSampleContractCancelData();
     loadBatches();
   </script>
 </body>

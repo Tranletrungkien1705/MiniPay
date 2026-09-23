@@ -56,6 +56,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<CustomerDebit> CustomerDebits => Set<CustomerDebit>();
     public DbSet<CustomerPayment> CustomerPayments => Set<CustomerPayment>();
     public DbSet<CustomerPaymentDetail> CustomerPaymentDetails => Set<CustomerPaymentDetail>();
+    public DbSet<ContractCancellation> ContractCancellations => Set<ContractCancellation>();
+    public DbSet<ContractCancelDetail> ContractCancelDetails => Set<ContractCancelDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -313,5 +315,17 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<CustomerPaymentDetail>().HasIndex(x => x.DebitId);
         b.Entity<CustomerPaymentDetail>().HasIndex(x => new { x.OrgId, x.RONo });
         b.Entity<CustomerPaymentDetail>().HasIndex(x => new { x.OrgId, x.PlateNo });
+
+        b.Entity<ContractCancellation>().HasIndex(x => new { x.OrgId, x.ContractCancelNo }).IsUnique();
+        b.Entity<ContractCancellation>().HasIndex(x => new { x.OrgId, x.DlrContractNo });
+        b.Entity<ContractCancellation>().HasIndex(x => new { x.OrgId, x.DealerCode });
+        b.Entity<ContractCancellation>().Property(x => x.SettlementType).HasConversion<int>();
+        b.Entity<ContractCancellation>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<ContractCancellation>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.CancellationId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<ContractCancelDetail>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<ContractCancelDetail>().HasIndex(x => x.CancellationId);
+        b.Entity<ContractCancelDetail>().HasIndex(x => new { x.OrgId, x.VIN });
+        b.Entity<ContractCancelDetail>().HasIndex(x => new { x.OrgId, x.ContractCancelNo });
     }
 }
