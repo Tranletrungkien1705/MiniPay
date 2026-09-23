@@ -62,6 +62,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<CarDocReqDetail> CarDocRequestDetails => Set<CarDocReqDetail>();
     public DbSet<HTCInvoice> HTCInvoices => Set<HTCInvoice>();
     public DbSet<HTCInvoiceDetail> HTCInvoiceDetails => Set<HTCInvoiceDetail>();
+    public DbSet<LetterOfCredit> LettersOfCredit => Set<LetterOfCredit>();
+    public DbSet<LetterOfCreditDetail> LetterOfCreditDetails => Set<LetterOfCreditDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -356,5 +358,17 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<HTCInvoiceDetail>().HasIndex(x => x.InvoiceId);
         b.Entity<HTCInvoiceDetail>().HasIndex(x => new { x.OrgId, x.VIN });
         b.Entity<HTCInvoiceDetail>().HasIndex(x => new { x.OrgId, x.HTCInvoiceCode });
+
+        b.Entity<LetterOfCredit>().HasIndex(x => new { x.OrgId, x.LCNo }).IsUnique();
+        b.Entity<LetterOfCredit>().HasIndex(x => new { x.OrgId, x.ContractNo });
+        b.Entity<LetterOfCredit>().HasIndex(x => new { x.OrgId, x.BankCode });
+        b.Entity<LetterOfCredit>().Property(x => x.LCType).HasConversion<int>();
+        b.Entity<LetterOfCredit>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<LetterOfCredit>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.LCId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<LetterOfCreditDetail>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<LetterOfCreditDetail>().HasIndex(x => x.LCId);
+        b.Entity<LetterOfCreditDetail>().HasIndex(x => new { x.OrgId, x.VIN });
+        b.Entity<LetterOfCreditDetail>().HasIndex(x => new { x.OrgId, x.LCNo });
     }
 }

@@ -51,6 +51,7 @@ builder.Services.AddScoped<CustomerPaymentService>();
 builder.Services.AddScoped<ContractCancellationService>();
 builder.Services.AddScoped<CarDocReqService>();
 builder.Services.AddScoped<HTCInvoiceService>();
+builder.Services.AddScoped<LetterOfCreditService>();
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
     o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
@@ -7211,6 +7212,145 @@ app.MapGet("/api/htc-invoices/{id:long}/advice", async (long id, HTCInvoiceServi
     {
         return Results.NotFound(new { error = ex.Message });
     }
+});
+
+// ===== Quản lý Thư Tín Dụng Nhập Khẩu (Letter of Credit - LC) thanh toán hợp đồng ngoại (CT_LC / FrmMngLC / FrmNewLC) =====
+
+// 1) Lấy danh sách LC kèm bộ lọc
+app.MapGet("/api/letters-of-credit", async (
+    string? status,
+    string? bank,
+    string? contractNo,
+    string? query,
+    DateTime? fromDate,
+    DateTime? toDate,
+    LetterOfCreditService lcService,
+    ITenantContext tc) =>
+{
+    var list = await lcService.GetListAsync(tc.OrgId, status, bank, contractNo, query, fromDate, toDate);
+    return Results.Ok(list);
+});
+
+// 2) Báo cáo dashboard tổng hợp số liệu LC
+app.MapGet("/api/letters-of-credit/summary", async (LetterOfCreditService lcService, ITenantContext tc) =>
+{
+    var summary = await lcService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
+// 3) Chi tiết 1 LC theo ID
+app.MapGet("/api/letters-of-credit/{id:long}", async (long id, LetterOfCreditService lcService, ITenantContext tc) =>
+{
+    var lc = await lcService.GetByIdAsync(tc.OrgId, id);
+    if (lc == null) return Results.NotFound(new { error = $"Không tìm thấy LC #{id}." });
+    return Results.Ok(lc);
+});
+
+// 4) Chi tiết 1 LC theo số LC
+app.MapGet("/api/letters-of-credit/by-no/{lcNo}", async (string lcNo, LetterOfCreditService lcService, ITenantContext tc) =>
+{
+    var lc = await lcService.GetByNoAsync(tc.OrgId, lcNo);
+    if (lc == null) return Results.NotFound(new { error = $"Không tìm thấy LC số {lcNo}." });
+    return Results.Ok(lc);
+});
+
+// 5) Mở (lập) LC mới cho hợp đồng ngoại (ContractLCCreate / FrmNewLC)
+app.MapPost("/api/letters-of-credit", async (CreateLetterOfCreditDto dto, LetterOfCreditService lcService, ITenantContext tc) =>
+{
+    try
+    {
+        var lc = await lcService.CreateAsync(tc.OrgId, dto);
+        return Results.Created($"/api/letters-of-credit/{lc.Id}", lc);
+    }
+    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 6) Bổ sung xe nhập khẩu vào LC Draft
+app.MapPost("/api/letters-of-credit/{id:long}/cars", async (long id, AddCarToLetterOfCreditDto dto, LetterOfCreditService lcService, ITenantContext tc) =>
+{
+    try
+    {
+        var lc = await lcService.AddCarAsync(tc.OrgId, id, dto);
+        return Results.Ok(lc);
+    }
+    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+});
+
+// 7) Xóa xe khỏi LC Draft
+app.MapDelete("/api/letters-of-credit/{id:long}/cars/{detailId:long}", async (long id, long detailId, LetterOfCreditService lcService, ITenantContext tc) =>
+{
+    try
+    {
+        var lc = await lcService.RemoveCarAsync(tc.OrgId, id, detailId);
+        return Results.Ok(lc);
+    }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+});
+
+// 8) Trình ngân hàng phát hành LC (Draft -> Opened)
+app.MapPost("/api/letters-of-credit/{id:long}/open", async (long id, OpenLetterOfCreditDto? dto, LetterOfCreditService lcService, ITenantContext tc) =>
+{
+    try
+    {
+        var lc = await lcService.OpenAsync(tc.OrgId, id, dto ?? new OpenLetterOfCreditDto());
+        return Results.Ok(lc);
+    }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+});
+
+// 9) Tu chỉnh điều khoản LC (Opened -> Amended)
+app.MapPost("/api/letters-of-credit/{id:long}/amend", async (long id, AmendLetterOfCreditDto dto, LetterOfCreditService lcService, ITenantContext tc) =>
+{
+    try
+    {
+        var lc = await lcService.AmendAsync(tc.OrgId, id, dto);
+        return Results.Ok(lc);
+    }
+    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+});
+
+// 10) Xuất trình bộ chứng từ sử dụng LC (Opened/Amended -> Utilized)
+app.MapPost("/api/letters-of-credit/{id:long}/present", async (long id, PresentLetterOfCreditDto? dto, LetterOfCreditService lcService, ITenantContext tc) =>
+{
+    try
+    {
+        var lc = await lcService.PresentAsync(tc.OrgId, id, dto ?? new PresentLetterOfCreditDto());
+        return Results.Ok(lc);
+    }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+});
+
+// 11) Tất toán LC (Utilized -> Settled)
+app.MapPost("/api/letters-of-credit/{id:long}/settle", async (long id, SettleLetterOfCreditDto? dto, LetterOfCreditService lcService, ITenantContext tc) =>
+{
+    try
+    {
+        var lc = await lcService.SettleAsync(tc.OrgId, id, dto ?? new SettleLetterOfCreditDto());
+        return Results.Ok(lc);
+    }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+});
+
+// 12) Hủy LC
+app.MapPost("/api/letters-of-credit/{id:long}/cancel", async (long id, CancelLetterOfCreditDto dto, LetterOfCreditService lcService, ITenantContext tc) =>
+{
+    try
+    {
+        var lc = await lcService.CancelAsync(tc.OrgId, id, dto);
+        return Results.Ok(lc);
+    }
+    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
 });
 
 app.Run();

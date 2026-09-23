@@ -3610,3 +3610,210 @@ public sealed class DealerHTCInvoiceStatDto
     public long PaidAmount { get; set; }
     public long RemainAmount { get; set; }
 }
+
+// ===== Quản lý Thư Tín Dụng Nhập Khẩu (Letter of Credit - LC) =====
+// Nguồn: 2010.HTC / BizHTC.Contract.cs (ContractLCGet, ContractLCCreate, ContractLCDelete),
+//        TERP.HTCClient/Views/Sales/FrmMngLC, FrmNewLC, Entities/Sales/LC.cs (bảng CT_LC).
+// Nghiệp vụ: mở LC thanh toán cho hợp đồng nhập khẩu ngoại (CT_ContractOversea), gắn bộ chứng từ
+//            PackingList (CT_PackingList) và danh mục xe nhập khẩu theo VIN.
+
+public enum LCStatus
+{
+    Draft = 0,          // Mới lập, chưa trình ngân hàng
+    Opened = 1,         // Ngân hàng đã phát hành LC
+    Amended = 2,        // Đã tu chỉnh (sửa đổi) điều khoản LC
+    Utilized = 3,       // Đã sử dụng / xuất trình bộ chứng từ để thanh toán
+    Settled = 4,        // Đã tất toán (ngân hàng thanh toán cho nhà xuất khẩu)
+    Expired = 5,        // Hết hiệu lực
+    Cancelled = 6       // Hủy LC
+}
+
+public enum LCType
+{
+    Irrevocable = 0,    // Không hủy ngang (Irrevocable L/C)
+    Revocable = 1,      // Có thể hủy ngang (Revocable L/C)
+    Confirmed = 2,      // Có xác nhận (Confirmed L/C)
+    Transferable = 3    // Có thể chuyển nhượng (Transferable L/C)
+}
+
+public enum LCDetailStatus
+{
+    Pending = 0,        // Chờ xuất trình
+    Shipped = 1,        // Đã giao hàng / lên tàu
+    Presented = 2,      // Đã xuất trình bộ chứng từ
+    Paid = 3,           // Đã thanh toán
+    Cancelled = 4
+}
+
+/// <summary>Thư tín dụng nhập khẩu (Letter of Credit) - bảng CT_LC hệ nguồn.</summary>
+public sealed class LetterOfCredit
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string LCNo { get; set; } = "";                       // Số LC (LCNo)
+    public string ContractNo { get; set; } = "";                 // Số hợp đồng ngoại (CT_ContractOversea.ContractNo)
+    public string BankName { get; set; } = "";                   // Tên ngân hàng phát hành LC
+    public string? BankCode { get; set; }                        // Mã ngân hàng (VCB, CTG, BIDV, VPB...)
+    public string? BeneficiaryName { get; set; }                 // Nhà xuất khẩu thụ hưởng (nước ngoài)
+    public string? BeneficiaryCountry { get; set; }              // Quốc gia nhà xuất khẩu
+    public string? ApplicantName { get; set; }                   // Người yêu cầu mở LC (HTC)
+    public LCType LCType { get; set; } = LCType.Irrevocable;     // Loại LC
+    public string Currency { get; set; } = "USD";                // Loại tiền tệ (USD, EUR, KRW...)
+    public decimal LCAmount { get; set; }                        // Tổng giá trị LC (ngoại tệ)
+    public decimal ExchangeRate { get; set; } = 1m;              // Tỷ giá quy đổi VND
+    public long LCAmountVND { get; set; }                        // Giá trị LC quy đổi VND
+    public decimal UtilizedAmount { get; set; }                  // Giá trị đã sử dụng / xuất trình
+    public decimal RemainingAmount { get; set; }                 // Giá trị còn lại khả dụng
+    public DateTime DateOpen { get; set; } = DateTime.Today;     // Ngày mở LC
+    public DateTime? DateExpired { get; set; }                   // Ngày hết hiệu lực LC
+    public DateTime? LatestShipmentDate { get; set; }            // Ngày giao hàng muộn nhất
+    public int TermDays { get; set; }                            // Số ngày hiệu lực (từ ngày mở)
+    public string? PackingListNo { get; set; }                   // Số bảng kê đóng gói (CT_PackingList)
+    public string? PaymentTerm { get; set; }                     // Điều khoản thanh toán (At Sight, 60 days...)
+    public string? PortOfLoading { get; set; }                   // Cảng xếp hàng
+    public string? PortOfDischarge { get; set; }                 // Cảng dỡ hàng
+    public int TotalVehicles { get; set; }                       // Tổng số xe nhập khẩu theo LC
+    public LCStatus Status { get; set; } = LCStatus.Draft;       // Trạng thái LC
+    public string? OpenedBy { get; set; }                        // Người trình mở LC
+    public DateTime? OpenedAt { get; set; }                      // Ngày ngân hàng phát hành
+    public string? AmendedBy { get; set; }                       // Người tu chỉnh
+    public DateTime? AmendedAt { get; set; }                     // Ngày tu chỉnh
+    public string? SettledBy { get; set; }                       // Người tất toán
+    public DateTime? SettledAt { get; set; }                     // Ngày tất toán
+    public string? RejectReason { get; set; }                    // Lý do từ chối / hủy
+    public string CreatedBy { get; set; } = "System";            // Người tạo (CreatedBy)
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;   // Ngày tạo (CreatedDate)
+    public string? Remark { get; set; }                          // Ghi chú
+    public ICollection<LetterOfCreditDetail> Details { get; set; } = [];
+}
+
+/// <summary>Danh mục xe nhập khẩu theo LC (chi tiết theo VIN).</summary>
+public sealed class LetterOfCreditDetail
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public long LCId { get; set; }                               // FK -> LetterOfCredit.Id
+    public string LCNo { get; set; } = "";                       // Số LC
+    public int ItemNo { get; set; }                              // Số thứ tự dòng
+    public string VIN { get; set; } = "";                        // Số khung VIN
+    public string ModelCode { get; set; } = "";                  // Mã model dòng xe
+    public string ModelName { get; set; } = "";                  // Tên thương mại
+    public string? SpecCode { get; set; }                        // Mã phiên bản đặc tả
+    public string? EngineNo { get; set; }                        // Số máy
+    public string? ColorCode { get; set; }                       // Mã màu xe
+    public string? WorkOrderNo { get; set; }                     // Số lệnh sản xuất (WorkOrderNo)
+    public string? PortCode { get; set; }                        // Mã cảng
+    public string? PlantCode { get; set; }                       // Mã nhà máy sản xuất
+    public decimal UnitPrice { get; set; }                       // Đơn giá nhập khẩu (ngoại tệ)
+    public decimal Amount { get; set; }                          // Thành tiền (ngoại tệ)
+    public LCDetailStatus Status { get; set; } = LCDetailStatus.Pending;
+    public string? Remark { get; set; }
+}
+
+public sealed class CreateLetterOfCreditDto
+{
+    public string? LCNo { get; set; }
+    public string ContractNo { get; set; } = "";
+    public string BankName { get; set; } = "";
+    public string? BankCode { get; set; }
+    public string? BeneficiaryName { get; set; }
+    public string? BeneficiaryCountry { get; set; }
+    public string? ApplicantName { get; set; }
+    public LCType? LCType { get; set; }
+    public string? Currency { get; set; } = "USD";
+    public decimal LCAmount { get; set; }
+    public decimal? ExchangeRate { get; set; }
+    public DateTime? DateOpen { get; set; }
+    public DateTime? DateExpired { get; set; }
+    public DateTime? LatestShipmentDate { get; set; }
+    public int? TermDays { get; set; }
+    public string? PackingListNo { get; set; }
+    public string? PaymentTerm { get; set; }
+    public string? PortOfLoading { get; set; }
+    public string? PortOfDischarge { get; set; }
+    public string? Remark { get; set; }
+    public string? CreatedBy { get; set; }
+    public List<LetterOfCreditItemInputDto> Items { get; set; } = [];
+}
+
+public sealed class LetterOfCreditItemInputDto
+{
+    public string VIN { get; set; } = "";
+    public string ModelCode { get; set; } = "";
+    public string? ModelName { get; set; }
+    public string? SpecCode { get; set; }
+    public string? EngineNo { get; set; }
+    public string? ColorCode { get; set; }
+    public string? WorkOrderNo { get; set; }
+    public string? PortCode { get; set; }
+    public string? PlantCode { get; set; }
+    public decimal UnitPrice { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class AddCarToLetterOfCreditDto
+{
+    public LetterOfCreditItemInputDto Item { get; set; } = new();
+}
+
+public sealed class OpenLetterOfCreditDto
+{
+    public string? OpenedBy { get; set; } = "KeToanNhapKhau_HTC";
+    public string? Remark { get; set; }
+}
+
+public sealed class AmendLetterOfCreditDto
+{
+    public decimal? NewLCAmount { get; set; }
+    public DateTime? NewDateExpired { get; set; }
+    public string? NewPaymentTerm { get; set; }
+    public string? AmendedBy { get; set; } = "KeToanNhapKhau_HTC";
+    public string? Remark { get; set; }
+}
+
+public sealed class PresentLetterOfCreditDto
+{
+    public string? PackingListNo { get; set; }
+    public string? PresentedBy { get; set; } = "KeToanNhapKhau_HTC";
+    public string? Remark { get; set; }
+}
+
+public sealed class SettleLetterOfCreditDto
+{
+    public string? SettledBy { get; set; } = "KeToanTruong_HTC";
+    public string? Remark { get; set; }
+}
+
+public sealed class CancelLetterOfCreditDto
+{
+    public string Reason { get; set; } = "";
+    public string? CancelledBy { get; set; } = "KeToanNhapKhau_HTC";
+}
+
+public sealed class LetterOfCreditSummaryDto
+{
+    public int TotalLCs { get; set; }
+    public int DraftCount { get; set; }
+    public int OpenedCount { get; set; }
+    public int AmendedCount { get; set; }
+    public int UtilizedCount { get; set; }
+    public int SettledCount { get; set; }
+    public int ExpiredCount { get; set; }
+    public int CancelledCount { get; set; }
+    public int TotalVehicles { get; set; }
+    public decimal TotalLCAmount { get; set; }
+    public decimal TotalUtilizedAmount { get; set; }
+    public decimal TotalRemainingAmount { get; set; }
+    public long TotalLCAmountVND { get; set; }
+    public List<BankLetterOfCreditStatDto> ByBank { get; set; } = [];
+}
+
+public sealed class BankLetterOfCreditStatDto
+{
+    public string BankName { get; set; } = "";
+    public int LCCount { get; set; }
+    public int VehicleCount { get; set; }
+    public decimal TotalLCAmount { get; set; }
+    public decimal UtilizedAmount { get; set; }
+    public decimal RemainingAmount { get; set; }
+}
