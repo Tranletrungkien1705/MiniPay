@@ -70,6 +70,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<BankStatementAutoApproveBatch> AutoApproveBatches => Set<BankStatementAutoApproveBatch>();
     public DbSet<BankStatementAutoApproveDetail> AutoApproveDetails => Set<BankStatementAutoApproveDetail>();
     public DbSet<CalendarEntry> CalendarEntries => Set<CalendarEntry>();
+    public DbSet<DealerContract> DealerContracts => Set<DealerContract>();
+    public DbSet<DealerContractDetail> DealerContractDetails => Set<DealerContractDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -405,5 +407,19 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<CalendarEntry>().HasIndex(x => new { x.OrgId, x.CalendarType, x.Date }).IsUnique();
         b.Entity<CalendarEntry>().HasIndex(x => new { x.OrgId, x.CalendarType });
         b.Entity<CalendarEntry>().Property(x => x.StatusValue).HasConversion<int>();
+
+        b.Entity<DealerContract>().HasIndex(x => new { x.OrgId, x.DlrCtrNo }).IsUnique();
+        b.Entity<DealerContract>().HasIndex(x => new { x.OrgId, x.DealerCode });
+        b.Entity<DealerContract>().HasIndex(x => new { x.OrgId, x.BankCodeMD });
+        b.Entity<DealerContract>().Property(x => x.DCPType).HasConversion<int>();
+        b.Entity<DealerContract>().Property(x => x.DlrSignStatus).HasConversion<int>();
+        b.Entity<DealerContract>().Property(x => x.HTCSignStatus).HasConversion<int>();
+        b.Entity<DealerContract>().Property(x => x.DlrCtrStatus).HasConversion<int>();
+        b.Entity<DealerContract>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.DealerContractId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<DealerContractDetail>().Property(x => x.DlrCtrStatusDtl).HasConversion<int>();
+        b.Entity<DealerContractDetail>().HasIndex(x => x.DealerContractId);
+        b.Entity<DealerContractDetail>().HasIndex(x => new { x.OrgId, x.VIN });
+        b.Entity<DealerContractDetail>().HasIndex(x => new { x.OrgId, x.DlrCtrNo });
     }
 }

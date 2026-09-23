@@ -113,6 +113,7 @@
     <button class="tab-btn" onclick="showTab('bankDealer')">Danh Mục Ngân Hàng - Đại Lý (Bank-Dealer)</button>
     <button class="tab-btn" onclick="showTab('accountingVoucher')">Cập Nhật Chứng Từ Kế Toán (CTKT)</button>
     <button class="tab-btn" onclick="showTab('calendar')">Lịch Làm Việc &amp; Hạn Nộp Cọc (Mst_Calendar)</button>
+    <button class="tab-btn" onclick="showTab('dealerContract')">Hợp Đồng Mua Bán Xe Đại Lý (DMS40_CT_DealerContract)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -6354,6 +6355,90 @@
     </div>
   </div>
 
+  <!-- TAB: Hợp Đồng Mua Bán Xe Đại Lý (Dealer Sales Contract - DMS40_CT_DealerContract) -->
+  <div id="tab-dealerContract" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="margin:0;">Hợp Đồng Mua Bán Xe Đại Lý (DMS40_CT_DealerContract)</h3>
+        <button class="secondary" onclick="loadDealerContracts(); loadDealerContractSummary();">Làm mới</button>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+        <input id="dcFilterNo" placeholder="Số hợp đồng (PLHD-...)" style="max-width:200px;" />
+        <input id="dcFilterDealer" placeholder="Mã đại lý..." style="max-width:180px;" />
+        <input id="dcFilterBank" placeholder="Mã ngân hàng BL..." style="max-width:160px;" />
+        <select id="dcFilterDcpType" style="max-width:180px;">
+          <option value="">-- Loại thanh toán --</option>
+          <option value="BankGuarantee">Bảo lãnh ngân hàng</option>
+          <option value="OwnCapital">Vốn tự có</option>
+          <option value="LetterOfCredit">Thư tín dụng L/C</option>
+          <option value="Mixed">Hỗn hợp</option>
+        </select>
+        <select id="dcFilterStatus" style="max-width:180px;">
+          <option value="">-- Trạng thái HĐ --</option>
+          <option value="NotSign">Chưa ký</option>
+          <option value="Signed">Đã ký</option>
+          <option value="Adjusted">Đã điều chỉnh</option>
+          <option value="Cancelled">Đã hủy</option>
+        </select>
+        <input id="dcFilterQuery" placeholder="Từ khóa (tên ĐL, ngân hàng...)" style="max-width:240px;" />
+        <button onclick="loadDealerContracts()">Tìm kiếm</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số HĐ</th>
+              <th>Đại Lý</th>
+              <th>Loại TT</th>
+              <th>Ngân Hàng BL</th>
+              <th>Ngày HĐ</th>
+              <th>Số Xe</th>
+              <th>Tổng Tiền</th>
+              <th>Ký Đại Lý</th>
+              <th>Duyệt HTC</th>
+              <th>Trạng Thái</th>
+              <th>Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="tblDealerContractsBody">
+            <tr><td colspan="11" style="text-align:center; padding:20px;" class="muted">Đang tải danh sách hợp đồng đại lý...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Form lập hợp đồng đại lý mới -->
+    <div class="card" style="margin-top:18px;">
+      <h3 style="margin-top:0;">Lập hợp đồng đại lý mới</h3>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+        <div><label>Số hợp đồng (bỏ trống để tự sinh)</label><input id="dcDlrCtrNo" placeholder="PLHD-202505-xxx" /></div>
+        <div><label>Loại thanh toán *</label>
+          <select id="dcDCPType">
+            <option value="BankGuarantee">Bảo lãnh ngân hàng</option>
+            <option value="OwnCapital">Vốn tự có</option>
+            <option value="LetterOfCredit">Thư tín dụng L/C</option>
+            <option value="Mixed">Hỗn hợp</option>
+          </select>
+        </div>
+        <div><label>Mã đại lý *</label><input id="dcDealerCode" placeholder="DL-HYUNDAI-..." /></div>
+        <div><label>Tên đại lý</label><input id="dcDealerName" placeholder="Công ty..." /></div>
+        <div><label>Mã ngân hàng bảo lãnh</label><input id="dcBankCodeMD" placeholder="VCB, TCB, MBB, CTG, VPB..." /></div>
+        <div><label>Tên ngân hàng bảo lãnh</label><input id="dcBankNameMD" placeholder="Vietcombank..." /></div>
+        <div><label>Ngày hợp đồng</label><input id="dcContractDate" type="date" /></div>
+        <div><label>Ghi chú</label><input id="dcRemark" placeholder="Ghi chú..." /></div>
+      </div>
+      <div style="margin-top:14px;">
+        <label style="font-weight:600;">Danh sách xe trong hợp đồng</label>
+        <div id="dcItems" style="display:flex; flex-direction:column; gap:8px; margin-top:8px;"></div>
+        <button class="secondary" style="margin-top:8px;" onclick="addDcItemRow()">+ Thêm dòng xe</button>
+      </div>
+      <div style="margin-top:14px;">
+        <span id="dcCreateMsg" style="margin-right:12px; color:var(--primary); font-weight:500;"></span>
+        <button onclick="submitCreateDealerContract()">Lập hợp đồng đại lý</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB: Cập Nhật Chứng Từ Kế Toán (Accounting Voucher / Accounting Record No bulk update) -->
   <div id="tab-accountingVoucher" style="display:none;">
     <div class="card">
@@ -7520,6 +7605,7 @@
       document.getElementById('tab-bankDealer').style.display = tabName === 'bankDealer' ? 'block' : 'none';
       document.getElementById('tab-accountingVoucher').style.display = tabName === 'accountingVoucher' ? 'block' : 'none';
       document.getElementById('tab-calendar').style.display = tabName === 'calendar' ? 'block' : 'none';
+      document.getElementById('tab-dealerContract').style.display = tabName === 'dealerContract' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -7586,6 +7672,7 @@
       else if (tabName === 'bankDealer') { loadBankDealers(); loadBankDealerSummary(); }
       else if (tabName === 'accountingVoucher') { loadAccountingVouchers(); loadAccountingVoucherSummary(); }
       else if (tabName === 'calendar') { loadCalendar(); loadCalendarSummary(); }
+      else if (tabName === 'dealerContract') { loadDealerContracts(); loadDealerContractSummary(); }
       else if (tabName === 'newHtcInvoice') { loadSampleHtcInvoiceFormData(); }
     }
 
@@ -19398,6 +19485,191 @@
         if (!res.ok) { const d = await res.json(); alert(d.error || 'Lỗi xóa.'); return; }
         loadBankDealers(); loadBankDealerSummary();
       } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    // ===== TAB: HỢP ĐỒNG MUA BÁN XE ĐẠI LÝ (DMS40_CT_DealerContract / FrmMngDC) =====
+    function addDcItemRow(carId, vin, modelCode, modelName, unitPrice) {
+      const wrap = document.getElementById('dcItems');
+      if (!wrap) return;
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex; gap:8px; align-items:center; flex-wrap:wrap;';
+      row.innerHTML = `
+        <input class="dc-car-id" placeholder="Mã xe (CarId) *" style="max-width:150px;" value="${carId || ''}" />
+        <input class="dc-vin" placeholder="Số khung VIN" style="max-width:200px;" value="${vin || ''}" />
+        <input class="dc-model-code" placeholder="Model (SANTAFE...)" style="max-width:140px;" value="${modelCode || ''}" />
+        <input class="dc-model-name" placeholder="Tên dòng xe" style="max-width:160px;" value="${modelName || ''}" />
+        <input class="dc-unit-price" type="number" placeholder="Đơn giá (VND)" style="max-width:160px;" value="${unitPrice != null ? unitPrice : ''}" />
+        <button class="secondary" onclick="this.parentElement.remove()">Xóa</button>`;
+      wrap.appendChild(row);
+    }
+
+    async function loadDealerContracts() {
+      const body = document.getElementById('tblDealerContractsBody');
+      if (!body) return;
+      body.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:20px;" class="muted">Đang tải...</td></tr>';
+      try {
+        const params = new URLSearchParams();
+        const no = document.getElementById('dcFilterNo')?.value?.trim();
+        const dealer = document.getElementById('dcFilterDealer')?.value?.trim();
+        const bank = document.getElementById('dcFilterBank')?.value?.trim();
+        const dcpType = document.getElementById('dcFilterDcpType')?.value;
+        const status = document.getElementById('dcFilterStatus')?.value;
+        const query = document.getElementById('dcFilterQuery')?.value?.trim();
+        if (no) params.set('dlrCtrNo', no);
+        if (dealer) params.set('dealerCode', dealer);
+        if (bank) params.set('bankCodeMD', bank);
+        if (dcpType) params.set('dcpType', dcpType);
+        if (status) params.set('status', status);
+        if (query) params.set('query', query);
+        const res = await fetch('/api/dealer-contracts?' + params.toString(), { headers });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const list = await res.json();
+        if (!list.length) {
+          body.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:20px;" class="muted">Chưa có hợp đồng đại lý.</td></tr>';
+          return;
+        }
+        const dcpLabel = { BankGuarantee: 'Bảo lãnh NH', OwnCapital: 'Vốn tự có', LetterOfCredit: 'L/C', Mixed: 'Hỗn hợp' };
+        const stLabel = { NotSign: 'Chưa ký', Signed: 'Đã ký', Adjusted: 'Đã điều chỉnh', Cancelled: 'Đã hủy' };
+        body.innerHTML = list.map(x => `
+          <tr>
+            <td><strong>${x.dlrCtrNo || ''}</strong></td>
+            <td>${x.dealerCode || ''}${x.dealerName ? '<br><span class="muted">' + x.dealerName + '</span>' : ''}</td>
+            <td>${dcpLabel[x.dcpType] || x.dcpType || ''}</td>
+            <td>${x.bankCodeMD ? x.bankCodeMD + (x.bankNameMD ? ' - ' + x.bankNameMD : '') : '—'}</td>
+            <td>${x.contractDate ? new Date(x.contractDate).toLocaleDateString('vi-VN') : ''}</td>
+            <td>${x.totalVehicles}</td>
+            <td>${Number(x.totalAmount).toLocaleString('vi-VN')} đ</td>
+            <td>${x.dlrSignStatus === 'Approved' ? '<span style="color:green;">Đã ký</span>' : x.dlrSignStatus === 'Cancelled' ? '<span class="muted">Đã hủy</span>' : '<span class="muted">Chờ ký</span>'}</td>
+            <td>${x.htcSignStatus === 'Approved2' ? '<span style="color:green;">Duyệt cấp 2</span>' : x.htcSignStatus === 'Approved1' ? 'Duyệt cấp 1' : x.htcSignStatus === 'Rejected' ? '<span style="color:red;">Từ chối</span>' : '<span class="muted">Chờ duyệt</span>'}</td>
+            <td>${stLabel[x.status] || x.status || ''}</td>
+            <td style="white-space:nowrap;">
+              <button class="secondary" onclick="viewDealerContract(${x.id})">Xem</button>
+              ${x.dlrSignStatus === 'Pending' && x.status === 'NotSign' ? `<button onclick="dcAction(${x.id}, 'dlr-approve')">Đại lý ký</button>` : ''}
+              ${x.dlrSignStatus === 'Approved' && x.htcSignStatus === 'Pending' ? `<button onclick="dcAction(${x.id}, 'htc-approve1')">Duyệt cấp 1</button>` : ''}
+              ${x.htcSignStatus === 'Approved1' ? `<button onclick="dcAction(${x.id}, 'htc-approve2')">Duyệt cấp 2</button>` : ''}
+              ${x.dlrSignStatus === 'Approved' && (x.htcSignStatus === 'Pending' || x.htcSignStatus === 'Approved1') ? `<button class="secondary" onclick="dcReject(${x.id})">Từ chối</button>` : ''}
+              ${x.status !== 'Signed' && x.status !== 'Cancelled' ? `<button class="secondary" onclick="dcCancel(${x.id})">Hủy</button>` : ''}
+            </td>
+          </tr>`).join('');
+      } catch (e) {
+        body.innerHTML = '<tr><td colspan="11" style="text-align:center; padding:20px; color:red;">Lỗi tải dữ liệu: ' + e.message + '</td></tr>';
+      }
+    }
+
+    async function loadDealerContractSummary() {
+      try {
+        const res = await fetch('/api/dealer-contracts/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng hợp đồng đại lý';
+        document.getElementById('stat1').textContent = d.totalContracts;
+        document.getElementById('statLabel2').textContent = 'Đã ký / Chờ ký';
+        document.getElementById('stat2').textContent = d.signedCount + ' / ' + d.draftCount;
+        document.getElementById('statLabel3').textContent = 'Tổng số xe';
+        document.getElementById('stat3').textContent = d.totalVehicles;
+        document.getElementById('statLabel4').textContent = 'Tổng giá trị HĐ';
+        document.getElementById('stat4').textContent = Number(d.totalAmount).toLocaleString('vi-VN') + ' đ';
+      } catch (e) { console.error(e); }
+    }
+
+    async function viewDealerContract(id) {
+      try {
+        const res = await fetch('/api/dealer-contracts/' + id, { headers });
+        if (!res.ok) { alert('Không tải được chi tiết.'); return; }
+        const d = await res.json();
+        const rows = (d.details || []).map(x => `
+          <tr>
+            <td>${x.carId}</td><td>${x.vin || ''}</td><td>${x.modelCode || ''}</td>
+            <td>${x.modelName || ''}</td><td>${x.colorName || ''}</td>
+            <td>${Number(x.unitPrice).toLocaleString('vi-VN')} đ</td>
+            <td>${x.status}</td>
+          </tr>`).join('');
+        const html = `
+          <div style="font-size:14px; line-height:1.7;">
+            <p><strong>Số HĐ:</strong> ${d.dlrCtrNo} &nbsp; <strong>Đại lý:</strong> ${d.dealerCode} ${d.dealerName || ''}</p>
+            <p><strong>Loại thanh toán:</strong> ${d.dcpType} &nbsp; <strong>Ngân hàng BL:</strong> ${d.bankCodeMD || '—'} ${d.bankNameMD || ''}</p>
+            <p><strong>Ngày HĐ:</strong> ${d.contractDate ? new Date(d.contractDate).toLocaleDateString('vi-VN') : ''} &nbsp; <strong>Tổng tiền:</strong> ${Number(d.totalAmount).toLocaleString('vi-VN')} đ</p>
+            <p><strong>Ký đại lý:</strong> ${d.dlrSignStatus} (${d.dlrApprovedBy || ''}) &nbsp; <strong>Duyệt HTC:</strong> ${d.htcSignStatus} &nbsp; <strong>Trạng thái:</strong> ${d.status}</p>
+            <p><strong>Ghi chú:</strong> ${d.remark || ''}</p>
+            <table style="margin-top:10px;"><thead><tr><th>Mã xe</th><th>VIN</th><th>Model</th><th>Tên dòng</th><th>Màu</th><th>Đơn giá</th><th>Trạng thái</th></tr></thead><tbody>${rows}</tbody></table>
+          </div>`;
+        const w = window.open('', '_blank', 'width=900,height=700');
+        w.document.write('<html><head><title>Hợp đồng đại lý ' + d.dlrCtrNo + '</title></head><body style="font-family:sans-serif; padding:20px;"><h2>Hợp đồng Mua bán Xe Đại lý</h2>' + html + '</body></html>');
+        w.document.close();
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function dcAction(id, action) {
+      const names = { 'dlr-approve': 'Đại lý ký hợp đồng', 'htc-approve1': 'HTC duyệt cấp 1', 'htc-approve2': 'HTC duyệt cấp 2' };
+      if (!confirm(names[action] + ' cho hợp đồng #' + id + '?')) return;
+      try {
+        const res = await fetch('/api/dealer-contracts/' + id + '/' + action, { method: 'POST', headers, body: JSON.stringify({ approverName: 'Admin_HTC' }) });
+        const d = await res.json();
+        if (!res.ok) { alert(d.error || 'Lỗi thao tác.'); return; }
+        loadDealerContracts(); loadDealerContractSummary();
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function dcReject(id) {
+      const reason = prompt('Lý do từ chối hợp đồng #' + id + ':');
+      if (reason === null) return;
+      try {
+        const res = await fetch('/api/dealer-contracts/' + id + '/htc-reject', { method: 'POST', headers, body: JSON.stringify({ reason: reason || 'Không đạt yêu cầu', rejecterName: 'Admin_HTC' }) });
+        const d = await res.json();
+        if (!res.ok) { alert(d.error || 'Lỗi từ chối.'); return; }
+        loadDealerContracts(); loadDealerContractSummary();
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function dcCancel(id) {
+      const reason = prompt('Lý do hủy hợp đồng #' + id + ':');
+      if (reason === null) return;
+      try {
+        const res = await fetch('/api/dealer-contracts/' + id + '/dlr-cancel', { method: 'POST', headers, body: JSON.stringify({ reason: reason || 'Đại lý hủy', cancellerName: 'DaiLy' }) });
+        const d = await res.json();
+        if (!res.ok) { alert(d.error || 'Lỗi hủy.'); return; }
+        loadDealerContracts(); loadDealerContractSummary();
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function submitCreateDealerContract() {
+      const msg = document.getElementById('dcCreateMsg');
+      msg.textContent = '';
+      const items = [];
+      document.querySelectorAll('#dcItems > div').forEach(row => {
+        const carId = row.querySelector('.dc-car-id')?.value?.trim();
+        if (!carId) return;
+        items.push({
+          carId: carId,
+          vin: row.querySelector('.dc-vin')?.value?.trim() || null,
+          modelCode: row.querySelector('.dc-model-code')?.value?.trim() || null,
+          modelName: row.querySelector('.dc-model-name')?.value?.trim() || null,
+          unitPrice: Number(row.querySelector('.dc-unit-price')?.value || 0)
+        });
+      });
+      const payload = {
+        dlrCtrNo: document.getElementById('dcDlrCtrNo').value.trim() || null,
+        dcpType: document.getElementById('dcDCPType').value,
+        dealerCode: document.getElementById('dcDealerCode').value.trim(),
+        dealerName: document.getElementById('dcDealerName').value.trim() || null,
+        bankCodeMD: document.getElementById('dcBankCodeMD').value.trim() || null,
+        bankNameMD: document.getElementById('dcBankNameMD').value.trim() || null,
+        contractDate: document.getElementById('dcContractDate').value || null,
+        remark: document.getElementById('dcRemark').value.trim() || null,
+        createdBy: 'Admin_HTC',
+        items: items
+      };
+      if (!payload.dealerCode) { msg.style.color = 'red'; msg.textContent = 'Cần nhập Mã đại lý.'; return; }
+      if (!items.length) { msg.style.color = 'red'; msg.textContent = 'Cần ít nhất 1 dòng xe.'; return; }
+      try {
+        const res = await fetch('/api/dealer-contracts', { method: 'POST', headers, body: JSON.stringify(payload) });
+        const d = await res.json();
+        if (!res.ok) { msg.style.color = 'red'; msg.textContent = d.error || 'Lỗi lập hợp đồng.'; return; }
+        msg.style.color = 'green'; msg.textContent = 'Đã lập hợp đồng đại lý ' + d.dlrCtrNo + ' thành công.';
+        ['dcDlrCtrNo','dcDealerCode','dcDealerName','dcBankCodeMD','dcBankNameMD','dcContractDate','dcRemark'].forEach(id => document.getElementById(id).value = '');
+        document.getElementById('dcItems').innerHTML = '';
+        loadDealerContracts(); loadDealerContractSummary();
+      } catch (e) { msg.style.color = 'red'; msg.textContent = 'Lỗi: ' + e.message; }
     }
 
     // ===== TAB: CẬP NHẬT CHỨNG TỪ KẾ TOÁN (FrmUpdateChungTuKT / Pmt_Payment_UpdateFinancial) =====

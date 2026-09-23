@@ -56,6 +56,7 @@ builder.Services.AddScoped<BankDealerService>();
 builder.Services.AddScoped<AccountingVoucherService>();
 builder.Services.AddScoped<BankStatementAutoApproveService>();
 builder.Services.AddScoped<PaymentCalendarService>();
+builder.Services.AddScoped<DealerContractService>();
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
     o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
@@ -7742,6 +7743,264 @@ app.MapPost("/api/auto-approve/batches/{id:long}/cancel", async (long id, BankSt
     {
         var batch = await svc.CancelAsync(tc.OrgId, id);
         return Results.Ok(new { batch.Id, batch.BatchNo, status = batch.Status.ToString() });
+    }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// ===== Quản lý Hợp đồng Mua bán Xe Đại lý (Dealer Sales Contract - DMS40_CT_DealerContract) =====
+
+// 1) Lập hợp đồng đại lý mới (DMS40_CT_DealerContract_Save)
+app.MapPost("/api/dealer-contracts", async (CreateDealerContractDto dto, DealerContractService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.CreateAsync(tc.OrgId, dto);
+        return Results.Created($"/api/dealer-contracts/{entity.Id}", new
+        {
+            entity.Id,
+            entity.DlrCtrNo,
+            dcpType = entity.DCPType.ToString(),
+            entity.DealerCode,
+            entity.DealerName,
+            entity.BankCodeMD,
+            entity.BankNameMD,
+            entity.ContractDate,
+            entity.TotalVehicles,
+            entity.TotalAmount,
+            dlrSignStatus = entity.DlrSignStatus.ToString(),
+            htcSignStatus = entity.HTCSignStatus.ToString(),
+            status = entity.DlrCtrStatus.ToString(),
+            entity.Remark,
+            entity.CreatedBy,
+            entity.CreatedAt,
+            details = entity.Details.Select(d => new
+            {
+                d.Id,
+                d.CarId,
+                d.VIN,
+                d.ModelCode,
+                d.ModelName,
+                d.SpecCode,
+                d.ColorCode,
+                d.ColorName,
+                d.OriginNo,
+                d.ProductionYear,
+                d.UnitPrice,
+                status = d.DlrCtrStatusDtl.ToString(),
+                d.Remark
+            })
+        });
+    }
+    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 2) Danh sách hợp đồng đại lý (DMS40_CT_DealerContract_Get)
+app.MapGet("/api/dealer-contracts", async (
+    string? dlrCtrNo,
+    string? dealerCode,
+    string? bankCodeMD,
+    string? dcpType,
+    string? dlrSignStatus,
+    string? htcSignStatus,
+    string? status,
+    string? query,
+    DateTime? fromDate,
+    DateTime? toDate,
+    DealerContractService svc,
+    ITenantContext tc) =>
+{
+    var list = await svc.GetListAsync(tc.OrgId, dlrCtrNo, dealerCode, bankCodeMD, dcpType, dlrSignStatus, htcSignStatus, status, query, fromDate, toDate);
+    return Results.Ok(list.Select(x => new
+    {
+        x.Id,
+        x.DlrCtrNo,
+        dcpType = x.DCPType.ToString(),
+        x.DealerCode,
+        x.DealerName,
+        x.BankCodeMD,
+        x.BankNameMD,
+        x.ContractDate,
+        x.TotalVehicles,
+        x.TotalAmount,
+        x.FlagDlrCtrAdjust,
+        dlrSignStatus = x.DlrSignStatus.ToString(),
+        htcSignStatus = x.HTCSignStatus.ToString(),
+        status = x.DlrCtrStatus.ToString(),
+        x.Remark,
+        x.CreatedBy,
+        x.CreatedAt,
+        x.DlrApprovedBy,
+        x.DlrApprovedAt,
+        x.HTCApproved1By,
+        x.HTCApproved1At,
+        x.HTCApproved2By,
+        x.HTCApproved2At,
+        x.RejectedBy,
+        x.RejectedAt,
+        x.CancelledAt
+    }));
+});
+
+// 3) Báo cáo dashboard tổng hợp hợp đồng đại lý
+app.MapGet("/api/dealer-contracts/summary", async (DealerContractService svc, ITenantContext tc) =>
+{
+    var summary = await svc.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
+// 4) Chi tiết 1 hợp đồng đại lý kèm danh sách xe (DMS40_CT_DealerContract_Get)
+app.MapGet("/api/dealer-contracts/{id:long}", async (long id, DealerContractService svc, ITenantContext tc) =>
+{
+    var entity = await svc.GetByIdAsync(tc.OrgId, id);
+    if (entity == null) return Results.NotFound(new { error = $"Không tìm thấy hợp đồng đại lý #{id}." });
+    return Results.Ok(new
+    {
+        entity.Id,
+        entity.DlrCtrNo,
+        dcpType = entity.DCPType.ToString(),
+        entity.DealerCode,
+        entity.DealerName,
+        entity.BankCodeMD,
+        entity.BankNameMD,
+        entity.ContractDate,
+        entity.TotalVehicles,
+        entity.TotalAmount,
+        entity.FilePath,
+        entity.FlagDlrCtrAdjust,
+        dlrSignStatus = entity.DlrSignStatus.ToString(),
+        htcSignStatus = entity.HTCSignStatus.ToString(),
+        status = entity.DlrCtrStatus.ToString(),
+        entity.Remark,
+        entity.CreatedBy,
+        entity.CreatedAt,
+        entity.UpdatedBy,
+        entity.UpdatedAt,
+        entity.DlrApprovedBy,
+        entity.DlrApprovedAt,
+        entity.HTCApproved1By,
+        entity.HTCApproved1At,
+        entity.HTCApproved2By,
+        entity.HTCApproved2At,
+        entity.RejectedBy,
+        entity.RejectedAt,
+        entity.CancelledBy,
+        entity.CancelledAt,
+        details = entity.Details.OrderBy(d => d.Id).Select(d => new
+        {
+            d.Id,
+            d.CarId,
+            d.VIN,
+            d.ModelCode,
+            d.ModelName,
+            d.SpecCode,
+            d.ColorCode,
+            d.ColorName,
+            d.OriginNo,
+            d.ProductionYear,
+            d.UnitPrice,
+            status = d.DlrCtrStatusDtl.ToString(),
+            d.Remark
+        })
+    });
+});
+
+// 5) Đại lý ký hợp đồng (DMS40_CT_DealerContract_DlrApprove)
+app.MapPost("/api/dealer-contracts/{id:long}/dlr-approve", async (long id, ApproveDealerContractDto? dto, DealerContractService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.DlrApproveAsync(tc.OrgId, id, dto ?? new ApproveDealerContractDto());
+        return Results.Ok(new
+        {
+            entity.Id,
+            entity.DlrCtrNo,
+            dlrSignStatus = entity.DlrSignStatus.ToString(),
+            status = entity.DlrCtrStatus.ToString(),
+            entity.DlrApprovedBy,
+            entity.DlrApprovedAt
+        });
+    }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 6) HTC duyệt cấp 1 (DMS40_CT_DealerContract_HTCApprove1)
+app.MapPost("/api/dealer-contracts/{id:long}/htc-approve1", async (long id, ApproveDealerContractDto? dto, DealerContractService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.HTCApprove1Async(tc.OrgId, id, dto ?? new ApproveDealerContractDto());
+        return Results.Ok(new
+        {
+            entity.Id,
+            entity.DlrCtrNo,
+            htcSignStatus = entity.HTCSignStatus.ToString(),
+            status = entity.DlrCtrStatus.ToString(),
+            entity.HTCApproved1By,
+            entity.HTCApproved1At
+        });
+    }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 7) HTC duyệt cấp 2 — hoàn tất ký hợp đồng (DMS40_CT_DealerContract_HTCApprove2)
+app.MapPost("/api/dealer-contracts/{id:long}/htc-approve2", async (long id, ApproveDealerContractDto? dto, DealerContractService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.HTCApprove2Async(tc.OrgId, id, dto ?? new ApproveDealerContractDto());
+        return Results.Ok(new
+        {
+            entity.Id,
+            entity.DlrCtrNo,
+            htcSignStatus = entity.HTCSignStatus.ToString(),
+            status = entity.DlrCtrStatus.ToString(),
+            entity.HTCApproved2By,
+            entity.HTCApproved2At
+        });
+    }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 8) HTC từ chối hợp đồng (DMS40_CT_DealerContract_HTCReject)
+app.MapPost("/api/dealer-contracts/{id:long}/htc-reject", async (long id, RejectDealerContractDto dto, DealerContractService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.HTCRejectAsync(tc.OrgId, id, dto);
+        return Results.Ok(new
+        {
+            entity.Id,
+            entity.DlrCtrNo,
+            htcSignStatus = entity.HTCSignStatus.ToString(),
+            entity.RejectedBy,
+            entity.RejectedAt,
+            entity.Remark
+        });
+    }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
+    catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 9) Đại lý hủy hợp đồng (DMS40_CT_DealerContract_DlrCancel)
+app.MapPost("/api/dealer-contracts/{id:long}/dlr-cancel", async (long id, CancelDealerContractDto? dto, DealerContractService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.DlrCancelAsync(tc.OrgId, id, dto ?? new CancelDealerContractDto());
+        return Results.Ok(new
+        {
+            entity.Id,
+            entity.DlrCtrNo,
+            dlrSignStatus = entity.DlrSignStatus.ToString(),
+            status = entity.DlrCtrStatus.ToString(),
+            entity.CancelledBy,
+            entity.CancelledAt
+        });
     }
     catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
     catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }

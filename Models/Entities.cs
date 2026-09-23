@@ -4224,3 +4224,159 @@ public sealed class CalendarMonthStatDto
     public int WorkingDayCount { get; set; }
     public int HolidayCount { get; set; }
 }
+// ===== Quản lý Hợp đồng Mua bán Xe Đại lý (Dealer Sales Contract - DMS40_CT_DealerContract) =====
+// Tương ứng DMS40_CT_DealerContract, DMS40_CT_DealerContractDetail, DlrCtr_PaymentType trong
+// TERP.BizHTC/DMS40/0.34.Contract.cs (DMS40_CT_DealerContract_Get / _Save / _DlrApprove /
+// _HTCApprove1 / _HTCApprove2 / _HTCReject / _DlrCancel) và màn hình FrmMngDC, FrmNewDC
+// trong TERP.HTCClient/Views/Sales/Contract hệ nguồn HTC 2010.
+
+/// <summary>Trạng thái ký của Đại lý (DlrSignStatus trong TConst.DlrSignStatus).</summary>
+public enum DlrSignStatus { Pending = 0, Approved = 1, Rejected = 2, Cancelled = 3 }
+
+/// <summary>Trạng thái ký / phê duyệt của HTC (HTCSignStatus trong TConst.HTCSignStatus).</summary>
+public enum HTCSignStatus { Pending = 0, Approved1 = 1, Approved2 = 2, Rejected = 3, Cancelled = 4 }
+
+/// <summary>Trạng thái hợp đồng đại lý (DlrCtrStatus trong TConst.DlrCtrStatus).</summary>
+public enum DlrCtrStatus { NotSign = 0, Signed = 1, Adjusted = 2, Cancelled = 3 }
+
+/// <summary>Trạng thái dòng xe trong hợp đồng đại lý (DlrCtrStatusDtl).</summary>
+public enum DlrCtrDetailStatus { NotSign = 0, Signed = 1, Adjusted = 2, Cancelled = 3 }
+
+/// <summary>Loại thanh toán của hợp đồng đại lý (DlrCtr_PaymentType.DCPType).</summary>
+public enum DlrCtrPaymentType { BankGuarantee = 0, OwnCapital = 1, LetterOfCredit = 2, Mixed = 3 }
+
+/// <summary>
+/// Hợp đồng Mua bán Xe Đại lý (Dealer Sales Contract) — tương ứng DMS40_CT_DealerContract.
+/// Quản lý hợp đồng bán buôn xe cho đại lý kèm chỉ định ngân hàng bảo lãnh (BankCodeMD),
+/// loại thanh toán (DCPType) và quy trình ký số 2 cấp (Đại lý ký → HTC duyệt cấp 1 → HTC duyệt cấp 2).
+/// </summary>
+public sealed class DealerContract
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string DlrCtrNo { get; set; } = "";                 // Số hợp đồng / phụ lục (DlrCtrNo: PLHD-yyyyMM-xxx)
+    public DlrCtrPaymentType DCPType { get; set; } = DlrCtrPaymentType.BankGuarantee; // Loại thanh toán (DCPType)
+    public string DealerCode { get; set; } = "";               // Mã đại lý (DealerCode)
+    public string? DealerName { get; set; }                    // Tên đại lý (denormalized để hiển thị)
+    public string? BankCodeMD { get; set; }                    // Ngân hàng bảo lãnh chỉ định (BankCodeMD: VCB, TCB, MBB, CTG, VPB...)
+    public string? BankNameMD { get; set; }                    // Tên ngân hàng bảo lãnh chỉ định (denormalized)
+    public DateTime ContractDate { get; set; } = DateTime.Today; // Ngày hợp đồng (ContractDate)
+    public long TotalAmount { get; set; }                      // Tổng giá trị hợp đồng (VND - TotalAmount)
+    public int TotalVehicles { get; set; }                     // Tổng số xe trong hợp đồng
+    public string? FilePath { get; set; }                      // Đường dẫn file hợp đồng scan (FilePath)
+    public bool FlagDlrCtrAdjust { get; set; }                 // Cờ hợp đồng đã điều chỉnh (FlagDlrCtrAdjust)
+    public DlrSignStatus DlrSignStatus { get; set; } = DlrSignStatus.Pending;   // Trạng thái ký đại lý (DlrSignStatus)
+    public HTCSignStatus HTCSignStatus { get; set; } = HTCSignStatus.Pending;   // Trạng thái duyệt HTC (HTCSignStatus)
+    public DlrCtrStatus DlrCtrStatus { get; set; } = DlrCtrStatus.NotSign;      // Trạng thái hợp đồng (DlrCtrStatus)
+    public string? Remark { get; set; }                        // Diễn giải / ghi chú (Remark)
+    public string? CreatedBy { get; set; }                     // Người lập (CreateBy)
+    public DateTime CreatedAt { get; set; } = DateTime.Now;    // Ngày lập (CreateDTime)
+    public string? UpdatedBy { get; set; }                     // Người cập nhật cuối (LUBy)
+    public DateTime? UpdatedAt { get; set; }                   // Ngày cập nhật cuối (LUDTime)
+    public string? DlrApprovedBy { get; set; }                 // Người ký đại lý (DlrApprBy)
+    public DateTime? DlrApprovedAt { get; set; }               // Thời điểm ký đại lý (DlrApprDTime)
+    public string? HTCApproved1By { get; set; }                // Người duyệt HTC cấp 1 (HTCAppr1By)
+    public DateTime? HTCApproved1At { get; set; }              // Thời điểm duyệt HTC cấp 1 (HTCAppr1DTime)
+    public string? HTCApproved2By { get; set; }                // Người duyệt HTC cấp 2 (HTCAppr2By)
+    public DateTime? HTCApproved2At { get; set; }              // Thời điểm duyệt HTC cấp 2 (HTCAppr2DTime)
+    public string? RejectedBy { get; set; }                    // Người từ chối (RejectBy)
+    public DateTime? RejectedAt { get; set; }                  // Thời điểm từ chối (RejectDTime)
+    public string? CancelledBy { get; set; }                   // Người hủy (CancelBy)
+    public DateTime? CancelledAt { get; set; }                 // Thời điểm hủy (CancelDTime)
+
+    public List<DealerContractDetail> Details { get; set; } = [];
+}
+
+/// <summary>
+/// Chi tiết dòng xe trong hợp đồng đại lý — tương ứng DMS40_CT_DealerContractDetail.
+/// </summary>
+public sealed class DealerContractDetail
+{
+    public long Id { get; set; }
+    public long DealerContractId { get; set; }
+    public Guid OrgId { get; set; }
+    public string DlrCtrNo { get; set; } = "";                 // Số hợp đồng đại lý (DlrCtrNo - denormalized)
+    public string CarId { get; set; } = "";                    // Mã xe nội bộ (CarId)
+    public string VIN { get; set; } = "";                      // Số khung xe (VIN - 17 ký tự)
+    public string? ModelCode { get; set; }                     // Dòng xe (ModelCode: SANTAFE, TUCSON, ACCENT...)
+    public string? ModelName { get; set; }                     // Tên thương mại dòng xe
+    public string? SpecCode { get; set; }                      // Mã phiên bản (SpecCode)
+    public string? ColorCode { get; set; }                     // Mã màu (ColorCode)
+    public string? ColorName { get; set; }                     // Tên màu (ColorName)
+    public string? OriginNo { get; set; }                      // Số nguồn gốc / CO (OriginNo)
+    public int ProductionYear { get; set; }                    // Năm sản xuất (ProductionYear)
+    public long UnitPrice { get; set; }                        // Đơn giá xe (VND - UnitPrice)
+    public DlrCtrDetailStatus DlrCtrStatusDtl { get; set; } = DlrCtrDetailStatus.NotSign; // Trạng thái dòng (DlrCtrStatusDtl)
+    public string? Remark { get; set; }                        // Ghi chú dòng xe (Remark)
+}
+
+public sealed class CreateDealerContractDto
+{
+    public string? DlrCtrNo { get; set; }
+    public DlrCtrPaymentType? DCPType { get; set; }
+    public string DealerCode { get; set; } = "";
+    public string? DealerName { get; set; }
+    public string? BankCodeMD { get; set; }
+    public string? BankNameMD { get; set; }
+    public DateTime? ContractDate { get; set; }
+    public string? FilePath { get; set; }
+    public string? Remark { get; set; }
+    public string? CreatedBy { get; set; }
+    public List<DealerContractItemInputDto> Items { get; set; } = [];
+}
+
+public sealed class DealerContractItemInputDto
+{
+    public string CarId { get; set; } = "";
+    public string? VIN { get; set; }
+    public string? ModelCode { get; set; }
+    public string? ModelName { get; set; }
+    public string? SpecCode { get; set; }
+    public string? ColorCode { get; set; }
+    public string? ColorName { get; set; }
+    public string? OriginNo { get; set; }
+    public int? ProductionYear { get; set; }
+    public long UnitPrice { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class ApproveDealerContractDto
+{
+    public string? ApproverName { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class RejectDealerContractDto
+{
+    public string Reason { get; set; } = "";
+    public string? RejecterName { get; set; }
+}
+
+public sealed class CancelDealerContractDto
+{
+    public string? Reason { get; set; }
+    public string? CancellerName { get; set; }
+}
+
+public sealed class DealerContractSummaryDto
+{
+    public int TotalContracts { get; set; }
+    public int DraftCount { get; set; }                        // Chờ đại lý ký (DlrSignStatus=Pending)
+    public int DlrSignedCount { get; set; }                    // Đại lý đã ký, chờ HTC duyệt cấp 1
+    public int HTCApproved1Count { get; set; }                 // HTC duyệt cấp 1, chờ duyệt cấp 2
+    public int SignedCount { get; set; }                       // Đã ký hoàn tất (DlrCtrStatus=Signed)
+    public int RejectedCount { get; set; }
+    public int CancelledCount { get; set; }
+    public int TotalVehicles { get; set; }
+    public long TotalAmount { get; set; }
+    public List<DealerContractBankStatDto> ByBank { get; set; } = [];
+}
+
+public sealed class DealerContractBankStatDto
+{
+    public string BankCode { get; set; } = "";
+    public string? BankName { get; set; }
+    public int ContractCount { get; set; }
+    public int VehicleCount { get; set; }
+    public long TotalAmount { get; set; }
+}
