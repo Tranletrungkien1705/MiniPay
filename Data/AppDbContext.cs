@@ -42,6 +42,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<UnitPriceGPS> UnitPriceGPSs => Set<UnitPriceGPS>();
     public DbSet<FinancialExpenseStatement> FnExpStatements => Set<FinancialExpenseStatement>();
     public DbSet<FinancialExpenseDetail> FnExpDetails => Set<FinancialExpenseDetail>();
+    public DbSet<BankingDisbursementRequest> DisbursementRequests => Set<BankingDisbursementRequest>();
+    public DbSet<BankingDisbursementDetail> DisbursementDetails => Set<BankingDisbursementDetail>();
+    public DbSet<BankingDisbursementFile> DisbursementFiles => Set<BankingDisbursementFile>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -219,5 +222,22 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<FinancialExpenseDetail>().Property(x => x.Status).HasConversion<int>();
         b.Entity<FinancialExpenseDetail>().HasIndex(x => x.StatementId);
         b.Entity<FinancialExpenseDetail>().HasIndex(x => new { x.OrgId, x.VIN });
+
+        b.Entity<BankingDisbursementRequest>().HasIndex(x => new { x.OrgId, x.TransNo }).IsUnique();
+        b.Entity<BankingDisbursementRequest>().HasIndex(x => new { x.OrgId, x.DealerCode });
+        b.Entity<BankingDisbursementRequest>().HasIndex(x => new { x.OrgId, x.BankCode });
+        b.Entity<BankingDisbursementRequest>().Property(x => x.TransType).HasConversion<int>();
+        b.Entity<BankingDisbursementRequest>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<BankingDisbursementRequest>().Property(x => x.BankStatus).HasConversion<int>();
+        b.Entity<BankingDisbursementRequest>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.RequestId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<BankingDisbursementRequest>().HasMany(x => x.BankFiles).WithOne().HasForeignKey(x => x.RequestId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<BankingDisbursementDetail>().Property(x => x.AssemblyType).HasConversion<int>();
+        b.Entity<BankingDisbursementDetail>().HasIndex(x => x.RequestId);
+        b.Entity<BankingDisbursementDetail>().HasIndex(x => new { x.OrgId, x.DlrCtrNo });
+
+        b.Entity<BankingDisbursementFile>().Property(x => x.DocType).HasConversion<int>();
+        b.Entity<BankingDisbursementFile>().Property(x => x.SignStatus).HasConversion<int>();
+        b.Entity<BankingDisbursementFile>().HasIndex(x => x.RequestId);
     }
 }

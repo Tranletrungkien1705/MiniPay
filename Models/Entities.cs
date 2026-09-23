@@ -111,6 +111,16 @@ public enum FinancialExpenseDetailStatus { Active = 0, Excluded = 1 }
 
 public enum VehicleAssemblyType { CKD = 0, CBU = 1 }
 
+public enum BankingTransType { GNTT = 0, PhatHanhBLLC = 1, PhatHanhLC = 2, HTDB = 3, GNTTLC = 4 }
+
+public enum BankingTransStatus { Draft = 0, SentToBank = 1, Processing = 2, Completed = 3, Cancelled = 4 }
+
+public enum BankingTransBankStatus { Pending = 0, SentWaiting = 1, Reviewing = 2, InvalidFile = 3, RequireMoreFiles = 4, RequireMoreDocs = 5, RequireSignCA = 6, Disbursed = 7, Rejected = 8, Cancelled = 9 }
+
+public enum BankFileDocumentType { DeNghiVay = 0, PhuLucHopDong = 1, DangKyKinhDoanh = 2, CamKetTraNo = 3, ChungTuKhac = 4 }
+
+public enum BankFileSignStatus { Pending = 0, Signed = 1 }
+
 /// <summary>Ý định thanh toán (payment intent) — 1 dòng / 1 lần khởi tạo cổng.</summary>
 public sealed class PaymentIntent
 {
@@ -1498,3 +1508,242 @@ public sealed class CandidateVehicleFnExpDto
 
 
 
+
+/// <summary>Hồ sơ Đề nghị Giao dịch Ngân hàng & Tài trợ Vốn Vay / Bảo lãnh / L/C cho Đại lý Xe Ô tô — tương ứng RQ_BankingTransactions trong BizHTC.Payment / FrmDeNghiGDNganHang &amp; FrmQL_DeNghiGDNganHang.</summary>
+public sealed class BankingDisbursementRequest
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string TransNo { get; set; } = "";                     // Số đề nghị (RQ_BankingTransNo, ví dụ: DNTT-202505-001)
+    public BankingTransType TransType { get; set; } = BankingTransType.GNTT; // Loại ĐN: GNTT, PhatHanhBLLC, PhatHanhLC, HTDB, GNTTLC
+    public string DealerCode { get; set; } = "";                 // Mã đại lý (DEALERCODE)
+    public string DealerName { get; set; } = "";                 // Tên đại lý phân phối
+    public string BizResNumber { get; set; } = "";               // Số ĐKKD / Mã số thuế (BIZRESNUMBER)
+    public string BankCode { get; set; } = "";                   // Mã ngân hàng tài trợ (VPBANK, VIETINBANK, VIB, TCB, MBB...)
+    public string BankName { get; set; } = "";                   // Tên ngân hàng tài trợ
+    public string? PaymentAccount { get; set; }                  // Số tài khoản trích nợ / vay của đại lý
+    public string? PaymentBankName { get; set; }                 // Ngân hàng mở tài khoản đại lý
+    public string ReceivingUnit { get; set; } = "CÔNG TY CỔ PHẦN LIÊN DOANH Ô TÔ HYUNDAI THÀNH CÔNG VIỆT NAM"; // Đơn vị thụ hưởng
+    public string ReceivingAccount { get; set; } = "113000088999"; // Số tài khoản thụ hưởng của hãng xe
+    public string ReceivingBank { get; set; } = "VietinBank - CN Đống Đa"; // Ngân hàng thụ hưởng
+    public int TotalCars { get; set; }                           // Tổng số xe đề nghị tài trợ
+    public long TotalContractAmount { get; set; }                // Tổng giá trị xe theo hợp đồng (VND)
+    public long TotalDisbursementAmount { get; set; }            // Tổng số tiền đề nghị ngân hàng tài trợ / giải ngân (VND)
+    public long ActualDisbursedAmount { get; set; }              // Số tiền ngân hàng đã giải ngân thực tế (VND)
+    public BankingTransStatus Status { get; set; } = BankingTransStatus.Draft; // Trạng thái nội bộ (BKTRANSSTATUS)
+    public BankingTransBankStatus BankStatus { get; set; } = BankingTransBankStatus.Pending; // Trạng thái phía ngân hàng (BKTRANSBANKSTATUS)
+    public string? RefBankCode { get; set; }                     // Mã số tiếp nhận / hồ sơ do ngân hàng cấp (REFBANKCODE)
+    public string? BankRemark { get; set; }                      // Ý kiến / thông báo phản hồi của ngân hàng (BANKREMARK)
+
+    // Khế ước vay vốn (GNTT / GNTTLC)
+    public string? LDNo { get; set; }                            // Số khế ước nhận nợ vay (Loan Document - LDNo)
+    public DateTime? DisbursementDate { get; set; }              // Ngày ngân hàng giải ngân thực tế
+    public string? DisbursementTerm { get; set; } = "03 tháng";  // Kỳ hạn vay vốn
+    public decimal DisbursementInterestRate { get; set; } = 8.5m;// Lãi suất vay vốn (%/năm)
+    public DateTime? FirstInterestPmtDate { get; set; }          // Ngày trả lãi đầu tiên
+    public long LoanLimit { get; set; }                          // Hạn mức tín dụng được duyệt (VND)
+
+    // Bảo lãnh thanh toán / L/C (PhatHanhBLLC / PhatHanhLC)
+    public string? MDNo { get; set; }                            // Số thư bảo lãnh ngân hàng phát hành (MDNo)
+    public long GrtAmount { get; set; }                          // Số tiền bảo lãnh được cấp (VND)
+    public DateTime? GrtDateStart { get; set; }                  // Ngày bắt đầu hiệu lực bảo lãnh
+    public DateTime? GrtDateEnd { get; set; }                    // Ngày hết hạn hiệu lực bảo lãnh
+    public string? GrtTerm { get; set; } = "45 ngày";            // Thời hạn bảo lãnh
+    public long GrtFee { get; set; }                             // Phí phát hành bảo lãnh (VND)
+    public string? LCNo { get; set; }                            // Số thư tín dụng L/C (LCNo)
+    public long LCAmount { get; set; }                           // Giá trị thư tín dụng L/C (VND)
+    public DateTime? LCStartDate { get; set; }                   // Ngày mở L/C
+    public DateTime? LCEndDate { get; set; }                     // Ngày hết hạn L/C
+
+    public DateTime? SentToBankAt { get; set; }                  // Thời điểm đẩy sang e-Banking ngân hàng
+    public DateTime? CompletedAt { get; set; }                   // Thời điểm hoàn tất giải ngân
+    public DateTime? CancelledAt { get; set; }                   // Thời điểm hủy đề nghị
+    public string? CancelReason { get; set; }                    // Lý do hủy
+    public string? Remark { get; set; }                          // Ghi chú đề nghị
+    public string? CreatedBy { get; set; }                       // Người lập hồ sơ
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    public List<BankingDisbursementDetail> Details { get; set; } = [];
+    public List<BankingDisbursementFile> BankFiles { get; set; } = [];
+}
+
+/// <summary>Chi tiết xe / phụ lục hợp đồng trong đề nghị giao dịch ngân hàng — tương ứng RQ_BankingTransCtr trong BizHTC.</summary>
+public sealed class BankingDisbursementDetail
+{
+    public long Id { get; set; }
+    public long RequestId { get; set; }
+    public Guid OrgId { get; set; }
+    public string TransNo { get; set; } = "";                    // Số đề nghị
+    public string DlrCtrNo { get; set; } = "";                   // Số phụ lục hợp đồng mua bán xe (DLRCTRNO)
+    public string ModelCode { get; set; } = "";                  // Mã model xe (SANTAFE, TUCSON, CRETA, ACCENT, ELANTRA...)
+    public string? ModelName { get; set; }                       // Tên thương mại mẫu xe
+    public string SpecCode { get; set; } = "";                   // Mã phiên bản đặc tả kỹ thuật (SPECCODE)
+    public string? SpecDescription { get; set; }                 // Diễn giải phiên bản xe
+    public VehicleAssemblyType AssemblyType { get; set; } = VehicleAssemblyType.CKD; // Loại xe (CKD / CBU)
+    public DateTime? ContractDate { get; set; }                  // Ngày ký PLHĐ
+    public string? PrincipalContractNo { get; set; }             // Số HĐ nguyên tắc (BKTRANSCTRPCPNO)
+    public DateTime? PrincipalContractDate { get; set; }         // Ngày ký HĐ nguyên tắc (BKTRANSCTRPCPDATE)
+    public DateTime? DeliveryDate { get; set; }                  // Ngày giao hàng dự kiến (BKTRANSCTRDATE)
+    public int Qty { get; set; } = 1;                            // Số lượng xe (QTY)
+    public long UnitPrice { get; set; }                          // Đơn giá bán xe (UNITPRICE)
+    public long TotalAmount { get; set; }                        // Thành tiền xe (= Qty * UnitPrice)
+    public decimal LtvRate { get; set; } = 80.0m;                // Tỷ lệ cho vay / tài trợ vốn (% LTV)
+    public long DisbursementAmount { get; set; }                 // Số tiền đề nghị giải ngân/bảo lãnh (= TotalAmount * LtvRate / 100)
+    public string? Remark { get; set; }                          // Ghi chú dòng xe
+}
+
+/// <summary>Hồ sơ chứng từ tài chính ký số gửi ngân hàng — tương ứng RQ_BankingTransBankFile trong BizHTC.</summary>
+public sealed class BankingDisbursementFile
+{
+    public long Id { get; set; }
+    public long RequestId { get; set; }
+    public Guid OrgId { get; set; }
+    public string TransNo { get; set; } = "";                    // Số đề nghị
+    public BankFileDocumentType DocType { get; set; } = BankFileDocumentType.DeNghiVay; // Loại hồ sơ
+    public string FileName { get; set; } = "";                   // Tên file (BFileName)
+    public string? FilePath { get; set; }                        // Đường dẫn lưu file
+    public BankFileSignStatus SignStatus { get; set; } = BankFileSignStatus.Pending; // Trạng thái ký số (SignStatus)
+    public string? SignedUser { get; set; }                      // Người đại diện ký số CA
+    public DateTime? SignedAt { get; set; }                      // Thời điểm ký số CA
+    public string? CertSerialNumber { get; set; }                // Số serial chứng thư số (SerialNumber)
+    public DateTime UploadDate { get; set; } = DateTime.Now;     // Ngày nạp tài liệu
+}
+
+public sealed class CreateDisbursementRequestDto
+{
+    public BankingTransType TransType { get; set; } = BankingTransType.GNTT;
+    public string DealerCode { get; set; } = "";
+    public string DealerName { get; set; } = "";
+    public string BizResNumber { get; set; } = "";
+    public string BankCode { get; set; } = "";
+    public string BankName { get; set; } = "";
+    public string? PaymentAccount { get; set; }
+    public string? PaymentBankName { get; set; }
+    public string? ReceivingUnit { get; set; }
+    public string? ReceivingAccount { get; set; }
+    public string? ReceivingBank { get; set; }
+    public string? DisbursementTerm { get; set; }
+    public decimal? DisbursementInterestRate { get; set; }
+    public string? Remark { get; set; }
+    public List<DisbursementDetailInputDto> Details { get; set; } = [];
+    public List<DisbursementFileInputDto>? Files { get; set; }
+}
+
+public sealed class DisbursementDetailInputDto
+{
+    public string DlrCtrNo { get; set; } = "";
+    public string ModelCode { get; set; } = "";
+    public string? ModelName { get; set; }
+    public string SpecCode { get; set; } = "";
+    public string? SpecDescription { get; set; }
+    public VehicleAssemblyType AssemblyType { get; set; } = VehicleAssemblyType.CKD;
+    public DateTime? ContractDate { get; set; }
+    public string? PrincipalContractNo { get; set; }
+    public DateTime? PrincipalContractDate { get; set; }
+    public DateTime? DeliveryDate { get; set; }
+    public int Qty { get; set; } = 1;
+    public long UnitPrice { get; set; }
+    public decimal LtvRate { get; set; } = 80.0m;
+    public string? Remark { get; set; }
+}
+
+public sealed class DisbursementFileInputDto
+{
+    public BankFileDocumentType DocType { get; set; } = BankFileDocumentType.DeNghiVay;
+    public string FileName { get; set; } = "";
+    public string? FilePath { get; set; }
+}
+
+public sealed class BankReviewDto
+{
+    public string? RefBankCode { get; set; }
+    public string? BankRemark { get; set; }
+}
+
+public sealed class RequestMoreDocsDto
+{
+    public string Reason { get; set; } = "";
+    public bool IsMissingFiles { get; set; } = false;
+}
+
+public sealed class SignBankFileDto
+{
+    public string SignedUser { get; set; } = "Nguyen Van A - Giam Doc";
+    public string CertSerialNumber { get; set; } = "54018899AACC4520";
+}
+
+public sealed class ApproveDisburseDto
+{
+    public string? LDNo { get; set; }
+    public string? MDNo { get; set; }
+    public string? LCNo { get; set; }
+    public long? ActualAmount { get; set; }
+    public decimal? InterestRate { get; set; }
+    public string? Term { get; set; }
+    public string? BankRemark { get; set; }
+}
+
+public sealed class RejectDisbursementDto
+{
+    public string Reason { get; set; } = "";
+}
+
+public sealed class DisbursementAdviceDto
+{
+    public string TransNo { get; set; } = "";
+    public string TransTypeText { get; set; } = "";
+    public string PrintDate { get; set; } = "";
+    public string DealerCode { get; set; } = "";
+    public string DealerName { get; set; } = "";
+    public string BizResNumber { get; set; } = "";
+    public string BankName { get; set; } = "";
+    public string BankCode { get; set; } = "";
+    public string PaymentAccount { get; set; } = "";
+    public string ReceivingUnit { get; set; } = "";
+    public string ReceivingAccount { get; set; } = "";
+    public string ReceivingBank { get; set; } = "";
+    public int TotalCars { get; set; }
+    public long TotalContractAmount { get; set; }
+    public long TotalDisbursementAmount { get; set; }
+    public long ActualDisbursedAmount { get; set; }
+    public string AmountInWords { get; set; } = "";
+    public string StatusText { get; set; } = "";
+    public string BankStatusText { get; set; } = "";
+    public string? RefBankCode { get; set; }
+    public string? LDNo { get; set; }
+    public string? MDNo { get; set; }
+    public string? LCNo { get; set; }
+    public string? DisbursementTerm { get; set; }
+    public decimal DisbursementInterestRate { get; set; }
+    public string? DisbursementDate { get; set; }
+    public List<DisbursementDetailAdviceDto> Cars { get; set; } = [];
+    public List<string> SignedDocuments { get; set; } = [];
+}
+
+public sealed class DisbursementDetailAdviceDto
+{
+    public int No { get; set; }
+    public string DlrCtrNo { get; set; } = "";
+    public string ModelCode { get; set; } = "";
+    public string SpecCode { get; set; } = "";
+    public string AssemblyTypeText { get; set; } = "";
+    public int Qty { get; set; }
+    public long UnitPrice { get; set; }
+    public long TotalAmount { get; set; }
+    public decimal LtvRate { get; set; }
+    public long DisbursementAmount { get; set; }
+}
+
+public sealed class DisbursementSummaryDto
+{
+    public int TotalRequests { get; set; }
+    public int DraftCount { get; set; }
+    public int SentToBankCount { get; set; }
+    public int ProcessingCount { get; set; }
+    public int CompletedCount { get; set; }
+    public int CancelledCount { get; set; }
+    public int TotalVehiclesFinanced { get; set; }
+    public long TotalContractAmount { get; set; }
+    public long TotalRequestedDisbursement { get; set; }
+    public long TotalActualDisbursed { get; set; }
+}

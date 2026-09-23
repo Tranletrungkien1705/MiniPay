@@ -43,6 +43,7 @@ builder.Services.AddScoped<BankGuaranteeClaimService>();
 builder.Services.AddScoped<PaymentAVNService>();
 builder.Services.AddScoped<PaymentGPSService>();
 builder.Services.AddScoped<FinancialExpenseService>();
+builder.Services.AddScoped<BankingDisbursementService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -5428,6 +5429,193 @@ app.MapGet("/api/fn-exp/{id:long}/advice", async (long id, FinancialExpenseServi
     var advice = await fnService.GenerateAdviceAsync(id, tc.OrgId);
     if (advice == null) return Results.NotFound(new { error = $"Không tìm thấy bảng tính #{id}." });
     return Results.Ok(advice);
+});
+
+// ===== Quản lý Hồ sơ Đề nghị Giao dịch Ngân hàng & Tài trợ Vốn Vay / Bảo lãnh Đại lý (Dealer Banking Disbursement - BizHTC.Payment) =====
+
+// 1) Lập đề nghị giao dịch ngân hàng mới (RQ_BankingTransactions_Save / FrmDeNghiGDNganHang)
+app.MapPost("/api/disbursement/requests", async (CreateDisbursementRequestDto dto, BankingDisbursementService disbService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await disbService.CreateRequestAsync(tc.OrgId, dto);
+        return Results.Created($"/api/disbursement/requests/{req.Id}", req);
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 2) Tìm kiếm danh sách đề nghị giao dịch ngân hàng (RQ_BankingTransactions_Get / FrmQL_DeNghiGDNganHang)
+app.MapGet("/api/disbursement/requests", async (
+    string? dealerCode,
+    string? bankCode,
+    string? transType,
+    string? status,
+    string? bankStatus,
+    DateTime? fromDate,
+    DateTime? toDate,
+    BankingDisbursementService disbService,
+    ITenantContext tc) =>
+{
+    BankingTransType? tType = null;
+    if (!string.IsNullOrWhiteSpace(transType) && Enum.TryParse<BankingTransType>(transType, true, out var parsedType))
+        tType = parsedType;
+
+    BankingTransStatus? st = null;
+    if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<BankingTransStatus>(status, true, out var parsedSt))
+        st = parsedSt;
+
+    BankingTransBankStatus? bSt = null;
+    if (!string.IsNullOrWhiteSpace(bankStatus) && Enum.TryParse<BankingTransBankStatus>(bankStatus, true, out var parsedBSt))
+        bSt = parsedBSt;
+
+    var list = await disbService.GetRequestsAsync(tc.OrgId, dealerCode, bankCode, tType, st, bSt, fromDate, toDate);
+    return Results.Ok(list);
+});
+
+// 3) Chi tiết 1 đề nghị giao dịch ngân hàng kèm danh mục xe và file chứng từ
+app.MapGet("/api/disbursement/requests/{id:long}", async (long id, BankingDisbursementService disbService, ITenantContext tc) =>
+{
+    var req = await disbService.GetRequestByIdAsync(id, tc.OrgId);
+    if (req == null) return Results.NotFound(new { error = $"Không tìm thấy đề nghị #{id}." });
+    return Results.Ok(req);
+});
+
+// 4) Đẩy đề nghị sang cổng e-Banking ngân hàng kết nối (RQ_BankingTransactions_PushBank)
+app.MapPost("/api/disbursement/requests/{id:long}/push-bank", async (long id, BankingDisbursementService disbService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await disbService.PushToBankAsync(id, tc.OrgId);
+        return Results.Ok(new { message = $"Đã đẩy hồ sơ #{req.TransNo} sang cổng e-Banking {req.BankName} thành công.", req.RefBankCode, req.Status, req.BankStatus, req.BankRemark });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 5) Ngân hàng tiếp nhận thẩm định hồ sơ tín dụng
+app.MapPost("/api/disbursement/requests/{id:long}/bank-review", async (long id, BankReviewDto? dto, BankingDisbursementService disbService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await disbService.ReviewByBankAsync(id, tc.OrgId, dto);
+        return Results.Ok(new { message = $"Ngân hàng {req.BankName} đã tiếp nhận thẩm định hồ sơ #{req.TransNo}.", req.Status, req.BankStatus, req.BankRemark });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Ngân hàng yêu cầu bổ sung tài liệu file hoặc hồ sơ pháp lý (Approve1/2/3)
+app.MapPost("/api/disbursement/requests/{id:long}/request-docs", async (long id, RequestMoreDocsDto dto, BankingDisbursementService disbService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await disbService.RequestMoreDocsAsync(id, tc.OrgId, dto);
+        return Results.Ok(new { message = $"Ngân hàng yêu cầu bổ sung hồ sơ cho đề nghị #{req.TransNo}.", req.BankStatus, req.BankRemark });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 7) Đại lý ký số điện tử CA trên file chứng từ tài chính gửi ngân hàng
+app.MapPost("/api/disbursement/files/{fileId:long}/sign", async (long fileId, SignBankFileDto dto, BankingDisbursementService disbService, ITenantContext tc) =>
+{
+    try
+    {
+        var file = await disbService.SignBankFileAsync(fileId, tc.OrgId, dto);
+        return Results.Ok(new { message = $"Ký số CA tài liệu '{file.FileName}' thành công.", file.SignStatus, file.SignedUser, file.CertSerialNumber, file.SignedAt });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 8) Ngân hàng phê duyệt cấp tín dụng & hoàn tất giải ngân chuyển tiền (Finish / Disbursed)
+app.MapPost("/api/disbursement/requests/{id:long}/disburse", async (long id, ApproveDisburseDto dto, BankingDisbursementService disbService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await disbService.ApproveAndDisburseAsync(id, tc.OrgId, dto);
+        return Results.Ok(new
+        {
+            message = $"Ngân hàng đã phê duyệt & hoàn tất giải ngân {req.ActualDisbursedAmount:N0} VND cho đề nghị #{req.TransNo}.",
+            req.Status,
+            req.BankStatus,
+            req.ActualDisbursedAmount,
+            req.LDNo,
+            req.MDNo,
+            req.LCNo,
+            DisbursementDate = req.DisbursementDate?.ToString("yyyy-MM-dd"),
+            req.BankRemark
+        });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 9) Ngân hàng từ chối cấp tín dụng (Rejected)
+app.MapPost("/api/disbursement/requests/{id:long}/reject", async (long id, RejectDisbursementDto dto, BankingDisbursementService disbService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await disbService.RejectByBankAsync(id, tc.OrgId, dto);
+        return Results.Ok(new { message = $"Ngân hàng đã từ chối hồ sơ đề nghị #{req.TransNo}.", req.BankStatus, req.BankRemark });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 10) Đại lý hủy đề nghị khi chưa giải ngân
+app.MapPost("/api/disbursement/requests/{id:long}/cancel", async (long id, RejectDisbursementDto? dto, BankingDisbursementService disbService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await disbService.CancelRequestAsync(id, tc.OrgId, dto?.Reason);
+        return Results.Ok(new { message = $"Đã hủy đề nghị #{req.TransNo} thành công.", req.Status, req.CancelReason, req.CancelledAt });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 11) Sinh dữ liệu mẫu in Giấy đề nghị giao dịch ngân hàng & cam kết tín dụng (Disbursement Advice)
+app.MapGet("/api/disbursement/requests/{id:long}/advice", async (long id, BankingDisbursementService disbService, ITenantContext tc) =>
+{
+    var advice = await disbService.GenerateAdviceAsync(id, tc.OrgId);
+    if (advice == null) return Results.NotFound(new { error = $"Không tìm thấy đề nghị #{id}." });
+    return Results.Ok(advice);
+});
+
+// 12) Thống kê tổng hợp số liệu tín dụng đại lý
+app.MapGet("/api/disbursement/summary", async (BankingDisbursementService disbService, ITenantContext tc) =>
+{
+    var summary = await disbService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
+// 13) Lấy danh sách hợp đồng mẫu ứng viên để lập nhanh đề nghị
+app.MapGet("/api/disbursement/candidate-contracts", (BankingDisbursementService disbService, string? dealerCode) =>
+{
+    var candidates = disbService.GetCandidateContracts(dealerCode);
+    return Results.Ok(candidates);
 });
 
 app.Run();

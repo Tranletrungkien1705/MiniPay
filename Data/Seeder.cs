@@ -996,6 +996,98 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_FnExpStatements_OrgId_DealerCode"" ON ""FnExpStatements"" (""OrgId"", ""DealerCode"");
                 CREATE INDEX IF NOT EXISTS ""IX_FnExpDetails_StatementId"" ON ""FnExpDetails"" (""StatementId"");
                 CREATE INDEX IF NOT EXISTS ""IX_FnExpDetails_OrgId_VIN"" ON ""FnExpDetails"" (""OrgId"", ""VIN"");
+
+                CREATE TABLE IF NOT EXISTS ""DisbursementRequests"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""TransNo"" TEXT NOT NULL,
+                    ""TransType"" INTEGER NOT NULL,
+                    ""DealerCode"" TEXT NOT NULL,
+                    ""DealerName"" TEXT NOT NULL,
+                    ""BizResNumber"" TEXT NOT NULL,
+                    ""BankCode"" TEXT NOT NULL,
+                    ""BankName"" TEXT NOT NULL,
+                    ""PaymentAccount"" TEXT NULL,
+                    ""PaymentBankName"" TEXT NULL,
+                    ""ReceivingUnit"" TEXT NOT NULL,
+                    ""ReceivingAccount"" TEXT NOT NULL,
+                    ""ReceivingBank"" TEXT NOT NULL,
+                    ""TotalCars"" INTEGER NOT NULL,
+                    ""TotalContractAmount"" INTEGER NOT NULL,
+                    ""TotalDisbursementAmount"" INTEGER NOT NULL,
+                    ""ActualDisbursedAmount"" INTEGER NOT NULL,
+                    ""Status"" INTEGER NOT NULL,
+                    ""BankStatus"" INTEGER NOT NULL,
+                    ""RefBankCode"" TEXT NULL,
+                    ""BankRemark"" TEXT NULL,
+                    ""LDNo"" TEXT NULL,
+                    ""DisbursementDate"" TEXT NULL,
+                    ""DisbursementTerm"" TEXT NULL,
+                    ""DisbursementInterestRate"" REAL NOT NULL,
+                    ""FirstInterestPmtDate"" TEXT NULL,
+                    ""LoanLimit"" INTEGER NOT NULL,
+                    ""MDNo"" TEXT NULL,
+                    ""GrtAmount"" INTEGER NOT NULL,
+                    ""GrtDateStart"" TEXT NULL,
+                    ""GrtDateEnd"" TEXT NULL,
+                    ""GrtTerm"" TEXT NULL,
+                    ""GrtFee"" INTEGER NOT NULL,
+                    ""LCNo"" TEXT NULL,
+                    ""LCAmount"" INTEGER NOT NULL,
+                    ""LCStartDate"" TEXT NULL,
+                    ""LCEndDate"" TEXT NULL,
+                    ""SentToBankAt"" TEXT NULL,
+                    ""CompletedAt"" TEXT NULL,
+                    ""CancelledAt"" TEXT NULL,
+                    ""CancelReason"" TEXT NULL,
+                    ""Remark"" TEXT NULL,
+                    ""CreatedBy"" TEXT NULL,
+                    ""CreatedAt"" TEXT NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS ""DisbursementDetails"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""RequestId"" INTEGER NOT NULL,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""TransNo"" TEXT NOT NULL,
+                    ""DlrCtrNo"" TEXT NOT NULL,
+                    ""ModelCode"" TEXT NOT NULL,
+                    ""ModelName"" TEXT NULL,
+                    ""SpecCode"" TEXT NOT NULL,
+                    ""SpecDescription"" TEXT NULL,
+                    ""AssemblyType"" INTEGER NOT NULL,
+                    ""ContractDate"" TEXT NULL,
+                    ""PrincipalContractNo"" TEXT NULL,
+                    ""PrincipalContractDate"" TEXT NULL,
+                    ""DeliveryDate"" TEXT NULL,
+                    ""Qty"" INTEGER NOT NULL,
+                    ""UnitPrice"" INTEGER NOT NULL,
+                    ""TotalAmount"" INTEGER NOT NULL,
+                    ""LtvRate"" REAL NOT NULL,
+                    ""DisbursementAmount"" INTEGER NOT NULL,
+                    ""Remark"" TEXT NULL,
+                    CONSTRAINT ""FK_DisbursementDetails_DisbursementRequests_RequestId"" FOREIGN KEY (""RequestId"") REFERENCES ""DisbursementRequests"" (""Id"") ON DELETE CASCADE
+                );
+                CREATE TABLE IF NOT EXISTS ""DisbursementFiles"" (
+                    ""Id"" INTEGER PRIMARY KEY AUTOINCREMENT,
+                    ""RequestId"" INTEGER NOT NULL,
+                    ""OrgId"" TEXT NOT NULL,
+                    ""TransNo"" TEXT NOT NULL,
+                    ""DocType"" INTEGER NOT NULL,
+                    ""FileName"" TEXT NOT NULL,
+                    ""FilePath"" TEXT NULL,
+                    ""SignStatus"" INTEGER NOT NULL,
+                    ""SignedUser"" TEXT NULL,
+                    ""SignedAt"" TEXT NULL,
+                    ""CertSerialNumber"" TEXT NULL,
+                    ""UploadDate"" TEXT NOT NULL,
+                    CONSTRAINT ""FK_DisbursementFiles_DisbursementRequests_RequestId"" FOREIGN KEY (""RequestId"") REFERENCES ""DisbursementRequests"" (""Id"") ON DELETE CASCADE
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_DisbursementRequests_OrgId_TransNo"" ON ""DisbursementRequests"" (""OrgId"", ""TransNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_DisbursementRequests_OrgId_DealerCode"" ON ""DisbursementRequests"" (""OrgId"", ""DealerCode"");
+                CREATE INDEX IF NOT EXISTS ""IX_DisbursementRequests_OrgId_BankCode"" ON ""DisbursementRequests"" (""OrgId"", ""BankCode"");
+                CREATE INDEX IF NOT EXISTS ""IX_DisbursementDetails_RequestId"" ON ""DisbursementDetails"" (""RequestId"");
+                CREATE INDEX IF NOT EXISTS ""IX_DisbursementDetails_OrgId_DlrCtrNo"" ON ""DisbursementDetails"" (""OrgId"", ""DlrCtrNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_DisbursementFiles_RequestId"" ON ""DisbursementFiles"" (""RequestId"");
             ");
         }
         else if (db.Database.IsNpgsql())
@@ -1973,6 +2065,96 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_FnExpStatements_OrgId_DealerCode"" ON ""FnExpStatements"" (""OrgId"", ""DealerCode"");
                 CREATE INDEX IF NOT EXISTS ""IX_FnExpDetails_StatementId"" ON ""FnExpDetails"" (""StatementId"");
                 CREATE INDEX IF NOT EXISTS ""IX_FnExpDetails_OrgId_VIN"" ON ""FnExpDetails"" (""OrgId"", ""VIN"");
+
+                CREATE TABLE IF NOT EXISTS ""DisbursementRequests"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""OrgId"" uuid NOT NULL,
+                    ""TransNo"" text NOT NULL,
+                    ""TransType"" integer NOT NULL,
+                    ""DealerCode"" text NOT NULL,
+                    ""DealerName"" text NOT NULL,
+                    ""BizResNumber"" text NOT NULL,
+                    ""BankCode"" text NOT NULL,
+                    ""BankName"" text NOT NULL,
+                    ""PaymentAccount"" text NULL,
+                    ""PaymentBankName"" text NULL,
+                    ""ReceivingUnit"" text NOT NULL,
+                    ""ReceivingAccount"" text NOT NULL,
+                    ""ReceivingBank"" text NOT NULL,
+                    ""TotalCars"" integer NOT NULL,
+                    ""TotalContractAmount"" bigint NOT NULL,
+                    ""TotalDisbursementAmount"" bigint NOT NULL,
+                    ""ActualDisbursedAmount"" bigint NOT NULL,
+                    ""Status"" integer NOT NULL,
+                    ""BankStatus"" integer NOT NULL,
+                    ""RefBankCode"" text NULL,
+                    ""BankRemark"" text NULL,
+                    ""LDNo"" text NULL,
+                    ""DisbursementDate"" timestamp NULL,
+                    ""DisbursementTerm"" text NULL,
+                    ""DisbursementInterestRate"" numeric NOT NULL,
+                    ""FirstInterestPmtDate"" timestamp NULL,
+                    ""LoanLimit"" bigint NOT NULL,
+                    ""MDNo"" text NULL,
+                    ""GrtAmount"" bigint NOT NULL,
+                    ""GrtDateStart"" timestamp NULL,
+                    ""GrtDateEnd"" timestamp NULL,
+                    ""GrtTerm"" text NULL,
+                    ""GrtFee"" bigint NOT NULL,
+                    ""LCNo"" text NULL,
+                    ""LCAmount"" bigint NOT NULL,
+                    ""LCStartDate"" timestamp NULL,
+                    ""LCEndDate"" timestamp NULL,
+                    ""SentToBankAt"" timestamp NULL,
+                    ""CompletedAt"" timestamp NULL,
+                    ""CancelledAt"" timestamp NULL,
+                    ""CancelReason"" text NULL,
+                    ""Remark"" text NULL,
+                    ""CreatedBy"" text NULL,
+                    ""CreatedAt"" timestamp NOT NULL
+                );
+                CREATE TABLE IF NOT EXISTS ""DisbursementDetails"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""RequestId"" bigint NOT NULL REFERENCES ""DisbursementRequests"" (""Id"") ON DELETE CASCADE,
+                    ""OrgId"" uuid NOT NULL,
+                    ""TransNo"" text NOT NULL,
+                    ""DlrCtrNo"" text NOT NULL,
+                    ""ModelCode"" text NOT NULL,
+                    ""ModelName"" text NULL,
+                    ""SpecCode"" text NOT NULL,
+                    ""SpecDescription"" text NULL,
+                    ""AssemblyType"" integer NOT NULL,
+                    ""ContractDate"" timestamp NULL,
+                    ""PrincipalContractNo"" text NULL,
+                    ""PrincipalContractDate"" timestamp NULL,
+                    ""DeliveryDate"" timestamp NULL,
+                    ""Qty"" integer NOT NULL,
+                    ""UnitPrice"" bigint NOT NULL,
+                    ""TotalAmount"" bigint NOT NULL,
+                    ""LtvRate"" numeric NOT NULL,
+                    ""DisbursementAmount"" bigint NOT NULL,
+                    ""Remark"" text NULL
+                );
+                CREATE TABLE IF NOT EXISTS ""DisbursementFiles"" (
+                    ""Id"" bigint GENERATED BY DEFAULT AS IDENTITY PRIMARY KEY,
+                    ""RequestId"" bigint NOT NULL REFERENCES ""DisbursementRequests"" (""Id"") ON DELETE CASCADE,
+                    ""OrgId"" uuid NOT NULL,
+                    ""TransNo"" text NOT NULL,
+                    ""DocType"" integer NOT NULL,
+                    ""FileName"" text NOT NULL,
+                    ""FilePath"" text NULL,
+                    ""SignStatus"" integer NOT NULL,
+                    ""SignedUser"" text NULL,
+                    ""SignedAt"" timestamp NULL,
+                    ""CertSerialNumber"" text NULL,
+                    ""UploadDate"" timestamp NOT NULL
+                );
+                CREATE UNIQUE INDEX IF NOT EXISTS ""IX_DisbursementRequests_OrgId_TransNo"" ON ""DisbursementRequests"" (""OrgId"", ""TransNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_DisbursementRequests_OrgId_DealerCode"" ON ""DisbursementRequests"" (""OrgId"", ""DealerCode"");
+                CREATE INDEX IF NOT EXISTS ""IX_DisbursementRequests_OrgId_BankCode"" ON ""DisbursementRequests"" (""OrgId"", ""BankCode"");
+                CREATE INDEX IF NOT EXISTS ""IX_DisbursementDetails_RequestId"" ON ""DisbursementDetails"" (""RequestId"");
+                CREATE INDEX IF NOT EXISTS ""IX_DisbursementDetails_OrgId_DlrCtrNo"" ON ""DisbursementDetails"" (""OrgId"", ""DlrCtrNo"");
+                CREATE INDEX IF NOT EXISTS ""IX_DisbursementFiles_RequestId"" ON ""DisbursementFiles"" (""RequestId"");
             ");
         }
 
@@ -7606,6 +7788,458 @@ public static class Seeder
                 CreatedAt = new DateTime(2025, 4, 2, 14, 0, 0)
             };
             db.FnExpStatements.Add(fn6);
+            await db.SaveChangesAsync();
+        }
+
+        // 17. Dữ liệu mẫu Hồ sơ Đề nghị Giao dịch Ngân hàng & Tài trợ Vốn Vay / Bảo lãnh Đại lý (RQ_BankingTransactions)
+        if (!await db.DisbursementRequests.AnyAsync(r => r.OrgId == TenantContext.DefaultOrgId))
+        {
+            // 1. Hồ sơ GNTT VPBank ĐÃ HOÀN TẤT GIẢI NGÂN (Completed / Disbursed) - Hyundai Giải Phóng
+            var req1 = new BankingDisbursementRequest
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                TransNo = "DNTT-202505-001",
+                TransType = BankingTransType.GNTT,
+                DealerCode = "HYUNDAI-GP",
+                DealerName = "Hyundai Giải Phóng",
+                BizResNumber = "0102839102-001",
+                BankCode = "VPBANK",
+                BankName = "Ngân hàng TMCP Việt Nam Thịnh Vượng (VPBank)",
+                PaymentAccount = "108899882991",
+                PaymentBankName = "VPBank - CN Thăng Long",
+                ReceivingUnit = "CÔNG TY CỔ PHẦN LIÊN DOANH Ô TÔ HYUNDAI THÀNH CÔNG VIỆT NAM",
+                ReceivingAccount = "113000088999",
+                ReceivingBank = "VietinBank - CN Đống Đa",
+                TotalCars = 9,
+                TotalContractAmount = 10_781_000_000,
+                TotalDisbursementAmount = 8_822_600_000,
+                ActualDisbursedAmount = 8_822_600_000,
+                Status = BankingTransStatus.Completed,
+                BankStatus = BankingTransBankStatus.Disbursed,
+                RefBankCode = "VPB-LN-20250510-001",
+                BankRemark = "Hội đồng tín dụng VPBank đã phê duyệt và giải ngân thành công 8.822.600.000 VND theo Khế ước nhận nợ LD-VPB-20250510-001.",
+                LDNo = "LD-VPB-20250510-001",
+                DisbursementDate = DateTime.Today.AddDays(-5),
+                DisbursementTerm = "03 tháng",
+                DisbursementInterestRate = 8.5m,
+                FirstInterestPmtDate = DateTime.Today.AddDays(25),
+                LoanLimit = 20_000_000_000,
+                SentToBankAt = DateTime.Today.AddDays(-7),
+                CompletedAt = DateTime.Today.AddDays(-5),
+                Remark = "Đề nghị giải ngân vốn lưu động mua xe lô tháng 05/2025 theo HĐNT-2025/HTC-GP",
+                CreatedBy = "VuMinhTu_TinDungGP",
+                CreatedAt = DateTime.Today.AddDays(-8)
+            };
+            db.DisbursementRequests.Add(req1);
+            await db.SaveChangesAsync();
+
+            db.DisbursementDetails.AddRange(
+                new BankingDisbursementDetail
+                {
+                    RequestId = req1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    TransNo = req1.TransNo,
+                    DlrCtrNo = "PLHD-2025-05/GP01",
+                    ModelCode = "SANTAFE-CAL",
+                    ModelName = "Hyundai Santa Fe Calligraphy 2.5T",
+                    SpecCode = "SF-2.5T-CAL6",
+                    SpecDescription = "Bản cao cấp 6 chỗ HTRAC",
+                    AssemblyType = VehicleAssemblyType.CKD,
+                    ContractDate = DateTime.Today.AddDays(-10),
+                    PrincipalContractNo = "HDNT-2025/HTC-GP",
+                    PrincipalContractDate = new DateTime(2025, 1, 10),
+                    DeliveryDate = DateTime.Today.AddDays(5),
+                    Qty = 5,
+                    UnitPrice = 1_365_000_000,
+                    TotalAmount = 6_825_000_000,
+                    LtvRate = 80.0m,
+                    DisbursementAmount = 5_460_000_000,
+                    Remark = "Lô 5 xe Santa Fe giao tuần 2 tháng 5"
+                },
+                new BankingDisbursementDetail
+                {
+                    RequestId = req1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    TransNo = req1.TransNo,
+                    DlrCtrNo = "PLHD-2025-05/GP02",
+                    ModelCode = "TUCSON-TURBO",
+                    ModelName = "Hyundai Tucson 1.6 T-GDi Turbo",
+                    SpecCode = "TUC-1.6T-PREM",
+                    SpecDescription = "Bản máy xăng tăng áp HTRAC",
+                    AssemblyType = VehicleAssemblyType.CKD,
+                    ContractDate = DateTime.Today.AddDays(-9),
+                    PrincipalContractNo = "HDNT-2025/HTC-GP",
+                    PrincipalContractDate = new DateTime(2025, 1, 10),
+                    DeliveryDate = DateTime.Today.AddDays(7),
+                    Qty = 4,
+                    UnitPrice = 989_000_000,
+                    TotalAmount = 3_956_000_000,
+                    LtvRate = 85.0m,
+                    DisbursementAmount = 3_362_600_000,
+                    Remark = "Lô 4 xe Tucson Turbo phục vụ trưng bày & bán lẻ"
+                }
+            );
+
+            db.DisbursementFiles.AddRange(
+                new BankingDisbursementFile
+                {
+                    RequestId = req1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    TransNo = req1.TransNo,
+                    DocType = BankFileDocumentType.DeNghiVay,
+                    FileName = $"DeNghiGiaoDich_{req1.TransNo}.pdf",
+                    FilePath = $"/storage/banking/{req1.TransNo}/DeNghiGiaoDich_{req1.TransNo}.pdf",
+                    SignStatus = BankFileSignStatus.Signed,
+                    SignedUser = "Nguyen Van Thang - Tong Giam Doc GP",
+                    SignedAt = DateTime.Today.AddDays(-7),
+                    CertSerialNumber = "54018899AACC4520",
+                    UploadDate = DateTime.Today.AddDays(-8)
+                },
+                new BankingDisbursementFile
+                {
+                    RequestId = req1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    TransNo = req1.TransNo,
+                    DocType = BankFileDocumentType.PhuLucHopDong,
+                    FileName = "PhuLucHopDong_PLHD-2025-05-GP01.pdf",
+                    FilePath = $"/storage/banking/{req1.TransNo}/PhuLucHopDong_PLHD-2025-05-GP01.pdf",
+                    SignStatus = BankFileSignStatus.Signed,
+                    SignedUser = "Nguyen Van Thang - Tong Giam Doc GP",
+                    SignedAt = DateTime.Today.AddDays(-7),
+                    CertSerialNumber = "54018899AACC4520",
+                    UploadDate = DateTime.Today.AddDays(-8)
+                },
+                new BankingDisbursementFile
+                {
+                    RequestId = req1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    TransNo = req1.TransNo,
+                    DocType = BankFileDocumentType.DangKyKinhDoanh,
+                    FileName = "GPKD_BCTC_HYUNDAI-GP.pdf",
+                    FilePath = $"/storage/banking/{req1.TransNo}/GPKD_BCTC_HYUNDAI-GP.pdf",
+                    SignStatus = BankFileSignStatus.Signed,
+                    SignedUser = "Nguyen Van Thang - Tong Giam Doc GP",
+                    SignedAt = DateTime.Today.AddDays(-7),
+                    CertSerialNumber = "54018899AACC4520",
+                    UploadDate = DateTime.Today.AddDays(-8)
+                },
+                new BankingDisbursementFile
+                {
+                    RequestId = req1.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    TransNo = req1.TransNo,
+                    DocType = BankFileDocumentType.CamKetTraNo,
+                    FileName = $"CamKetTraNo_{req1.TransNo}.pdf",
+                    FilePath = $"/storage/banking/{req1.TransNo}/CamKetTraNo_{req1.TransNo}.pdf",
+                    SignStatus = BankFileSignStatus.Signed,
+                    SignedUser = "Nguyen Van Thang - Tong Giam Doc GP",
+                    SignedAt = DateTime.Today.AddDays(-7),
+                    CertSerialNumber = "54018899AACC4520",
+                    UploadDate = DateTime.Today.AddDays(-8)
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // 2. Hồ sơ Phát hành Thư bảo lãnh mở L/C (PhatHanhBLLC) VietinBank ĐANG CHỜ KÝ SỐ CA (Processing / RequireSignCA) - Hyundai Thanh Xuân
+            var req2 = new BankingDisbursementRequest
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                TransNo = "DNTT-202505-002",
+                TransType = BankingTransType.PhatHanhBLLC,
+                DealerCode = "HYUNDAI-TX",
+                DealerName = "Hyundai Thanh Xuân",
+                BizResNumber = "0103774819-002",
+                BankCode = "VIETINBANK",
+                BankName = "Ngân hàng TMCP Công Thương Việt Nam (VietinBank)",
+                PaymentAccount = "118000992817",
+                PaymentBankName = "VietinBank - CN Thanh Xuân",
+                ReceivingUnit = "CÔNG TY CỔ PHẦN LIÊN DOANH Ô TÔ HYUNDAI THÀNH CÔNG VIỆT NAM",
+                ReceivingAccount = "113000088999",
+                ReceivingBank = "VietinBank - CN Đống Đa",
+                TotalCars = 5,
+                TotalContractAmount = 7_528_000_000,
+                TotalDisbursementAmount = 5_804_900_000,
+                ActualDisbursedAmount = 0,
+                Status = BankingTransStatus.Processing,
+                BankStatus = BankingTransBankStatus.RequireSignCA,
+                RefBankCode = "CTG-LN-20250512-002",
+                BankRemark = "Hồ sơ tín dụng đã được phê duyệt sơ bộ. Đề nghị đại lý ký số CA trên Thư cam kết trả nợ để Hội sở phát hành thư bảo lãnh.",
+                DisbursementTerm = "45 ngày",
+                DisbursementInterestRate = 0m,
+                GrtTerm = "45 ngày",
+                GrtFee = 11_609_800,
+                LoanLimit = 15_000_000_000,
+                SentToBankAt = DateTime.Today.AddDays(-3),
+                Remark = "Đề nghị phát hành Thư bảo lãnh thanh toán mở L/C mua lô xe điện Ioniq 5 và Palisade",
+                CreatedBy = "TranThiLan_KeToanTX",
+                CreatedAt = DateTime.Today.AddDays(-4)
+            };
+            db.DisbursementRequests.Add(req2);
+            await db.SaveChangesAsync();
+
+            db.DisbursementDetails.AddRange(
+                new BankingDisbursementDetail
+                {
+                    RequestId = req2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    TransNo = req2.TransNo,
+                    DlrCtrNo = "PLHD-2025-05/TX01",
+                    ModelCode = "IONIQ5-PREM",
+                    ModelName = "Hyundai Ioniq 5 Prestige EV",
+                    SpecCode = "IQ5-EV-PREM",
+                    SpecDescription = "Bản xe điện thông minh E-GMP",
+                    AssemblyType = VehicleAssemblyType.CKD,
+                    ContractDate = DateTime.Today.AddDays(-5),
+                    PrincipalContractNo = "HDNT-2025/HTC-TX",
+                    PrincipalContractDate = new DateTime(2025, 1, 15),
+                    DeliveryDate = DateTime.Today.AddDays(15),
+                    Qty = 3,
+                    UnitPrice = 1_450_000_000,
+                    TotalAmount = 4_350_000_000,
+                    LtvRate = 75.0m,
+                    DisbursementAmount = 3_262_500_000,
+                    Remark = "3 xe điện Ioniq 5 cao cấp"
+                },
+                new BankingDisbursementDetail
+                {
+                    RequestId = req2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    TransNo = req2.TransNo,
+                    DlrCtrNo = "PLHD-2025-05/TX02",
+                    ModelCode = "PALISADE-PREM",
+                    ModelName = "Hyundai Palisade 2.2D Prestige",
+                    SpecCode = "PAL-2.2D-PREM",
+                    SpecDescription = "Bản SUV cỡ lớn máy dầu 7 chỗ",
+                    AssemblyType = VehicleAssemblyType.CKD,
+                    ContractDate = DateTime.Today.AddDays(-4),
+                    PrincipalContractNo = "HDNT-2025/HTC-TX",
+                    PrincipalContractDate = new DateTime(2025, 1, 15),
+                    DeliveryDate = DateTime.Today.AddDays(18),
+                    Qty = 2,
+                    UnitPrice = 1_589_000_000,
+                    TotalAmount = 3_178_000_000,
+                    LtvRate = 80.0m,
+                    DisbursementAmount = 2_542_400_000,
+                    Remark = "2 xe Palisade SUV Flagship"
+                }
+            );
+
+            db.DisbursementFiles.AddRange(
+                new BankingDisbursementFile
+                {
+                    RequestId = req2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    TransNo = req2.TransNo,
+                    DocType = BankFileDocumentType.DeNghiVay,
+                    FileName = $"DeNghiPhatHanhBL_{req2.TransNo}.pdf",
+                    FilePath = $"/storage/banking/{req2.TransNo}/DeNghiPhatHanhBL_{req2.TransNo}.pdf",
+                    SignStatus = BankFileSignStatus.Signed,
+                    SignedUser = "Le Hoang Nam - Giam Doc TX",
+                    SignedAt = DateTime.Today.AddDays(-3),
+                    CertSerialNumber = "48197722EE990111",
+                    UploadDate = DateTime.Today.AddDays(-4)
+                },
+                new BankingDisbursementFile
+                {
+                    RequestId = req2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    TransNo = req2.TransNo,
+                    DocType = BankFileDocumentType.PhuLucHopDong,
+                    FileName = "PhuLucHopDong_PLHD-2025-05-TX01.pdf",
+                    FilePath = $"/storage/banking/{req2.TransNo}/PhuLucHopDong_PLHD-2025-05-TX01.pdf",
+                    SignStatus = BankFileSignStatus.Signed,
+                    SignedUser = "Le Hoang Nam - Giam Doc TX",
+                    SignedAt = DateTime.Today.AddDays(-3),
+                    CertSerialNumber = "48197722EE990111",
+                    UploadDate = DateTime.Today.AddDays(-4)
+                },
+                new BankingDisbursementFile
+                {
+                    RequestId = req2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    TransNo = req2.TransNo,
+                    DocType = BankFileDocumentType.DangKyKinhDoanh,
+                    FileName = "GPKD_BCTC_HYUNDAI-TX.pdf",
+                    FilePath = $"/storage/banking/{req2.TransNo}/GPKD_BCTC_HYUNDAI-TX.pdf",
+                    SignStatus = BankFileSignStatus.Pending,
+                    UploadDate = DateTime.Today.AddDays(-4)
+                },
+                new BankingDisbursementFile
+                {
+                    RequestId = req2.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    TransNo = req2.TransNo,
+                    DocType = BankFileDocumentType.CamKetTraNo,
+                    FileName = $"CamKetTraNo_{req2.TransNo}.pdf",
+                    FilePath = $"/storage/banking/{req2.TransNo}/CamKetTraNo_{req2.TransNo}.pdf",
+                    SignStatus = BankFileSignStatus.Pending,
+                    UploadDate = DateTime.Today.AddDays(-4)
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // 3. Hồ sơ GNTT VIB ĐANG THẨM ĐỊNH (Processing / Reviewing) - Hyundai Phạm Văn Đồng
+            var req3 = new BankingDisbursementRequest
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                TransNo = "DNTT-202505-003",
+                TransType = BankingTransType.GNTT,
+                DealerCode = "HYUNDAI-PVD",
+                DealerName = "Hyundai Phạm Văn Đồng",
+                BizResNumber = "0104992817-003",
+                BankCode = "VIB",
+                BankName = "Ngân hàng TMCP Quốc tế Việt Nam (VIB)",
+                PaymentAccount = "025704068899",
+                PaymentBankName = "VIB - CN Cầu Giấy",
+                ReceivingUnit = "CÔNG TY CỔ PHẦN LIÊN DOANH Ô TÔ HYUNDAI THÀNH CÔNG VIỆT NAM",
+                ReceivingAccount = "113000088999",
+                ReceivingBank = "VietinBank - CN Đống Đa",
+                TotalCars = 6,
+                TotalContractAmount = 5_844_000_000,
+                TotalDisbursementAmount = 4_675_200_000,
+                ActualDisbursedAmount = 0,
+                Status = BankingTransStatus.Processing,
+                BankStatus = BankingTransBankStatus.Reviewing,
+                RefBankCode = "VIB-LN-20250514-003",
+                BankRemark = "Cán bộ tín dụng VIB đang thẩm định thực địa kho bãi và đối chiếu hạn mức bảo đảm theo hợp đồng nguyên tắc.",
+                DisbursementTerm = "03 tháng",
+                DisbursementInterestRate = 8.8m,
+                LoanLimit = 12_000_000_000,
+                SentToBankAt = DateTime.Today.AddDays(-2),
+                Remark = "Đề nghị giải ngân vốn vay mua lô 6 xe MPV Custin",
+                CreatedBy = "PhamVanDuc_KeToanPVD",
+                CreatedAt = DateTime.Today.AddDays(-3)
+            };
+            db.DisbursementRequests.Add(req3);
+            await db.SaveChangesAsync();
+
+            db.DisbursementDetails.Add(
+                new BankingDisbursementDetail
+                {
+                    RequestId = req3.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    TransNo = req3.TransNo,
+                    DlrCtrNo = "PLHD-2025-05/PVD01",
+                    ModelCode = "CUSTIN-TURBO",
+                    ModelName = "Hyundai Custin 2.0T Cao Cấp",
+                    SpecCode = "CUS-2.0T-PREM",
+                    SpecDescription = "Bản MPV cửa trượt điện 7 chỗ",
+                    AssemblyType = VehicleAssemblyType.CKD,
+                    ContractDate = DateTime.Today.AddDays(-3),
+                    PrincipalContractNo = "HDNT-2025/HTC-PVD",
+                    PrincipalContractDate = new DateTime(2025, 1, 5),
+                    DeliveryDate = DateTime.Today.AddDays(12),
+                    Qty = 6,
+                    UnitPrice = 974_000_000,
+                    TotalAmount = 5_844_000_000,
+                    LtvRate = 80.0m,
+                    DisbursementAmount = 4_675_200_000,
+                    Remark = "6 xe Custin 2.0T màu trắng tuyết"
+                }
+            );
+
+            db.DisbursementFiles.AddRange(
+                new BankingDisbursementFile
+                {
+                    RequestId = req3.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    TransNo = req3.TransNo,
+                    DocType = BankFileDocumentType.DeNghiVay,
+                    FileName = $"DeNghiGiaoDich_{req3.TransNo}.pdf",
+                    FilePath = $"/storage/banking/{req3.TransNo}/DeNghiGiaoDich_{req3.TransNo}.pdf",
+                    SignStatus = BankFileSignStatus.Signed,
+                    SignedUser = "Pham Van Hai - Tong Giam Doc PVD",
+                    SignedAt = DateTime.Today.AddDays(-2),
+                    CertSerialNumber = "99281740BB221877",
+                    UploadDate = DateTime.Today.AddDays(-3)
+                },
+                new BankingDisbursementFile
+                {
+                    RequestId = req3.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    TransNo = req3.TransNo,
+                    DocType = BankFileDocumentType.PhuLucHopDong,
+                    FileName = "PhuLucHopDong_PLHD-2025-05-PVD01.pdf",
+                    FilePath = $"/storage/banking/{req3.TransNo}/PhuLucHopDong_PLHD-2025-05-PVD01.pdf",
+                    SignStatus = BankFileSignStatus.Signed,
+                    SignedUser = "Pham Van Hai - Tong Giam Doc PVD",
+                    SignedAt = DateTime.Today.AddDays(-2),
+                    CertSerialNumber = "99281740BB221877",
+                    UploadDate = DateTime.Today.AddDays(-3)
+                }
+            );
+            await db.SaveChangesAsync();
+
+            // 4. Hồ sơ DỰ THẢO MỚI (Draft / Pending) - Techcombank & Hyundai Sài Gòn
+            var req4 = new BankingDisbursementRequest
+            {
+                OrgId = TenantContext.DefaultOrgId,
+                TransNo = "DNTT-202505-004",
+                TransType = BankingTransType.GNTTLC,
+                DealerCode = "HYUNDAI-SG",
+                DealerName = "Hyundai Sài Gòn 1S",
+                BizResNumber = "0309118274-001",
+                BankCode = "TECHCOMBANK",
+                BankName = "Ngân hàng TMCP Kỹ Thương Việt Nam (Techcombank)",
+                PaymentAccount = "19028819283011",
+                PaymentBankName = "Techcombank - CN Sài Gòn",
+                ReceivingUnit = "CÔNG TY CỔ PHẦN LIÊN DOANH Ô TÔ HYUNDAI THÀNH CÔNG VIỆT NAM",
+                ReceivingAccount = "113000088999",
+                ReceivingBank = "VietinBank - CN Đống Đa",
+                TotalCars = 4,
+                TotalContractAmount = 2_796_000_000,
+                TotalDisbursementAmount = 2_236_800_000,
+                ActualDisbursedAmount = 0,
+                Status = BankingTransStatus.Draft,
+                BankStatus = BankingTransBankStatus.Pending,
+                DisbursementTerm = "03 tháng",
+                DisbursementInterestRate = 8.2m,
+                LoanLimit = 18_000_000_000,
+                Remark = "Dự thảo đề nghị tài trợ giải ngân theo L/C cho 4 xe Creta Cao Cấp",
+                CreatedBy = "VoThiMai_KeToanSG",
+                CreatedAt = DateTime.Today.AddDays(-1)
+            };
+            db.DisbursementRequests.Add(req4);
+            await db.SaveChangesAsync();
+
+            db.DisbursementDetails.Add(
+                new BankingDisbursementDetail
+                {
+                    RequestId = req4.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    TransNo = req4.TransNo,
+                    DlrCtrNo = "PLHD-2025-05/SG01",
+                    ModelCode = "CRETA-PREM",
+                    ModelName = "Hyundai Creta 1.5 Cao Cấp",
+                    SpecCode = "CRE-1.5L-PREM",
+                    SpecDescription = "Bản SUV cỡ B SmartSense",
+                    AssemblyType = VehicleAssemblyType.CKD,
+                    ContractDate = DateTime.Today.AddDays(-2),
+                    PrincipalContractNo = "HDNT-2025/HTC-SG",
+                    PrincipalContractDate = new DateTime(2025, 1, 8),
+                    DeliveryDate = DateTime.Today.AddDays(16),
+                    Qty = 4,
+                    UnitPrice = 699_000_000,
+                    TotalAmount = 2_796_000_000,
+                    LtvRate = 80.0m,
+                    DisbursementAmount = 2_236_800_000,
+                    Remark = "4 xe Creta SUV B phân phối thị trường phía Nam"
+                }
+            );
+
+            db.DisbursementFiles.Add(
+                new BankingDisbursementFile
+                {
+                    RequestId = req4.Id,
+                    OrgId = TenantContext.DefaultOrgId,
+                    TransNo = req4.TransNo,
+                    DocType = BankFileDocumentType.DeNghiVay,
+                    FileName = $"DeNghiGiaoDich_{req4.TransNo}.pdf",
+                    FilePath = $"/storage/banking/{req4.TransNo}/DeNghiGiaoDich_{req4.TransNo}.pdf",
+                    SignStatus = BankFileSignStatus.Pending,
+                    UploadDate = DateTime.Today.AddDays(-1)
+                }
+            );
             await db.SaveChangesAsync();
         }
     }

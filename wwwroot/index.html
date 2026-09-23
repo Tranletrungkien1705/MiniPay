@@ -102,6 +102,7 @@
     <button class="tab-btn" onclick="showTab('paymentAVN')">Bảng Kê AVN Xe (AVN Payment)</button>
     <button class="tab-btn" onclick="showTab('paymentGPS')">Bảng Kê GPS Xe (GPS Payment)</button>
     <button class="tab-btn" onclick="showTab('fnExp')">Hỗ Trợ CPTC &amp; CKTT Đại Lý (FnExp)</button>
+    <button class="tab-btn" onclick="showTab('disbursement')">Đề Nghị GD Ngân Hàng (Disbursement)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -119,6 +120,7 @@
     <button class="tab-btn" onclick="showTab('newPaymentAVN')">+ Lập Bảng Kê AVN</button>
     <button class="tab-btn" onclick="showTab('newPaymentGPS')">+ Lập Bảng Kê GPS</button>
     <button class="tab-btn" onclick="showTab('newFnExp')">+ Lập Bảng Tính CPTC</button>
+    <button class="tab-btn" onclick="showTab('newDisbursement')">+ Lập Đề Nghị GD Ngân Hàng</button>
     <button class="tab-btn" onclick="showTab('apiDocs')">Danh Sách API</button>
   </div>
 
@@ -4019,6 +4021,324 @@
     </div>
   </div>
 
+  <!-- TAB: ĐỀ NGHỊ GIAO DỊCH NGÂN HÀNG & TÀI TRỢ TÍN DỤNG MUA XE (RQ_BankingTransactions / FrmDeNghiGDNganHang) -->
+  <div id="tab-disbursement" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div>
+          <h3 style="margin:0;">Đề Nghị Giao Dịch Ngân Hàng &amp; Tài Trợ Tín Dụng Mua Xe (Dealer Banking Disbursement)</h3>
+          <p class="muted" style="margin:2px 0 0;">Quy trình thẩm định tín dụng, đẩy cổng e-Banking B2B, ký số CA chứng từ và giải ngân vốn vay / bảo lãnh xe đại lý (RQ_BankingTransactions / FrmDeNghiGDNganHang &amp; FrmQL_DeNghiGDNganHang).</p>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="secondary" onclick="loadDisbursementRequests()">Làm mới</button>
+          <button onclick="showTab('newDisbursement')">+ Lập Đề Nghị Mới</button>
+        </div>
+      </div>
+
+      <!-- Bộ lọc tìm kiếm -->
+      <div class="row" style="margin-bottom:14px; background:rgba(127,127,127,.05); padding:10px; border-radius:6px; align-items:flex-end;">
+        <div class="col">
+          <label class="muted">Đại Lý Đề Nghị:</label>
+          <select id="filterDisbDealer" onchange="loadDisbursementRequests()">
+            <option value="">-- Tất cả đại lý phân phối --</option>
+            <option value="HYUNDAI-GP">Hyundai Giải Phóng (HYUNDAI-GP)</option>
+            <option value="HYUNDAI-TX">Hyundai Thanh Xuân (HYUNDAI-TX)</option>
+            <option value="HYUNDAI-PVD">Hyundai Phạm Văn Đồng (HYUNDAI-PVD)</option>
+            <option value="HYUNDAI-SG">Hyundai Sài Gòn 1S (HYUNDAI-SG)</option>
+            <option value="HYUNDAI-HD">Hyundai Hà Đông (HYUNDAI-HD)</option>
+            <option value="HYUNDAI-DN">Hyundai Sông Hàn - Đà Nẵng (HYUNDAI-DN)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Ngân Hàng Tài Trợ:</label>
+          <select id="filterDisbBank" onchange="loadDisbursementRequests()">
+            <option value="">-- Tất cả ngân hàng --</option>
+            <option value="VPBANK">VPBank (Việt Nam Thịnh Vượng)</option>
+            <option value="VIETINBANK">VietinBank (Công Thương)</option>
+            <option value="VIB">VIB (Quốc Tế)</option>
+            <option value="TECHCOMBANK">Techcombank (Kỹ Thương)</option>
+            <option value="MBBANK">MBBank (Quân Đội)</option>
+            <option value="VCB">Vietcombank (Ngoại Thương)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Loại Giao Dịch:</label>
+          <select id="filterDisbType" onchange="loadDisbursementRequests()">
+            <option value="">-- Tất cả loại GD --</option>
+            <option value="GNTT">Giải ngân thanh toán vốn vay (GNTT)</option>
+            <option value="PhatHanhBLLC">Phát hành BL mở L/C (PhatHanhBLLC)</option>
+            <option value="PhatHanhLC">Phát hành Thư tín dụng L/C (PhatHanhLC)</option>
+            <option value="HTDB">Hoàn trả dư nợ giải chấp (HTDB)</option>
+            <option value="GNTTLC">Giải ngân thanh toán theo L/C (GNTTLC)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Trạng Thái Nội Bộ:</label>
+          <select id="filterDisbStatus" onchange="loadDisbursementRequests()">
+            <option value="">-- Tất cả trạng thái --</option>
+            <option value="Draft">Mới tạo / Dự thảo (Draft)</option>
+            <option value="SentToBank">Đã gửi e-Banking (SentToBank)</option>
+            <option value="Processing">Ngân hàng đang xử lý (Processing)</option>
+            <option value="Completed">Đã giải ngân hoàn tất (Completed)</option>
+            <option value="Cancelled">Đã hủy đề nghị (Cancelled)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Trạng Thái Phía Ngân Hàng:</label>
+          <select id="filterDisbBankStatus" onchange="loadDisbursementRequests()">
+            <option value="">-- Tất cả phản hồi NH --</option>
+            <option value="Pending">Chưa gửi ngân hàng</option>
+            <option value="SentWaiting">Chờ ngân hàng tiếp nhận</option>
+            <option value="Reviewing">Đang thẩm định hồ sơ</option>
+            <option value="RequireMoreDocs">Yêu cầu bổ sung hồ sơ</option>
+            <option value="RequireSignCA">Chờ ký số điện tử CA</option>
+            <option value="Disbursed">Đã giải ngân / Cấp tín dụng</option>
+            <option value="Rejected">Ngân hàng từ chối</option>
+          </select>
+        </div>
+        <div style="flex:0 0 auto;">
+          <button class="secondary" onclick="loadDisbursementRequests()">Lọc Dữ Liệu</button>
+        </div>
+      </div>
+
+      <!-- Bảng danh sách đề nghị -->
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Đề Nghị</th>
+              <th>Đại Lý Đề Nghị</th>
+              <th>Ngân Hàng Tài Trợ</th>
+              <th>Loại Giao Dịch</th>
+              <th>Số Lượng Xe</th>
+              <th>Tổng Giá Trị Xe</th>
+              <th>Tiền Đề Nghị Vay/BL</th>
+              <th>Tiền Đã Giải Ngân</th>
+              <th>Trạng Thái</th>
+              <th>Trạng Thái Ngân Hàng</th>
+              <th>Mã Hồ Sơ / Khế Ước</th>
+              <th>Ngày Tạo</th>
+              <th>Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="disbursementTableBody">
+            <tr><td colspan="13" class="muted" style="text-align:center;">Đang tải danh sách đề nghị giao dịch ngân hàng...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Card Chi Tiết 1 Đề Nghị Giao Dịch Ngân Hàng -->
+    <div class="card" id="cardDisbursementDetail" style="display:none; margin-top:20px; border-left:4px solid var(--primary);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:14px;">
+        <div>
+          <h3 style="margin:0;" id="detDisbTitle">Chi Tiết Hồ Sơ Đề Nghị Giao Dịch Ngân Hàng</h3>
+          <p class="muted" style="margin:2px 0 0;" id="detDisbSubtitle"></p>
+        </div>
+        <div style="display:flex; gap:6px;">
+          <button class="secondary" onclick="closeDisbursementDetailCard()">Đóng [X]</button>
+        </div>
+      </div>
+
+      <!-- Thông tin tổng quan hồ sơ -->
+      <div class="row" style="margin-bottom:12px; background:rgba(127,127,127,.05); padding:12px; border-radius:6px;">
+        <div class="col">
+          <div><strong>Đại lý vay:</strong> <span id="detDisbDealerName">-</span></div>
+          <div><strong>MST / Số ĐKKD:</strong> <code id="detDisbBizRes">-</code></div>
+          <div><strong>Tài khoản trích nợ / vay:</strong> <code id="detDisbPayAcc">-</code></div>
+        </div>
+        <div class="col">
+          <div><strong>Ngân hàng tài trợ:</strong> <span id="detDisbBankName">-</span></div>
+          <div><strong>Đơn vị thụ hưởng:</strong> <span id="detDisbRecUnit">-</span></div>
+          <div><strong>Tài khoản thụ hưởng:</strong> <code id="detDisbRecAcc">-</code></div>
+        </div>
+        <div class="col">
+          <div><strong>Kỳ hạn / Lãi suất:</strong> <span id="detDisbTermRate">-</span></div>
+          <div><strong>Hạn mức tín dụng duyệt:</strong> <span style="color:var(--primary); font-weight:600;" id="detDisbLimit">-</span></div>
+          <div><strong>Khế ước / Số BL:</strong> <code id="detDisbDocNo">-</code></div>
+        </div>
+      </div>
+
+      <!-- Hộp phản hồi & trạng thái từ ngân hàng -->
+      <div id="disbBankRemarkBox" style="margin-bottom:14px; background:rgba(56,189,248,.08); border:1px solid var(--primary); padding:10px; border-radius:6px; font-size:.9em;">
+        <strong>Thông Báo Phía Ngân Hàng:</strong> <span id="detDisbBankRemarkText">-</span>
+      </div>
+
+      <!-- Thanh nút hành động nhanh e-Banking -->
+      <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;" id="disbActionButtons">
+        <!-- Nút hành động sẽ được sinh tự động theo trạng thái -->
+      </div>
+
+      <!-- Bảng danh sách phụ lục hợp đồng xe -->
+      <h4 style="margin:16px 0 8px;">Danh Sách Phụ Lục Hợp Đồng &amp; Xe Đề Nghị Tài Trợ Tín Dụng</h4>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>STT</th>
+              <th>Số Phụ Lục HĐ</th>
+              <th>Dòng Xe</th>
+              <th>Phiên Bản / Đặc Tả</th>
+              <th>Loại Xe</th>
+              <th>Số Lượng</th>
+              <th>Đơn Giá</th>
+              <th>Tổng Giá Trị</th>
+              <th>Tỷ Lệ Tài Trợ (% LTV)</th>
+              <th>Số Tiền Đề Nghị Vay/BL</th>
+              <th>Dự Kiến Giao</th>
+              <th>Ghi Chú</th>
+            </tr>
+          </thead>
+          <tbody id="disbCarsTableBody">
+            <!-- Render động các dòng xe -->
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Bảng danh mục tài liệu chứng từ pháp lý gửi ngân hàng -->
+      <h4 style="margin:20px 0 8px;">Hồ Sơ Chứng Từ Tài Chính &amp; Ký Số Điện Tử CA (RQ_BankingTransBankFile)</h4>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Loại Tài Liệu</th>
+              <th>Tên File Chứng Từ</th>
+              <th>Trạng Thái Ký Số CA</th>
+              <th>Người Đại Diện Ký</th>
+              <th>Số Serial Chứng Thư Số</th>
+              <th>Thời Điểm Ký</th>
+              <th>Hành Động Ký Số</th>
+            </tr>
+          </thead>
+          <tbody id="disbFilesTableBody">
+            <!-- Render động các file chứng từ -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- TAB: LẬP ĐỀ NGHỊ GIAO DỊCH NGÂN HÀNG MỚI -->
+  <div id="tab-newDisbursement" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px; margin-bottom:16px;">
+        <div>
+          <h3 style="margin:0;">Lập Hồ Sơ Đề Nghị Giao Dịch Ngân Hàng &amp; Tài Trợ Tín Dụng Mua Xe Mới</h3>
+          <p class="muted" style="margin:2px 0 0;">Nhập thông tin đề nghị giải ngân vốn vay, mở Thư bảo lãnh hoặc L/C thanh toán mua xe ô tô.</p>
+        </div>
+        <button class="secondary" onclick="showTab('disbursement')">← Quay Lại Danh Sách</button>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Ngân Hàng Tài Trợ Liên Kết (*):</label>
+          <select id="inpNewDisbBankCode" onchange="onNewDisbBankChange()">
+            <option value="VPBANK">Ngân hàng TMCP Việt Nam Thịnh Vượng (VPBank)</option>
+            <option value="VIETINBANK">Ngân hàng TMCP Công Thương Việt Nam (VietinBank)</option>
+            <option value="VIB">Ngân hàng TMCP Quốc tế Việt Nam (VIB)</option>
+            <option value="TECHCOMBANK">Ngân hàng TMCP Kỹ Thương Việt Nam (Techcombank)</option>
+            <option value="MBBANK">Ngân hàng TMCP Quân Đội (MBBank)</option>
+            <option value="VCB">Ngân hàng TMCP Ngoại Thương Việt Nam (Vietcombank)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Đại Lý Đề Nghị (*):</label>
+          <select id="inpNewDisbDealerCode" onchange="loadCandidateContractsForNew()">
+            <option value="HYUNDAI-GP">Hyundai Giải Phóng (HYUNDAI-GP)</option>
+            <option value="HYUNDAI-TX">Hyundai Thanh Xuân (HYUNDAI-TX)</option>
+            <option value="HYUNDAI-PVD">Hyundai Phạm Văn Đồng (HYUNDAI-PVD)</option>
+            <option value="HYUNDAI-SG">Hyundai Sài Gòn 1S (HYUNDAI-SG)</option>
+            <option value="HYUNDAI-HD">Hyundai Hà Đông (HYUNDAI-HD)</option>
+            <option value="HYUNDAI-DN">Hyundai Sông Hàn - Đà Nẵng (HYUNDAI-DN)</option>
+          </select>
+        </div>
+        <div class="col">
+          <label class="muted">Loại Giao Dịch Ngân Hàng (*):</label>
+          <select id="inpNewDisbType">
+            <option value="GNTT">Giải ngân thanh toán vốn vay mua xe (GNTT)</option>
+            <option value="PhatHanhBLLC">Phát hành Thư bảo lãnh mở L/C (PhatHanhBLLC)</option>
+            <option value="PhatHanhLC">Phát hành Thư tín dụng mua xe (PhatHanhLC)</option>
+            <option value="GNTTLC">Giải ngân thanh toán theo L/C (GNTTLC)</option>
+            <option value="HTDB">Hoàn trả dư nợ giải chấp tài sản bảo đảm (HTDB)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Số Tài Khoản Vay / Trích Nợ Đại Lý:</label>
+          <input type="text" id="inpNewDisbPayAcc" value="108899882991">
+        </div>
+        <div class="col">
+          <label class="muted">Ngân Hàng Mở Tài Khoản Đại Lý:</label>
+          <input type="text" id="inpNewDisbPayBankName" value="VPBank - Chi nhánh Thăng Long">
+        </div>
+        <div class="col">
+          <label class="muted">Kỳ Hạn Vay / Bảo Lãnh:</label>
+          <input type="text" id="inpNewDisbTerm" value="03 tháng">
+        </div>
+        <div class="col">
+          <label class="muted">Lãi Suất Dự Kiến (%/năm):</label>
+          <input type="number" id="inpNewDisbRate" value="8.5" step="0.1">
+        </div>
+      </div>
+
+      <div class="row" style="margin-bottom:12px;">
+        <div class="col">
+          <label class="muted">Đơn Vị Thụ Hưởng (Nhà sản xuất / phân phối):</label>
+          <input type="text" id="inpNewDisbRecUnit" value="CÔNG TY CỔ PHẦN LIÊN DOANH Ô TÔ HYUNDAI THÀNH CÔNG VIỆT NAM">
+        </div>
+        <div class="col">
+          <label class="muted">Số Tài Khoản Nhận Tiền Giải Ngân:</label>
+          <input type="text" id="inpNewDisbRecAcc" value="113000088999">
+        </div>
+        <div class="col">
+          <label class="muted">Ngân Hàng Thụ Hưởng:</label>
+          <input type="text" id="inpNewDisbRecBank" value="VietinBank - CN Đống Đa">
+        </div>
+      </div>
+
+      <div style="margin-bottom:14px;">
+        <label class="muted">Mục Đích Vay / Ghi Chú Đề Nghị:</label>
+        <input type="text" id="inpNewDisbRemark" value="Đề nghị tài trợ vốn lưu động thanh toán phụ lục hợp đồng mua bán xe đợt 2">
+      </div>
+
+      <!-- Danh mục hợp đồng xe đề nghị tài trợ -->
+      <div style="display:flex; justify-content:space-between; align-items:center; margin:18px 0 8px;">
+        <h4 style="margin:0;">Danh Sách Phụ Lục Hợp Đồng &amp; Xe Đề Nghị Tài Trợ</h4>
+        <div style="display:flex; gap:6px;">
+          <button class="secondary" onclick="loadCandidateContractsForNew()">Nạp Hợp Đồng Mẫu DMS</button>
+        </div>
+      </div>
+
+      <div style="margin-bottom:10px;">
+        <label class="muted">Dữ liệu JSON Phụ lục Hợp đồng Xe (có thể tùy chỉnh số lượng, đơn giá, % LTV):</label>
+        <textarea id="inpNewDisbCarsJson" rows="8" style="font-family:monospace; font-size:.85em;"></textarea>
+      </div>
+
+      <div style="display:flex; justify-content:flex-end; gap:8px; margin-top:16px;">
+        <span id="submitNewDisbMsg" style="margin-right:12px; align-self:center; color:var(--primary); font-weight:500;"></span>
+        <button class="secondary" onclick="showTab('disbursement')">Hủy Bỏ</button>
+        <button onclick="submitCreateDisbursementRequest()">Khởi Tạo Hồ Sơ Đề Nghị</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal Xem & In Mẫu Giấy Đề Nghị Giao Dịch Ngân Hàng (Disbursement Advice) -->
+  <div id="modalDisbursementAdvice" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:960px; margin:30px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.2em;">GIẤY ĐỀ NGHỊ GIAO DỊCH NGÂN HÀNG &amp; CAM KẾT TÍN DỤNG (RQ_BankingTransactions Advice)</h2>
+        <button class="secondary" onclick="closeDisbursementAdviceModal()">Đóng [X]</button>
+      </div>
+      <div id="disbursementAdviceContent" style="margin-top:16px; font-size:.9em; line-height:1.6;"></div>
+      <div style="margin-top:20px; display:flex; justify-content:flex-end; gap:8px;">
+        <button class="secondary" onclick="navigator.clipboard.writeText(document.getElementById('disbursementAdviceContent').innerText); alert('Đã sao chép nội dung Giấy đề nghị vào clipboard!');">Sao Chép Nội Dung</button>
+        <button onclick="window.print()">In Giấy Đề Nghị Giao Dịch</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB 5: API Docs -->
   <div id="tab-apiDocs" style="display:none;">
     <div class="card">
@@ -4280,6 +4600,22 @@
         <li><code>GET /api/fn-exp/summary</code> — Báo cáo tổng hợp KPI bảng tính CPTC &amp; CKTT toàn hệ thống</li>
         <li><code>GET /api/fn-exp/candidates</code> — Danh sách xe ứng viên đủ điều kiện tính hỗ trợ CPTC &amp; CKTT</li>
       </ul>
+      <h3>Đề Nghị Giao Dịch Ngân Hàng &amp; Tài Trợ Tín Dụng Mua Xe (Dealer Banking Disbursement)</h3>
+      <ul>
+        <li><code>POST /api/disbursement/requests</code> — Lập đề nghị giao dịch ngân hàng mới kèm phụ lục HĐ xe (RQ_BankingTransactions_Save / FrmDeNghiGDNganHang)</li>
+        <li><code>GET /api/disbursement/requests</code> — Danh sách đề nghị giao dịch ngân hàng hỗ trợ lọc theo đại lý, ngân hàng, loại GD, trạng thái (RQ_BankingTransactions_Get / FrmQL_DeNghiGDNganHang)</li>
+        <li><code>GET /api/disbursement/requests/{id}</code> — Chi tiết 1 đề nghị kèm danh sách xe tài trợ và hồ sơ chứng từ ký số CA (RQ_BankingTransactions_GetDetail)</li>
+        <li><code>POST /api/disbursement/requests/{id}/push-bank</code> — Đẩy hồ sơ sang cổng kết nối e-Banking B2B ngân hàng (RQ_BankingTransactions_PushBank)</li>
+        <li><code>POST /api/disbursement/requests/{id}/bank-review</code> — Cán bộ tín dụng Hội sở ngân hàng tiếp nhận thẩm định hồ sơ (Approve / Reviewing)</li>
+        <li><code>POST /api/disbursement/requests/{id}/request-docs</code> — Ngân hàng yêu cầu bổ sung chứng từ giải trình nguồn vốn / pháp lý (Approve1 / Approve2 / Approve3)</li>
+        <li><code>POST /api/disbursement/files/{fileId}/sign</code> — Đại lý ký số điện tử CA trên file chứng từ tín dụng gửi ngân hàng (RQ_BankingTransactions_SignBankFile)</li>
+        <li><code>POST /api/disbursement/requests/{id}/disburse</code> — Ngân hàng phê duyệt cấp tín dụng &amp; giải ngân vốn vay / cấp bảo lãnh / cấp L/C (Finish / Disbursed)</li>
+        <li><code>POST /api/disbursement/requests/{id}/reject</code> — Ngân hàng từ chối cấp tín dụng kèm lý do giải trình (Rejected)</li>
+        <li><code>POST /api/disbursement/requests/{id}/cancel</code> — Đại lý hủy hồ sơ đề nghị khi chưa giải ngân (RQ_BankingTransactions_Cancel)</li>
+        <li><code>GET /api/disbursement/requests/{id}/advice</code> — Sinh dữ liệu mẫu in Giấy đề nghị giao dịch ngân hàng &amp; cam kết tín dụng kèm thuật toán đọc tiền bằng chữ tiếng Việt (Disbursement Advice)</li>
+        <li><code>GET /api/disbursement/summary</code> — Báo cáo thống kê tổng hợp số hồ sơ, số xe tài trợ, tổng giá trị hợp đồng và số tiền đã giải ngân thực tế</li>
+        <li><code>GET /api/disbursement/candidate-contracts</code> — Danh sách phụ lục hợp đồng xe mẫu của đại lý phục vụ lập nhanh đề nghị</li>
+      </ul>
     </div>
   </div>
 
@@ -4306,6 +4642,7 @@
       document.getElementById('tab-paymentAVN').style.display = tabName === 'paymentAVN' ? 'block' : 'none';
       document.getElementById('tab-paymentGPS').style.display = tabName === 'paymentGPS' ? 'block' : 'none';
       document.getElementById('tab-fnExp').style.display = tabName === 'fnExp' ? 'block' : 'none';
+      document.getElementById('tab-disbursement').style.display = tabName === 'disbursement' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -4323,6 +4660,7 @@
       document.getElementById('tab-newPaymentAVN').style.display = tabName === 'newPaymentAVN' ? 'block' : 'none';
       document.getElementById('tab-newPaymentGPS').style.display = tabName === 'newPaymentGPS' ? 'block' : 'none';
       document.getElementById('tab-newFnExp').style.display = tabName === 'newFnExp' ? 'block' : 'none';
+      document.getElementById('tab-newDisbursement').style.display = tabName === 'newDisbursement' ? 'block' : 'none';
       document.getElementById('tab-apiDocs').style.display = tabName === 'apiDocs' ? 'block' : 'none';
 
       document.querySelectorAll('.tab-btn').forEach((b, i) => {
@@ -4343,24 +4681,26 @@
           (tabName === 'paymentAVN' && i === 13) ||
           (tabName === 'paymentGPS' && i === 14) ||
           (tabName === 'fnExp' && i === 15) ||
-          (tabName === 'newBatch' && i === 16) ||
-          (tabName === 'newPayout' && i === 17) ||
-          (tabName === 'newDiscount' && i === 18) ||
-          (tabName === 'newGuarantee' && i === 19) ||
-          (tabName === 'newMortgage' && i === 20) ||
-          (tabName === 'newRedeem' && i === 21) ||
-          (tabName === 'newPaymentOrder' && i === 22) ||
-          (tabName === 'newBankBill' && i === 23) ||
-          (tabName === 'newPaymentPDI' && i === 24) ||
-          (tabName === 'newPenaltyDelay' && i === 25) ||
-          (tabName === 'newTransportIns' && i === 26) ||
-          (tabName === 'newPaymentStorage' && i === 27) ||
-          (tabName === 'newGuaranteeExt' && i === 28) ||
-          (tabName === 'newGuaranteeClaim' && i === 29) ||
-          (tabName === 'newPaymentAVN' && i === 30) ||
-          (tabName === 'newPaymentGPS' && i === 31) ||
-          (tabName === 'newFnExp' && i === 32) ||
-          (tabName === 'apiDocs' && i === 33));
+          (tabName === 'disbursement' && i === 16) ||
+          (tabName === 'newBatch' && i === 17) ||
+          (tabName === 'newPayout' && i === 18) ||
+          (tabName === 'newDiscount' && i === 19) ||
+          (tabName === 'newGuarantee' && i === 20) ||
+          (tabName === 'newMortgage' && i === 21) ||
+          (tabName === 'newRedeem' && i === 22) ||
+          (tabName === 'newPaymentOrder' && i === 23) ||
+          (tabName === 'newBankBill' && i === 24) ||
+          (tabName === 'newPaymentPDI' && i === 25) ||
+          (tabName === 'newPenaltyDelay' && i === 26) ||
+          (tabName === 'newTransportIns' && i === 27) ||
+          (tabName === 'newPaymentStorage' && i === 28) ||
+          (tabName === 'newGuaranteeExt' && i === 29) ||
+          (tabName === 'newGuaranteeClaim' && i === 30) ||
+          (tabName === 'newPaymentAVN' && i === 31) ||
+          (tabName === 'newPaymentGPS' && i === 32) ||
+          (tabName === 'newFnExp' && i === 33) ||
+          (tabName === 'newDisbursement' && i === 34) ||
+          (tabName === 'apiDocs' && i === 35));
       });
 
       if (tabName === 'reconcile') loadBatches();
@@ -4379,6 +4719,7 @@
       else if (tabName === 'paymentAVN') { loadPaymentAVNs(); loadPaymentAVNSummary(); }
       else if (tabName === 'paymentGPS') { loadPaymentGPSs(); loadPaymentGPSSummary(); }
       else if (tabName === 'fnExp') { loadFnExpStatements(); loadFnExpSummary(); }
+      else if (tabName === 'disbursement') { loadDisbursementRequests(); loadDisbursementSummary(); }
     }
 
     // ===== BÁO CÁO SUMMARY DYNAMIC =====
@@ -12292,6 +12633,535 @@
       loadCandidateVehiclesForNewFnExp();
     }
 
+    // ===== NGHIỆP VỤ ĐỀ NGHỊ GIAO DỊCH NGÂN HÀNG & GIẢI NGÂN TÀI TRỢ XE (RQ_BankingTransactions) =====
+    async function loadDisbursementSummary() {
+      try {
+        const res = await fetch('/api/disbursement/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng hồ sơ đề nghị';
+        document.getElementById('stat1').textContent = d.totalRequests;
+        document.getElementById('statLabel2').textContent = 'Tổng xe tài trợ';
+        document.getElementById('stat2').textContent = d.totalVehiclesFinanced;
+        document.getElementById('statLabel3').textContent = 'Tiền đề nghị vay/BL';
+        document.getElementById('stat3').textContent = (d.totalRequestedDisbursement / 1e9).toFixed(2) + ' tỷ';
+        document.getElementById('statLabel4').textContent = 'Đã giải ngân thực tế';
+        document.getElementById('stat4').textContent = Number(d.totalActualDisbursed).toLocaleString('vi-VN') + ' đ';
+      } catch(e) { console.error(e); }
+    }
+
+    async function loadDisbursementRequests() {
+      await loadDisbursementSummary();
+      const dealer = document.getElementById('filterDisbDealer').value;
+      const bank = document.getElementById('filterDisbBank').value;
+      const tType = document.getElementById('filterDisbType').value;
+      const st = document.getElementById('filterDisbStatus').value;
+      const bSt = document.getElementById('filterDisbBankStatus').value;
+
+      let url = '/api/disbursement/requests?';
+      if (dealer) url += 'dealerCode=' + encodeURIComponent(dealer) + '&';
+      if (bank) url += 'bankCode=' + encodeURIComponent(bank) + '&';
+      if (tType) url += 'transType=' + encodeURIComponent(tType) + '&';
+      if (st) url += 'status=' + encodeURIComponent(st) + '&';
+      if (bSt) url += 'bankStatus=' + encodeURIComponent(bSt) + '&';
+
+      try {
+        const res = await fetch(url, { headers });
+        if (!res.ok) return;
+        const list = await res.json();
+        const tbody = document.getElementById('disbursementTableBody');
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="13" class="muted" style="text-align:center;">Chưa có đề nghị giao dịch ngân hàng nào phù hợp.</td></tr>';
+          return;
+        }
+
+        tbody.innerHTML = list.map(r => {
+          let badge = 'badge-info';
+          let stText = r.status;
+          if (r.status === 'Completed') { badge = 'badge-success'; stText = 'Hoàn Tất (Completed)'; }
+          else if (r.status === 'Processing') { badge = 'badge-warning'; stText = 'Đang Xử Lý (Processing)'; }
+          else if (r.status === 'SentToBank') { badge = 'badge-info'; stText = 'Đã Gửi NH (SentToBank)'; }
+          else if (r.status === 'Draft') { badge = 'muted'; stText = 'Dự Thảo (Draft)'; }
+          else if (r.status === 'Cancelled') { badge = 'muted'; stText = 'Đã Hủy'; }
+
+          let bBadge = 'badge-info';
+          let bText = r.bankStatus;
+          if (r.bankStatus === 'Disbursed') { bBadge = 'badge-success'; bText = 'Đã Giải Ngân / Cấp BL'; }
+          else if (r.bankStatus === 'RequireSignCA') { bBadge = 'badge-warning'; bText = 'Chờ Ký Số CA'; }
+          else if (r.bankStatus === 'RequireMoreDocs') { bBadge = 'badge-danger'; bText = 'Yêu Cầu Bổ Sung HS'; }
+          else if (r.bankStatus === 'Reviewing') { bBadge = 'badge-info'; bText = 'NH Đang Thẩm Định'; }
+          else if (r.bankStatus === 'SentWaiting') { bBadge = 'badge-info'; bText = 'Chờ NH Tiếp Nhận'; }
+          else if (r.bankStatus === 'Rejected') { bBadge = 'badge-danger'; bText = 'NH Từ Chối'; }
+          else if (r.bankStatus === 'Pending') { bBadge = 'muted'; bText = 'Chưa Gửi NH'; }
+
+          let typeText = r.transType;
+          if (r.transType === 'GNTT') typeText = 'Giải Ngân Vay (GNTT)';
+          else if (r.transType === 'PhatHanhBLLC') typeText = 'Mở BL L/C (BLLC)';
+          else if (r.transType === 'PhatHanhLC') typeText = 'Mở L/C (LC)';
+          else if (r.transType === 'HTDB') typeText = 'Giải Chấp (HTDB)';
+          else if (r.transType === 'GNTTLC') typeText = 'GN Theo L/C';
+
+          let docNo = r.ldNo || r.mdNo || r.lcNo || r.refBankCode || '-';
+
+          return `
+            <tr>
+              <td><strong>${r.transNo}</strong></td>
+              <td><strong>${r.dealerName || r.dealerCode}</strong><br><small class="muted">${r.dealerCode}</small></td>
+              <td><strong>${r.bankCode}</strong><br><small class="muted">${r.bankName}</small></td>
+              <td><span class="badge badge-info">${typeText}</span></td>
+              <td style="text-align:center;"><span class="badge badge-info">${r.totalCars} xe</span></td>
+              <td style="text-align:right;">${Number(r.totalContractAmount).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; font-weight:600; color:var(--primary);">${Number(r.totalDisbursementAmount).toLocaleString('vi-VN')} đ</td>
+              <td style="text-align:right; font-weight:700; color:var(--success);">${r.actualDisbursedAmount > 0 ? Number(r.actualDisbursedAmount).toLocaleString('vi-VN') + ' đ' : '<span class="muted">-</span>'}</td>
+              <td><span class="badge ${badge}">${stText}</span></td>
+              <td><span class="badge ${bBadge}">${bText}</span></td>
+              <td><code>${docNo}</code></td>
+              <td><small>${r.createdAt ? r.createdAt.slice(0, 10) : ''}</small></td>
+              <td>
+                <button class="secondary" onclick="viewDisbursementDetail(${r.id})">Chi Tiết</button>
+                <button class="secondary" style="margin-left:4px;" onclick="openDisbursementAdviceModal(${r.id})">In Mẫu</button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      } catch(e) { console.error(e); }
+    }
+
+    let activeDisbursement = null;
+
+    async function viewDisbursementDetail(id) {
+      try {
+        const res = await fetch(`/api/disbursement/requests/${id}`, { headers });
+        if (!res.ok) { alert('Không tìm thấy hồ sơ đề nghị.'); return; }
+        const r = await res.json();
+        activeDisbursement = r;
+
+        const card = document.getElementById('cardDisbursementDetail');
+        card.style.display = 'block';
+
+        let badge = 'badge-info';
+        if (r.status === 'Completed') badge = 'badge-success';
+        else if (r.status === 'Processing') badge = 'badge-warning';
+
+        document.getElementById('detDisbTitle').innerHTML = `
+          Hồ Sơ Đề Nghị: <code>${r.transNo}</code> — Loại: <strong>${r.transType}</strong>
+          <span class="badge ${badge}" style="margin-left:8px;">${r.status}</span>
+        `;
+        document.getElementById('detDisbSubtitle').textContent = `
+          Đại lý: ${r.dealerName} (${r.dealerCode}) | Ngân hàng: ${r.bankName} (${r.bankCode}) | Tổng: ${r.totalCars} xe — Đề nghị: ${Number(r.totalDisbursementAmount).toLocaleString('vi-VN')} đ
+        `;
+
+        document.getElementById('detDisbDealerName').textContent = `${r.dealerName} (${r.dealerCode})`;
+        document.getElementById('detDisbBizRes').textContent = r.bizResNumber;
+        document.getElementById('detDisbPayAcc').textContent = `${r.paymentAccount || '-'} (${r.paymentBankName || '-'})`;
+
+        document.getElementById('detDisbBankName').textContent = `${r.bankName} (${r.bankCode})`;
+        document.getElementById('detDisbRecUnit').textContent = r.receivingUnit;
+        document.getElementById('detDisbRecAcc').textContent = `${r.receivingAccount} (${r.receivingBank})`;
+
+        document.getElementById('detDisbTermRate').textContent = `${r.disbursementTerm || '-'} | Lãi suất: ${r.disbursementInterestRate}%/năm`;
+        document.getElementById('detDisbLimit').textContent = r.loanLimit > 0 ? Number(r.loanLimit).toLocaleString('vi-VN') + ' đ' : 'Chưa cấp';
+        document.getElementById('detDisbDocNo').textContent = r.ldNo || r.mdNo || r.lcNo || r.refBankCode || 'Chưa phát hành';
+
+        document.getElementById('detDisbBankRemarkText').textContent = r.bankRemark || 'Chưa có ý kiến phản hồi từ ngân hàng.';
+
+        // Sinh các nút hành động theo trạng thái
+        const btnBox = document.getElementById('disbActionButtons');
+        let btns = '';
+
+        if (r.status === 'Draft') {
+          btns += `<button onclick="pushDisbursementToBank(${r.id})">🚀 Đẩy Cổng e-Banking Ngân Hàng</button>`;
+          btns += `<button class="secondary" style="color:var(--danger);" onclick="cancelDisbursement(${r.id})">Hủy Đề Nghị</button>`;
+        } else if (r.status === 'SentToBank') {
+          btns += `<button onclick="reviewDisbursementByBank(${r.id})">📋 Ngân Hàng Tiếp Nhận Thẩm Định</button>`;
+          btns += `<button class="secondary" onclick="requestMoreDocsDisbursement(${r.id})">⚠️ Yêu Cầu Bổ Sung Hồ Sơ</button>`;
+          btns += `<button class="secondary" style="color:var(--danger);" onclick="rejectDisbursement(${r.id})">✕ Ngân Hàng Từ Chối</button>`;
+          btns += `<button class="secondary" onclick="cancelDisbursement(${r.id})">Hủy Đề Nghị</button>`;
+        } else if (r.status === 'Processing') {
+          if (r.bankStatus !== 'Disbursed') {
+            btns += `<button style="background:var(--success);" onclick="approveDisbursement(${r.id})">✓ Ngân Hàng Duyệt &amp; Giải Ngân / Cấp BL</button>`;
+            btns += `<button class="secondary" onclick="requestMoreDocsDisbursement(${r.id})">⚠️ Yêu Cầu Bổ Sung Hồ Sơ</button>`;
+            btns += `<button class="secondary" style="color:var(--danger);" onclick="rejectDisbursement(${r.id})">✕ Ngân Hàng Từ Chối</button>`;
+            btns += `<button class="secondary" onclick="cancelDisbursement(${r.id})">Hủy Đề Nghị</button>`;
+          }
+        }
+
+        btns += `<button class="secondary" onclick="openDisbursementAdviceModal(${r.id})">🖨 In Giấy Đề Nghị Giao Dịch</button>`;
+        btnBox.innerHTML = btns;
+
+        // Render xe
+        const tbodyCars = document.getElementById('disbCarsTableBody');
+        let idx = 1;
+        tbodyCars.innerHTML = (r.details || []).map(c => `
+          <tr>
+            <td>${idx++}</td>
+            <td><strong><code>${c.dlrCtrNo}</code></strong></td>
+            <td><strong>${c.modelName || c.modelCode}</strong></td>
+            <td><small class="muted">${c.specDescription || c.specCode}</small></td>
+            <td style="text-align:center;"><span class="badge ${c.assemblyType === 'CBU' ? 'badge-warning' : 'badge-info'}">${c.assemblyType}</span></td>
+            <td style="text-align:center; font-weight:600;">${c.qty}</td>
+            <td style="text-align:right;">${Number(c.unitPrice).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:right; font-weight:600;">${Number(c.totalAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:center;"><span class="badge badge-info">${c.ltvRate}%</span></td>
+            <td style="text-align:right; font-weight:700; color:var(--primary);">${Number(c.disbursementAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="text-align:center;"><small>${c.deliveryDate ? c.deliveryDate.slice(0, 10) : '-'}</small></td>
+            <td><small class="muted">${c.remark || '-'}</small></td>
+          </tr>
+        `).join('');
+
+        // Render files
+        const tbodyFiles = document.getElementById('disbFilesTableBody');
+        tbodyFiles.innerHTML = (r.bankFiles || []).map(f => {
+          let sBadge = f.signStatus === 'Signed'
+            ? '<span class="badge badge-success">✓ Đã Ký CA</span>'
+            : '<span class="badge badge-warning">Chờ Ký Số</span>';
+
+          let signBtn = f.signStatus === 'Signed'
+            ? '<span class="muted" style="font-size:.85em;">Hợp lệ</span>'
+            : `<button class="secondary" style="padding:4px 8px; font-size:.82em;" onclick="signDisbursementFile(${f.id})">✍ Ký Số CA</button>`;
+
+          let dType = f.docType;
+          if (f.docType === 'DeNghiVay') dType = 'Giấy Đề Nghị Tín Dụng';
+          else if (f.docType === 'PhuLucHopDong') dType = 'Phụ Lục Hợp Đồng Xe';
+          else if (f.docType === 'DangKyKinhDoanh') dType = 'ĐKKD & Báo Cáo Tài Chính';
+          else if (f.docType === 'CamKetTraNo') dType = 'Cam Kết Trả Nợ & TSBĐ';
+
+          return `
+            <tr>
+              <td><strong>${dType}</strong></td>
+              <td><code>${f.fileName}</code></td>
+              <td>${sBadge}</td>
+              <td>${f.signedUser || '<span class="muted">-</span>'}</td>
+              <td><code>${f.certSerialNumber || '-'}</code></td>
+              <td><small>${f.signedAt ? f.signedAt.slice(0, 16).replace('T', ' ') : '-'}</small></td>
+              <td>${signBtn}</td>
+            </tr>
+          `;
+        }).join('');
+
+        card.scrollIntoView({ behavior: 'smooth' });
+      } catch(e) { console.error(e); }
+    }
+
+    function closeDisbursementDetailCard() {
+      document.getElementById('cardDisbursementDetail').style.display = 'none';
+      activeDisbursement = null;
+    }
+
+    async function pushDisbursementToBank(id) {
+      if (!confirm('Xác nhận đẩy hồ sơ đề nghị sang cổng kết nối e-Banking B2B của Ngân hàng?')) return;
+      try {
+        const res = await fetch(`/api/disbursement/requests/${id}/push-bank`, { method: 'POST', headers });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã đẩy hồ sơ sang cổng e-Banking ngân hàng thành công!');
+        viewDisbursementDetail(id);
+        loadDisbursementRequests();
+      } catch(e) { console.error(e); }
+    }
+
+    async function reviewDisbursementByBank(id) {
+      const refCode = prompt('Nhập mã số hồ sơ tiếp nhận tại Hội sở ngân hàng (RefBankCode):', `VPB-LN-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(1000+Math.random()*9000)}`);
+      if (!refCode) return;
+      const remark = prompt('Ý kiến phản hồi / thông báo của cán bộ tín dụng ngân hàng:', 'Cán bộ tín dụng Hội sở đang thẩm định hạn mức, thực địa tài sản và hồ sơ năng lực tài chính đại lý.');
+      try {
+        const res = await fetch(`/api/disbursement/requests/${id}/bank-review`, {
+          method: 'POST', headers, body: JSON.stringify({ refBankCode: refCode, bankRemark: remark })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Ngân hàng đã tiếp nhận thẩm định hồ sơ!');
+        viewDisbursementDetail(id);
+        loadDisbursementRequests();
+      } catch(e) { console.error(e); }
+    }
+
+    async function requestMoreDocsDisbursement(id) {
+      const reason = prompt('Nhập yêu cầu bổ sung hồ sơ chứng từ của ngân hàng:', 'Ngân hàng yêu cầu đại lý bổ sung Báo cáo lưu chuyển tiền tệ quý gần nhất và Biên bản họp HĐQT thông qua hạn mức vay.');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/disbursement/requests/${id}/request-docs`, {
+          method: 'POST', headers, body: JSON.stringify({ reason: reason, isMissingFiles: true })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã gửi thông báo yêu cầu bổ sung hồ sơ tới đại lý!');
+        viewDisbursementDetail(id);
+        loadDisbursementRequests();
+      } catch(e) { console.error(e); }
+    }
+
+    async function signDisbursementFile(fileId) {
+      const signer = prompt('Nhập tên người đại diện ký số chứng thư số CA:', 'Nguyen Van Thang - Tong Giam Doc');
+      if (!signer) return;
+      try {
+        const res = await fetch(`/api/disbursement/files/${fileId}/sign`, {
+          method: 'POST', headers, body: JSON.stringify({ signedUser: signer, certSerialNumber: '54018899AACC4520' })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Ký số điện tử CA tài liệu thành công!');
+        if (activeDisbursement) viewDisbursementDetail(activeDisbursement.id);
+        loadDisbursementRequests();
+      } catch(e) { console.error(e); }
+    }
+
+    async function approveDisbursement(id) {
+      if (!confirm('Xác nhận Hội sở ngân hàng phê duyệt cấp tín dụng và giải ngân vốn / phát hành bảo lãnh?')) return;
+      const ldNo = prompt('Nhập số Khế ước nhận nợ / Thư bảo lãnh / L/C chính thức của Ngân hàng:', `LD-NH-${new Date().toISOString().slice(0,10).replace(/-/g,'')}-${Math.floor(100+Math.random()*900)}`);
+      if (!ldNo) return;
+      const amtStr = prompt('Nhập số tiền giải ngân thực tế (bỏ trống để lấy theo số đề nghị):', '');
+      const actualAmt = amtStr ? parseInt(amtStr) : null;
+      try {
+        const res = await fetch(`/api/disbursement/requests/${id}/disburse`, {
+          method: 'POST', headers, body: JSON.stringify({ ldNo: ldNo, actualAmount: actualAmt })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Ngân hàng đã phê duyệt & hoàn tất giải ngân chuyển tiền thành công!');
+        viewDisbursementDetail(id);
+        loadDisbursementRequests();
+      } catch(e) { console.error(e); }
+    }
+
+    async function rejectDisbursement(id) {
+      const reason = prompt('Nhập lý do ngân hàng từ chối cấp tín dụng:');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/disbursement/requests/${id}/reject`, {
+          method: 'POST', headers, body: JSON.stringify({ reason: reason })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã cập nhật trạng thái từ chối từ ngân hàng!');
+        viewDisbursementDetail(id);
+        loadDisbursementRequests();
+      } catch(e) { console.error(e); }
+    }
+
+    async function cancelDisbursement(id) {
+      const reason = prompt('Nhập lý do hủy đề nghị giao dịch:');
+      if (!reason) return;
+      try {
+        const res = await fetch(`/api/disbursement/requests/${id}/cancel`, {
+          method: 'POST', headers, body: JSON.stringify({ reason: reason })
+        });
+        if (!res.ok) { const err = await res.json(); alert('Lỗi: ' + (err.error || res.statusText)); return; }
+        alert('Đã hủy đề nghị thành công!');
+        viewDisbursementDetail(id);
+        loadDisbursementRequests();
+      } catch(e) { console.error(e); }
+    }
+
+    async function openDisbursementAdviceModal(id) {
+      try {
+        const res = await fetch(`/api/disbursement/requests/${id}/advice`, { headers });
+        if (!res.ok) { alert('Không tìm thấy dữ liệu in giấy đề nghị.'); return; }
+        const adv = await res.json();
+
+        let carRows = (adv.cars || []).map(c => `
+          <tr>
+            <td style="border:1px solid var(--border); padding:6px; text-align:center;">${c.no}</td>
+            <td style="border:1px solid var(--border); padding:6px;"><strong>${c.dlrCtrNo}</strong></td>
+            <td style="border:1px solid var(--border); padding:6px;">${c.modelCode}</td>
+            <td style="border:1px solid var(--border); padding:6px;">${c.specCode}</td>
+            <td style="border:1px solid var(--border); padding:6px; text-align:center;">${c.assemblyTypeText}</td>
+            <td style="border:1px solid var(--border); padding:6px; text-align:center;"><strong>${c.qty}</strong></td>
+            <td style="border:1px solid var(--border); padding:6px; text-align:right;">${Number(c.unitPrice).toLocaleString('vi-VN')} đ</td>
+            <td style="border:1px solid var(--border); padding:6px; text-align:right; font-weight:600;">${Number(c.totalAmount).toLocaleString('vi-VN')} đ</td>
+            <td style="border:1px solid var(--border); padding:6px; text-align:center;"><strong>${c.ltvRate}%</strong></td>
+            <td style="border:1px solid var(--border); padding:6px; text-align:right; font-weight:700; color:var(--primary);">${Number(c.disbursementAmount).toLocaleString('vi-VN')} đ</td>
+          </tr>
+        `).join('');
+
+        let docList = (adv.signedDocuments || []).map(d => `<li>${d}</li>`).join('');
+
+        document.getElementById('disbursementAdviceContent').innerHTML = `
+          <div style="text-align:center; margin-bottom:14px; border-bottom:2px solid var(--border); padding-bottom:12px;">
+            <div style="font-weight:700; font-size:1.1em;">CỘNG HÒA XÃ HỘI CHỦ NGHĨA VIỆT NAM</div>
+            <div style="font-size:.9em;">Độc lập - Tự do - Hạnh phúc</div>
+            <div style="margin-top:10px; font-weight:700; font-size:1.3em; color:var(--primary);">
+              GIẤY ĐỀ NGHỊ GIAO DỊCH NGÂN HÀNG &amp; GIẢI NGÂN TÀI TRỢ VỐN MUA XE
+            </div>
+            <div class="muted" style="margin-top:4px;">Số đề nghị: <strong>${adv.transNo}</strong> | Ngày in: ${adv.printDate}</div>
+            <div style="margin-top:4px;"><span class="badge badge-info">${adv.transTypeText}</span> - <span class="badge badge-success">${adv.bankStatusText}</span></div>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:16px;">
+            <div>
+              <strong>KÍNH GỬI:</strong> <strong>${adv.bankName} (${adv.bankCode})</strong><br>
+              <strong>ĐƠN VỊ ĐỀ NGHỊ:</strong> ${adv.dealerName} (Mã: <code>${adv.dealerCode}</code>)<br>
+              <strong>Mã số thuế / Số ĐKKD:</strong> ${adv.bizResNumber}<br>
+              <strong>Tài khoản trích nợ / vay:</strong> <code>${adv.paymentAccount}</code>
+            </div>
+            <div>
+              <strong>ĐƠN VỊ THỤ HƯỞNG (HÃNG XE):</strong><br>
+              <strong>${adv.receivingUnit}</strong><br>
+              <strong>Số tài khoản thụ hưởng:</strong> <code>${adv.receivingAccount}</code><br>
+              <strong>Ngân hàng thụ hưởng:</strong> ${adv.receivingBank}<br>
+              <strong>Số Khế ước / Thư BL:</strong> <code>${adv.ldNo || adv.mdNo || adv.lcNo || adv.refBankCode || 'Chưa cấp'}</code>
+            </div>
+          </div>
+
+          <div style="margin-bottom:12px;">
+            <strong>NỘI DUNG ĐỀ NGHỊ TÀI TRỢ TÍN DỤNG:</strong><br>
+            Căn cứ Hợp đồng đại lý và Hợp đồng tín dụng hạn mức đã ký kết, Đại lý kính đề nghị Quý Ngân hàng thực hiện tài trợ vốn lưu động / phát hành bảo lãnh thanh toán tiền mua xe ô tô cho các phụ lục hợp đồng sau:
+          </div>
+
+          <table style="width:100%; border-collapse:collapse; margin-bottom:14px; font-size:.88em;">
+            <thead>
+              <tr style="background:rgba(127,127,127,.1);">
+                <th style="border:1px solid var(--border); padding:6px;">STT</th>
+                <th style="border:1px solid var(--border); padding:6px;">Số PLHĐ</th>
+                <th style="border:1px solid var(--border); padding:6px;">Model Xe</th>
+                <th style="border:1px solid var(--border); padding:6px;">Mã Phiên Bản</th>
+                <th style="border:1px solid var(--border); padding:6px;">Loại Xe</th>
+                <th style="border:1px solid var(--border); padding:6px;">Số Lượng</th>
+                <th style="border:1px solid var(--border); padding:6px;">Đơn Giá</th>
+                <th style="border:1px solid var(--border); padding:6px;">Tổng Giá Trị</th>
+                <th style="border:1px solid var(--border); padding:6px;">% LTV</th>
+                <th style="border:1px solid var(--border); padding:6px;">Số Tiền Đề Nghị</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${carRows}
+            </tbody>
+            <tfoot>
+              <tr style="background:rgba(127,127,127,.06); font-weight:700;">
+                <td colspan="5" style="border:1px solid var(--border); padding:6px; text-align:right;">TỔNG CỘNG:</td>
+                <td style="border:1px solid var(--border); padding:6px; text-align:center;">${adv.totalCars} xe</td>
+                <td style="border:1px solid var(--border); padding:6px;"></td>
+                <td style="border:1px solid var(--border); padding:6px; text-align:right;">${Number(adv.totalContractAmount).toLocaleString('vi-VN')} đ</td>
+                <td style="border:1px solid var(--border); padding:6px;"></td>
+                <td style="border:1px solid var(--border); padding:6px; text-align:right; color:var(--primary); font-size:1.05em;">${Number(adv.totalDisbursementAmount).toLocaleString('vi-VN')} đ</td>
+              </tr>
+            </tfoot>
+          </table>
+
+          <div style="background:rgba(127,127,127,.05); padding:12px; border-radius:6px; margin-bottom:16px;">
+            <div><strong>Tổng số tiền đề nghị tài trợ / giải ngân:</strong> <span style="font-weight:700; color:var(--primary); font-size:1.1em;">${Number(adv.totalDisbursementAmount).toLocaleString('vi-VN')} đồng</span></div>
+            <div><strong>Số tiền viết bằng chữ:</strong> <em style="font-weight:600; color:var(--success);">${adv.amountInWords}</em></div>
+            <div style="margin-top:4px;"><strong>Kỳ hạn vay vốn:</strong> ${adv.disbursementTerm || '03 tháng'} | <strong>Lãi suất vay:</strong> ${adv.disbursementInterestRate}%/năm</div>
+          </div>
+
+          <div style="margin-bottom:14px; font-size:.88em;">
+            <strong>CAM KẾT CỦA BÊN VAY:</strong><br>
+            1. Đại lý cam kết số tiền vay được giải ngân chuyển thẳng vào tài khoản của Hyundai Thành Công Việt Nam để thanh toán tiền mua xe ô tô đúng mục đích.<br>
+            2. Đại lý cam kết hoàn trả đầy đủ gốc, lãi và các chi phí phát sinh đúng hạn theo khế ước nhận nợ.<br>
+            3. Hồ sơ chứng từ điện tử đã ký số CA đính kèm:
+            <ul>${docList || '<li>Đã đính kèm Giấy đề nghị, Phụ lục Hợp đồng mua bán xe, Báo cáo tài chính và Cam kết trả nợ.</li>'}</ul>
+          </div>
+
+          <div style="display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px; text-align:center; margin-top:24px; padding-top:14px; border-top:1px dashed var(--border);">
+            <div>
+              <strong>KẾ TOÁN TRƯỞNG</strong><br><br><br>
+              <em>(Ký, ghi rõ họ tên)</em>
+            </div>
+            <div>
+              <strong>NGƯỜI ĐẠI DIỆN PHÁP LUẬT ĐẠI LÝ</strong><br><br><br>
+              <strong>${adv.dealerName}</strong><br>
+              <em>(Ký số điện tử CA &amp; đóng dấu)</em>
+            </div>
+            <div>
+              <strong>HỘI SỞ NGÂN HÀNG PHÊ DUYỆT</strong><br><br><br>
+              <strong>${adv.bankName}</strong><br>
+              <em>(Cán bộ tín dụng ký duyệt)</em>
+            </div>
+          </div>
+        `;
+
+        document.getElementById('modalDisbursementAdvice').style.display = 'block';
+      } catch(e) { console.error(e); }
+    }
+
+    function closeDisbursementAdviceModal() {
+      document.getElementById('modalDisbursementAdvice').style.display = 'none';
+    }
+
+    function onNewDisbBankChange() {
+      const bCode = document.getElementById('inpNewDisbBankCode').value;
+      const mapAccounts = {
+        'VPBANK': { acc: '108899882991', bank: 'VPBank - Chi nhánh Thăng Long', rate: 8.5, term: '03 tháng' },
+        'VIETINBANK': { acc: '118000992817', bank: 'VietinBank - Chi nhánh Thanh Xuân', rate: 8.0, term: '03 tháng' },
+        'VIB': { acc: '025704068899', bank: 'VIB - Chi nhánh Cầu Giấy', rate: 8.8, term: '03 tháng' },
+        'TECHCOMBANK': { acc: '19028819283011', bank: 'Techcombank - Chi nhánh Hà Nội', rate: 8.2, term: '03 tháng' },
+        'MBBANK': { acc: '088019928177', bank: 'MBBank - Chi nhánh Ba Đình', rate: 8.4, term: '03 tháng' },
+        'VCB': { acc: '0011009876543', bank: 'Vietcombank - Chi nhánh Thăng Long', rate: 7.9, term: '03 tháng' }
+      };
+
+      if (mapAccounts[bCode]) {
+        document.getElementById('inpNewDisbPayAcc').value = mapAccounts[bCode].acc;
+        document.getElementById('inpNewDisbPayBankName').value = mapAccounts[bCode].bank;
+        document.getElementById('inpNewDisbRate').value = mapAccounts[bCode].rate;
+        document.getElementById('inpNewDisbTerm').value = mapAccounts[bCode].term;
+      }
+    }
+
+    async function loadCandidateContractsForNew() {
+      const dealerCode = document.getElementById('inpNewDisbDealerCode').value;
+      try {
+        const res = await fetch(`/api/disbursement/candidate-contracts?dealerCode=${encodeURIComponent(dealerCode)}`, { headers });
+        if (!res.ok) return;
+        const candidates = await res.json();
+        document.getElementById('inpNewDisbCarsJson').value = JSON.stringify(candidates, null, 2);
+      } catch(e) { console.error(e); }
+    }
+
+    async function submitCreateDisbursementRequest() {
+      const msg = document.getElementById('submitNewDisbMsg');
+      try {
+        const rawJson = document.getElementById('inpNewDisbCarsJson').value.trim();
+        if (!rawJson) { alert('Vui lòng nhập hoặc nạp danh sách phụ lục hợp đồng xe.'); return; }
+        const details = JSON.parse(rawJson);
+
+        const bankSel = document.getElementById('inpNewDisbBankCode');
+        const bankCode = bankSel.value;
+        const bankName = bankSel.options[bankSel.selectedIndex].text.split(' (')[0];
+
+        const dealerSel = document.getElementById('inpNewDisbDealerCode');
+        const dealerCode = dealerSel.value;
+        const dealerName = dealerSel.options[dealerSel.selectedIndex].text.split(' (')[0];
+
+        const transType = document.getElementById('inpNewDisbType').value;
+
+        const payload = {
+          transType: transType,
+          dealerCode: dealerCode,
+          dealerName: dealerName,
+          bizResNumber: '0102839102-001',
+          bankCode: bankCode,
+          bankName: bankName,
+          paymentAccount: document.getElementById('inpNewDisbPayAcc').value.trim(),
+          paymentBankName: document.getElementById('inpNewDisbPayBankName').value.trim(),
+          receivingUnit: document.getElementById('inpNewDisbRecUnit').value.trim(),
+          receivingAccount: document.getElementById('inpNewDisbRecAcc').value.trim(),
+          receivingBank: document.getElementById('inpNewDisbRecBank').value.trim(),
+          disbursementTerm: document.getElementById('inpNewDisbTerm').value.trim(),
+          disbursementInterestRate: parseFloat(document.getElementById('inpNewDisbRate').value) || 8.5,
+          remark: document.getElementById('inpNewDisbRemark').value.trim(),
+          details: details
+        };
+
+        msg.textContent = 'Đang khởi tạo hồ sơ đề nghị giao dịch ngân hàng...';
+        const res = await fetch('/api/disbursement/requests', {
+          method: 'POST', headers, body: JSON.stringify(payload)
+        });
+
+        if (!res.ok) {
+          const err = await res.json();
+          msg.textContent = 'Lỗi: ' + (err.error || res.statusText);
+          return;
+        }
+
+        const data = await res.json();
+        msg.textContent = `Thành công! Số đề nghị: ${data.transNo} (Đề nghị tài trợ: ${Number(data.totalDisbursementAmount).toLocaleString('vi-VN')} đ)`;
+        setTimeout(() => {
+          showTab('disbursement');
+          viewDisbursementDetail(data.id);
+        }, 800);
+      } catch(e) {
+        msg.textContent = 'Lỗi cú pháp JSON: ' + e.message;
+      }
+    }
+
+    function loadSampleDisbursementData() {
+      loadCandidateContractsForNew();
+    }
+
     // Khởi tạo
     loadSampleData();
     loadSamplePayoutData();
@@ -12305,6 +13175,7 @@
     loadSampleAVNData();
     loadSampleGPSData();
     loadSampleFnExpData();
+    loadSampleDisbursementData();
     loadBatches();
   </script>
 </body>
