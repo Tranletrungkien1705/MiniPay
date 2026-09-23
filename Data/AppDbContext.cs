@@ -69,6 +69,7 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<AccountingVoucherUpdateDetail> AccountingVoucherUpdateDetails => Set<AccountingVoucherUpdateDetail>();
     public DbSet<BankStatementAutoApproveBatch> AutoApproveBatches => Set<BankStatementAutoApproveBatch>();
     public DbSet<BankStatementAutoApproveDetail> AutoApproveDetails => Set<BankStatementAutoApproveDetail>();
+    public DbSet<CalendarEntry> CalendarEntries => Set<CalendarEntry>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -400,5 +401,9 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<BankStatementAutoApproveDetail>().HasIndex(x => x.BatchId);
         b.Entity<BankStatementAutoApproveDetail>().HasIndex(x => new { x.OrgId, x.PaymentNo });
         b.Entity<BankStatementAutoApproveDetail>().HasIndex(x => new { x.OrgId, x.BankTxnNo });
+
+        b.Entity<CalendarEntry>().HasIndex(x => new { x.OrgId, x.CalendarType, x.Date }).IsUnique();
+        b.Entity<CalendarEntry>().HasIndex(x => new { x.OrgId, x.CalendarType });
+        b.Entity<CalendarEntry>().Property(x => x.StatusValue).HasConversion<int>();
     }
 }

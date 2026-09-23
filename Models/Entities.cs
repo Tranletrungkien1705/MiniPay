@@ -4131,3 +4131,96 @@ public sealed class AutoApproveBatchStatDto
     public string Status { get; set; } = "";
     public DateTime CreatedAt { get; set; }
 }
+
+// ============================================================================================
+// Nghiệp vụ: Lịch Làm Việc & Hạn Nộp Cọc (Payment / Deposit Duty Calendar - Mst_Calendar)
+// Tương ứng hệ nguồn 2010.HTC:
+//   - TERP.BizHTC/BizHTC.MasterData.cs (Mst_Calendar_Get, Mst_Calendar_GetForDepositDuty,
+//       Mst_Calendar_ResetYear, Mst_Calendar_UpdateStatusValue)
+//   - TERP.BizHTC/BizHTC.Common.cs (mySql_GetClauseSelect_Mst_Calendar_GetForDayT)
+//   - TERP.Constants/Const.Main.cs (CalendarType.WorkingDay = "WORKINGDAY",
+//       HTCParamCode.Calendar_DepositDuty_DayT = "CALENDAR.DEPOSITDUTY.DAYT")
+//
+// Nghiệp vụ: quản lý LỊCH LÀM VIỆC (Mst_Calendar) theo từng ngày trong năm, mỗi ngày có
+// CalendarType (mặc định WORKINGDAY) và StatusValue (0 = ngày làm việc, 1 = ngày nghỉ/lễ).
+// Lịch này được dùng để tính HẠN NỘP CỌC (Deposit Duty) của đơn hàng mua xe: từ một ngày mốc,
+// cộng thêm N ngày làm việc (DayT - tham số CALENDAR.DEPOSITDUTY.DAYT) để ra ngày hạn nộp cọc.
+//   - Mst_Calendar_Get: tra cứu lịch theo loại / khoảng ngày / trạng thái.
+//   - Mst_Calendar_GetForDepositDuty: với mỗi ngày làm việc, tính ngày hạn nộp cọc = ngày làm
+//     việc thứ (DayT) kế tiếp (bỏ qua ngày nghỉ).
+//   - Mst_Calendar_ResetYear: sinh lại toàn bộ lịch 1 năm theo trạng thái mặc định của từng
+//     thứ trong tuần (Thứ 2..Chủ nhật).
+//   - Mst_Calendar_UpdateStatusValue: đổi trạng thái 1 ngày (đánh dấu nghỉ/lễ hoặc làm việc).
+// ============================================================================================
+
+/// <summary>Trạng thái 1 ngày trong lịch làm việc (Mst_Calendar.StatusValue).</summary>
+public enum CalendarDayStatus { WorkingDay = 0, Holiday = 1 }
+
+/// <summary>
+/// 1 ngày trong Lịch làm việc (tương ứng bảng Mst_Calendar).
+/// Cặp (CalendarType, Date) là duy nhất.
+/// </summary>
+public sealed class CalendarEntry
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string CalendarType { get; set; } = "WORKINGDAY";   // Loại lịch (CalendarType), mặc định WORKINGDAY
+    public DateTime Date { get; set; }                          // Ngày (Date)
+    public CalendarDayStatus StatusValue { get; set; } = CalendarDayStatus.WorkingDay; // Trạng thái ngày (StatusValue)
+    public string? Remark { get; set; }                         // Ghi chú (Remark)
+    public string? CreatedBy { get; set; }                      // Người tạo (LogLUBy)
+    public DateTime CreatedAt { get; set; } = DateTime.Now;     // Ngày tạo (LogLUDateTime)
+    public string? UpdatedBy { get; set; }                      // Người cập nhật cuối
+    public DateTime? UpdatedAt { get; set; }                    // Ngày cập nhật cuối
+}
+
+/// <summary>Yêu cầu sinh lại lịch 1 năm theo trạng thái mặc định từng thứ (Mst_Calendar_ResetYear).</summary>
+public sealed class ResetCalendarYearDto
+{
+    public string? CalendarType { get; set; }                   // Loại lịch (mặc định WORKINGDAY)
+    public int Year { get; set; }                               // Năm cần sinh lịch
+    public CalendarDayStatus Monday { get; set; } = CalendarDayStatus.WorkingDay;
+    public CalendarDayStatus Tuesday { get; set; } = CalendarDayStatus.WorkingDay;
+    public CalendarDayStatus Wednesday { get; set; } = CalendarDayStatus.WorkingDay;
+    public CalendarDayStatus Thursday { get; set; } = CalendarDayStatus.WorkingDay;
+    public CalendarDayStatus Friday { get; set; } = CalendarDayStatus.WorkingDay;
+    public CalendarDayStatus Saturday { get; set; } = CalendarDayStatus.Holiday;
+    public CalendarDayStatus Sunday { get; set; } = CalendarDayStatus.Holiday;
+    public string? CreatedBy { get; set; }
+}
+
+/// <summary>Yêu cầu đổi trạng thái 1 ngày (Mst_Calendar_UpdateStatusValue).</summary>
+public sealed class UpdateCalendarDayDto
+{
+    public string? CalendarType { get; set; }                   // Loại lịch (mặc định WORKINGDAY)
+    public DateTime Date { get; set; }                          // Ngày cần đổi trạng thái
+    public CalendarDayStatus StatusValue { get; set; }          // Trạng thái mới
+    public string? Remark { get; set; }
+    public string? UpdatedBy { get; set; }
+}
+
+/// <summary>1 dòng kết quả tính hạn nộp cọc (Mst_Calendar_GetForDepositDuty).</summary>
+public sealed class DepositDutyResultDto
+{
+    public DateTime WorkingDate { get; set; }                   // Ngày làm việc mốc
+    public DateTime? DepositDutyDate { get; set; }              // Ngày hạn nộp cọc = ngày làm việc thứ DayT kế tiếp
+    public int DayT { get; set; }                               // Số ngày làm việc cộng thêm (CALENDAR.DEPOSITDUTY.DAYT)
+}
+
+/// <summary>Báo cáo tổng hợp lịch làm việc.</summary>
+public sealed class CalendarSummaryDto
+{
+    public int TotalDays { get; set; }
+    public int WorkingDayCount { get; set; }
+    public int HolidayCount { get; set; }
+    public int Year { get; set; }
+    public int DayT { get; set; }                               // Tham số số ngày làm việc cộng thêm cho hạn nộp cọc
+    public List<CalendarMonthStatDto> ByMonth { get; set; } = [];
+}
+
+public sealed class CalendarMonthStatDto
+{
+    public int Month { get; set; }
+    public int WorkingDayCount { get; set; }
+    public int HolidayCount { get; set; }
+}

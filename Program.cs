@@ -55,6 +55,7 @@ builder.Services.AddScoped<LetterOfCreditService>();
 builder.Services.AddScoped<BankDealerService>();
 builder.Services.AddScoped<AccountingVoucherService>();
 builder.Services.AddScoped<BankStatementAutoApproveService>();
+builder.Services.AddScoped<PaymentCalendarService>();
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
     o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
@@ -7529,6 +7530,83 @@ app.MapPost("/api/accounting-vouchers/{id:long}/cancel", async (long id, Account
     }
     catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
     catch (InvalidOperationException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// ===== Lịch Làm Việc & Hạn Nộp Cọc (Payment / Deposit Duty Calendar - Mst_Calendar) =====
+// Tương ứng Mst_Calendar trong hệ nguồn 2010.HTC (BizHTC.MasterData.cs) và
+// mySql_GetClauseSelect_Mst_Calendar_GetForDayT (BizHTC.Common.cs).
+
+// 1) Lấy danh sách ngày trong lịch làm việc kèm bộ lọc (Mst_Calendar_Get)
+app.MapGet("/api/calendar", async (
+    string? calendarType,
+    DateTime? fromDate,
+    DateTime? toDate,
+    string? statusValue,
+    PaymentCalendarService svc,
+    ITenantContext tc) =>
+{
+    CalendarDayStatus? st = null;
+    if (!string.IsNullOrWhiteSpace(statusValue) && Enum.TryParse<CalendarDayStatus>(statusValue, true, out var parsed))
+        st = parsed;
+
+    var list = await svc.GetListAsync(tc.OrgId, calendarType, fromDate, toDate, st);
+    return Results.Ok(list.Select(x => new
+    {
+        x.Id,
+        x.CalendarType,
+        x.Date,
+        statusValue = x.StatusValue.ToString(),
+        x.Remark,
+        x.CreatedBy,
+        x.CreatedAt,
+        x.UpdatedBy,
+        x.UpdatedAt
+    }));
+});
+
+// 2) Báo cáo dashboard tổng hợp lịch làm việc
+app.MapGet("/api/calendar/summary", async (int? year, PaymentCalendarService svc, ITenantContext tc) =>
+{
+    var summary = await svc.GetSummaryAsync(tc.OrgId, year);
+    return Results.Ok(summary);
+});
+
+// 3) Tính hạn nộp cọc cho các ngày làm việc kể từ ngày mốc (Mst_Calendar_GetForDepositDuty)
+app.MapGet("/api/calendar/deposit-duty", async (DateTime fromDate, int? dayT, PaymentCalendarService svc, ITenantContext tc) =>
+{
+    var result = await svc.GetForDepositDutyAsync(tc.OrgId, fromDate, dayT);
+    return Results.Ok(result);
+});
+
+// 4) Sinh lại lịch 1 năm theo trạng thái mặc định từng thứ (Mst_Calendar_ResetYear)
+app.MapPost("/api/calendar/reset-year", async (ResetCalendarYearDto dto, PaymentCalendarService svc, ITenantContext tc) =>
+{
+    try
+    {
+        int count = await svc.ResetYearAsync(tc.OrgId, dto);
+        return Results.Ok(new { year = dto.Year, generatedDays = count });
+    }
+    catch (ArgumentException ex) { return Results.BadRequest(new { error = ex.Message }); }
+});
+
+// 5) Đổi trạng thái 1 ngày trong lịch (Mst_Calendar_UpdateStatusValue)
+app.MapPost("/api/calendar/update-status", async (UpdateCalendarDayDto dto, PaymentCalendarService svc, ITenantContext tc) =>
+{
+    try
+    {
+        var entity = await svc.UpdateStatusValueAsync(tc.OrgId, dto);
+        return Results.Ok(new
+        {
+            entity.Id,
+            entity.CalendarType,
+            entity.Date,
+            statusValue = entity.StatusValue.ToString(),
+            entity.Remark,
+            entity.UpdatedBy,
+            entity.UpdatedAt
+        });
+    }
+    catch (KeyNotFoundException ex) { return Results.NotFound(new { error = ex.Message }); }
 });
 
 // ===== Duyệt tự động Thanh toán theo Sổ phụ Ngân hàng (Bank Statement Auto-Approve / TCF) =====

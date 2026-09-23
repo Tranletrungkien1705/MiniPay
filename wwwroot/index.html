@@ -112,6 +112,7 @@
     <button class="tab-btn" onclick="showTab('htcInvoice')">Hóa Đơn VAT Bán Buôn (VAT E-Invoice)</button>
     <button class="tab-btn" onclick="showTab('bankDealer')">Danh Mục Ngân Hàng - Đại Lý (Bank-Dealer)</button>
     <button class="tab-btn" onclick="showTab('accountingVoucher')">Cập Nhật Chứng Từ Kế Toán (CTKT)</button>
+    <button class="tab-btn" onclick="showTab('calendar')">Lịch Làm Việc &amp; Hạn Nộp Cọc (Mst_Calendar)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -6413,6 +6414,86 @@
     </div>
   </div>
 
+  <!-- TAB: Lịch Làm Việc & Hạn Nộp Cọc (Mst_Calendar) -->
+  <div id="tab-calendar" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="margin:0;">Lịch Làm Việc &amp; Hạn Nộp Cọc (Mst_Calendar)</h3>
+        <button class="secondary" onclick="loadCalendar(); loadCalendarSummary();">Làm mới</button>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+        <input id="calFilterFrom" type="date" title="Từ ngày" />
+        <input id="calFilterTo" type="date" title="Đến ngày" />
+        <select id="calFilterStatus" style="max-width:180px;">
+          <option value="">-- Trạng thái ngày --</option>
+          <option value="WorkingDay">Ngày làm việc</option>
+          <option value="Holiday">Ngày nghỉ / lễ</option>
+        </select>
+        <button onclick="loadCalendar()">Tìm kiếm</button>
+      </div>
+      <div style="overflow-x:auto; max-height:420px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Ngày</th>
+              <th>Thứ</th>
+              <th>Loại Lịch</th>
+              <th>Trạng Thái</th>
+              <th>Ghi Chú</th>
+              <th>Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="tblCalendarBody">
+            <tr><td colspan="6" style="text-align:center; padding:20px;" class="muted">Đang tải lịch làm việc...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Sinh lại lịch 1 năm -->
+    <div class="card" style="margin-top:18px;">
+      <h3 style="margin-top:0;">Sinh lại lịch 1 năm (Mst_Calendar_ResetYear)</h3>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(160px, 1fr)); gap:12px;">
+        <div><label>Năm *</label><input id="calResetYear" type="number" /></div>
+        <div><label>Thứ 2</label><select id="calMon"><option value="WorkingDay">Làm việc</option><option value="Holiday">Nghỉ</option></select></div>
+        <div><label>Thứ 3</label><select id="calTue"><option value="WorkingDay">Làm việc</option><option value="Holiday">Nghỉ</option></select></div>
+        <div><label>Thứ 4</label><select id="calWed"><option value="WorkingDay">Làm việc</option><option value="Holiday">Nghỉ</option></select></div>
+        <div><label>Thứ 5</label><select id="calThu"><option value="WorkingDay">Làm việc</option><option value="Holiday">Nghỉ</option></select></div>
+        <div><label>Thứ 6</label><select id="calFri"><option value="WorkingDay">Làm việc</option><option value="Holiday">Nghỉ</option></select></div>
+        <div><label>Thứ 7</label><select id="calSat"><option value="Holiday">Nghỉ</option><option value="WorkingDay">Làm việc</option></select></div>
+        <div><label>Chủ nhật</label><select id="calSun"><option value="Holiday">Nghỉ</option><option value="WorkingDay">Làm việc</option></select></div>
+      </div>
+      <div style="margin-top:14px;">
+        <span id="calResetMsg" style="margin-right:12px; color:var(--primary); font-weight:500;"></span>
+        <button onclick="submitResetCalendarYear()">Sinh lại lịch năm</button>
+      </div>
+    </div>
+
+    <!-- Tính hạn nộp cọc -->
+    <div class="card" style="margin-top:18px;">
+      <h3 style="margin-top:0;">Tính Hạn Nộp Cọc (Mst_Calendar_GetForDepositDuty)</h3>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end;">
+        <div><label>Từ ngày mốc *</label><input id="calDutyFrom" type="date" /></div>
+        <div><label>Số ngày làm việc (DayT)</label><input id="calDutyDayT" type="number" placeholder="7" style="max-width:120px;" /></div>
+        <button onclick="loadDepositDuty()">Tính hạn nộp cọc</button>
+      </div>
+      <div style="overflow-x:auto; margin-top:12px; max-height:360px;">
+        <table>
+          <thead>
+            <tr>
+              <th>Ngày Làm Việc Mốc</th>
+              <th>Ngày Hạn Nộp Cọc</th>
+              <th>DayT</th>
+            </tr>
+          </thead>
+          <tbody id="tblDepositDutyBody">
+            <tr><td colspan="3" style="text-align:center; padding:20px;" class="muted">Nhập ngày mốc và bấm "Tính hạn nộp cọc".</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB: Lập Hóa Đơn GTGT Bán Buôn Xe Mới (+ Lập Hóa Đơn VAT) -->
   <div id="tab-newHtcInvoice" style="display:none;">
     <div class="card">
@@ -7394,6 +7475,14 @@
         <li><code>GET /api/htc-invoices/{id}/advice</code> — Sinh dữ liệu mẫu in Hóa Đơn Giá Trị Gia Tăng Điện Tử (Electronic VAT Invoice Advice TT78) kèm thuật toán đọc tiền bằng chữ tiếng Việt</li>
         <li><code>GET /api/htc-invoices/summary</code> — Báo cáo thống kê tổng hợp số lượng hóa đơn, phân bố trạng thái, tổng doanh thu xuất bán, thuế VAT và top đại lý</li>
       </ul>
+      <h3>Nghiệp Vụ Lịch Làm Việc &amp; Hạn Nộp Cọc (Payment / Deposit Duty Calendar - Mst_Calendar / BizHTC.MasterData.cs)</h3>
+      <ul>
+        <li><code>GET /api/calendar</code> — Danh sách ngày trong lịch làm việc (hỗ trợ lọc theo <code>calendarType</code>, <code>fromDate</code>, <code>toDate</code>, <code>statusValue</code>) (Mst_Calendar_Get)</li>
+        <li><code>GET /api/calendar/summary</code> — Báo cáo tổng hợp lịch làm việc theo năm (số ngày làm việc / nghỉ, thống kê theo tháng)</li>
+        <li><code>GET /api/calendar/deposit-duty?fromDate=&amp;dayT=</code> — Tính hạn nộp cọc cho các ngày làm việc kể từ ngày mốc (Mst_Calendar_GetForDepositDuty)</li>
+        <li><code>POST /api/calendar/reset-year</code> — Sinh lại toàn bộ lịch 1 năm theo trạng thái mặc định từng thứ trong tuần (Mst_Calendar_ResetYear)</li>
+        <li><code>POST /api/calendar/update-status</code> — Đổi trạng thái 1 ngày (đánh dấu nghỉ/lễ hoặc làm việc) (Mst_Calendar_UpdateStatusValue)</li>
+      </ul>
     </div>
   </div>
 
@@ -7430,6 +7519,7 @@
       document.getElementById('tab-htcInvoice').style.display = tabName === 'htcInvoice' ? 'block' : 'none';
       document.getElementById('tab-bankDealer').style.display = tabName === 'bankDealer' ? 'block' : 'none';
       document.getElementById('tab-accountingVoucher').style.display = tabName === 'accountingVoucher' ? 'block' : 'none';
+      document.getElementById('tab-calendar').style.display = tabName === 'calendar' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -7495,6 +7585,7 @@
       else if (tabName === 'htcInvoice') { loadHtcInvoices(); loadHtcInvoiceSummary(); }
       else if (tabName === 'bankDealer') { loadBankDealers(); loadBankDealerSummary(); }
       else if (tabName === 'accountingVoucher') { loadAccountingVouchers(); loadAccountingVoucherSummary(); }
+      else if (tabName === 'calendar') { loadCalendar(); loadCalendarSummary(); }
       else if (tabName === 'newHtcInvoice') { loadSampleHtcInvoiceFormData(); }
     }
 
@@ -19437,6 +19528,129 @@
     }
 
     addAvItemRow();
+
+    // ===== TAB: LỊCH LÀM VIỆC & HẠN NỘP CỌC (Mst_Calendar) =====
+    const CAL_WEEKDAYS = ['Chủ nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+
+    async function loadCalendar() {
+      const body = document.getElementById('tblCalendarBody');
+      if (!body) return;
+      body.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px;" class="muted">Đang tải...</td></tr>';
+      try {
+        const params = new URLSearchParams();
+        const from = document.getElementById('calFilterFrom')?.value;
+        const to = document.getElementById('calFilterTo')?.value;
+        const status = document.getElementById('calFilterStatus')?.value;
+        if (from) params.set('fromDate', from);
+        if (to) params.set('toDate', to);
+        if (status) params.set('statusValue', status);
+        const res = await fetch('/api/calendar?' + params.toString(), { headers });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const list = await res.json();
+        if (!list.length) {
+          body.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px;" class="muted">Chưa có dữ liệu lịch làm việc.</td></tr>';
+          return;
+        }
+        body.innerHTML = list.map(x => {
+          const d = new Date(x.date);
+          const isWorking = x.statusValue === 'WorkingDay';
+          return `<tr>
+            <td>${d.toLocaleDateString('vi-VN')}</td>
+            <td>${CAL_WEEKDAYS[d.getDay()]}</td>
+            <td>${x.calendarType || ''}</td>
+            <td>${isWorking ? '<span style="color:green;">Làm việc</span>' : '<span style="color:#c0392b;">Nghỉ / lễ</span>'}</td>
+            <td>${x.remark || ''}</td>
+            <td><button class="secondary" onclick="toggleCalendarDay(${x.id}, '${x.date}', '${x.statusValue}')">${isWorking ? 'Đánh dấu nghỉ' : 'Đánh dấu làm việc'}</button></td>
+          </tr>`;
+        }).join('');
+      } catch (e) {
+        body.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:20px; color:red;">Lỗi tải dữ liệu: ' + e.message + '</td></tr>';
+      }
+    }
+
+    async function loadCalendarSummary() {
+      try {
+        const res = await fetch('/api/calendar/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng ngày trong lịch (' + d.year + ') ';
+        document.getElementById('stat1').textContent = d.totalDays;
+        document.getElementById('statLabel2').textContent = 'Ngày làm việc';
+        document.getElementById('stat2').textContent = d.workingDayCount;
+        document.getElementById('statLabel3').textContent = 'Ngày nghỉ / lễ';
+        document.getElementById('stat3').textContent = d.holidayCount;
+        document.getElementById('statLabel4').textContent = 'Số ngày làm việc cộng thêm (DayT)';
+        document.getElementById('stat4').textContent = d.dayT;
+      } catch (e) { console.error(e); }
+    }
+
+    async function toggleCalendarDay(id, date, currentStatus) {
+      const newStatus = currentStatus === 'WorkingDay' ? 'Holiday' : 'WorkingDay';
+      try {
+        const res = await fetch('/api/calendar/update-status', {
+          method: 'POST', headers,
+          body: JSON.stringify({ date, statusValue: newStatus, updatedBy: 'Admin_HTC' })
+        });
+        const d = await res.json();
+        if (!res.ok) { alert(d.error || 'Lỗi cập nhật trạng thái ngày.'); return; }
+        loadCalendar(); loadCalendarSummary();
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function submitResetCalendarYear() {
+      const msg = document.getElementById('calResetMsg');
+      msg.textContent = '';
+      const year = Number(document.getElementById('calResetYear').value);
+      if (!year) { msg.style.color = 'red'; msg.textContent = 'Cần nhập năm.'; return; }
+      const payload = {
+        year,
+        monday: document.getElementById('calMon').value,
+        tuesday: document.getElementById('calTue').value,
+        wednesday: document.getElementById('calWed').value,
+        thursday: document.getElementById('calThu').value,
+        friday: document.getElementById('calFri').value,
+        saturday: document.getElementById('calSat').value,
+        sunday: document.getElementById('calSun').value,
+        createdBy: 'Admin_HTC'
+      };
+      try {
+        const res = await fetch('/api/calendar/reset-year', { method: 'POST', headers, body: JSON.stringify(payload) });
+        const d = await res.json();
+        if (!res.ok) { msg.style.color = 'red'; msg.textContent = d.error || 'Lỗi sinh lịch.'; return; }
+        msg.style.color = 'green'; msg.textContent = 'Đã sinh ' + d.generatedDays + ' ngày cho năm ' + d.year + '.';
+        loadCalendar(); loadCalendarSummary();
+      } catch (e) { msg.style.color = 'red'; msg.textContent = 'Lỗi: ' + e.message; }
+    }
+
+    async function loadDepositDuty() {
+      const body = document.getElementById('tblDepositDutyBody');
+      if (!body) return;
+      const from = document.getElementById('calDutyFrom').value;
+      if (!from) { alert('Cần nhập ngày mốc.'); return; }
+      const dayT = document.getElementById('calDutyDayT').value;
+      body.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px;" class="muted">Đang tính...</td></tr>';
+      try {
+        const params = new URLSearchParams({ fromDate: from });
+        if (dayT) params.set('dayT', dayT);
+        const res = await fetch('/api/calendar/deposit-duty?' + params.toString(), { headers });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const list = await res.json();
+        if (!list.length) {
+          body.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px;" class="muted">Không có ngày làm việc nào từ ngày mốc.</td></tr>';
+          return;
+        }
+        body.innerHTML = list.map(x => `<tr>
+          <td>${new Date(x.workingDate).toLocaleDateString('vi-VN')}</td>
+          <td>${x.depositDutyDate ? new Date(x.depositDutyDate).toLocaleDateString('vi-VN') : '<span class="muted">(ngoài phạm vi lịch)</span>'}</td>
+          <td>${x.dayT}</td>
+        </tr>`).join('');
+      } catch (e) {
+        body.innerHTML = '<tr><td colspan="3" style="text-align:center; padding:20px; color:red;">Lỗi: ' + e.message + '</td></tr>';
+      }
+    }
+
+    document.getElementById('calResetYear').value = new Date().getFullYear();
+    document.getElementById('calDutyFrom').value = new Date().toISOString().slice(0, 10);
   </script>
 </body>
 </html>
