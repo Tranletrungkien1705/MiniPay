@@ -356,6 +356,9 @@ public sealed class PaymentGuaranteeDetail
     public decimal GuaranteePercent { get; set; }             // Tỷ lệ % bảo lãnh so với giá trị đơn hàng (GrtPercent)
     public DateTime DateStart { get; set; } = DateTime.Today; // Ngày bắt đầu hiệu lực bảo lãnh của món
     public DateTime DateEnd { get; set; }                     // Hạn thanh toán của món
+    public DateTime? DateWarning { get; set; }                // Ngày cảnh báo đáo hạn của món (DateWarning trong BizHTC)
+    public DateTime? DateExpired { get; set; }                // Ngày hết hạn hiệu lực bảo lãnh của món (DateExpired trong BizHTC)
+    public string FlagDtlDiscount { get; set; } = "0";        // Cờ dòng đã thanh toán chiết khấu (FlagDtlDiscount: "0" chưa, "1" rồi)
     public GuaranteeDetailStatus Status { get; set; } = GuaranteeDetailStatus.Active; // Trạng thái món bảo lãnh
     public string? Note { get; set; }
 }

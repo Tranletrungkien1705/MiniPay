@@ -343,6 +343,138 @@ public sealed class PaymentGuaranteeService(AppDbContext db)
     }
 
     /// <summary>
+    /// Điều chỉnh 1 dòng chi tiết Thư bảo lãnh (PaymentGuaranteeDetailUpdate / FrmEditGrt).
+    /// Cập nhật ngày bắt đầu hiệu lực, giá trị bảo lãnh, cờ chiết khấu; tự tính lại DateEnd = DateStart + Term,
+    /// DateWarning = Min(DateStart + TermWarning, DateExpired - WarningPeriod) và DateExpired của dòng.
+    /// </summary>
+    public async Task<PaymentGuarantee?> UpdateDetailAsync(
+        long guaranteeId,
+        Guid orgId,
+        long detailId,
+        DateTime? dateStart,
+        long? guaranteeValueNew,
+        DateTime? dateExpired,
+        string? flagDtlDiscount)
+    {
+        var grt = await db.Guarantees
+            .Include(g => g.Details)
+            .FirstOrDefaultAsync(g => g.Id == guaranteeId && g.OrgId == orgId);
+        if (grt == null) return null;
+
+        if (grt.Status != GuaranteeStatus.Active)
+            throw new InvalidOperationException($"Chỉ điều chỉnh dòng chi tiết khi Thư bảo lãnh đang hiệu lực (Active). Hiện tại: {grt.Status}.");
+
+        var dtl = grt.Details.FirstOrDefault(d => d.Id == detailId);
+        if (dtl == null)
+            throw new InvalidOperationException($"Không tìm thấy dòng chi tiết #{detailId} trong Thư bảo lãnh {grt.GuaranteeNo}.");
+
+        if (dtl.Status != GuaranteeDetailStatus.Active)
+            throw new InvalidOperationException($"Chỉ điều chỉnh dòng chi tiết đang hiệu lực (Active). Hiện tại: {dtl.Status}.");
+
+        var newExpired = dateExpired ?? dtl.DateExpired ?? grt.DateExpired;
+
+        if (dateStart.HasValue)
+        {
+            if (dateStart.Value.Date >= newExpired.Date)
+                throw new InvalidOperationException("Ngày bắt đầu hiệu lực (DateStart) phải nhỏ hơn ngày hết hạn (DateExpired).");
+
+            dtl.DateStart = dateStart.Value.Date;
+            dtl.DateEnd = dtl.DateStart.AddDays(grt.TermDays > 0 ? grt.TermDays : 1);
+
+            // DateWarning = Min(DateStart + TermWarning, DateExpired - WarningPeriod) — tương ứng nguồn.
+            const int warningPeriod = 3;
+            var warnByTerm = dtl.DateStart.AddDays(grt.TermWarningDays > 0 ? grt.TermWarningDays : 15);
+            var warnByExpired = newExpired.Date.AddDays(-warningPeriod);
+            dtl.DateWarning = warnByTerm < warnByExpired ? warnByTerm : warnByExpired;
+        }
+
+        dtl.DateExpired = newExpired.Date;
+
+        if (guaranteeValueNew.HasValue)
+        {
+            if (guaranteeValueNew.Value < 0)
+                throw new InvalidOperationException("Giá trị bảo lãnh mới (GuaranteeValueNew) không được âm.");
+            dtl.GuaranteeValue = guaranteeValueNew.Value;
+            dtl.GuaranteePercent = dtl.OrderAmount > 0
+                ? Math.Round((decimal)dtl.GuaranteeValue * 100m / dtl.OrderAmount, 2)
+                : 100m;
+        }
+
+        if (!string.IsNullOrWhiteSpace(flagDtlDiscount))
+            dtl.FlagDtlDiscount = flagDtlDiscount.Trim() == "1" ? "1" : "0";
+
+        RecalculateGuaranteeAmounts(grt);
+        await db.SaveChangesAsync();
+        return grt;
+    }
+
+    /// <summary>
+    /// Hủy 1 dòng chi tiết Thư bảo lãnh (PaymentGuaranteeDetailCancel / FrmEditGrt).
+    /// Chặn khi dòng còn Đề nghị giao nhận hồ sơ gốc đang hoạt động hoặc còn tích lũy thanh toán khác 0;
+    /// tự động hủy toàn bộ Thư bảo lãnh khi không còn dòng chi tiết nào hiệu lực.
+    /// </summary>
+    public async Task<PaymentGuarantee?> CancelDetailAsync(long guaranteeId, Guid orgId, long detailId, string? reason)
+    {
+        var grt = await db.Guarantees
+            .Include(g => g.Details)
+            .FirstOrDefaultAsync(g => g.Id == guaranteeId && g.OrgId == orgId);
+        if (grt == null) return null;
+
+        var dtl = grt.Details.FirstOrDefault(d => d.Id == detailId);
+        if (dtl == null)
+            throw new InvalidOperationException($"Không tìm thấy dòng chi tiết #{detailId} trong Thư bảo lãnh {grt.GuaranteeNo}.");
+
+        if (dtl.Status != GuaranteeDetailStatus.Active)
+            throw new InvalidOperationException($"Chỉ hủy dòng chi tiết đang hiệu lực (Active). Hiện tại: {dtl.Status}.");
+
+        // Guard 1: còn Đề nghị giao nhận hồ sơ gốc (Car_DocReqDtl) đang hoạt động cho xe này ⇒ chặn.
+        var itemRef = dtl.ItemRefNo.Trim().ToUpperInvariant();
+        var hasActiveDocReq = await db.CarDocRequestDetails
+            .AnyAsync(d => d.OrgId == orgId
+                && d.VIN.ToUpper() == itemRef
+                && d.Status != CarDocReqDetailStatus.Cancelled);
+        if (hasActiveDocReq)
+            throw new InvalidOperationException($"Không thể hủy dòng bảo lãnh {dtl.ItemRefNo}: còn Đề nghị giao nhận hồ sơ gốc đang hoạt động.");
+
+        // Guard 2: còn tích lũy thanh toán (Pmt_PaymentDetail) khác 0 cho bảo lãnh + xe này ⇒ chặn.
+        var accumulated = await db.PaymentOrderDetails
+            .Where(d => d.OrgId == orgId
+                && d.GuaranteeNo == grt.GuaranteeNo
+                && d.ItemRefNo == dtl.ItemRefNo
+                && (d.Status == PaymentOrderDetailStatus.Pending
+                    || d.Status == PaymentOrderDetailStatus.Approved
+                    || d.Status == PaymentOrderDetailStatus.Finished))
+            .SumAsync(d => (long?)d.Amount) ?? 0L;
+        if (accumulated != 0L)
+            throw new InvalidOperationException($"Không thể hủy dòng bảo lãnh {dtl.ItemRefNo}: còn tích lũy thanh toán {accumulated:N0} VND khác 0.");
+
+        dtl.Status = GuaranteeDetailStatus.Cancelled;
+        if (!string.IsNullOrWhiteSpace(reason))
+            dtl.Note = string.IsNullOrEmpty(dtl.Note) ? reason : $"{dtl.Note}; Hủy: {reason}";
+
+        // Nếu toàn bộ dòng chi tiết không còn Active ⇒ hủy luôn Thư bảo lãnh (myPmt_Guarantee_Upd_GrtStatus01).
+        if (grt.Details.All(d => d.Status != GuaranteeDetailStatus.Active))
+        {
+            grt.Status = GuaranteeStatus.Cancelled;
+            grt.CancelledAt = DateTime.Now;
+        }
+
+        RecalculateGuaranteeAmounts(grt);
+        await db.SaveChangesAsync();
+        return grt;
+    }
+
+    /// <summary>Tính lại UtilizedAmount / RemainingAmount của Thư bảo lãnh theo các dòng chi tiết còn hiệu lực.</summary>
+    private static void RecalculateGuaranteeAmounts(PaymentGuarantee grt)
+    {
+        grt.UtilizedAmount = grt.Details
+            .Where(d => d.Status == GuaranteeDetailStatus.Active)
+            .Sum(d => d.GuaranteeValue);
+        grt.RemainingAmount = grt.TotalAmount - grt.UtilizedAmount;
+        if (grt.RemainingAmount < 0) grt.RemainingAmount = 0;
+    }
+
+    /// <summary>
     /// Báo cáo tổng hợp số liệu bảo lãnh ngân hàng.
     /// </summary>
     public async Task<object> GetSummaryAsync(Guid orgId)

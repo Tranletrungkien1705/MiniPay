@@ -1391,7 +1391,68 @@ app.MapPost("/api/guarantee/{id:long}/cancel", async (long id, CancelGuaranteeDt
     }
 });
 
-// 12) Báo cáo tổng hợp số liệu bảo lãnh ngân hàng
+// 12) Điều chỉnh 1 dòng chi tiết Thư bảo lãnh (PaymentGuaranteeDetailUpdate / FrmEditGrt)
+app.MapPost("/api/guarantee/{id:long}/details/{detailId:long}/update", async (long id, long detailId, UpdateGuaranteeDetailDto dto, PaymentGuaranteeService grtService, ITenantContext tc) =>
+{
+    try
+    {
+        var grt = await grtService.UpdateDetailAsync(id, tc.OrgId, detailId, dto.DateStart, dto.GuaranteeValueNew, dto.DateExpired, dto.FlagDtlDiscount);
+        if (grt == null) return Results.NotFound(new { error = $"Không tìm thấy Thư bảo lãnh #{id}." });
+
+        var dtl = grt.Details.First(d => d.Id == detailId);
+        return Results.Ok(new
+        {
+            grt.Id,
+            grt.GuaranteeNo,
+            grt.UtilizedAmount,
+            grt.RemainingAmount,
+            detail = new
+            {
+                dtl.Id,
+                dtl.ItemRefNo,
+                dtl.GuaranteeValue,
+                dtl.GuaranteePercent,
+                dtl.DateStart,
+                dtl.DateEnd,
+                dtl.DateWarning,
+                dtl.DateExpired,
+                dtl.FlagDtlDiscount,
+                status = dtl.Status.ToString()
+            }
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 13) Hủy 1 dòng chi tiết Thư bảo lãnh (PaymentGuaranteeDetailCancel / FrmEditGrt)
+app.MapPost("/api/guarantee/{id:long}/details/{detailId:long}/cancel", async (long id, long detailId, CancelGuaranteeDetailDto? dto, PaymentGuaranteeService grtService, ITenantContext tc) =>
+{
+    try
+    {
+        var grt = await grtService.CancelDetailAsync(id, tc.OrgId, detailId, dto?.Reason);
+        if (grt == null) return Results.NotFound(new { error = $"Không tìm thấy Thư bảo lãnh #{id}." });
+
+        return Results.Ok(new
+        {
+            grt.Id,
+            grt.GuaranteeNo,
+            status = grt.Status.ToString(),
+            grt.UtilizedAmount,
+            grt.RemainingAmount,
+            grt.CancelledAt,
+            activeDetails = grt.Details.Count(d => d.Status == GuaranteeDetailStatus.Active)
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 14) Báo cáo tổng hợp số liệu bảo lãnh ngân hàng
 app.MapGet("/api/guarantee/summary", async (PaymentGuaranteeService grtService, ITenantContext tc) =>
 {
     var summary = await grtService.GetSummaryAsync(tc.OrgId);
@@ -8601,6 +8662,8 @@ record ClaimGuaranteeDto(long ClaimAmount, string ClaimReason, string? ClaimedBy
 record SettleGuaranteeDto(string? SettlerName, string? Remark);
 record RejectGuaranteeDto(string Reason, string? RejecterName);
 record CancelGuaranteeDto(string? Reason);
+record UpdateGuaranteeDetailDto(DateTime? DateStart, long? GuaranteeValueNew, DateTime? DateExpired, string? FlagDtlDiscount);
+record CancelGuaranteeDetailDto(string? Reason);
 record CreateMortgageDto(string? ReqRMNo, string BankCode, string? BankName, string PartnerCode, string? PartnerName, string? CreditContractNo, DateTime? MortgageDate, decimal? InterestRate, int? LoanPeriodDays, string? Remark, List<MortgageItemInputDto> Items);
 record ApproveMortgageDto(string? ApproverName);
 record RejectMortgageDto(string Reason, string? RejecterName);

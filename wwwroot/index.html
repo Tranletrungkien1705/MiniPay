@@ -462,8 +462,10 @@
               <th>Giá Trị Bảo Lãnh</th>
               <th>Tỷ Lệ BL</th>
               <th>Hiệu Lực Từ -> Đến</th>
+              <th>Cảnh Báo / Hết Hạn</th>
               <th>Trạng Thái</th>
               <th>Ghi Chú</th>
+              <th>Thao Tác</th>
             </tr>
           </thead>
           <tbody id="guaranteeDetailTableBody"></tbody>
@@ -8741,11 +8743,58 @@
               <td style="color:var(--primary); font-weight:700;">${Number(d.guaranteeValue).toLocaleString('vi-VN')} đ</td>
               <td><span class="badge badge-info">${d.guaranteePercent}%</span></td>
               <td>${d.dateStart ? d.dateStart.slice(0,10) : '-'} &rarr; ${d.dateEnd ? d.dateEnd.slice(0,10) : '-'}</td>
+              <td class="muted" style="font-size:.85em;">${d.dateWarning ? d.dateWarning.slice(0,10) : '-'} / ${d.dateExpired ? d.dateExpired.slice(0,10) : '-'}${d.flagDtlDiscount === '1' ? ' <span class="badge badge-success">CK</span>' : ''}</td>
               <td><span class="badge ${itemBadge}">${itemSt}</span></td>
               <td class="muted" style="font-size:.85em;">${d.note || '-'}</td>
+              <td style="white-space:nowrap;">
+                ${d.status === 'Active' ? `
+                  <button class="btn btn-sm" data-grt-dtl-update="${d.id}" style="padding:2px 8px; font-size:.8em;">Điều chỉnh</button>
+                  <button class="btn btn-sm" data-grt-dtl-cancel="${d.id}" style="padding:2px 8px; font-size:.8em; background:var(--danger);">Hủy dòng</button>
+                ` : '<span class="muted">-</span>'}
+              </td>
             </tr>
           `;
         }).join('');
+
+        // Gắn sự kiện điều chỉnh / hủy dòng chi tiết bảo lãnh (PaymentGuaranteeDetailUpdate / Cancel - FrmEditGrt)
+        tbody.querySelectorAll('[data-grt-dtl-update]').forEach(btn => {
+          btn.onclick = async () => {
+            const detailId = btn.getAttribute('data-grt-dtl-update');
+            const dtl = (g.details || []).find(x => String(x.id) === String(detailId));
+            if (!dtl) return;
+            const curStart = dtl.dateStart ? dtl.dateStart.slice(0, 10) : '';
+            const newStart = prompt('Nhập ngày bắt đầu hiệu lực mới (YYYY-MM-DD):', curStart);
+            if (!newStart) return;
+            const newValStr = prompt('Nhập giá trị bảo lãnh mới (VND):', dtl.guaranteeValue);
+            if (!newValStr) return;
+            const newVal = parseInt(newValStr);
+            if (isNaN(newVal) || newVal < 0) { alert('Giá trị bảo lãnh không hợp lệ.'); return; }
+            const curExp = dtl.dateExpired ? dtl.dateExpired.slice(0, 10) : (g.dateExpired ? g.dateExpired.slice(0, 10) : '');
+            const newExp = prompt('Nhập ngày hết hạn hiệu lực mới của dòng (YYYY-MM-DD):', curExp);
+            if (!newExp) return;
+            const flag = prompt('Cờ dòng đã thanh toán chiết khấu (0 = chưa, 1 = rồi):', dtl.flagDtlDiscount || '0');
+            const resp = await fetch(`/api/guarantee/${id}/details/${detailId}/update`, {
+              method: 'POST', headers, body: JSON.stringify({ dateStart: newStart, guaranteeValueNew: newVal, dateExpired: newExp, flagDtlDiscount: flag })
+            });
+            if (resp.ok) { viewGuaranteeDetail(id); loadGuarantees(); }
+            else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+          };
+        });
+
+        tbody.querySelectorAll('[data-grt-dtl-cancel]').forEach(btn => {
+          btn.onclick = async () => {
+            const detailId = btn.getAttribute('data-grt-dtl-cancel');
+            const dtl = (g.details || []).find(x => String(x.id) === String(detailId));
+            if (!dtl) return;
+            if (!confirm(`Xác nhận hủy dòng bảo lãnh ${dtl.itemRefNo}?`)) return;
+            const reason = prompt('Lý do hủy dòng bảo lãnh:', 'Xe không còn thuộc phạm vi bảo lãnh');
+            const resp = await fetch(`/api/guarantee/${id}/details/${detailId}/cancel`, {
+              method: 'POST', headers, body: JSON.stringify({ reason })
+            });
+            if (resp.ok) { viewGuaranteeDetail(id); loadGuarantees(); }
+            else { const err = await resp.json(); alert('Lỗi: ' + (err.error || resp.statusText)); }
+          };
+        });
 
         card.scrollIntoView({ behavior: 'smooth' });
       } catch(e) { console.error(e); }
