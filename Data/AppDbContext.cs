@@ -45,6 +45,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<BankingDisbursementRequest> DisbursementRequests => Set<BankingDisbursementRequest>();
     public DbSet<BankingDisbursementDetail> DisbursementDetails => Set<BankingDisbursementDetail>();
     public DbSet<BankingDisbursementFile> DisbursementFiles => Set<BankingDisbursementFile>();
+    public DbSet<ContractBankMDCancel> CancelBankMDRequests => Set<ContractBankMDCancel>();
+    public DbSet<ContractBankMDCancelDetail> CancelBankMDDetails => Set<ContractBankMDCancelDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -239,5 +241,19 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<BankingDisbursementFile>().Property(x => x.DocType).HasConversion<int>();
         b.Entity<BankingDisbursementFile>().Property(x => x.SignStatus).HasConversion<int>();
         b.Entity<BankingDisbursementFile>().HasIndex(x => x.RequestId);
+
+        b.Entity<ContractBankMDCancel>().HasIndex(x => new { x.OrgId, x.CancelBankMDNo }).IsUnique();
+        b.Entity<ContractBankMDCancel>().HasIndex(x => new { x.OrgId, x.DlrCtrNo });
+        b.Entity<ContractBankMDCancel>().HasIndex(x => new { x.OrgId, x.DealerCode });
+        b.Entity<ContractBankMDCancel>().HasIndex(x => new { x.OrgId, x.BankCodeMD });
+        b.Entity<ContractBankMDCancel>().Property(x => x.GuaranteeType).HasConversion<int>();
+        b.Entity<ContractBankMDCancel>().Property(x => x.ReasonType).HasConversion<int>();
+        b.Entity<ContractBankMDCancel>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<ContractBankMDCancel>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.CancelBankMDId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<ContractBankMDCancelDetail>().Property(x => x.Status).HasConversion<int>();
+        b.Entity<ContractBankMDCancelDetail>().HasIndex(x => x.CancelBankMDId);
+        b.Entity<ContractBankMDCancelDetail>().HasIndex(x => new { x.OrgId, x.VIN });
+        b.Entity<ContractBankMDCancelDetail>().HasIndex(x => new { x.OrgId, x.CancelBankMDNo });
     }
 }

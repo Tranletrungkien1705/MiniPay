@@ -44,6 +44,7 @@ builder.Services.AddScoped<PaymentAVNService>();
 builder.Services.AddScoped<PaymentGPSService>();
 builder.Services.AddScoped<FinancialExpenseService>();
 builder.Services.AddScoped<BankingDisbursementService>();
+builder.Services.AddScoped<CancelBankMDService>();
 
 // SSO chung: tin token MiniSSO (OIDC RS256).
 var ssoAuthority = Environment.GetEnvironmentVariable("SSO_AUTHORITY") ?? "https://minisso.onrender.com";
@@ -5615,6 +5616,356 @@ app.MapGet("/api/disbursement/summary", async (BankingDisbursementService disbSe
 app.MapGet("/api/disbursement/candidate-contracts", (BankingDisbursementService disbService, string? dealerCode) =>
 {
     var candidates = disbService.GetCandidateContracts(dealerCode);
+    return Results.Ok(candidates);
+});
+
+// ===== Quản lý Hồ sơ Đề nghị Hủy Gán Ngân Hàng Bảo Lãnh Cho Hợp Đồng Xe (Cancel Bank MD - DMS40_DlrCtr_CancelBankMD) =====
+
+// 1) Lập đề nghị hủy gán ngân hàng bảo lãnh mới (DMS40_DlrCtr_CancelBankMD_Save)
+app.MapPost("/api/cancel-bank-md", async (CreateCancelBankMDDto dto, CancelBankMDService cancelService, ITenantContext tc) =>
+{
+    if (string.IsNullOrWhiteSpace(dto.DlrCtrNo))
+        return Results.BadRequest(new { error = "Số phụ lục hợp đồng đại lý (DlrCtrNo) không được để trống." });
+    if (string.IsNullOrWhiteSpace(dto.DealerCode))
+        return Results.BadRequest(new { error = "Mã đại lý (DealerCode) không được để trống." });
+    if (string.IsNullOrWhiteSpace(dto.BankCodeMD))
+        return Results.BadRequest(new { error = "Mã ngân hàng bảo lãnh cần hủy (BankCodeMD) không được để trống." });
+
+    try
+    {
+        var req = await cancelService.CreateRequestAsync(tc.OrgId, dto, dto.CreatedBy ?? "DealerCreditOfficer");
+        return Results.Ok(new
+        {
+            req.Id,
+            req.CancelBankMDNo,
+            req.DlrCtrNo,
+            req.DealerCode,
+            req.DealerName,
+            req.BankCodeMD,
+            req.BankNameMD,
+            req.NewBankCodeMD,
+            req.NewBankNameMD,
+            GuaranteeType = req.GuaranteeType.ToString(),
+            ReasonType = req.ReasonType.ToString(),
+            req.ReasonDescription,
+            req.ContractAmount,
+            req.GuaranteeAmount,
+            req.TotalVehicles,
+            Status = req.Status.ToString(),
+            req.RemarkDlr,
+            req.CreatedBy,
+            req.CreatedAt,
+            Details = req.Details.Select(d => new
+            {
+                d.Id,
+                d.VIN,
+                d.CarId,
+                d.ModelCode,
+                d.ModelName,
+                d.SpecCode,
+                d.SpecDescription,
+                d.ColorExtNameVN,
+                d.EngineNo,
+                d.UnitPrice,
+                d.GuaranteeAmount,
+                Status = d.Status.ToString(),
+                d.Remark
+            })
+        });
+    }
+    catch (ArgumentException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 2) Danh sách hồ sơ đề nghị hủy gán ngân hàng bảo lãnh (DMS40_DlrCtr_CancelBankMD_GetX)
+app.MapGet("/api/cancel-bank-md", async (
+    string? dealerCode,
+    string? bankCode,
+    string? status,
+    string? reasonType,
+    DateTime? fromDate,
+    DateTime? toDate,
+    CancelBankMDService cancelService,
+    ITenantContext tc) =>
+{
+    CancelBankMDStatus? st = null;
+    if (!string.IsNullOrWhiteSpace(status) && Enum.TryParse<CancelBankMDStatus>(status, true, out var parsedSt))
+        st = parsedSt;
+
+    CancelBankMDReasonType? rt = null;
+    if (!string.IsNullOrWhiteSpace(reasonType) && Enum.TryParse<CancelBankMDReasonType>(reasonType, true, out var parsedRt))
+        rt = parsedRt;
+
+    var list = await cancelService.GetRequestsAsync(tc.OrgId, dealerCode, bankCode, st, rt, fromDate, toDate);
+    return Results.Ok(list.Select(r => new
+    {
+        r.Id,
+        r.CancelBankMDNo,
+        r.DlrCtrNo,
+        r.DealerCode,
+        r.DealerName,
+        r.BankCodeMD,
+        r.BankNameMD,
+        r.NewBankCodeMD,
+        r.NewBankNameMD,
+        GuaranteeType = r.GuaranteeType.ToString(),
+        ReasonType = r.ReasonType.ToString(),
+        r.ReasonDescription,
+        r.ContractAmount,
+        r.GuaranteeAmount,
+        r.TotalVehicles,
+        Status = r.Status.ToString(),
+        r.RemarkDlr,
+        r.RemarkBank,
+        r.RemarkHTC,
+        r.ApproveBy,
+        r.ApproveDateTime,
+        r.FinishBy,
+        r.FinishDTime,
+        r.RejectBy,
+        r.RejectDateTime,
+        r.RejectReason,
+        r.CancelBy,
+        r.CancelDateTime,
+        r.CancelReason,
+        r.CreatedBy,
+        r.CreatedAt,
+        VehicleCount = r.Details.Count
+    }));
+});
+
+// 3) Chi tiết 1 hồ sơ đề nghị hủy gán ngân hàng bảo lãnh kèm danh sách xe
+app.MapGet("/api/cancel-bank-md/{id:long}", async (long id, CancelBankMDService cancelService, ITenantContext tc) =>
+{
+    var req = await cancelService.GetRequestByIdAsync(id, tc.OrgId);
+    if (req == null) return Results.NotFound(new { error = $"Không tìm thấy hồ sơ đề nghị #{id}." });
+
+    return Results.Ok(new
+    {
+        req.Id,
+        req.CancelBankMDNo,
+        req.DlrCtrNo,
+        req.DealerCode,
+        req.DealerName,
+        req.BankCodeMD,
+        req.BankNameMD,
+        req.NewBankCodeMD,
+        req.NewBankNameMD,
+        GuaranteeType = req.GuaranteeType.ToString(),
+        ReasonType = req.ReasonType.ToString(),
+        req.ReasonDescription,
+        req.ContractAmount,
+        req.GuaranteeAmount,
+        req.TotalVehicles,
+        Status = req.Status.ToString(),
+        req.RemarkDlr,
+        req.RemarkBank,
+        req.RemarkHTC,
+        req.ApproveBy,
+        req.ApproveDateTime,
+        req.FinishBy,
+        req.FinishDTime,
+        req.RejectBy,
+        req.RejectDateTime,
+        req.RejectReason,
+        req.CancelBy,
+        req.CancelDateTime,
+        req.CancelReason,
+        req.CreatedBy,
+        req.CreatedAt,
+        Details = req.Details.Select(d => new
+        {
+            d.Id,
+            d.CancelBankMDId,
+            d.CancelBankMDNo,
+            d.VIN,
+            d.CarId,
+            d.ModelCode,
+            d.ModelName,
+            d.SpecCode,
+            d.SpecDescription,
+            d.ColorExtNameVN,
+            d.EngineNo,
+            d.UnitPrice,
+            d.GuaranteeAmount,
+            Status = d.Status.ToString(),
+            d.Remark
+        })
+    });
+});
+
+// 4) Ngân hàng phát hành bảo lãnh phê duyệt chấp thuận hủy (DMS40_DlrCtr_CancelBankMD_Approve)
+app.MapPost("/api/cancel-bank-md/{id:long}/approve-bank", async (long id, ApproveCancelBankMDBankDto? dto, CancelBankMDService cancelService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await cancelService.ApproveByBankAsync(id, tc.OrgId, dto);
+        return Results.Ok(new
+        {
+            message = $"Ngân hàng {req.BankNameMD} đã phê duyệt chấp thuận hủy bảo lãnh cho hợp đồng {req.DlrCtrNo}.",
+            Status = req.Status.ToString(),
+            req.ApproveBy,
+            req.ApproveDateTime,
+            req.RemarkBank
+        });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 5) HTC thẩm định và duyệt hoàn tất hủy gán ngân hàng bảo lãnh (DMS40_DlrCtr_CancelBankMD_Finish)
+app.MapPost("/api/cancel-bank-md/{id:long}/finish-htc", async (long id, FinishCancelBankMDHTCDto? dto, CancelBankMDService cancelService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await cancelService.FinishByHTCAsync(id, tc.OrgId, dto);
+        return Results.Ok(new
+        {
+            message = $"HTC đã duyệt hoàn tất hủy gán bảo lãnh cho hợp đồng {req.DlrCtrNo}. Đã gỡ bỏ BankCodeMD trên hợp đồng.",
+            Status = req.Status.ToString(),
+            req.FinishBy,
+            req.FinishDTime,
+            req.RemarkHTC
+        });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Ngân hàng từ chối đề nghị hủy gán bảo lãnh
+app.MapPost("/api/cancel-bank-md/{id:long}/reject-bank", async (long id, RejectCancelBankMDDto dto, CancelBankMDService cancelService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await cancelService.RejectByBankAsync(id, tc.OrgId, dto);
+        return Results.Ok(new
+        {
+            message = $"Ngân hàng {req.BankNameMD} đã từ chối đề nghị #{req.CancelBankMDNo}.",
+            Status = req.Status.ToString(),
+            req.RejectBy,
+            req.RejectDateTime,
+            req.RejectReason,
+            req.RemarkBank
+        });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 7) HTC từ chối đề nghị hủy gán bảo lãnh (DMS40_DlrCtr_CancelBankMD_Reject)
+app.MapPost("/api/cancel-bank-md/{id:long}/reject-htc", async (long id, RejectCancelBankMDDto dto, CancelBankMDService cancelService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await cancelService.RejectByHTCAsync(id, tc.OrgId, dto);
+        return Results.Ok(new
+        {
+            message = $"HTC đã từ chối đề nghị #{req.CancelBankMDNo}.",
+            Status = req.Status.ToString(),
+            req.RejectBy,
+            req.RejectDateTime,
+            req.RejectReason,
+            req.RemarkHTC
+        });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 8) Đại lý hủy đề nghị khi chưa giải quyết xong (DMS40_DlrCtr_CancelBankMD_Cancel)
+app.MapPost("/api/cancel-bank-md/{id:long}/cancel", async (long id, CancelBankMDUserCancelDto? dto, CancelBankMDService cancelService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await cancelService.CancelRequestAsync(id, tc.OrgId, dto);
+        return Results.Ok(new
+        {
+            message = $"Đã hủy đề nghị #{req.CancelBankMDNo} thành công.",
+            Status = req.Status.ToString(),
+            req.CancelBy,
+            req.CancelDateTime,
+            req.CancelReason
+        });
+    }
+    catch (InvalidOperationException ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 9) Bổ sung xe vào đề nghị đang chờ duyệt
+app.MapPost("/api/cancel-bank-md/{id:long}/vehicles", async (long id, CancelBankMDItemInputDto dto, CancelBankMDService cancelService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await cancelService.AddVehicleAsync(id, tc.OrgId, dto);
+        return Results.Ok(new
+        {
+            message = $"Đã bổ sung xe VIN '{dto.VIN}' vào đề nghị #{req.CancelBankMDNo}.",
+            req.TotalVehicles,
+            req.ContractAmount,
+            req.GuaranteeAmount
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 10) Xóa xe khỏi đề nghị đang chờ duyệt
+app.MapDelete("/api/cancel-bank-md/{id:long}/vehicles/{detailId:long}", async (long id, long detailId, CancelBankMDService cancelService, ITenantContext tc) =>
+{
+    try
+    {
+        var req = await cancelService.RemoveVehicleAsync(id, detailId, tc.OrgId);
+        return Results.Ok(new
+        {
+            message = $"Đã xóa xe #{detailId} khỏi đề nghị #{req.CancelBankMDNo}.",
+            req.TotalVehicles,
+            req.ContractAmount,
+            req.GuaranteeAmount
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 11) Sinh dữ liệu mẫu in Thỏa thuận 3 bên Hủy Cam kết Bảo lãnh Ngân hàng
+app.MapGet("/api/cancel-bank-md/{id:long}/advice", async (long id, CancelBankMDService cancelService, ITenantContext tc) =>
+{
+    var advice = await cancelService.GenerateAdviceAsync(id, tc.OrgId);
+    if (advice == null) return Results.NotFound(new { error = $"Không tìm thấy đề nghị #{id}." });
+    return Results.Ok(advice);
+});
+
+// 12) Dashboard KPI tổng hợp đề nghị hủy gán ngân hàng bảo lãnh
+app.MapGet("/api/cancel-bank-md/summary", async (CancelBankMDService cancelService, ITenantContext tc) =>
+{
+    var summary = await cancelService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
+// 13) Lấy danh sách hợp đồng mẫu ứng viên đang gán bảo lãnh
+app.MapGet("/api/cancel-bank-md/candidates", (CancelBankMDService cancelService, string? dealerCode) =>
+{
+    var candidates = cancelService.GetCandidateContracts(dealerCode);
     return Results.Ok(candidates);
 });
 

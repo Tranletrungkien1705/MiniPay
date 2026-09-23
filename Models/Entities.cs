@@ -121,6 +121,12 @@ public enum BankFileDocumentType { DeNghiVay = 0, PhuLucHopDong = 1, DangKyKinhD
 
 public enum BankFileSignStatus { Pending = 0, Signed = 1 }
 
+public enum CancelBankMDStatus { Pending = 0, Approved = 1, Finished = 2, Rejected = 3, Cancelled = 4 }
+
+public enum CancelBankMDReasonType { ChangeBank = 0, SwitchToOwnCapital = 1, ContractRestructuring = 2, Other = 3 }
+
+public enum CancelBankMDDetailStatus { Pending = 0, Approved = 1, Finished = 2, Cancelled = 3 }
+
 /// <summary>Ý định thanh toán (payment intent) — 1 dòng / 1 lần khởi tạo cổng.</summary>
 public sealed class PaymentIntent
 {
@@ -1746,4 +1752,189 @@ public sealed class DisbursementSummaryDto
     public long TotalContractAmount { get; set; }
     public long TotalRequestedDisbursement { get; set; }
     public long TotalActualDisbursed { get; set; }
+}
+
+/// <summary>Hồ sơ Đề nghị Hủy Gán Ngân Hàng Bảo Lãnh Cho Hợp Đồng Xe Ô Tô — tương ứng DMS40_DlrCtr_CancelBankMD trong BizHTC.Payment / DMS40.Contract &amp; FrmDMS40_DlrCtr_CancelBankMD.</summary>
+public sealed class ContractBankMDCancel
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string CancelBankMDNo { get; set; } = "";             // Số đề nghị hủy gán NHBL (ví dụ: CANMD-202505-001)
+    public string DlrCtrNo { get; set; } = "";                   // Số Phụ lục hợp đồng mua bán buôn xe đại lý (DLRCTRNO)
+    public string DealerCode { get; set; } = "";                 // Mã đại lý (DEALERCODE)
+    public string DealerName { get; set; } = "";                 // Tên đại lý
+    public string BankCodeMD { get; set; } = "";                 // Mã ngân hàng bảo lãnh cần hủy (BANKCODEMD: VPB, CTG, MBB, TCB, VCB...)
+    public string BankNameMD { get; set; } = "";                 // Tên ngân hàng bảo lãnh
+    public string? NewBankCodeMD { get; set; }                   // Ngân hàng bảo lãnh mới dự kiến thay thế (nếu có)
+    public string? NewBankNameMD { get; set; }                   // Tên ngân hàng bảo lãnh mới
+    public GuaranteeType GuaranteeType { get; set; } = GuaranteeType.Payment; // Loại bảo lãnh (BL thanh toán, bảo lãnh thực hiện HĐ, L/C...)
+    public long ContractAmount { get; set; }                     // Tổng giá trị hợp đồng mua xe (VND)
+    public long GuaranteeAmount { get; set; }                    // Giá trị bảo lãnh cần hủy gán (VND)
+    public CancelBankMDReasonType ReasonType { get; set; } = CancelBankMDReasonType.ChangeBank; // Phân loại lý do hủy
+    public string? ReasonDescription { get; set; }               // Diễn giải chi tiết lý do đề nghị hủy
+    public CancelBankMDStatus Status { get; set; } = CancelBankMDStatus.Pending; // Trạng thái: P (Pending), A (Approved - Ngân hàng duyệt), F (Finished - HTC duyệt), R (Rejected), C (Cancelled)
+    public int TotalVehicles { get; set; }                       // Tổng số lượng xe trong đề nghị
+    public string? RemarkDlr { get; set; }                       // Ý kiến / đề xuất của Đại lý
+    public string? RemarkBank { get; set; }                      // Ý kiến thẩm định / chấp thuận của Ngân hàng
+    public string? RemarkHTC { get; set; }                       // Ý kiến phê duyệt của HTC/HTV
+    public string? ApproveBy { get; set; }                       // Cán bộ ngân hàng duyệt
+    public DateTime? ApproveDateTime { get; set; }               // Thời điểm ngân hàng duyệt
+    public string? FinishBy { get; set; }                        // Cán bộ HTC duyệt hoàn tất
+    public DateTime? FinishDTime { get; set; }                   // Thời điểm HTC duyệt hoàn tất
+    public string? RejectBy { get; set; }                        // Người từ chối
+    public DateTime? RejectDateTime { get; set; }                // Thời điểm từ chối
+    public string? RejectReason { get; set; }                    // Lý do từ chối
+    public string? CancelBy { get; set; }                        // Người hủy
+    public DateTime? CancelDateTime { get; set; }                // Thời điểm hủy
+    public string? CancelReason { get; set; }                    // Lý do hủy
+    public string? CreatedBy { get; set; }                       // Người lập đề nghị
+    public DateTime CreatedAt { get; set; } = DateTime.Now;
+
+    public List<ContractBankMDCancelDetail> Details { get; set; } = [];
+}
+
+/// <summary>Chi tiết xe trong đề nghị hủy gán ngân hàng bảo lãnh — tương ứng các dòng xe phụ lục hợp đồng trong DMS40_DlrCtr_CancelBankMD.</summary>
+public sealed class ContractBankMDCancelDetail
+{
+    public long Id { get; set; }
+    public long CancelBankMDId { get; set; }
+    public Guid OrgId { get; set; }
+    public string CancelBankMDNo { get; set; } = "";             // Số đề nghị hủy
+    public string VIN { get; set; } = "";                        // Số khung xe (17 ký tự VIN)
+    public string? CarId { get; set; }                           // Mã xe nội bộ kho HTC
+    public string ModelCode { get; set; } = "";                  // Mã model xe (SANTAFE, TUCSON, CRETA, ACCENT, ELANTRA...)
+    public string? ModelName { get; set; }                       // Tên thương mại mẫu xe
+    public string? SpecCode { get; set; }                        // Mã phiên bản đặc tả kỹ thuật
+    public string? SpecDescription { get; set; }                 // Diễn giải phiên bản xe
+    public string? ColorExtNameVN { get; set; }                  // Màu sơn ngoại thất
+    public string? EngineNo { get; set; }                        // Số máy xe
+    public long UnitPrice { get; set; }                          // Đơn giá bán xe theo hợp đồng (VND)
+    public long GuaranteeAmount { get; set; }                    // Giá trị bảo lãnh được phân bổ cho xe (VND)
+    public CancelBankMDDetailStatus Status { get; set; } = CancelBankMDDetailStatus.Pending; // Trạng thái xe
+    public string? Remark { get; set; }                          // Ghi chú chi tiết dòng xe
+}
+
+public sealed class CreateCancelBankMDDto
+{
+    public string DlrCtrNo { get; set; } = "";
+    public string DealerCode { get; set; } = "";
+    public string? DealerName { get; set; }
+    public string BankCodeMD { get; set; } = "";
+    public string? BankNameMD { get; set; }
+    public string? NewBankCodeMD { get; set; }
+    public string? NewBankNameMD { get; set; }
+    public GuaranteeType? GuaranteeType { get; set; }
+    public CancelBankMDReasonType? ReasonType { get; set; }
+    public string? ReasonDescription { get; set; }
+    public string? RemarkDlr { get; set; }
+    public string? CreatedBy { get; set; }
+    public List<CancelBankMDItemInputDto> Items { get; set; } = [];
+}
+
+public sealed class CancelBankMDItemInputDto
+{
+    public string VIN { get; set; } = "";
+    public string? CarId { get; set; }
+    public string ModelCode { get; set; } = "";
+    public string? ModelName { get; set; }
+    public string? SpecCode { get; set; }
+    public string? SpecDescription { get; set; }
+    public string? ColorExtNameVN { get; set; }
+    public string? EngineNo { get; set; }
+    public long UnitPrice { get; set; }
+    public long? GuaranteeAmount { get; set; }
+    public string? Remark { get; set; }
+}
+
+public sealed class ApproveCancelBankMDBankDto
+{
+    public string? ApproverName { get; set; } = "TruongPhongTinDung_NganHang";
+    public string? RemarkBank { get; set; }
+}
+
+public sealed class FinishCancelBankMDHTCDto
+{
+    public string? FinisherName { get; set; } = "TruongPhongQuanLyDaiLy_HTC";
+    public string? RemarkHTC { get; set; }
+}
+
+public sealed class RejectCancelBankMDDto
+{
+    public string Reason { get; set; } = "";
+    public string? RejecterName { get; set; }
+}
+
+public sealed class CancelBankMDUserCancelDto
+{
+    public string? Reason { get; set; }
+    public string? CancellerName { get; set; }
+}
+
+public sealed class CancelBankMDAdviceDto
+{
+    public string CancelBankMDNo { get; set; } = "";
+    public string DlrCtrNo { get; set; } = "";
+    public string PrintDate { get; set; } = "";
+    public string DealerCode { get; set; } = "";
+    public string DealerName { get; set; } = "";
+    public string BankCodeMD { get; set; } = "";
+    public string BankNameMD { get; set; } = "";
+    public string? NewBankNameMD { get; set; }
+    public string GuaranteeTypeText { get; set; } = "";
+    public string ReasonTypeText { get; set; } = "";
+    public string ReasonDescription { get; set; } = "";
+    public int TotalVehicles { get; set; }
+    public long ContractAmount { get; set; }
+    public long GuaranteeAmount { get; set; }
+    public string GuaranteeAmountInWords { get; set; } = "";
+    public string StatusText { get; set; } = "";
+    public string? RemarkDlr { get; set; }
+    public string? RemarkBank { get; set; }
+    public string? RemarkHTC { get; set; }
+    public string? ApproveBy { get; set; }
+    public string? ApproveDateTime { get; set; }
+    public string? FinishBy { get; set; }
+    public string? FinishDTime { get; set; }
+    public List<CancelBankMDDetailAdviceDto> Items { get; set; } = [];
+}
+
+public sealed class CancelBankMDDetailAdviceDto
+{
+    public int No { get; set; }
+    public string VIN { get; set; } = "";
+    public string ModelCode { get; set; } = "";
+    public string ModelName { get; set; } = "";
+    public string SpecCode { get; set; } = "";
+    public string EngineNo { get; set; } = "";
+    public string ColorExtNameVN { get; set; } = "";
+    public long UnitPrice { get; set; }
+    public long GuaranteeAmount { get; set; }
+    public string Status { get; set; } = "";
+}
+
+public sealed class CancelBankMDSummaryDto
+{
+    public int TotalRequests { get; set; }
+    public int PendingCount { get; set; }
+    public int BankApprovedCount { get; set; }
+    public int FinishedCount { get; set; }
+    public int RejectedCount { get; set; }
+    public int CancelledCount { get; set; }
+    public int TotalVehiclesRevoked { get; set; }
+    public long TotalGuaranteeAmountRevoked { get; set; }
+    public long TotalContractValueRevoked { get; set; }
+}
+
+public sealed class CandidateContractForCancelBankMDDto
+{
+    public string DlrCtrNo { get; set; } = "";
+    public string DealerCode { get; set; } = "";
+    public string DealerName { get; set; } = "";
+    public string BankCodeMD { get; set; } = "";
+    public string BankNameMD { get; set; } = "";
+    public string GuaranteeType { get; set; } = "Payment";
+    public long ContractAmount { get; set; }
+    public long GuaranteeAmount { get; set; }
+    public int VehicleCount { get; set; }
+    public List<CancelBankMDItemInputDto> CandidateVehicles { get; set; } = [];
 }
