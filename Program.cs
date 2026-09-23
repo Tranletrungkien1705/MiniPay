@@ -60,6 +60,7 @@ builder.Services.AddScoped<DealerContractService>();
 builder.Services.AddScoped<StorageRearrangeService>();
 builder.Services.AddScoped<TransportFeeVersionService>();
 builder.Services.AddScoped<TCGInvoiceService>();
+builder.Services.AddScoped<GuaranteeAttachFileService>();
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
     o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
@@ -1456,6 +1457,124 @@ app.MapPost("/api/guarantee/{id:long}/details/{detailId:long}/cancel", async (lo
 app.MapGet("/api/guarantee/summary", async (PaymentGuaranteeService grtService, ITenantContext tc) =>
 {
     var summary = await grtService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
+// ===== Quản lý File / Chứng từ Đính kèm Thư Bảo lãnh Thanh toán Ngân hàng (Pmt_GuaranteeAttachFile - BizHTC.TCFIntergration) =====
+
+// 1) Lấy danh sách file đính kèm của 1 thư bảo lãnh (theo GuaranteeNo)
+app.MapGet("/api/guarantee/{guaranteeNo}/files", async (string guaranteeNo, GuaranteeAttachFileService fileService, ITenantContext tc) =>
+{
+    var files = await fileService.GetFilesAsync(tc.OrgId, guaranteeNo);
+    return Results.Ok(new
+    {
+        guaranteeNo,
+        totalFiles = files.Count,
+        totalSizeInBytes = files.Sum(f => f.FileSizeInBytes),
+        files = files.Select(f => new
+        {
+            f.Id,
+            f.GuaranteeNo,
+            f.FileIndex,
+            f.GrtFilePath,
+            f.GrtFileName,
+            f.FileSizeInBytes,
+            f.GrtFileRemark,
+            f.LogLUBy,
+            f.LogLUDateTime
+        })
+    });
+});
+
+// 2) Lưu danh sách file đính kèm của 1 thư bảo lãnh (PaymentGuarantee_SaveFile)
+app.MapPost("/api/guarantee/{guaranteeNo}/files", async (string guaranteeNo, SaveGuaranteeFilesDto dto, GuaranteeAttachFileService fileService, ITenantContext tc) =>
+{
+    try
+    {
+        var result = await fileService.SaveFilesAsync(
+            tc.OrgId,
+            guaranteeNo,
+            dto.Items,
+            dto.IsHtcUser ?? true,
+            dto.UpdatedBy);
+
+        return Results.Ok(new
+        {
+            result.GuaranteeId,
+            result.GuaranteeNo,
+            result.TotalFiles,
+            result.AddedCount,
+            result.DeletedCount,
+            result.KeptCount,
+            result.TotalSizeInBytes,
+            result.AddedFileNames,
+            result.DeletedFileNames,
+            files = result.Files.Select(f => new
+            {
+                f.Id,
+                f.FileIndex,
+                f.GrtFilePath,
+                f.GrtFileName,
+                f.FileSizeInBytes,
+                f.GrtFileRemark,
+                f.LogLUBy,
+                f.LogLUDateTime
+            })
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 3) Lịch sử các lần lưu file đính kèm (Pmt_GuaranteeAttachFileHis)
+app.MapGet("/api/guarantee/{guaranteeNo}/files/history", async (string guaranteeNo, GuaranteeAttachFileService fileService, ITenantContext tc) =>
+{
+    var history = await fileService.GetHistoryAsync(tc.OrgId, guaranteeNo);
+    return Results.Ok(new
+    {
+        guaranteeNo,
+        totalRecords = history.Count,
+        history = history.Select(h => new
+        {
+            h.Id,
+            h.GuaranteeNo,
+            h.FileIndex,
+            h.GrtFilePath,
+            h.GrtFileName,
+            h.FileSizeInBytes,
+            h.GrtFileRemark,
+            h.LogLUBy,
+            h.LogLUDateTime
+        })
+    });
+});
+
+// 4) Kiểm tra file đính kèm tồn tại trên server (Pmt_GuaranteeAttachFileX_CheckFileExistServer)
+app.MapGet("/api/guarantee/{guaranteeNo}/files/check-exist", async (string guaranteeNo, string? rootPath, GuaranteeAttachFileService fileService, ITenantContext tc) =>
+{
+    var missing = await fileService.CheckFileExistAsync(tc.OrgId, guaranteeNo, rootPath);
+    return Results.Ok(new
+    {
+        guaranteeNo,
+        allExist = missing.Count == 0,
+        missingCount = missing.Count,
+        missingFiles = missing.Select(f => new { f.FileIndex, f.GrtFileName, f.GrtFilePath })
+    });
+});
+
+// 5) Xóa toàn bộ file đính kèm của 1 thư bảo lãnh
+app.MapDelete("/api/guarantee/{guaranteeNo}/files", async (string guaranteeNo, GuaranteeAttachFileService fileService, ITenantContext tc) =>
+{
+    var deleted = await fileService.DeleteAllAsync(tc.OrgId, guaranteeNo);
+    return Results.Ok(new { guaranteeNo, deletedCount = deleted });
+});
+
+// 6) Báo cáo tổng hợp file đính kèm thư bảo lãnh theo ngân hàng
+app.MapGet("/api/guarantee/files/summary", async (GuaranteeAttachFileService fileService, ITenantContext tc) =>
+{
+    var summary = await fileService.GetSummaryAsync(tc.OrgId);
     return Results.Ok(summary);
 });
 
@@ -8891,4 +9010,6 @@ record UpdateFnExpDetailsRequestDto(List<UpdateFnExpDetailItemDto>? Items);
 record ImportFnExpVehiclesDto(List<FinancialExpenseItemInputDto>? Items);
 
 record ApplyTransportFeeVersionDto(string? AppliedBy);
+
+record SaveGuaranteeFilesDto(List<GuaranteeAttachFileInputDto>? Items, bool? IsHtcUser, string? UpdatedBy);
 

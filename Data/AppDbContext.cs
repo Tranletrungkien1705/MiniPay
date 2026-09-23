@@ -78,6 +78,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<TransportFeeRate> TransportFeeRates => Set<TransportFeeRate>();
     public DbSet<TCGInvoice> TCGInvoices => Set<TCGInvoice>();
     public DbSet<TCGInvoiceDetail> TCGInvoiceDetails => Set<TCGInvoiceDetail>();
+    public DbSet<GuaranteeAttachFile> GuaranteeAttachFiles => Set<GuaranteeAttachFile>();
+    public DbSet<GuaranteeAttachFileHis> GuaranteeAttachFileHis => Set<GuaranteeAttachFileHis>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -456,5 +458,11 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<TCGInvoiceDetail>().HasIndex(x => x.TCGInvoiceId);
         b.Entity<TCGInvoiceDetail>().HasIndex(x => new { x.OrgId, x.VIN });
         b.Entity<TCGInvoiceDetail>().HasIndex(x => new { x.OrgId, x.TCGInvoiceCode });
+
+        b.Entity<GuaranteeAttachFile>().HasIndex(x => new { x.OrgId, x.GuaranteeNo, x.FileIndex }).IsUnique();
+        b.Entity<GuaranteeAttachFile>().HasIndex(x => x.GuaranteeId);
+        b.Entity<GuaranteeAttachFile>().HasIndex(x => new { x.OrgId, x.GuaranteeNo });
+
+        b.Entity<GuaranteeAttachFileHis>().HasIndex(x => new { x.OrgId, x.GuaranteeNo });
     }
 }

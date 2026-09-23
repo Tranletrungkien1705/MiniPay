@@ -4769,3 +4769,88 @@ public sealed class TCGInvoiceBrandStatDto
     public int VehicleCount { get; set; }
     public long TotalAmount { get; set; }
 }
+
+/// <summary>
+/// File / chứng từ đính kèm của Thư bảo lãnh thanh toán ngân hàng — tương ứng Pmt_GuaranteeAttachFile
+/// trong hệ nguồn 2010.HTC (BizHTC.TCFIntergration: PaymentGuarantee_SaveFile,
+/// Pmt_GuaranteeAttachFileX_CheckFileExistServer; màn hình FrmMngGrt / FrmNewGrt).
+///
+/// Nghiệp vụ: mỗi Thư bảo lãnh (GuaranteeNo) có nhiều file đính kèm (bản scan thư bảo lãnh,
+/// công văn xác nhận của ngân hàng, phụ lục...). File được đánh số thứ tự FileIndex và
+/// đặt tên theo quy ước {DealerCode}-{BankCode}-{BankGuaranteeNo}-{FileIndex}{ext}.
+/// </summary>
+public sealed class GuaranteeAttachFile
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public long GuaranteeId { get; set; }                     // FK tới PaymentGuarantee
+    public string GuaranteeNo { get; set; } = "";             // Số bảo lãnh hệ thống (GRT-...)
+    public int FileIndex { get; set; }                        // Số thứ tự file trong thư bảo lãnh (1,2,3...)
+    public string GrtFilePath { get; set; } = "";             // Đường dẫn file lưu trên server (GrtFilePath)
+    public string GrtFileName { get; set; } = "";             // Tên file (GrtFileName)
+    public long FileSizeInBytes { get; set; }                 // Kích thước file (bytes) — FileSizeInBytes
+    public string? GrtFileRemark { get; set; }                // Ghi chú / diễn giải file (GrtFileRemark)
+    public string? LogLUBy { get; set; }                      // Người cập nhật cuối (LogLUBy)
+    public DateTime LogLUDateTime { get; set; } = DateTime.Now; // Thời điểm cập nhật cuối (LogLUDateTime)
+}
+
+/// <summary>
+/// Lịch sử file đính kèm Thư bảo lãnh — tương ứng Pmt_GuaranteeAttachFileHis trong BizHTC.
+/// Mỗi lần lưu danh sách file (PaymentGuarantee_SaveFile) hệ thống ghi lại toàn bộ trạng thái
+/// file hiện hành vào bảng lịch sử để truy vết.
+/// </summary>
+public sealed class GuaranteeAttachFileHis
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string GuaranteeNo { get; set; } = "";             // Số bảo lãnh hệ thống
+    public int FileIndex { get; set; }                        // Số thứ tự file
+    public string GrtFilePath { get; set; } = "";             // Đường dẫn file
+    public string GrtFileName { get; set; } = "";             // Tên file
+    public long FileSizeInBytes { get; set; }                 // Kích thước file (bytes)
+    public string? GrtFileRemark { get; set; }                // Ghi chú file
+    public string? LogLUBy { get; set; }                      // Người cập nhật
+    public DateTime LogLUDateTime { get; set; } = DateTime.Now; // Thời điểm ghi lịch sử
+}
+
+/// <summary>DTO đầu vào 1 file đính kèm khi lưu danh sách file của thư bảo lãnh.</summary>
+public sealed class GuaranteeAttachFileInputDto
+{
+    public string GrtFilePath { get; set; } = "";
+    public string GrtFileName { get; set; } = "";
+    public long FileSizeInBytes { get; set; }
+    public string? GrtFileRemark { get; set; }
+}
+
+/// <summary>DTO kết quả lưu danh sách file đính kèm (thống kê thêm/xóa/giữ).</summary>
+public sealed class GuaranteeAttachFileSaveResultDto
+{
+    public long GuaranteeId { get; set; }
+    public string GuaranteeNo { get; set; } = "";
+    public int TotalFiles { get; set; }
+    public int AddedCount { get; set; }
+    public int DeletedCount { get; set; }
+    public int KeptCount { get; set; }
+    public long TotalSizeInBytes { get; set; }
+    public List<string> AddedFileNames { get; set; } = [];
+    public List<string> DeletedFileNames { get; set; } = [];
+    public List<GuaranteeAttachFile> Files { get; set; } = [];
+}
+
+/// <summary>DTO báo cáo tổng hợp file đính kèm thư bảo lãnh.</summary>
+public sealed class GuaranteeAttachFileSummaryDto
+{
+    public int TotalGuaranteesWithFiles { get; set; }
+    public int TotalFiles { get; set; }
+    public long TotalSizeInBytes { get; set; }
+    public int HistoryRecords { get; set; }
+    public List<GuaranteeAttachFileBankStatDto> ByBank { get; set; } = [];
+}
+
+public sealed class GuaranteeAttachFileBankStatDto
+{
+    public string BankCode { get; set; } = "";
+    public int GuaranteeCount { get; set; }
+    public int FileCount { get; set; }
+    public long TotalSizeInBytes { get; set; }
+}
