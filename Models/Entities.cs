@@ -129,6 +129,8 @@ public enum CancelBankMDDetailStatus { Pending = 0, Approved = 1, Finished = 2, 
 
 public enum BankDealerStatus { Active = 0, Inactive = 1 }
 
+public enum PaymentTermStatus { Active = 0, Inactive = 1 }
+
 /// <summary>Ý định thanh toán (payment intent) — 1 dòng / 1 lần khởi tạo cổng.</summary>
 public sealed class PaymentIntent
 {
