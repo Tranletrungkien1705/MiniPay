@@ -61,6 +61,7 @@ builder.Services.AddScoped<StorageRearrangeService>();
 builder.Services.AddScoped<TransportFeeVersionService>();
 builder.Services.AddScoped<TCGInvoiceService>();
 builder.Services.AddScoped<GuaranteeAttachFileService>();
+builder.Services.AddScoped<ReqInvoiceService>();
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
     o.SerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
@@ -1575,6 +1576,213 @@ app.MapDelete("/api/guarantee/{guaranteeNo}/files", async (string guaranteeNo, G
 app.MapGet("/api/guarantee/files/summary", async (GuaranteeAttachFileService fileService, ITenantContext tc) =>
 {
     var summary = await fileService.GetSummaryAsync(tc.OrgId);
+    return Results.Ok(summary);
+});
+
+// ===== Quản lý Đề nghị Xuất hóa đơn / Giao hồ sơ xe ô tô (RD_ReqInvoice - BizHTC / SalesService) =====
+
+// 1) Tra cứu danh sách đề nghị giao hồ sơ (RD_ReqInvoiceSearch / FrmMngRDInvoice)
+app.MapGet("/api/req-invoice", async (ReqInvoiceService svc, ITenantContext tc,
+    string? reqIVNo, string? vin, string? carId, string? dealerCode, string? typeRDReqIv, string? status,
+    DateTime? createdFrom, DateTime? createdTo) =>
+{
+    var list = await svc.GetListAsync(tc.OrgId, reqIVNo, vin, carId, dealerCode, typeRDReqIv, status, createdFrom, createdTo);
+    return Results.Ok(list.Select(r => new
+    {
+        r.Id,
+        r.ReqIVNo,
+        status = r.ReqIVStatus.ToString(),
+        r.Remark,
+        r.CreatedBy,
+        r.CreatedAt,
+        r.ApprovedBy,
+        r.ApprovedAt,
+        totalDetails = r.Details.Count,
+        approvedDetails = r.Details.Count(d => d.RDReqIvDtlStatus == RDReqIvDtlStatus.Approved),
+        pendingDetails = r.Details.Count(d => d.RDReqIvDtlStatus == RDReqIvDtlStatus.Pending),
+        details = r.Details.OrderBy(d => d.Id).Select(d => new
+        {
+            d.Id,
+            d.VIN,
+            d.CarId,
+            d.ModelCode,
+            d.ModelName,
+            d.ColorCode,
+            d.ColorName,
+            d.EngineNo,
+            typeRDReqIv = d.TypeRDReqIv.ToString(),
+            d.DealerCode,
+            d.DealerName,
+            d.MortageBankCode,
+            d.GuaranteeNo,
+            d.PGBankCode,
+            d.PGBankCodeMonitor,
+            d.PGDateExpired,
+            d.HTCInvoiceNo,
+            d.TCGInvoiceNo,
+            d.DlrCtrNo,
+            d.ProvinceName,
+            status = d.RDReqIvDtlStatus.ToString(),
+            d.Remark,
+            d.CreatedBy,
+            d.CreatedAt,
+            d.ApprovedBy,
+            d.ApprovedAt
+        })
+    }));
+});
+
+// 2) Chi tiết 1 đề nghị giao hồ sơ theo ID
+app.MapGet("/api/req-invoice/{id:long}", async (long id, ReqInvoiceService svc, ITenantContext tc) =>
+{
+    var r = await svc.GetByIdAsync(tc.OrgId, id);
+    if (r == null) return Results.NotFound(new { error = $"Không tìm thấy đề nghị giao hồ sơ #{id}." });
+    return Results.Ok(new
+    {
+        r.Id,
+        r.ReqIVNo,
+        status = r.ReqIVStatus.ToString(),
+        r.Remark,
+        r.CreatedBy,
+        r.CreatedAt,
+        r.ApprovedBy,
+        r.ApprovedAt,
+        details = r.Details.OrderBy(d => d.Id).Select(d => new
+        {
+            d.Id,
+            d.VIN,
+            d.CarId,
+            d.ModelCode,
+            d.ModelName,
+            d.ColorCode,
+            d.ColorName,
+            d.EngineNo,
+            typeRDReqIv = d.TypeRDReqIv.ToString(),
+            d.DealerCode,
+            d.DealerName,
+            d.MortageBankCode,
+            d.GuaranteeNo,
+            d.PGBankCode,
+            d.PGBankCodeMonitor,
+            d.PGDateExpired,
+            d.HTCInvoiceNo,
+            d.TCGInvoiceNo,
+            d.DlrCtrNo,
+            d.ProvinceName,
+            status = d.RDReqIvDtlStatus.ToString(),
+            d.Remark,
+            d.CreatedBy,
+            d.CreatedAt,
+            d.ApprovedBy,
+            d.ApprovedAt
+        })
+    });
+});
+
+// 3) Lập đề nghị giao hồ sơ mới (RD_ReqInvoiceCreate / FrmNewRDInvoice)
+app.MapPost("/api/req-invoice", async (CreateReqInvoiceDto dto, ReqInvoiceService svc, ITenantContext tc) =>
+{
+    if (dto.Items == null || dto.Items.Count == 0)
+        return Results.BadRequest(new { error = "Đề nghị giao hồ sơ phải có ít nhất 1 dòng xe." });
+    try
+    {
+        var r = await svc.CreateAsync(tc.OrgId, dto);
+        return Results.Ok(new
+        {
+            r.Id,
+            r.ReqIVNo,
+            status = r.ReqIVStatus.ToString(),
+            r.Remark,
+            r.CreatedBy,
+            r.CreatedAt,
+            totalDetails = r.Details.Count,
+            details = r.Details.Select(d => new
+            {
+                d.Id,
+                d.VIN,
+                d.CarId,
+                d.ModelName,
+                typeRDReqIv = d.TypeRDReqIv.ToString(),
+                d.DealerCode,
+                d.DealerName,
+                status = d.RDReqIvDtlStatus.ToString()
+            })
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 4) Duyệt 1 dòng chi tiết đề nghị giao hồ sơ (RD_ReqInvoiceDtlApprove)
+app.MapPost("/api/req-invoice/{id:long}/details/approve", async (long id, ApproveReqInvoiceDetailDto dto, ReqInvoiceService svc, ITenantContext tc) =>
+{
+    if (string.IsNullOrWhiteSpace(dto.VIN))
+        return Results.BadRequest(new { error = "Cần số khung (VIN) của dòng chi tiết cần duyệt." });
+    try
+    {
+        var r = await svc.ApproveDetailAsync(tc.OrgId, id, dto.VIN, dto.CarId, dto.ApprovedBy);
+        if (r == null) return Results.NotFound(new { error = $"Không tìm thấy đề nghị giao hồ sơ #{id}." });
+        return Results.Ok(new
+        {
+            r.Id,
+            r.ReqIVNo,
+            status = r.ReqIVStatus.ToString(),
+            r.ApprovedBy,
+            r.ApprovedAt,
+            approvedDetails = r.Details.Count(d => d.RDReqIvDtlStatus == RDReqIvDtlStatus.Approved),
+            pendingDetails = r.Details.Count(d => d.RDReqIvDtlStatus == RDReqIvDtlStatus.Pending)
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 5) Xóa 1 dòng chi tiết đề nghị giao hồ sơ (RD_ReqInvoiceDtlDelete)
+app.MapPost("/api/req-invoice/{id:long}/details/delete", async (long id, ApproveReqInvoiceDetailDto dto, ReqInvoiceService svc, ITenantContext tc) =>
+{
+    if (string.IsNullOrWhiteSpace(dto.VIN))
+        return Results.BadRequest(new { error = "Cần số khung (VIN) của dòng chi tiết cần xóa." });
+    try
+    {
+        var r = await svc.DeleteDetailAsync(tc.OrgId, id, dto.VIN, dto.CarId);
+        if (r == null) return Results.NotFound(new { error = $"Không tìm thấy đề nghị giao hồ sơ #{id}." });
+        return Results.Ok(new
+        {
+            r.Id,
+            r.ReqIVNo,
+            status = r.ReqIVStatus.ToString(),
+            totalDetails = r.Details.Count
+        });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 6) Xóa toàn bộ đề nghị giao hồ sơ (RD_ReqInvoiceDelete)
+app.MapDelete("/api/req-invoice/{id:long}", async (long id, ReqInvoiceService svc, ITenantContext tc) =>
+{
+    try
+    {
+        bool ok = await svc.DeleteAsync(tc.OrgId, id);
+        if (!ok) return Results.NotFound(new { error = $"Không tìm thấy đề nghị giao hồ sơ #{id}." });
+        return Results.Ok(new { deleted = true, id });
+    }
+    catch (Exception ex)
+    {
+        return Results.BadRequest(new { error = ex.Message });
+    }
+});
+
+// 7) Báo cáo tổng hợp đề nghị giao hồ sơ theo loại và theo đại lý
+app.MapGet("/api/req-invoice/summary", async (ReqInvoiceService svc, ITenantContext tc) =>
+{
+    var summary = await svc.GetSummaryAsync(tc.OrgId);
     return Results.Ok(summary);
 });
 

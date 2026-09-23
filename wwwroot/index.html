@@ -116,6 +116,7 @@
     <button class="tab-btn" onclick="showTab('dealerContract')">Hợp Đồng Mua Bán Xe Đại Lý (DMS40_CT_DealerContract)</button>
     <button class="tab-btn" onclick="showTab('transportFee')">Phiên Bản Cước Phí Vận Tải (Mst_TranspFeeVer)</button>
     <button class="tab-btn" onclick="showTab('tcgInvoice')">Hóa Đơn GTGT Nhà Máy TCG (VAT_TCGInvoice)</button>
+    <button class="tab-btn" onclick="showTab('reqInvoice')">Đề Nghị Xuất Hóa Đơn / Giao Hồ Sơ (RD_ReqInvoice)</button>
     <button class="tab-btn" onclick="showTab('newBatch')">+ Nạp Sao Kê Mới</button>
     <button class="tab-btn" onclick="showTab('newPayout')">+ Lập Lệnh Chi Mới</button>
     <button class="tab-btn" onclick="showTab('newDiscount')">+ Lập Đề Nghị Chiết Khấu</button>
@@ -6359,6 +6360,76 @@
     </div>
   </div>
 
+  <!-- TAB: Đề Nghị Xuất Hóa Đơn / Giao Hồ Sơ (RD_ReqInvoice / FrmMngRDInvoice) -->
+  <div id="tab-reqInvoice" style="display:none;">
+    <div class="card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <h3 style="margin:0;">Đề Nghị Xuất Hóa Đơn / Giao Hồ Sơ (RD_ReqInvoice)</h3>
+        <button class="secondary" onclick="loadReqInvoices(); loadReqInvoiceSummary();">Làm mới</button>
+      </div>
+      <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:12px;">
+        <input id="riFilterNo" placeholder="Số đề nghị (RDIV-...)" style="max-width:180px;" />
+        <input id="riFilterVin" placeholder="Số khung (VIN)" style="max-width:180px;" />
+        <input id="riFilterDealer" placeholder="Mã đại lý" style="max-width:160px;" />
+        <select id="riFilterType" style="max-width:170px;">
+          <option value="">-- Loại đề nghị --</option>
+          <option value="Dealer">Đại lý</option>
+          <option value="BankBL">Ngân hàng BL</option>
+          <option value="BankLC">Ngân hàng LC</option>
+          <option value="Bank">Ngân hàng</option>
+        </select>
+        <select id="riFilterStatus" style="max-width:160px;">
+          <option value="">-- Trạng thái --</option>
+          <option value="Pending">Đang xử lý</option>
+          <option value="Approved">Phê duyệt</option>
+          <option value="Cancelled">Hủy</option>
+        </select>
+        <button onclick="loadReqInvoices()">Tìm kiếm</button>
+      </div>
+      <div style="overflow-x:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Số Đề Nghị</th>
+              <th>Trạng Thái</th>
+              <th>Số Dòng Xe</th>
+              <th>Đã Duyệt</th>
+              <th>Chờ Duyệt</th>
+              <th>Người Lập</th>
+              <th>Ngày Lập</th>
+              <th>Ghi Chú</th>
+              <th>Hành Động</th>
+            </tr>
+          </thead>
+          <tbody id="tblReqInvoicesBody">
+            <tr><td colspan="9" style="text-align:center; padding:20px;" class="muted">Đang tải danh sách đề nghị giao hồ sơ...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Form lập đề nghị giao hồ sơ mới -->
+    <div class="card" style="margin-top:18px;">
+      <h3 style="margin-top:0;">Lập Đề Nghị Giao Hồ Sơ Mới</h3>
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px, 1fr)); gap:12px;">
+        <div><label>Số đề nghị (bỏ trống để tự sinh)</label><input id="riReqIVNo" placeholder="RDIV-202505-xxx" /></div>
+        <div><label>Người lập</label><input id="riCreatedBy" placeholder="ChuyenVienKinhDoanh" value="ChuyenVienKinhDoanh" /></div>
+        <div style="grid-column:1/-1;"><label>Ghi chú</label><input id="riRemark" placeholder="Ghi chú đề nghị..." /></div>
+      </div>
+      <div style="margin-top:14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <strong>Danh sách dòng xe</strong>
+          <button class="secondary" type="button" onclick="addReqInvoiceRow()" style="font-size:.85em;">+ Thêm Dòng Xe</button>
+        </div>
+        <div id="riRows" style="margin-top:8px; display:flex; flex-direction:column; gap:8px;"></div>
+      </div>
+      <div style="margin-top:14px;">
+        <span id="riCreateMsg" style="margin-right:12px; color:var(--primary); font-weight:500;"></span>
+        <button onclick="submitCreateReqInvoice()">Lập Đề Nghị Giao Hồ Sơ</button>
+      </div>
+    </div>
+  </div>
+
   <!-- TAB: Phiên Bản Cước Phí Vận Tải (Transport Fee Version - Mst_TranspFeeVer / Mst_TranspFee) -->
   <div id="tab-transportFee" style="display:none;">
     <div class="card">
@@ -7094,6 +7165,17 @@
   </div>
 
   <!-- Modal 1: Chi Tiết Hóa Đơn GTGT Bán Buôn & Quản Lý Dòng Xe (modalHtcInvoiceDetail) -->
+  <!-- Modal: Chi Tiết Đề Nghị Xuất Hóa Đơn / Giao Hồ Sơ (RD_ReqInvoice) -->
+  <div id="modalReqInvoiceDetail" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
+    <div style="max-width:1050px; margin:25px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
+      <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
+        <h2 style="margin:0; font-size:1.2em;">CHI TIẾT ĐỀ NGHỊ XUẤT HÓA ĐƠN / GIAO HỒ SƠ (RD_ReqInvoice)</h2>
+        <button class="secondary" onclick="closeReqInvoiceDetailModal()">Đóng [X]</button>
+      </div>
+      <div id="riDetailContent" style="margin-top:16px;"></div>
+    </div>
+  </div>
+
   <div id="modalHtcInvoiceDetail" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,.75); z-index:9999; overflow-y:auto; padding:20px;">
     <div style="max-width:1050px; margin:25px auto; background:var(--surface); border:1px solid var(--border); border-radius:8px; padding:24px; box-shadow:0 10px 25px rgba(0,0,0,.5);">
       <div style="display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--border); padding-bottom:10px;">
@@ -7704,6 +7786,16 @@
         <li><code>POST /api/calendar/reset-year</code> — Sinh lại toàn bộ lịch 1 năm theo trạng thái mặc định từng thứ trong tuần (Mst_Calendar_ResetYear)</li>
         <li><code>POST /api/calendar/update-status</code> — Đổi trạng thái 1 ngày (đánh dấu nghỉ/lễ hoặc làm việc) (Mst_Calendar_UpdateStatusValue)</li>
       </ul>
+      <h3>Nghiệp Vụ Đề Nghị Xuất Hóa Đơn / Giao Hồ Sơ Xe Ô Tô (RD_ReqInvoice / FrmMngRDInvoice / SalesService)</h3>
+      <ul>
+        <li><code>POST /api/req-invoice</code> — Lập đề nghị giao hồ sơ (hóa đơn GTGT + chứng từ gốc) cho đại lý / ngân hàng theo từng xe (RD_ReqInvoiceCreate)</li>
+        <li><code>GET /api/req-invoice</code> — Danh sách đề nghị giao hồ sơ (hỗ trợ lọc theo <code>reqIVNo</code>, <code>vin</code>, <code>carId</code>, <code>dealerCode</code>, <code>typeRDReqIv</code>, <code>status</code>, <code>createdFrom</code>, <code>createdTo</code>) (RD_ReqInvoiceSearch)</li>
+        <li><code>GET /api/req-invoice/{id}</code> — Chi tiết 1 đề nghị giao hồ sơ kèm toàn bộ dòng xe</li>
+        <li><code>POST /api/req-invoice/{id}/details/approve</code> — Duyệt 1 dòng chi tiết xe (RD_ReqInvoiceDtlApprove)</li>
+        <li><code>POST /api/req-invoice/{id}/details/delete</code> — Xóa 1 dòng chi tiết xe chưa duyệt (RD_ReqInvoiceDtlDelete)</li>
+        <li><code>DELETE /api/req-invoice/{id}</code> — Xóa toàn bộ đề nghị giao hồ sơ chưa duyệt (RD_ReqInvoiceDelete)</li>
+        <li><code>GET /api/req-invoice/summary</code> — Báo cáo tổng hợp đề nghị giao hồ sơ theo loại và theo đại lý</li>
+      </ul>
     </div>
   </div>
 
@@ -7743,6 +7835,7 @@
       document.getElementById('tab-calendar').style.display = tabName === 'calendar' ? 'block' : 'none';
       document.getElementById('tab-dealerContract').style.display = tabName === 'dealerContract' ? 'block' : 'none';
       document.getElementById('tab-tcgInvoice').style.display = tabName === 'tcgInvoice' ? 'block' : 'none';
+      document.getElementById('tab-reqInvoice').style.display = tabName === 'reqInvoice' ? 'block' : 'none';
       document.getElementById('tab-newBatch').style.display = tabName === 'newBatch' ? 'block' : 'none';
       document.getElementById('tab-newPayout').style.display = tabName === 'newPayout' ? 'block' : 'none';
       document.getElementById('tab-newDiscount').style.display = tabName === 'newDiscount' ? 'block' : 'none';
@@ -7811,6 +7904,7 @@
       else if (tabName === 'calendar') { loadCalendar(); loadCalendarSummary(); }
       else if (tabName === 'dealerContract') { loadDealerContracts(); loadDealerContractSummary(); }
       else if (tabName === 'transportFee') { loadTransportFeeVersions(); loadTransportFeeSummary(); }
+      else if (tabName === 'reqInvoice') { loadReqInvoices(); loadReqInvoiceSummary(); }
       else if (tabName === 'tcgInvoice') { loadTcgInvoices(); loadTcgInvoiceSummary(); }
       else if (tabName === 'newHtcInvoice') { loadSampleHtcInvoiceFormData(); }
     }
@@ -19671,6 +19765,197 @@
         if (!res.ok) { const d = await res.json(); alert(d.error || 'Lỗi xóa.'); return; }
         loadBankDealers(); loadBankDealerSummary();
       } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    // ===== TAB: ĐỀ NGHỊ XUẤT HÓA ĐƠN / GIAO HỒ SƠ (RD_ReqInvoice) =====
+    function addReqInvoiceRow() {
+      const wrap = document.getElementById('riRows');
+      if (!wrap) return;
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex; gap:8px; align-items:center; flex-wrap:wrap; border:1px solid var(--border); border-radius:6px; padding:8px;';
+      row.innerHTML = `
+        <input class="ri-vin" placeholder="VIN *" style="max-width:180px;" />
+        <input class="ri-carid" placeholder="Mã xe (CarId)" style="max-width:130px;" />
+        <input class="ri-model" placeholder="Model (SANTAFE...)" style="max-width:150px;" />
+        <input class="ri-modelname" placeholder="Tên model" style="max-width:150px;" />
+        <input class="ri-engine" placeholder="Số máy" style="max-width:120px;" />
+        <select class="ri-type" style="max-width:150px;">
+          <option value="Dealer">Đại lý</option>
+          <option value="BankBL">Ngân hàng BL</option>
+          <option value="BankLC">Ngân hàng LC</option>
+          <option value="Bank">Ngân hàng</option>
+        </select>
+        <input class="ri-dealer" placeholder="Mã đại lý" style="max-width:150px;" />
+        <input class="ri-dealername" placeholder="Tên đại lý" style="max-width:180px;" />
+        <input class="ri-bank" placeholder="Mã NH bảo lãnh" style="max-width:130px;" />
+        <input class="ri-grtno" placeholder="Số thư BL" style="max-width:140px;" />
+        <input class="ri-htcinv" placeholder="Số HĐ HTC" style="max-width:120px;" />
+        <button class="secondary" onclick="this.parentElement.remove()">Xóa</button>`;
+      wrap.appendChild(row);
+    }
+
+    async function loadReqInvoices() {
+      const body = document.getElementById('tblReqInvoicesBody');
+      if (!body) return;
+      body.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px;" class="muted">Đang tải...</td></tr>';
+      try {
+        const params = new URLSearchParams();
+        const no = document.getElementById('riFilterNo')?.value?.trim();
+        const vin = document.getElementById('riFilterVin')?.value?.trim();
+        const dealer = document.getElementById('riFilterDealer')?.value?.trim();
+        const type = document.getElementById('riFilterType')?.value;
+        const status = document.getElementById('riFilterStatus')?.value;
+        if (no) params.set('reqIVNo', no);
+        if (vin) params.set('vin', vin);
+        if (dealer) params.set('dealerCode', dealer);
+        if (type) params.set('typeRDReqIv', type);
+        if (status) params.set('status', status);
+        const res = await fetch('/api/req-invoice?' + params.toString(), { headers });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const list = await res.json();
+        if (!list.length) {
+          body.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px;" class="muted">Chưa có đề nghị giao hồ sơ.</td></tr>';
+          return;
+        }
+        const stMap = { Pending: '<span style="color:orange;">Đang xử lý</span>', Approved: '<span style="color:green;">Phê duyệt</span>', Cancelled: '<span class="muted">Hủy</span>' };
+        body.innerHTML = list.map(x => `
+          <tr>
+            <td><strong>${x.reqIVNo || ''}</strong></td>
+            <td>${stMap[x.status] || x.status}</td>
+            <td>${x.totalDetails}</td>
+            <td>${x.approvedDetails}</td>
+            <td>${x.pendingDetails}</td>
+            <td>${x.createdBy || ''}</td>
+            <td>${x.createdAt ? new Date(x.createdAt).toLocaleDateString('vi-VN') : ''}</td>
+            <td>${x.remark || ''}</td>
+            <td>
+              <button class="secondary" onclick="viewReqInvoice(${x.id})">Chi tiết</button>
+              <button class="secondary" onclick="deleteReqInvoice(${x.id})">Xóa</button>
+            </td>
+          </tr>`).join('');
+      } catch (e) {
+        body.innerHTML = '<tr><td colspan="9" style="text-align:center; padding:20px; color:red;">Lỗi tải dữ liệu: ' + e.message + '</td></tr>';
+      }
+    }
+
+    async function loadReqInvoiceSummary() {
+      try {
+        const res = await fetch('/api/req-invoice/summary', { headers });
+        if (!res.ok) return;
+        const d = await res.json();
+        document.getElementById('statLabel1').textContent = 'Tổng đề nghị giao hồ sơ';
+        document.getElementById('stat1').textContent = d.totalRequests;
+        document.getElementById('statLabel2').textContent = 'Tổng dòng xe';
+        document.getElementById('stat2').textContent = d.totalDetails;
+        document.getElementById('statLabel3').textContent = 'Dòng đã duyệt / chờ duyệt';
+        document.getElementById('stat3').textContent = d.approvedDetails + ' / ' + d.pendingDetails;
+        document.getElementById('statLabel4').textContent = 'Số đại lý';
+        document.getElementById('stat4').textContent = (d.byDealer || []).length;
+      } catch (e) { console.error(e); }
+    }
+
+    async function viewReqInvoice(id) {
+      try {
+        const res = await fetch('/api/req-invoice/' + id, { headers });
+        if (!res.ok) { alert('Không tải được chi tiết.'); return; }
+        const r = await res.json();
+        const stMap = { Pending: 'Đang xử lý', Approved: 'Phê duyệt', Cancelled: 'Hủy' };
+        const typeMap = { Dealer: 'Đại lý', BankBL: 'Ngân hàng BL', BankLC: 'Ngân hàng LC', Bank: 'Ngân hàng' };
+        let html = `<h3>Đề nghị ${r.reqIVNo} — ${stMap[r.status] || r.status}</h3>`;
+        html += `<p class="muted">Người lập: ${r.createdBy || ''} | Ngày lập: ${r.createdAt ? new Date(r.createdAt).toLocaleDateString('vi-VN') : ''} | Ghi chú: ${r.remark || ''}</p>`;
+        html += '<table><thead><tr><th>VIN</th><th>Model</th><th>Loại</th><th>Đại lý</th><th>NH BL</th><th>Số thư BL</th><th>Trạng thái</th><th>Hành động</th></tr></thead><tbody>';
+        (r.details || []).forEach(d => {
+          const canApprove = d.status === 'Pending';
+          html += `<tr>
+            <td>${d.vin || ''}</td>
+            <td>${d.modelName || d.modelCode || ''}</td>
+            <td>${typeMap[d.typeRDReqIv] || d.typeRDReqIv}</td>
+            <td>${d.dealerCode || ''}</td>
+            <td>${d.pgBankCode || ''}</td>
+            <td>${d.guaranteeNo || ''}</td>
+            <td>${stMap[d.status] || d.status}</td>
+            <td>${canApprove ? `<button class="secondary" onclick="approveReqInvoiceDetail(${r.id}, '${d.vin}', '${d.carId || ''}')">Duyệt</button> <button class="secondary" onclick="deleteReqInvoiceDetail(${r.id}, '${d.vin}', '${d.carId || ''}')">Xóa dòng</button>` : '—'}</td>
+          </tr>`;
+        });
+        html += '</tbody></table>';
+        document.getElementById('riDetailContent').innerHTML = html;
+        document.getElementById('modalReqInvoiceDetail').style.display = 'block';
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    function closeReqInvoiceDetailModal() {
+      document.getElementById('modalReqInvoiceDetail').style.display = 'none';
+    }
+
+    async function approveReqInvoiceDetail(id, vin, carId) {
+      if (!confirm('Duyệt dòng xe VIN ' + vin + '?')) return;
+      try {
+        const res = await fetch('/api/req-invoice/' + id + '/details/approve', {
+          method: 'POST', headers,
+          body: JSON.stringify({ vin: vin, carId: carId || null, approvedBy: 'KeToan_HTC' })
+        });
+        const d = await res.json();
+        if (!res.ok) { alert(d.error || 'Lỗi duyệt.'); return; }
+        viewReqInvoice(id); loadReqInvoices(); loadReqInvoiceSummary();
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function deleteReqInvoiceDetail(id, vin, carId) {
+      if (!confirm('Xóa dòng xe VIN ' + vin + '?')) return;
+      try {
+        const res = await fetch('/api/req-invoice/' + id + '/details/delete', {
+          method: 'POST', headers,
+          body: JSON.stringify({ vin: vin, carId: carId || null })
+        });
+        const d = await res.json();
+        if (!res.ok) { alert(d.error || 'Lỗi xóa dòng.'); return; }
+        viewReqInvoice(id); loadReqInvoices(); loadReqInvoiceSummary();
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function deleteReqInvoice(id) {
+      if (!confirm('Xóa toàn bộ đề nghị giao hồ sơ #' + id + '?')) return;
+      try {
+        const res = await fetch('/api/req-invoice/' + id, { method: 'DELETE', headers });
+        if (!res.ok) { const d = await res.json(); alert(d.error || 'Lỗi xóa.'); return; }
+        loadReqInvoices(); loadReqInvoiceSummary();
+      } catch (e) { alert('Lỗi: ' + e.message); }
+    }
+
+    async function submitCreateReqInvoice() {
+      const msg = document.getElementById('riCreateMsg');
+      msg.textContent = '';
+      const rows = Array.from(document.querySelectorAll('#riRows > div'));
+      const items = rows.map(row => ({
+        vin: row.querySelector('.ri-vin').value.trim(),
+        carId: row.querySelector('.ri-carid').value.trim() || null,
+        modelCode: row.querySelector('.ri-model').value.trim() || null,
+        modelName: row.querySelector('.ri-modelname').value.trim() || null,
+        engineNo: row.querySelector('.ri-engine').value.trim() || null,
+        typeRDReqIv: row.querySelector('.ri-type').value,
+        dealerCode: row.querySelector('.ri-dealer').value.trim() || null,
+        dealerName: row.querySelector('.ri-dealername').value.trim() || null,
+        pgBankCode: row.querySelector('.ri-bank').value.trim() || null,
+        guaranteeNo: row.querySelector('.ri-grtno').value.trim() || null,
+        htcInvoiceNo: row.querySelector('.ri-htcinv').value.trim() || null
+      })).filter(x => x.vin);
+      if (!items.length) { msg.style.color = 'red'; msg.textContent = 'Cần ít nhất 1 dòng xe có số khung (VIN).'; return; }
+      const payload = {
+        reqIVNo: document.getElementById('riReqIVNo').value.trim() || null,
+        remark: document.getElementById('riRemark').value.trim() || null,
+        createdBy: document.getElementById('riCreatedBy').value.trim() || 'ChuyenVienKinhDoanh',
+        items: items
+      };
+      try {
+        const res = await fetch('/api/req-invoice', { method: 'POST', headers, body: JSON.stringify(payload) });
+        const d = await res.json();
+        if (!res.ok) { msg.style.color = 'red'; msg.textContent = d.error || 'Lỗi lập đề nghị.'; return; }
+        msg.style.color = 'green'; msg.textContent = 'Đã lập đề nghị ' + d.reqIVNo + ' thành công.';
+        document.getElementById('riReqIVNo').value = '';
+        document.getElementById('riRemark').value = '';
+        document.getElementById('riRows').innerHTML = '';
+        loadReqInvoices(); loadReqInvoiceSummary();
+      } catch (e) { msg.style.color = 'red'; msg.textContent = 'Lỗi: ' + e.message; }
     }
 
     // ===== TAB: PHIÊN BẢN CƯỚC PHÍ VẬN TẢI (Mst_TranspFeeVer / Mst_TranspFee) =====

@@ -4854,3 +4854,164 @@ public sealed class GuaranteeAttachFileBankStatDto
     public int FileCount { get; set; }
     public long TotalSizeInBytes { get; set; }
 }
+
+// =====================================================================================
+// Đề nghị xuất hóa đơn / giao hồ sơ (RD_ReqInvoice) — port từ hệ nguồn 2010.HTC
+// (TERP.HTCClient/DbServices/SalesService.cs: RD_ReqInvoiceCreate, RD_ReqInvoiceSearch,
+//  RD_ReqInvoiceDtlApprove, RD_ReqInvoiceDtlDelete, RD_ReqInvoiceDelete, GetReqIVNo;
+//  TERP.BizHTC/BizHTC.zzzzCode.cs: RD_ReqInvoiceCreate, RD_ReqInvoiceDtlApprove,
+//  RD_ReqInvoiceDtlDelete, RD_ReqInvoiceDelete;
+//  màn hình FrmMngRDInvoice, FrmNewRDInvoice, FrmPrintRDInvoice trong Views/Sales/Redeem).
+// =====================================================================================
+
+/// <summary>Loại đề nghị giao hồ sơ / xuất hóa đơn (RDInvoiceType trong TERP.Constants).</summary>
+public enum RDInvoiceType
+{
+    Dealer = 0,   // DEALER  — Đại lý
+    Bank = 1,     // BANK    — Ngân hàng
+    BankBL = 2,   // BANKBL  — Ngân hàng bảo lãnh
+    BankLC = 3    // BANKLC  — Ngân hàng L/C
+}
+
+/// <summary>Trạng thái dòng chi tiết đề nghị giao hồ sơ (Stage: P/A/C).</summary>
+public enum RDReqIvDtlStatus
+{
+    Pending = 0,   // P — Đang xử lý
+    Approved = 1,  // A — Phê duyệt
+    Cancelled = 2  // C — Hủy
+}
+
+/// <summary>Trạng thái tổng thể đề nghị giao hồ sơ (ReqIVStatus).</summary>
+public enum ReqIVStatus
+{
+    Pending = 0,   // P — Đang xử lý
+    Approved = 1,  // A — Phê duyệt
+    Cancelled = 2  // C — Hủy
+}
+
+/// <summary>
+/// Đề nghị xuất hóa đơn / giao hồ sơ xe ô tô — tương ứng bảng RD_ReqInvoice trong hệ nguồn 2010.HTC.
+/// Nghiệp vụ: HTC lập đề nghị giao hồ sơ (hóa đơn GTGT, chứng từ gốc) cho đại lý hoặc ngân hàng
+/// (bảo lãnh / L/C) theo từng xe (VIN). Mỗi đề nghị gồm nhiều dòng chi tiết xe, mỗi dòng được
+/// duyệt riêng (RD_ReqInvoiceDtlApprove) khi đủ điều kiện.
+/// </summary>
+public sealed class ReqInvoice
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string ReqIVNo { get; set; } = "";                 // Số đề nghị giao hồ sơ (ReqIVNo) — RDIV-yyyyMM-xxx
+    public ReqIVStatus ReqIVStatus { get; set; } = ReqIVStatus.Pending; // Trạng thái tổng thể
+    public string? Remark { get; set; }                       // Ghi chú (Remark)
+    public string? CreatedBy { get; set; }                    // Người lập (CreatedBy)
+    public DateTime CreatedAt { get; set; } = DateTime.Now;   // Ngày lập (CreatedDate)
+    public string? ApprovedBy { get; set; }                   // Người duyệt (ApprovedBy)
+    public DateTime? ApprovedAt { get; set; }                 // Ngày duyệt (ApprovedDate)
+
+    public List<ReqInvoiceDetail> Details { get; set; } = [];
+}
+
+/// <summary>
+/// Dòng chi tiết đề nghị giao hồ sơ — tương ứng bảng RD_ReqInvoiceDtl trong hệ nguồn 2010.HTC.
+/// Mỗi dòng gắn với 1 xe (VIN/CarId), 1 đại lý và 1 loại đề nghị (đại lý / ngân hàng BL / ngân hàng LC).
+/// </summary>
+public sealed class ReqInvoiceDetail
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public long ReqInvoiceId { get; set; }                    // FK tới ReqInvoice
+    public string ReqIVNo { get; set; } = "";                 // Số đề nghị giao hồ sơ
+    public string VIN { get; set; } = "";                     // Số khung xe (VIN)
+    public string? CarId { get; set; }                        // Mã xe (CarId)
+    public string? ModelCode { get; set; }                    // Mã model
+    public string? ModelName { get; set; }                    // Tên model
+    public string? ColorCode { get; set; }                    // Mã màu
+    public string? ColorName { get; set; }                    // Tên màu
+    public string? EngineNo { get; set; }                     // Số máy (EngineNo)
+    public RDInvoiceType TypeRDReqIv { get; set; } = RDInvoiceType.Dealer; // Loại đề nghị giao hồ sơ
+    public string? DealerCode { get; set; }                   // Mã đại lý (DealerCode)
+    public string? DealerName { get; set; }                   // Tên đại lý (DealerName)
+    public string? MortageBankCode { get; set; }              // Mã ngân hàng thế chấp (MortageBankCode)
+    public string? GuaranteeNo { get; set; }                  // Số thư bảo lãnh (GuaranteeNo)
+    public string? PGBankCode { get; set; }                   // Mã ngân hàng bảo lãnh (PGBankCode)
+    public string? PGBankCodeMonitor { get; set; }            // Mã ngân hàng giám sát (PGBankCodeMonitor)
+    public DateTime? PGDateExpired { get; set; }              // Ngày hết hạn bảo lãnh (PGDateExpired)
+    public string? HTCInvoiceNo { get; set; }                 // Số hóa đơn GTGT HTC (HTCInvoiceNo)
+    public string? TCGInvoiceNo { get; set; }                 // Số hóa đơn GTGT TCG (TCGInvoiceNo)
+    public string? DlrCtrNo { get; set; }                     // Số phụ lục hợp đồng đại lý (DlrCtrNo)
+    public string? ProvinceName { get; set; }                 // Tỉnh/Thành (ProvinceName)
+    public RDReqIvDtlStatus RDReqIvDtlStatus { get; set; } = RDReqIvDtlStatus.Pending; // Trạng thái dòng
+    public string? Remark { get; set; }                       // Ghi chú dòng
+    public string? CreatedBy { get; set; }                    // Người tạo dòng
+    public DateTime CreatedAt { get; set; } = DateTime.Now;   // Ngày tạo dòng
+    public string? ApprovedBy { get; set; }                   // Người duyệt dòng
+    public DateTime? ApprovedAt { get; set; }                 // Ngày duyệt dòng
+}
+
+/// <summary>DTO đầu vào 1 dòng xe khi lập đề nghị giao hồ sơ.</summary>
+public sealed class ReqInvoiceItemInputDto
+{
+    public string VIN { get; set; } = "";
+    public string? CarId { get; set; }
+    public string? ModelCode { get; set; }
+    public string? ModelName { get; set; }
+    public string? ColorCode { get; set; }
+    public string? ColorName { get; set; }
+    public string? EngineNo { get; set; }
+    public RDInvoiceType TypeRDReqIv { get; set; } = RDInvoiceType.Dealer;
+    public string? DealerCode { get; set; }
+    public string? DealerName { get; set; }
+    public string? MortageBankCode { get; set; }
+    public string? GuaranteeNo { get; set; }
+    public string? PGBankCode { get; set; }
+    public string? PGBankCodeMonitor { get; set; }
+    public DateTime? PGDateExpired { get; set; }
+    public string? HTCInvoiceNo { get; set; }
+    public string? TCGInvoiceNo { get; set; }
+    public string? DlrCtrNo { get; set; }
+    public string? ProvinceName { get; set; }
+    public string? Remark { get; set; }
+}
+
+/// <summary>DTO lập đề nghị giao hồ sơ mới (RD_ReqInvoiceCreate).</summary>
+public sealed class CreateReqInvoiceDto
+{
+    public string? ReqIVNo { get; set; }                      // Bỏ trống để tự sinh RDIV-yyyyMM-xxx
+    public string? Remark { get; set; }
+    public string? CreatedBy { get; set; }
+    public List<ReqInvoiceItemInputDto> Items { get; set; } = [];
+}
+
+/// <summary>DTO duyệt 1 dòng chi tiết đề nghị giao hồ sơ (RD_ReqInvoiceDtlApprove).</summary>
+public sealed class ApproveReqInvoiceDetailDto
+{
+    public string VIN { get; set; } = "";
+    public string? CarId { get; set; }
+    public string? ApprovedBy { get; set; }
+}
+
+/// <summary>DTO báo cáo tổng hợp đề nghị giao hồ sơ.</summary>
+public sealed class ReqInvoiceSummaryDto
+{
+    public int TotalRequests { get; set; }
+    public int TotalDetails { get; set; }
+    public int PendingDetails { get; set; }
+    public int ApprovedDetails { get; set; }
+    public int CancelledDetails { get; set; }
+    public List<ReqInvoiceTypeStatDto> ByType { get; set; } = [];
+    public List<ReqInvoiceDealerStatDto> ByDealer { get; set; } = [];
+}
+
+public sealed class ReqInvoiceTypeStatDto
+{
+    public string TypeRDReqIv { get; set; } = "";
+    public int DetailCount { get; set; }
+    public int ApprovedCount { get; set; }
+}
+
+public sealed class ReqInvoiceDealerStatDto
+{
+    public string DealerCode { get; set; } = "";
+    public string DealerName { get; set; } = "";
+    public int DetailCount { get; set; }
+    public int ApprovedCount { get; set; }
+}

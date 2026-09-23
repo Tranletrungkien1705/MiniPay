@@ -80,6 +80,8 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<TCGInvoiceDetail> TCGInvoiceDetails => Set<TCGInvoiceDetail>();
     public DbSet<GuaranteeAttachFile> GuaranteeAttachFiles => Set<GuaranteeAttachFile>();
     public DbSet<GuaranteeAttachFileHis> GuaranteeAttachFileHis => Set<GuaranteeAttachFileHis>();
+    public DbSet<ReqInvoice> ReqInvoices => Set<ReqInvoice>();
+    public DbSet<ReqInvoiceDetail> ReqInvoiceDetails => Set<ReqInvoiceDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -464,5 +466,15 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<GuaranteeAttachFile>().HasIndex(x => new { x.OrgId, x.GuaranteeNo });
 
         b.Entity<GuaranteeAttachFileHis>().HasIndex(x => new { x.OrgId, x.GuaranteeNo });
+
+        b.Entity<ReqInvoice>().HasIndex(x => new { x.OrgId, x.ReqIVNo }).IsUnique();
+        b.Entity<ReqInvoice>().Property(x => x.ReqIVStatus).HasConversion<int>();
+        b.Entity<ReqInvoice>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.ReqInvoiceId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<ReqInvoiceDetail>().Property(x => x.TypeRDReqIv).HasConversion<int>();
+        b.Entity<ReqInvoiceDetail>().Property(x => x.RDReqIvDtlStatus).HasConversion<int>();
+        b.Entity<ReqInvoiceDetail>().HasIndex(x => x.ReqInvoiceId);
+        b.Entity<ReqInvoiceDetail>().HasIndex(x => new { x.OrgId, x.VIN });
+        b.Entity<ReqInvoiceDetail>().HasIndex(x => new { x.OrgId, x.ReqIVNo });
     }
 }
