@@ -82,6 +82,13 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
     public DbSet<GuaranteeAttachFileHis> GuaranteeAttachFileHis => Set<GuaranteeAttachFileHis>();
     public DbSet<ReqInvoice> ReqInvoices => Set<ReqInvoice>();
     public DbSet<ReqInvoiceDetail> ReqInvoiceDetails => Set<ReqInvoiceDetail>();
+    public DbSet<BankTransRequest> BankTransRequests => Set<BankTransRequest>();
+    public DbSet<BankTransPayment> BankTransPayments => Set<BankTransPayment>();
+    public DbSet<BankTransPaymentDetail> BankTransPaymentDetails => Set<BankTransPaymentDetail>();
+    public DbSet<BankTransGuarantee> BankTransGuarantees => Set<BankTransGuarantee>();
+    public DbSet<BankTransGuaranteeDetail> BankTransGuaranteeDetails => Set<BankTransGuaranteeDetail>();
+    public DbSet<BankTransLC> BankTransLCs => Set<BankTransLC>();
+    public DbSet<BankTransLCDetail> BankTransLCDetails => Set<BankTransLCDetail>();
 
     protected override void OnModelCreating(ModelBuilder b)
     {
@@ -476,5 +483,44 @@ public sealed class AppDbContext(DbContextOptions<AppDbContext> opt) : DbContext
         b.Entity<ReqInvoiceDetail>().HasIndex(x => x.ReqInvoiceId);
         b.Entity<ReqInvoiceDetail>().HasIndex(x => new { x.OrgId, x.VIN });
         b.Entity<ReqInvoiceDetail>().HasIndex(x => new { x.OrgId, x.ReqIVNo });
+
+        b.Entity<BankTransRequest>().HasIndex(x => new { x.OrgId, x.RQBankingTransNo }).IsUnique();
+        b.Entity<BankTransRequest>().HasIndex(x => new { x.OrgId, x.BankCode });
+        b.Entity<BankTransRequest>().HasIndex(x => new { x.OrgId, x.DealerCode });
+        b.Entity<BankTransRequest>().Property(x => x.BkTransStatus).HasConversion<int>();
+        b.Entity<BankTransRequest>().Property(x => x.BkTransBankStatus).HasConversion<int>();
+        b.Entity<BankTransRequest>().HasMany(x => x.Payments).WithOne().HasForeignKey(x => x.RequestId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<BankTransRequest>().HasMany(x => x.Guarantees).WithOne().HasForeignKey(x => x.RequestId).OnDelete(DeleteBehavior.Cascade);
+        b.Entity<BankTransRequest>().HasMany(x => x.LCs).WithOne().HasForeignKey(x => x.RequestId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<BankTransPayment>().Property(x => x.BkTransType).HasConversion<int>();
+        b.Entity<BankTransPayment>().Property(x => x.DisbursementKind).HasConversion<int>();
+        b.Entity<BankTransPayment>().Property(x => x.BkTransPmtStatus).HasConversion<int>();
+        b.Entity<BankTransPayment>().HasIndex(x => x.RequestId);
+        b.Entity<BankTransPayment>().HasIndex(x => new { x.OrgId, x.RQBankingTransNo });
+        b.Entity<BankTransPayment>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.PaymentId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<BankTransPaymentDetail>().Property(x => x.BkTransPmtDtlStatus).HasConversion<int>();
+        b.Entity<BankTransPaymentDetail>().HasIndex(x => x.PaymentId);
+        b.Entity<BankTransPaymentDetail>().HasIndex(x => new { x.OrgId, x.VIN });
+
+        b.Entity<BankTransGuarantee>().Property(x => x.BkTransType).HasConversion<int>();
+        b.Entity<BankTransGuarantee>().Property(x => x.BkTransGrtStatus).HasConversion<int>();
+        b.Entity<BankTransGuarantee>().HasIndex(x => x.RequestId);
+        b.Entity<BankTransGuarantee>().HasIndex(x => new { x.OrgId, x.RQBankingTransNo });
+        b.Entity<BankTransGuarantee>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.GuaranteeId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<BankTransGuaranteeDetail>().Property(x => x.BKTranGrtDtlStatus).HasConversion<int>();
+        b.Entity<BankTransGuaranteeDetail>().HasIndex(x => x.GuaranteeId);
+        b.Entity<BankTransGuaranteeDetail>().HasIndex(x => new { x.OrgId, x.VIN });
+
+        b.Entity<BankTransLC>().Property(x => x.BkTransType).HasConversion<int>();
+        b.Entity<BankTransLC>().Property(x => x.BkTransPmtLCStatus).HasConversion<int>();
+        b.Entity<BankTransLC>().HasIndex(x => x.RequestId);
+        b.Entity<BankTransLC>().HasIndex(x => new { x.OrgId, x.RQBankingTransNo });
+        b.Entity<BankTransLC>().HasMany(x => x.Details).WithOne().HasForeignKey(x => x.LCId).OnDelete(DeleteBehavior.Cascade);
+
+        b.Entity<BankTransLCDetail>().HasIndex(x => x.LCId);
+        b.Entity<BankTransLCDetail>().HasIndex(x => new { x.OrgId, x.RQBankingTransNo });
     }
 }

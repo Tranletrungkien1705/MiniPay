@@ -5015,3 +5015,388 @@ public sealed class ReqInvoiceDealerStatDto
     public int DetailCount { get; set; }
     public int ApprovedCount { get; set; }
 }
+
+// =====================================================================================
+// Đề nghị giao dịch ngân hàng (Bank Transaction Request — RQ_BankingTrans)
+// Nguồn 2010.HTC (BizHTC.Payment / BankIntergration: RQ_BankingTransactions_Save,
+//  RQ_BankingTransactions_Get, RQ_BankingTransactions_GetDetail,
+//  RQ_BankingTransactions_Cancel, RQ_BankingTransactions_PushBank;
+//  bảng RQ_BankingTransactions, RQ_BankingTransPmt, RQ_BankingTransPmtDtl,
+//  RQ_BankingTransPmtLC, RQ_BankingTransPmtLCDtl, RQ_BankingTransGrt, RQ_BankingTransGrtDtl;
+//  màn hình FrmDeNghiGDNganHang, FrmQL_DeNghiGDNganHang trong Views/Sales/Payment).
+//
+// Nghiệp vụ: HTC lập Đề nghị giao dịch ngân hàng (ĐN GDNgânHàng) gửi ngân hàng để:
+//   - Giải ngân ứng trước (GNUT) / thanh toán bảo lãnh (GNTTBL) / thanh toán L/C (GNTTLC);
+//   - Mở thư bảo lãnh (Grt) hoặc mở L/C (GrtLC) cho lô xe theo hợp đồng đại lý.
+// Mỗi đề nghị gồm nhiều dòng chi tiết xe (VIN) gắn hợp đồng đại lý (DlrCtrNo) và số tiền.
+// Vòng đời: Pending (P) → Approve (A) → Finish (F) / Cancel (C) / Rejected (R).
+// Trạng thái phía ngân hàng (BkTransBankStatus) đi song: P → A0..A4 → F.
+// =====================================================================================
+
+/// <summary>Trạng thái đề nghị giao dịch ngân hàng (BkTransStatus trong TERP.Constants).</summary>
+public enum BankTransStatus
+{
+    Null = 0,        // N — Chưa xác định
+    Pending = 1,     // P — Chờ xử lý
+    Pending1 = 2,    // P1 — Chờ xử lý cấp 1
+    Approve = 3,     // A — Đã duyệt
+    Approve1 = 4,    // A1 — Duyệt cấp 1
+    Approve2 = 5,    // A2 — Duyệt cấp 2
+    Finish = 6,      // F — Hoàn thành
+    Rejected = 7,    // R — Từ chối
+    Decline = 8,     // D — Khước từ
+    Cancel = 9       // C — Hủy
+}
+
+/// <summary>Trạng thái phía ngân hàng của đề nghị giao dịch (BkTransBankStatus trong TERP.Constants).</summary>
+public enum BankTransBankStatus
+{
+    Null = 0,        // N — Chưa xác định
+    Pending = 1,     // P — Chờ ngân hàng xử lý
+    Pending1 = 2,    // P1 — Chờ ngân hàng xử lý cấp 1
+    Approve0 = 3,    // A0 — Ngân hàng đã nhận
+    Approve1 = 4,    // A1 — Ngân hàng duyệt cấp 1
+    Approve2 = 5,    // A2 — Ngân hàng duyệt cấp 2
+    Approve3 = 6,    // A3 — Ngân hàng duyệt cấp 3
+    Approve4 = 7,    // A4 — Ngân hàng duyệt cấp 4
+    Finish = 8,      // F — Ngân hàng hoàn thành
+    Rejected = 9,    // R — Ngân hàng từ chối
+    Cancel = 10      // C — Hủy
+}
+
+/// <summary>Loại giải ngân của đề nghị giao dịch ngân hàng (RQ_BankingTransPmt_DisbursementAmount).</summary>
+public enum BankTransDisbursementKind
+{
+    GNUT = 0,     // Giải ngân ứng trước
+    GNTTBL = 1,   // Giải ngân thanh toán bảo lãnh
+    GNTTLC = 2    // Giải ngân thanh toán L/C
+}
+
+/// <summary>Loại đề nghị giao dịch ngân hàng (BkTransType).</summary>
+public enum BankTransType
+{
+    Payment = 0,   // Pmt — Đề nghị giải ngân / thanh toán
+    Guarantee = 1, // Grt — Đề nghị mở thư bảo lãnh
+    GrtLC = 2      // GrtLC — Đề nghị mở L/C
+}
+
+/// <summary>Trạng thái dòng chi tiết đề nghị giao dịch ngân hàng (BkTransPmtDtlStatus).</summary>
+public enum BankTransDetailStatus
+{
+    Pending = 0,   // P — Đang xử lý
+    Approved = 1,  // A — Đã duyệt
+    Finished = 2,  // F — Hoàn thành
+    Cancelled = 3  // C — Hủy
+}
+
+/// <summary>
+/// Đề nghị giao dịch ngân hàng — tương ứng bảng RQ_BankingTransactions trong hệ nguồn 2010.HTC.
+/// Header quản lý số đề nghị, ngân hàng, đại lý, trạng thái và các mốc duyệt/hủy.
+/// </summary>
+public sealed class BankTransRequest
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public string RQBankingTransNo { get; set; } = "";        // Số đề nghị giao dịch (RQ_BANKINGTRANSNO)
+    public string BankCode { get; set; } = "";                // Mã ngân hàng (BankCode)
+    public string? BankName { get; set; }                     // Tên ngân hàng (BankName)
+    public string DealerCode { get; set; } = "";              // Mã đại lý (DealerCode)
+    public string? DealerName { get; set; }                   // Tên đại lý (DealerName)
+    public string? BizResNumber { get; set; }                 // Số hồ sơ kinh doanh (BizResNumber)
+    public string? Remark { get; set; }                       // Ghi chú (Remark)
+    public string? RefBankCode { get; set; }                  // Mã tham chiếu ngân hàng (RefBankCode)
+    public string? BankRemark { get; set; }                   // Ghi chú của ngân hàng (BankRemark)
+    public BankTransStatus BkTransStatus { get; set; } = BankTransStatus.Pending;         // Trạng thái đề nghị
+    public BankTransBankStatus BkTransBankStatus { get; set; } = BankTransBankStatus.Pending; // Trạng thái phía ngân hàng
+    public string? CreatedBy { get; set; }                    // Người lập (CreatedBy)
+    public DateTime CreatedAt { get; set; } = DateTime.Now;   // Ngày lập (CreatedDate)
+    public string? ApprovedBy { get; set; }                   // Người duyệt (ApprovedBy)
+    public DateTime? ApprovedAt { get; set; }                 // Ngày duyệt (ApprovedDate)
+    public string? FinishBy { get; set; }                     // Người hoàn thành (FinishBy)
+    public DateTime? FinishAt { get; set; }                   // Ngày hoàn thành (FinishDate)
+    public string? CancelBy { get; set; }                     // Người hủy (CancelBy)
+    public DateTime? CancelAt { get; set; }                   // Ngày hủy (CancelDate)
+    public bool FlagPushCreBank { get; set; }                 // Cờ đã đẩy tạo hồ sơ ngân hàng (FlagPushCreBank)
+
+    public List<BankTransPayment> Payments { get; set; } = [];       // Dòng giải ngân / thanh toán
+    public List<BankTransGuarantee> Guarantees { get; set; } = [];   // Dòng mở thư bảo lãnh
+    public List<BankTransLC> LCs { get; set; } = [];                 // Dòng mở L/C
+}
+
+/// <summary>
+/// Dòng giải ngân / thanh toán của đề nghị giao dịch ngân hàng — tương ứng bảng RQ_BankingTransPmt.
+/// </summary>
+public sealed class BankTransPayment
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public long RequestId { get; set; }                       // FK tới BankTransRequest
+    public string RQBankingTransNo { get; set; } = "";        // Số đề nghị giao dịch
+    public BankTransType BkTransType { get; set; } = BankTransType.Payment; // Loại đề nghị
+    public BankTransDisbursementKind DisbursementKind { get; set; } = BankTransDisbursementKind.GNUT; // Loại giải ngân
+    public string? PaymentNo { get; set; }                    // Số phiếu thanh toán (PaymentNo)
+    public string? PaymentType { get; set; }                  // Loại thanh toán (PaymentType)
+    public string? DisbursementType { get; set; }             // Loại giải ngân (DisbursementType)
+    public long TransferAmount { get; set; }                  // Số tiền chuyển (TransferAmount)
+    public int? LoanPeriod { get; set; }                      // Kỳ hạn vay (LoanPeriod)
+    public DateTime? LoanPeriodDate { get; set; }             // Ngày kỳ hạn vay (LoanPeriodDate)
+    public string? TransferRemark { get; set; }               // Nội dung chuyển (TransferRemark)
+    public decimal? InterestRate { get; set; }                // Lãi suất (InterestRate)
+    public string? ReceivingUnit { get; set; }                // Đơn vị thụ hưởng (ReceivingUnit)
+    public string? BankAccountReceive { get; set; }           // Số TK thụ hưởng (BankAccountReceive)
+    public string? BankNameReceive { get; set; }              // Ngân hàng thụ hưởng (BankNameReceive)
+    public string? ProvinceName { get; set; }                 // Tỉnh/Thành (ProvinceName)
+    public string? LDNo { get; set; }                         // Số khế ước / LDNo
+    public long DisbursementAmount { get; set; }              // Số tiền giải ngân (DisbursementAmount)
+    public DateTime? DisbursementDate { get; set; }           // Ngày giải ngân (DisbursementDate)
+    public int? DisbursementTerm { get; set; }                // Kỳ hạn giải ngân (DisbursementTerm)
+    public decimal? DisbursementInterestRate { get; set; }    // Lãi suất giải ngân (DisbursementInterestRate)
+    public BankTransDetailStatus BkTransPmtStatus { get; set; } = BankTransDetailStatus.Pending; // Trạng thái dòng
+    public string? PaymentAccount { get; set; }               // TK trích nợ (PaymentAccount)
+    public string? PaymentBankCode { get; set; }              // Ngân hàng trích nợ (PaymentBankCode)
+    public long? LoanLimit { get; set; }                      // Hạn mức vay (LoanLimit)
+    public long? AmountDisbursed { get; set; }                // Số tiền đã giải ngân (AmountDisbursed)
+
+    public List<BankTransPaymentDetail> Details { get; set; } = []; // Dòng xe chi tiết
+}
+
+/// <summary>
+/// Dòng xe chi tiết của dòng giải ngân — tương ứng bảng RQ_BankingTransPmtDtl.
+/// </summary>
+public sealed class BankTransPaymentDetail
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public long PaymentId { get; set; }                       // FK tới BankTransPayment
+    public string RQBankingTransNo { get; set; } = "";        // Số đề nghị giao dịch
+    public string? CarId { get; set; }                        // Mã xe (CarId)
+    public string? VIN { get; set; }                          // Số khung (VIN)
+    public string? DlrCtrNo { get; set; }                     // Số hợp đồng đại lý (DlrCtrNo)
+    public decimal? PmtPercent { get; set; }                  // Tỷ lệ thanh toán (PmtPercent)
+    public long PmtAmount { get; set; }                       // Số tiền thanh toán (PmtAmount)
+    public long? AmountActual { get; set; }                   // Số tiền thực tế (AmountActual)
+    public string? HTCInvoiceNo { get; set; }                 // Số hóa đơn HTC (HTCInvoiceNo)
+    public BankTransDetailStatus BkTransPmtDtlStatus { get; set; } = BankTransDetailStatus.Pending; // Trạng thái dòng
+}
+
+/// <summary>
+/// Dòng mở thư bảo lãnh của đề nghị giao dịch ngân hàng — tương ứng bảng RQ_BankingTransGrt.
+/// </summary>
+public sealed class BankTransGuarantee
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public long RequestId { get; set; }                       // FK tới BankTransRequest
+    public string RQBankingTransNo { get; set; } = "";        // Số đề nghị giao dịch
+    public BankTransType BkTransType { get; set; } = BankTransType.Guarantee; // Loại đề nghị
+    public string? GuaranteeType { get; set; }                // Loại bảo lãnh (GuaranteeType)
+    public long TotalAmount { get; set; }                     // Tổng giá trị (TotalAmount)
+    public DateTime? DateExpiredValue { get; set; }           // Ngày hết hạn (DateExpiredValue)
+    public string? GrtForm { get; set; }                      // Mẫu thư bảo lãnh (GrtForm)
+    public string? GrtReceive { get; set; }                   // Đơn vị nhận (GrtReceive)
+    public string? GrtReceiveAddress { get; set; }            // Địa chỉ nhận (GrtReceiveAddress)
+    public string? BizResNumber { get; set; }                 // Số hồ sơ kinh doanh (BizResNumber)
+    public string? GrtRecPerson { get; set; }                 // Người nhận (GrtRecPerson)
+    public string? GrtRecPosition { get; set; }               // Chức vụ người nhận (GrtRecPosition)
+    public string? GrtRecDepartment { get; set; }             // Bộ phận người nhận (GrtRecDepartment)
+    public string? MDNo { get; set; }                         // Số hợp đồng mua bán (MDNo)
+    public long GrtAmount { get; set; }                       // Giá trị bảo lãnh (GrtAmount)
+    public DateTime? GrtDateStart { get; set; }               // Ngày bắt đầu bảo lãnh (GrtDateStart)
+    public DateTime? GrtDateEnd { get; set; }                 // Ngày kết thúc bảo lãnh (GrtDateEnd)
+    public int? GrtTerm { get; set; }                         // Kỳ hạn bảo lãnh (GrtTerm)
+    public long? GrtFee { get; set; }                         // Phí bảo lãnh (GrtFee)
+    public DateTime? GrtLatePmtDate { get; set; }             // Ngày trả chậm (GrtLatePmtDate)
+    public BankTransDetailStatus BkTransGrtStatus { get; set; } = BankTransDetailStatus.Pending; // Trạng thái dòng
+
+    public List<BankTransGuaranteeDetail> Details { get; set; } = []; // Dòng xe chi tiết
+}
+
+/// <summary>
+/// Dòng xe chi tiết của dòng mở thư bảo lãnh — tương ứng bảng RQ_BankingTransGrtDtl.
+/// </summary>
+public sealed class BankTransGuaranteeDetail
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public long GuaranteeId { get; set; }                     // FK tới BankTransGuarantee
+    public string RQBankingTransNo { get; set; } = "";        // Số đề nghị giao dịch
+    public string? CarId { get; set; }                        // Mã xe (CarId)
+    public string? VIN { get; set; }                          // Số khung (VIN)
+    public string? DlrCtrNo { get; set; }                     // Số hợp đồng đại lý (DlrCtrNo)
+    public decimal? GrtPercent { get; set; }                  // Tỷ lệ bảo lãnh (GrtPercent)
+    public long GrtAmount { get; set; }                       // Giá trị bảo lãnh (GrtAmount)
+    public long? AmountActual { get; set; }                   // Số tiền thực tế (AmountActual)
+    public BankTransDetailStatus BKTranGrtDtlStatus { get; set; } = BankTransDetailStatus.Pending; // Trạng thái dòng
+}
+
+/// <summary>
+/// Dòng mở L/C của đề nghị giao dịch ngân hàng — tương ứng bảng RQ_BankingTransPmtLC.
+/// </summary>
+public sealed class BankTransLC
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public long RequestId { get; set; }                       // FK tới BankTransRequest
+    public string RQBankingTransNo { get; set; } = "";        // Số đề nghị giao dịch
+    public BankTransType BkTransType { get; set; } = BankTransType.GrtLC; // Loại đề nghị
+    public string? PaymentType { get; set; }                  // Loại thanh toán (PaymentType)
+    public string? DisbursementType { get; set; }             // Loại giải ngân (DisbursementType)
+    public int? LoanPeriod { get; set; }                      // Kỳ hạn vay (LoanPeriod)
+    public DateTime? LoanPeriodDate { get; set; }             // Ngày kỳ hạn vay (LoanPeriodDate)
+    public decimal? InterestRate { get; set; }                // Lãi suất (InterestRate)
+    public string? LDNo { get; set; }                         // Số khế ước (LDNo)
+    public string? LCNo { get; set; }                         // Số L/C (LCNo)
+    public long DisbursementAmount { get; set; }              // Số tiền giải ngân (DisbursementAmount)
+    public DateTime? DisbursementDate { get; set; }           // Ngày giải ngân (DisbursermentDate)
+    public long? TotalAmountDisbursement { get; set; }        // Tổng tiền giải ngân (TotalAmountDisbursement)
+    public BankTransDetailStatus BkTransPmtLCStatus { get; set; } = BankTransDetailStatus.Pending; // Trạng thái dòng
+
+    public List<BankTransLCDetail> Details { get; set; } = []; // Dòng xe chi tiết
+}
+
+/// <summary>
+/// Dòng xe chi tiết của dòng mở L/C — tương ứng bảng RQ_BankingTransPmtLCDtl.
+/// </summary>
+public sealed class BankTransLCDetail
+{
+    public long Id { get; set; }
+    public Guid OrgId { get; set; }
+    public long LCId { get; set; }                            // FK tới BankTransLC
+    public string RQBankingTransNo { get; set; } = "";        // Số đề nghị giao dịch
+    public string? GuaranteeNo { get; set; }                  // Số thư bảo lãnh (GuaranteeNo)
+    public string? BankGuaranteeNo { get; set; }              // Số BL ngân hàng (BankGuaranteeNo)
+    public string? DealerCode { get; set; }                   // Mã đại lý (DealerCode)
+    public string? BankCode { get; set; }                     // Mã ngân hàng (BankCode)
+    public DateTime? DateOpen { get; set; }                   // Ngày mở (DateOpen)
+    public DateTime? DateEnd { get; set; }                    // Ngày kết thúc (DateEnd)
+    public DateTime? DateExpired { get; set; }                // Ngày hết hạn (DateExpired)
+    public long Amount { get; set; }                          // Giá trị (Amount)
+    public long? AmountPmt { get; set; }                      // Số tiền thanh toán (AmountPmt)
+    public long? AmountDisbursement { get; set; }             // Số tiền giải ngân (AmountDisbursement)
+}
+
+/// <summary>DTO đầu vào 1 dòng xe chi tiết khi lập đề nghị giao dịch ngân hàng.</summary>
+public sealed class BankTransDetailInputDto
+{
+    public string? CarId { get; set; }
+    public string? VIN { get; set; }
+    public string? DlrCtrNo { get; set; }
+    public decimal? PmtPercent { get; set; }
+    public long PmtAmount { get; set; }
+    public long? AmountActual { get; set; }
+    public string? HTCInvoiceNo { get; set; }
+}
+
+/// <summary>DTO đầu vào 1 dòng giải ngân / thanh toán khi lập đề nghị giao dịch ngân hàng.</summary>
+public sealed class BankTransPaymentInputDto
+{
+    public BankTransDisbursementKind DisbursementKind { get; set; } = BankTransDisbursementKind.GNUT;
+    public string? PaymentNo { get; set; }
+    public string? PaymentType { get; set; }
+    public string? DisbursementType { get; set; }
+    public long TransferAmount { get; set; }
+    public int? LoanPeriod { get; set; }
+    public DateTime? LoanPeriodDate { get; set; }
+    public string? TransferRemark { get; set; }
+    public decimal? InterestRate { get; set; }
+    public string? ReceivingUnit { get; set; }
+    public string? BankAccountReceive { get; set; }
+    public string? BankNameReceive { get; set; }
+    public string? ProvinceName { get; set; }
+    public string? LDNo { get; set; }
+    public long DisbursementAmount { get; set; }
+    public DateTime? DisbursementDate { get; set; }
+    public int? DisbursementTerm { get; set; }
+    public decimal? DisbursementInterestRate { get; set; }
+    public string? PaymentAccount { get; set; }
+    public string? PaymentBankCode { get; set; }
+    public long? LoanLimit { get; set; }
+    public List<BankTransDetailInputDto> Details { get; set; } = [];
+}
+
+/// <summary>DTO đầu vào 1 dòng mở thư bảo lãnh khi lập đề nghị giao dịch ngân hàng.</summary>
+public sealed class BankTransGuaranteeInputDto
+{
+    public string? GuaranteeType { get; set; }
+    public long TotalAmount { get; set; }
+    public DateTime? DateExpiredValue { get; set; }
+    public string? GrtForm { get; set; }
+    public string? GrtReceive { get; set; }
+    public string? GrtReceiveAddress { get; set; }
+    public string? GrtRecPerson { get; set; }
+    public string? GrtRecPosition { get; set; }
+    public string? GrtRecDepartment { get; set; }
+    public string? MDNo { get; set; }
+    public long GrtAmount { get; set; }
+    public DateTime? GrtDateStart { get; set; }
+    public DateTime? GrtDateEnd { get; set; }
+    public int? GrtTerm { get; set; }
+    public long? GrtFee { get; set; }
+    public List<BankTransDetailInputDto> Details { get; set; } = [];
+}
+
+/// <summary>DTO đầu vào 1 dòng mở L/C khi lập đề nghị giao dịch ngân hàng.</summary>
+public sealed class BankTransLCInputDto
+{
+    public string? PaymentType { get; set; }
+    public string? DisbursementType { get; set; }
+    public int? LoanPeriod { get; set; }
+    public DateTime? LoanPeriodDate { get; set; }
+    public decimal? InterestRate { get; set; }
+    public string? LDNo { get; set; }
+    public string? LCNo { get; set; }
+    public long DisbursementAmount { get; set; }
+    public DateTime? DisbursementDate { get; set; }
+    public long? TotalAmountDisbursement { get; set; }
+    public List<BankTransDetailInputDto> Details { get; set; } = [];
+}
+
+/// <summary>DTO lập đề nghị giao dịch ngân hàng mới (RQ_BankingTransactions_Save).</summary>
+public sealed class CreateBankTransRequestDto
+{
+    public string? RQBankingTransNo { get; set; }             // Bỏ trống để tự sinh RQBT-yyyyMM-xxx
+    public string BankCode { get; set; } = "";                // Mã ngân hàng (bắt buộc)
+    public string? BankName { get; set; }
+    public string DealerCode { get; set; } = "";              // Mã đại lý (bắt buộc)
+    public string? DealerName { get; set; }
+    public string? BizResNumber { get; set; }
+    public string? Remark { get; set; }
+    public string? CreatedBy { get; set; }
+    public List<BankTransPaymentInputDto> Payments { get; set; } = [];
+    public List<BankTransGuaranteeInputDto> Guarantees { get; set; } = [];
+    public List<BankTransLCInputDto> LCs { get; set; } = [];
+}
+
+/// <summary>DTO báo cáo tổng hợp đề nghị giao dịch ngân hàng.</summary>
+public sealed class BankTransSummaryDto
+{
+    public int TotalRequests { get; set; }
+    public int PendingRequests { get; set; }
+    public int ApprovedRequests { get; set; }
+    public int FinishedRequests { get; set; }
+    public int CancelledRequests { get; set; }
+    public int TotalPaymentLines { get; set; }
+    public int TotalGuaranteeLines { get; set; }
+    public int TotalLCLines { get; set; }
+    public long TotalTransferAmount { get; set; }
+    public long TotalGuaranteeAmount { get; set; }
+    public long TotalLCAmount { get; set; }
+    public List<BankTransBankStatDto> ByBank { get; set; } = [];
+    public List<BankTransDealerStatDto> ByDealer { get; set; } = [];
+}
+
+public sealed class BankTransBankStatDto
+{
+    public string BankCode { get; set; } = "";
+    public string BankName { get; set; } = "";
+    public int RequestCount { get; set; }
+    public long TotalAmount { get; set; }
+}
+
+public sealed class BankTransDealerStatDto
+{
+    public string DealerCode { get; set; } = "";
+    public string DealerName { get; set; } = "";
+    public int RequestCount { get; set; }
+    public long TotalAmount { get; set; }
+}
