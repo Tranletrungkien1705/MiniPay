@@ -1,4 +1,4 @@
-using Microsoft.EntityFrameworkCore;
+﻿using Microsoft.EntityFrameworkCore;
 using MiniPay.Models;
 using MiniPay.Services;
 
@@ -10,7 +10,7 @@ public static class Seeder
     {
         await db.Database.EnsureCreatedAsync();
 
-        // Tự động bảo đảm các bảng mới tồn tại nếu database SQLite/Postgres đã được tạo từ các phiên trước
+        // Tá»± Ä‘á»™ng báº£o Ä‘áº£m cÃ¡c báº£ng má»›i tá»“n táº¡i náº¿u database SQLite/Postgres Ä‘Ã£ Ä‘Æ°á»£c táº¡o tá»« cÃ¡c phiÃªn trÆ°á»›c
         if (db.Database.IsSqlite())
         {
             await db.Database.ExecuteSqlRawAsync(@"
@@ -167,9 +167,10 @@ public static class Seeder
                 CREATE UNIQUE INDEX IF NOT EXISTS ""IX_PaymentGuarantees_OrgId_GuaranteeNo"" ON ""PaymentGuarantees"" (""OrgId"", ""GuaranteeNo"");
                 CREATE INDEX IF NOT EXISTS ""IX_PaymentGuaranteeDetails_GuaranteeId"" ON ""PaymentGuaranteeDetails"" (""GuaranteeId"");
                 CREATE INDEX IF NOT EXISTS ""IX_PaymentGuaranteeDetails_OrgId_ItemRefNo"" ON ""PaymentGuaranteeDetails"" (""OrgId"", ""ItemRefNo"");
-                ALTER TABLE ""PaymentGuaranteeDetails"" ADD COLUMN ""DateWarning"" TEXT NULL;
-                ALTER TABLE ""PaymentGuaranteeDetails"" ADD COLUMN ""DateExpired"" TEXT NULL;
-                ALTER TABLE ""PaymentGuaranteeDetails"" ADD COLUMN ""FlagDtlDiscount"" TEXT NOT NULL DEFAULT '0';
+                -- SQLite khong ho tro ADD COLUMN IF NOT EXISTS. Cac cot DateWarning/DateExpired/
+                -- FlagDtlDiscount da co san trong CREATE TABLE IF NOT EXISTS o tren (DB moi), nen
+                -- ALTER vo dieu kien se bao 'duplicate column name'. Chi bo sung cot cho DB cu
+                -- (tao tu phien truoc, thieu cot) bang cach kiem tra truoc khi them.
 
                 CREATE TABLE IF NOT EXISTS ""MortgageRequests"" (
                     ""Id"" INTEGER NOT NULL CONSTRAINT ""PK_MortgageRequests"" PRIMARY KEY AUTOINCREMENT,
@@ -1916,7 +1917,16 @@ public static class Seeder
             ");
         }
 
-        // Bảng Đề nghị xuất hóa đơn / giao hồ sơ (RD_ReqInvoice) — tạo cho DB đã tồn tại từ phiên trước
+        // Nâng cấp DB SQLite cũ: thêm cột mới nếu thực sự còn thiếu (không dùng ALTER vô điều kiện
+        // như trước vì sẽ báo 'duplicate column name' trên DB tạo bằng CREATE TABLE ở trên).
+        if (db.Database.IsSqlite())
+        {
+            await EnsureSqliteColumnAsync(db, "PaymentGuaranteeDetails", "DateWarning", "\"DateWarning\" TEXT NULL");
+            await EnsureSqliteColumnAsync(db, "PaymentGuaranteeDetails", "DateExpired", "\"DateExpired\" TEXT NULL");
+            await EnsureSqliteColumnAsync(db, "PaymentGuaranteeDetails", "FlagDtlDiscount", "\"FlagDtlDiscount\" TEXT NOT NULL DEFAULT '0'");
+        }
+
+        // Báº£ng Äá» nghá»‹ xuáº¥t hÃ³a Ä‘Æ¡n / giao há»“ sÆ¡ (RD_ReqInvoice) â€” táº¡o cho DB Ä‘Ã£ tá»“n táº¡i tá»« phiÃªn trÆ°á»›c
         if (db.Database.IsSqlite())
         {
             await db.Database.ExecuteSqlRawAsync(@"
@@ -2019,6 +2029,7 @@ public static class Seeder
                 CREATE INDEX IF NOT EXISTS ""IX_ReqInvoiceDetails_OrgId_ReqIVNo"" ON ""ReqInvoiceDetails"" (""OrgId"", ""ReqIVNo"");
             ");
         }
+        else if (db.Database.IsNpgsql())
         {
             await db.Database.ExecuteSqlRawAsync(@"
                 CREATE TABLE IF NOT EXISTS ""PayoutBatches"" (
@@ -3908,7 +3919,7 @@ public static class Seeder
             await db.SaveChangesAsync();
         }
 
-        // Dữ liệu mẫu giao dịch thanh toán để đối soát
+        // Dá»¯ liá»‡u máº«u giao dá»‹ch thanh toÃ¡n Ä‘á»ƒ Ä‘á»‘i soÃ¡t
         if (!await db.Payments.AnyAsync(p => p.OrgId == TenantContext.DefaultOrgId))
         {
             var p1 = new PaymentIntent
@@ -3950,7 +3961,7 @@ public static class Seeder
             db.Payments.AddRange(p1, p2, p3);
             await db.SaveChangesAsync();
 
-            // Seed 1 đợt đối soát sao kê ngân hàng mẫu
+            // Seed 1 Ä‘á»£t Ä‘á»‘i soÃ¡t sao kÃª ngÃ¢n hÃ ng máº«u
             if (!await db.ReconcileBatches.AnyAsync(b => b.OrgId == TenantContext.DefaultOrgId))
             {
                 var batch = new ReconcileBatch
@@ -3960,7 +3971,7 @@ public static class Seeder
                     BankCode = "VCB",
                     AccountNo = "0011004123456",
                     StatementDate = DateTime.Today,
-                    Note = "Sao kê tài khoản Vietcombank đợt 1",
+                    Note = "Sao kÃª tÃ i khoáº£n Vietcombank Ä‘á»£t 1",
                     TotalRecords = 3,
                     MatchedCount = 1,
                     MismatchedCount = 1,
@@ -3989,7 +4000,7 @@ public static class Seeder
                         MatchStatus = MatchStatus.Matched,
                         PaymentIntentId = p1.Id,
                         SystemAmount = 1_500_000,
-                        DiscrepancyReason = "Khớp chuẩn mã giao dịch và số tiền.",
+                        DiscrepancyReason = "Khá»›p chuáº©n mÃ£ giao dá»‹ch vÃ  sá»‘ tiá»n.",
                         MatchedAt = DateTime.Now.AddHours(-1)
                     },
                     new ReconcileDetail
@@ -3999,14 +4010,14 @@ public static class Seeder
                         BankTxnNo = "VCB-TXN-88124",
                         TxnRef = "TXN-REC-202502",
                         TxnTime = DateTime.Now.AddDays(-1),
-                        Amount = 3_000_000, // Lệch: sao kê ghi 3.0M, hệ thống cần 3.2M
+                        Amount = 3_000_000, // Lá»‡ch: sao kÃª ghi 3.0M, há»‡ thá»‘ng cáº§n 3.2M
                         SenderAccount = "045100033221",
                         ReceiverAccount = "0011004123456",
                         Remark = "CT HD ORD-REC-102 TXN-REC-202502 NOP THIEU",
                         MatchStatus = MatchStatus.AmountMismatch,
                         PaymentIntentId = p2.Id,
                         SystemAmount = 3_200_000,
-                        DiscrepancyReason = "Lệch số tiền: Sao kê 3,000,000 đ, Hệ thống 3,200,000 đ (chênh lệch: -200,000 đ)."
+                        DiscrepancyReason = "Lá»‡ch sá»‘ tiá»n: Sao kÃª 3,000,000 Ä‘, Há»‡ thá»‘ng 3,200,000 Ä‘ (chÃªnh lá»‡ch: -200,000 Ä‘)."
                     },
                     new ReconcileDetail
                     {
@@ -4020,14 +4031,14 @@ public static class Seeder
                         ReceiverAccount = "0011004123456",
                         Remark = "Chuyen tien mua phu tung ngoai he thong",
                         MatchStatus = MatchStatus.NotFound,
-                        DiscrepancyReason = "Không tìm thấy giao dịch tương ứng trong hệ thống."
+                        DiscrepancyReason = "KhÃ´ng tÃ¬m tháº¥y giao dá»‹ch tÆ°Æ¡ng á»©ng trong há»‡ thá»‘ng."
                     }
                 );
                 await db.SaveChangesAsync();
             }
         }
 
-        // Seed dữ liệu mẫu cho Lệnh chi chuyển tiền ngân hàng tự động (Banking Payout / RQ_BankingTransactions)
+        // Seed dá»¯ liá»‡u máº«u cho Lá»‡nh chi chuyá»ƒn tiá»n ngÃ¢n hÃ ng tá»± Ä‘á»™ng (Banking Payout / RQ_BankingTransactions)
         if (!await db.PayoutBatches.AnyAsync(b => b.OrgId == TenantContext.DefaultOrgId))
         {
             var pBatch1 = new BankingPayoutBatch
@@ -4038,7 +4049,7 @@ public static class Seeder
                 SourceAccount = "112000345678",
                 SourceAccountName = "CONG TY TNHH MINIPAY VIET NAM",
                 BizResNumber = "QD-CHI-2025-089",
-                Remark = "Lệnh chi tiền lô thanh toán NCC và hoàn tiền khách hàng đợt 1",
+                Remark = "Lá»‡nh chi tiá»n lÃ´ thanh toÃ¡n NCC vÃ  hoÃ n tiá»n khÃ¡ch hÃ ng Ä‘á»£t 1",
                 TotalTrans = 3,
                 SuccessTrans = 3,
                 FailedTrans = 0,
@@ -4047,7 +4058,7 @@ public static class Seeder
                 Status = PayoutStatus.Completed,
                 BankStatusCode = "00",
                 RefBankCode = "VTB-BULK-20250514-991",
-                BankRemark = "Giao dịch chuyển tiền ngân hàng thành công trọn gói.",
+                BankRemark = "Giao dá»‹ch chuyá»ƒn tiá»n ngÃ¢n hÃ ng thÃ nh cÃ´ng trá»n gÃ³i.",
                 CreatedBy = "KeToanVien",
                 ApprovedBy = "KeToanTruong",
                 CreatedAt = DateTime.Now.AddDays(-2),
@@ -4069,7 +4080,7 @@ public static class Seeder
                     ReceivingUnit = "CONG TY CP THIET BI SO LINH KIEN",
                     BankAccountReceive = "0011000987654",
                     BankNameReceive = "VCB",
-                    ProvinceName = "Hà Nội",
+                    ProvinceName = "HÃ  Ná»™i",
                     TransferAmount = 25_000_000,
                     TransferRemark = "Thanh toan tien hang PO-2025-012",
                     Status = PayoutItemStatus.Success,
@@ -4087,7 +4098,7 @@ public static class Seeder
                     ReceivingUnit = "NGUYEN VAN A",
                     BankAccountReceive = "1903456789012",
                     BankNameReceive = "TCB",
-                    ProvinceName = "TP Hồ Chí Minh",
+                    ProvinceName = "TP Há»“ ChÃ­ Minh",
                     TransferAmount = 3_200_000,
                     TransferRemark = "Hoan tien huy don ORD-REC-102",
                     Status = PayoutItemStatus.Success,
@@ -4105,7 +4116,7 @@ public static class Seeder
                     ReceivingUnit = "DAI LY HYUNDAI DONG DO",
                     BankAccountReceive = "0880199887766",
                     BankNameReceive = "MBB",
-                    ProvinceName = "Hà Nội",
+                    ProvinceName = "HÃ  Ná»™i",
                     TransferAmount = 17_600_000,
                     TransferRemark = "Chi tra hoa hong ban hang thang 4 CMS-DLR-008",
                     Status = PayoutItemStatus.Success,
@@ -4123,7 +4134,7 @@ public static class Seeder
                 SourceAccount = "088011223344",
                 SourceAccountName = "CONG TY TNHH MINIPAY VIET NAM",
                 BizResNumber = "QD-CHI-2025-095",
-                Remark = "Lệnh chi trả tiền thuê mặt bằng và dịch vụ hạ tầng đợt 2",
+                Remark = "Lá»‡nh chi tráº£ tiá»n thuÃª máº·t báº±ng vÃ  dá»‹ch vá»¥ háº¡ táº§ng Ä‘á»£t 2",
                 TotalTrans = 2,
                 SuccessTrans = 0,
                 FailedTrans = 0,
@@ -4148,7 +4159,7 @@ public static class Seeder
                     ReceivingUnit = "CONG TY TNHH QUAN LY TOA NHA CAPITAL",
                     BankAccountReceive = "0331000554433",
                     BankNameReceive = "VCB",
-                    ProvinceName = "Hà Nội",
+                    ProvinceName = "HÃ  Ná»™i",
                     TransferAmount = 12_000_000,
                     TransferRemark = "Thanh toan tien thue van phong ky 5/2025",
                     Status = PayoutItemStatus.Pending
@@ -4164,7 +4175,7 @@ public static class Seeder
                     ReceivingUnit = "TRUNG TAM DU LIEU CLOUD FAST",
                     BankAccountReceive = "114002345678",
                     BankNameReceive = "CTG",
-                    ProvinceName = "Đà Nẵng",
+                    ProvinceName = "ÄÃ  Náºµng",
                     TransferAmount = 6_500_000,
                     TransferRemark = "Chi tra cuoc ha tang cloud Fast thang 5",
                     Status = PayoutItemStatus.Pending
@@ -4173,7 +4184,7 @@ public static class Seeder
             await db.SaveChangesAsync();
         }
 
-        // Seed dữ liệu mẫu Chiết khấu thanh toán sớm (Payment Discount / Req_PaymentDiscount)
+        // Seed dá»¯ liá»‡u máº«u Chiáº¿t kháº¥u thanh toÃ¡n sá»›m (Payment Discount / Req_PaymentDiscount)
         if (!await db.DiscountRequests.AnyAsync(r => r.OrgId == TenantContext.DefaultOrgId))
         {
             var dReq1 = new PaymentDiscountRequest
@@ -4181,7 +4192,7 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DiscountNo = "DIS-DEMO-20250514-01",
                 PartnerCode = "DLR-HYUNDAI-HADONG",
-                PartnerName = "CÔNG TY CP LIÊN DOANH HYUNDAI HÀ ĐÔNG",
+                PartnerName = "CÃ”NG TY CP LIÃŠN DOANH HYUNDAI HÃ€ ÄÃ”NG",
                 ContractNo = "CTR-HTCV-2025-088",
                 DefaultAnnualRate = 7.5m,
                 TotalPaymentAmount = 3_300_000_000,
@@ -4196,7 +4207,7 @@ public static class Seeder
                 ApprovedAt = DateTime.Now.AddDays(-2).AddHours(4),
                 SettledBy = "GiamDocTaiChinh_HTC",
                 SettledAt = DateTime.Now.AddDays(-1).AddHours(1),
-                Remark = "Hồ sơ chiết khấu thanh toán sớm lô xe hợp đồng CTR-HTCV-2025-088",
+                Remark = "Há»“ sÆ¡ chiáº¿t kháº¥u thanh toÃ¡n sá»›m lÃ´ xe há»£p Ä‘á»“ng CTR-HTCV-2025-088",
                 CreatedAt = DateTime.Now.AddDays(-3)
             };
             db.DiscountRequests.Add(dReq1);
@@ -4208,7 +4219,7 @@ public static class Seeder
                     RequestId = dReq1.Id,
                     OrgId = TenantContext.DefaultOrgId,
                     ItemRefNo = "INV-2025-04-01",
-                    Description = "Thanh toán đợt 1 lô 02 xe Hyundai Santa Fe 2025",
+                    Description = "Thanh toÃ¡n Ä‘á»£t 1 lÃ´ 02 xe Hyundai Santa Fe 2025",
                     DueDate = DateTime.Today.AddDays(25),
                     ActualPaymentDate = DateTime.Today.AddDays(-2),
                     EarlyDays = 27,
@@ -4217,14 +4228,14 @@ public static class Seeder
                     DiscountAmount = 8_437_500, // 1.5B * 7.5% * 27 / 360 = 8,437,500
                     NetPayAmount = 1_491_562_500,
                     Status = DiscountItemStatus.Active,
-                    Note = "Đã đối chiếu khớp lệnh ủy nhiệm chi VCB"
+                    Note = "ÄÃ£ Ä‘á»‘i chiáº¿u khá»›p lá»‡nh á»§y nhiá»‡m chi VCB"
                 },
                 new PaymentDiscountDetail
                 {
                     RequestId = dReq1.Id,
                     OrgId = TenantContext.DefaultOrgId,
                     ItemRefNo = "INV-2025-04-02",
-                    Description = "Thanh toán đợt 2 lô 02 xe Hyundai Tucson 2025",
+                    Description = "Thanh toÃ¡n Ä‘á»£t 2 lÃ´ 02 xe Hyundai Tucson 2025",
                     DueDate = DateTime.Today.AddDays(30),
                     ActualPaymentDate = DateTime.Today.AddDays(-2),
                     EarlyDays = 32,
@@ -4233,7 +4244,7 @@ public static class Seeder
                     DiscountAmount = 12_000_000, // 1.8B * 7.5% * 32 / 360 = 12,000,000
                     NetPayAmount = 1_788_000_000,
                     Status = DiscountItemStatus.Active,
-                    Note = "Đã đối chiếu khớp lệnh ủy nhiệm chi VCB"
+                    Note = "ÄÃ£ Ä‘á»‘i chiáº¿u khá»›p lá»‡nh á»§y nhiá»‡m chi VCB"
                 }
             );
             await db.SaveChangesAsync();
@@ -4243,7 +4254,7 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DiscountNo = "DIS-DEMO-20250514-02",
                 PartnerCode = "DLR-HYUNDAI-DONGDO",
-                PartnerName = "ĐẠI LÝ Ô TÔ HYUNDAI ĐÔNG ĐÔ",
+                PartnerName = "Äáº I LÃ Ã” TÃ” HYUNDAI ÄÃ”NG ÄÃ”",
                 ContractNo = "CTR-HTCV-2025-102",
                 DefaultAnnualRate = 8.0m,
                 TotalPaymentAmount = 1_850_000_000,
@@ -4254,7 +4265,7 @@ public static class Seeder
                 PartnerSignedBy = "KeToanTruong_DongDo",
                 PartnerSignedAt = DateTime.Now.AddHours(-3),
                 ApproverSignStatus = DiscountSignStatus.Pending,
-                Remark = "Đề nghị duyệt chiết khấu trả sớm đơn hàng xe Stargazer & phụ tùng",
+                Remark = "Äá» nghá»‹ duyá»‡t chiáº¿t kháº¥u tráº£ sá»›m Ä‘Æ¡n hÃ ng xe Stargazer & phá»¥ tÃ¹ng",
                 CreatedAt = DateTime.Now.AddHours(-6)
             };
             db.DiscountRequests.Add(dReq2);
@@ -4266,7 +4277,7 @@ public static class Seeder
                     RequestId = dReq2.Id,
                     OrgId = TenantContext.DefaultOrgId,
                     ItemRefNo = "INV-2025-05-10",
-                    Description = "Thanh toán lô phụ tùng & linh kiện chính hãng",
+                    Description = "Thanh toÃ¡n lÃ´ phá»¥ tÃ¹ng & linh kiá»‡n chÃ­nh hÃ£ng",
                     DueDate = DateTime.Today.AddDays(18),
                     ActualPaymentDate = DateTime.Today,
                     EarlyDays = 18,
@@ -4275,14 +4286,14 @@ public static class Seeder
                     DiscountAmount = 2_600_000, // 650M * 8% * 18 / 360 = 2,600,000
                     NetPayAmount = 647_400_000,
                     Status = DiscountItemStatus.Active,
-                    Note = "Đề nghị cấn trừ hóa đơn VAT tiếp theo"
+                    Note = "Äá» nghá»‹ cáº¥n trá»« hÃ³a Ä‘Æ¡n VAT tiáº¿p theo"
                 },
                 new PaymentDiscountDetail
                 {
                     RequestId = dReq2.Id,
                     OrgId = TenantContext.DefaultOrgId,
                     ItemRefNo = "INV-2025-05-11",
-                    Description = "Thanh toán lô xe Hyundai Stargazer 2025 đợt 1",
+                    Description = "Thanh toÃ¡n lÃ´ xe Hyundai Stargazer 2025 Ä‘á»£t 1",
                     DueDate = DateTime.Today.AddDays(24),
                     ActualPaymentDate = DateTime.Today,
                     EarlyDays = 24,
@@ -4291,13 +4302,13 @@ public static class Seeder
                     DiscountAmount = 6_400_000, // 1.2B * 8% * 24 / 360 = 6,400,000
                     NetPayAmount = 1_193_600_000,
                     Status = DiscountItemStatus.Active,
-                    Note = "Đính kèm bản scan UNC ngân hàng MBBank"
+                    Note = "ÄÃ­nh kÃ¨m báº£n scan UNC ngÃ¢n hÃ ng MBBank"
                 }
             );
             await db.SaveChangesAsync();
         }
 
-        // Dữ liệu mẫu Thư bảo lãnh thanh toán ngân hàng (Pmt_Guarantee / BizHTC.Payment)
+        // Dá»¯ liá»‡u máº«u ThÆ° báº£o lÃ£nh thanh toÃ¡n ngÃ¢n hÃ ng (Pmt_Guarantee / BizHTC.Payment)
         if (!await db.Guarantees.AnyAsync(g => g.OrgId == TenantContext.DefaultOrgId))
         {
             var grt1 = new PaymentGuarantee
@@ -4306,9 +4317,9 @@ public static class Seeder
                 GuaranteeNo = "GRT-20250501-001",
                 BankGuaranteeNo = "BL-VCB-2025/088",
                 BankCode = "VCB",
-                BankName = "Ngân hàng TMCP Ngoại thương Việt Nam (Vietcombank)",
+                BankName = "NgÃ¢n hÃ ng TMCP Ngoáº¡i thÆ°Æ¡ng Viá»‡t Nam (Vietcombank)",
                 PartnerCode = "DLR-HYUNDAI-THANHXUAN",
-                PartnerName = "Đại lý Ô tô Hyundai Thanh Xuân",
+                PartnerName = "Äáº¡i lÃ½ Ã” tÃ´ Hyundai Thanh XuÃ¢n",
                 ContractNo = "HD-HTCV-2025-088",
                 GuaranteeType = GuaranteeType.Payment,
                 TotalAmount = 2_500_000_000,
@@ -4325,7 +4336,7 @@ public static class Seeder
                 CreatedBy = "ChuyenVienKinhDoanh",
                 ApprovedBy = "GiamDocTaiChinh",
                 ApprovedAt = DateTime.Now.AddDays(-19),
-                Remark = "Bảo lãnh thanh toán lô 03 xe thương mại & du lịch tháng 5/2025",
+                Remark = "Báº£o lÃ£nh thanh toÃ¡n lÃ´ 03 xe thÆ°Æ¡ng máº¡i & du lá»‹ch thÃ¡ng 5/2025",
                 CreatedAt = DateTime.Now.AddDays(-20)
             };
             db.Guarantees.Add(grt1);
@@ -4347,14 +4358,14 @@ public static class Seeder
                     DateExpired = DateTime.Today.AddDays(70),
                     FlagDtlDiscount = "0",
                     Status = GuaranteeDetailStatus.Active,
-                    Note = "Bảo lãnh hạn mức 92%"
+                    Note = "Báº£o lÃ£nh háº¡n má»©c 92%"
                 },
                 new PaymentGuaranteeDetail
                 {
                     GuaranteeId = grt1.Id,
                     OrgId = TenantContext.DefaultOrgId,
                     ItemRefNo = "VIN-ACCENT-02",
-                    Description = "Xe Hyundai Accent 1.5 AT Đặc biệt",
+                    Description = "Xe Hyundai Accent 1.5 AT Äáº·c biá»‡t",
                     OrderAmount = 569_000_000,
                     GuaranteeValue = 550_000_000,
                     GuaranteePercent = 96.66m,
@@ -4364,21 +4375,21 @@ public static class Seeder
                     DateExpired = DateTime.Today.AddDays(70),
                     FlagDtlDiscount = "0",
                     Status = GuaranteeDetailStatus.Active,
-                    Note = "Bảo lãnh hạn mức 96.7%"
+                    Note = "Báº£o lÃ£nh háº¡n má»©c 96.7%"
                 },
                 new PaymentGuaranteeDetail
                 {
                     GuaranteeId = grt1.Id,
                     OrgId = TenantContext.DefaultOrgId,
                     ItemRefNo = "VIN-TUCSON-03",
-                    Description = "Xe Hyundai Tucson 2.0 Dầu Đặc biệt",
+                    Description = "Xe Hyundai Tucson 2.0 Dáº§u Äáº·c biá»‡t",
                     OrderAmount = 1_250_000_000,
                     GuaranteeValue = 1_200_000_000,
                     GuaranteePercent = 96.00m,
                     DateStart = DateTime.Today.AddDays(-20),
                     DateEnd = DateTime.Today.AddDays(70),
                     Status = GuaranteeDetailStatus.Active,
-                    Note = "Bảo lãnh hạn mức 96%"
+                    Note = "Báº£o lÃ£nh háº¡n má»©c 96%"
                 }
             );
             await db.SaveChangesAsync();
@@ -4389,9 +4400,9 @@ public static class Seeder
                 GuaranteeNo = "GRT-20250510-002",
                 BankGuaranteeNo = "BL-TCB-2025/112",
                 BankCode = "TCB",
-                BankName = "Ngân hàng TMCP Kỹ thương Việt Nam (Techcombank)",
+                BankName = "NgÃ¢n hÃ ng TMCP Ká»¹ thÆ°Æ¡ng Viá»‡t Nam (Techcombank)",
                 PartnerCode = "DLR-HYUNDAI-PHAMVANVO",
-                PartnerName = "Đại lý Ô tô Hyundai Phạm Văn Đồng",
+                PartnerName = "Äáº¡i lÃ½ Ã” tÃ´ Hyundai Pháº¡m VÄƒn Äá»“ng",
                 ContractNo = "HD-HTCV-2025-112",
                 GuaranteeType = GuaranteeType.DeferredPayment,
                 TotalAmount = 1_850_000_000,
@@ -4405,7 +4416,7 @@ public static class Seeder
                 FeePercent = 1.5m,
                 Status = GuaranteeStatus.PendingApproval,
                 CreatedBy = "ChuyenVienTinDung",
-                Remark = "Hồ sơ bảo lãnh thanh toán trả chậm LC 60 ngày đợt 2",
+                Remark = "Há»“ sÆ¡ báº£o lÃ£nh thanh toÃ¡n tráº£ cháº­m LC 60 ngÃ y Ä‘á»£t 2",
                 CreatedAt = DateTime.Now.AddDays(-3)
             };
             db.Guarantees.Add(grt2);
@@ -4424,21 +4435,21 @@ public static class Seeder
                     DateStart = DateTime.Today.AddDays(-3),
                     DateEnd = DateTime.Today.AddDays(57),
                     Status = GuaranteeDetailStatus.Active,
-                    Note = "Đang thẩm định hồ sơ gốc"
+                    Note = "Äang tháº©m Ä‘á»‹nh há»“ sÆ¡ gá»‘c"
                 },
                 new PaymentGuaranteeDetail
                 {
                     GuaranteeId = grt2.Id,
                     OrgId = TenantContext.DefaultOrgId,
                     ItemRefNo = "VIN-CUSTIN-02",
-                    Description = "Xe Hyundai Custin 1.5T Đặc biệt",
+                    Description = "Xe Hyundai Custin 1.5T Äáº·c biá»‡t",
                     OrderAmount = 850_000_000,
                     GuaranteeValue = 550_000_000,
                     GuaranteePercent = 64.71m,
                     DateStart = DateTime.Today.AddDays(-3),
                     DateEnd = DateTime.Today.AddDays(57),
                     Status = GuaranteeDetailStatus.Active,
-                    Note = "Đang thẩm định hồ sơ gốc"
+                    Note = "Äang tháº©m Ä‘á»‹nh há»“ sÆ¡ gá»‘c"
                 }
             );
             await db.SaveChangesAsync();
@@ -4449,9 +4460,9 @@ public static class Seeder
                 GuaranteeNo = "GRT-20250415-003",
                 BankGuaranteeNo = "BL-MBB-2025/045",
                 BankCode = "MBB",
-                BankName = "Ngân hàng TMCP Quân đội (MBBank)",
+                BankName = "NgÃ¢n hÃ ng TMCP QuÃ¢n Ä‘á»™i (MBBank)",
                 PartnerCode = "DLR-HYUNDAI-HOANGVIET",
-                PartnerName = "Đại lý Ô tô Hyundai Hoàng Việt",
+                PartnerName = "Äáº¡i lÃ½ Ã” tÃ´ Hyundai HoÃ ng Viá»‡t",
                 ContractNo = "HD-HTCV-2025-045",
                 GuaranteeType = GuaranteeType.Payment,
                 TotalAmount = 1_200_000_000,
@@ -4466,13 +4477,13 @@ public static class Seeder
                 DateRecieveGrtRoot = DateTime.Today.AddDays(-38),
                 Status = GuaranteeStatus.Claimed,
                 ClaimedAmount = 1_200_000_000,
-                ClaimReason = "Đại lý quá hạn thanh toán 30 ngày theo thỏa thuận hợp đồng, kích hoạt đòi ngân hàng MBBank thực hiện nghĩa vụ bảo lãnh thanh toán.",
+                ClaimReason = "Äáº¡i lÃ½ quÃ¡ háº¡n thanh toÃ¡n 30 ngÃ y theo thá»a thuáº­n há»£p Ä‘á»“ng, kÃ­ch hoáº¡t Ä‘Ã²i ngÃ¢n hÃ ng MBBank thá»±c hiá»‡n nghÄ©a vá»¥ báº£o lÃ£nh thanh toÃ¡n.",
                 ClaimedBy = "GiamDocQuanTriRuiRo",
                 ClaimedAt = DateTime.Now.AddDays(-4),
                 CreatedBy = "ChuyenVienKinhDoanh",
                 ApprovedBy = "GiamDocTaiChinh",
                 ApprovedAt = DateTime.Now.AddDays(-39),
-                Remark = "Đã gửi công văn đòi bảo lãnh chính thức kèm hồ sơ gốc sang MBBank",
+                Remark = "ÄÃ£ gá»­i cÃ´ng vÄƒn Ä‘Ã²i báº£o lÃ£nh chÃ­nh thá»©c kÃ¨m há»“ sÆ¡ gá»‘c sang MBBank",
                 CreatedAt = DateTime.Now.AddDays(-40)
             };
             db.Guarantees.Add(grt3);
@@ -4484,28 +4495,28 @@ public static class Seeder
                     GuaranteeId = grt3.Id,
                     OrgId = TenantContext.DefaultOrgId,
                     ItemRefNo = "VIN-CRETA-01",
-                    Description = "Xe Hyundai Creta 1.5L Cao cấp",
+                    Description = "Xe Hyundai Creta 1.5L Cao cáº¥p",
                     OrderAmount = 699_000_000,
                     GuaranteeValue = 600_000_000,
                     GuaranteePercent = 85.84m,
                     DateStart = DateTime.Today.AddDays(-40),
                     DateEnd = DateTime.Today.AddDays(-5),
                     Status = GuaranteeDetailStatus.Claimed,
-                    Note = "Quá hạn thanh toán, chuyển sang đòi bảo lãnh"
+                    Note = "QuÃ¡ háº¡n thanh toÃ¡n, chuyá»ƒn sang Ä‘Ã²i báº£o lÃ£nh"
                 },
                 new PaymentGuaranteeDetail
                 {
                     GuaranteeId = grt3.Id,
                     OrgId = TenantContext.DefaultOrgId,
                     ItemRefNo = "VIN-STARGAZER-02",
-                    Description = "Xe Hyundai Stargazer X Cao cấp",
+                    Description = "Xe Hyundai Stargazer X Cao cáº¥p",
                     OrderAmount = 650_000_000,
                     GuaranteeValue = 600_000_000,
                     GuaranteePercent = 92.31m,
                     DateStart = DateTime.Today.AddDays(-40),
                     DateEnd = DateTime.Today.AddDays(-5),
                     Status = GuaranteeDetailStatus.Claimed,
-                    Note = "Quá hạn thanh toán, chuyển sang đòi bảo lãnh"
+                    Note = "QuÃ¡ háº¡n thanh toÃ¡n, chuyá»ƒn sang Ä‘Ã²i báº£o lÃ£nh"
                 }
             );
             await db.SaveChangesAsync();
@@ -4516,9 +4527,9 @@ public static class Seeder
                 GuaranteeNo = "GRT-20250320-004",
                 BankGuaranteeNo = "BL-CTG-2025/019",
                 BankCode = "CTG",
-                BankName = "Ngân hàng TMCP Công thương Việt Nam (VietinBank)",
+                BankName = "NgÃ¢n hÃ ng TMCP CÃ´ng thÆ°Æ¡ng Viá»‡t Nam (VietinBank)",
                 PartnerCode = "DLR-HYUNDAI-GIAIPHONG",
-                PartnerName = "Đại lý Ô tô Hyundai Giải Phóng",
+                PartnerName = "Äáº¡i lÃ½ Ã” tÃ´ Hyundai Giáº£i PhÃ³ng",
                 ContractNo = "HD-HTCV-2025-019",
                 GuaranteeType = GuaranteeType.ContractPerformance,
                 TotalAmount = 3_000_000_000,
@@ -4537,7 +4548,7 @@ public static class Seeder
                 CreatedBy = "ChuyenVienKinhDoanh",
                 ApprovedBy = "GiamDocTaiChinh",
                 ApprovedAt = DateTime.Now.AddDays(-59),
-                Remark = "Đại lý đã thanh toán đủ 100% tiền mua hàng qua ủy nhiệm chi VietinBank, HTC đã phát hành biên bản giải tỏa bảo lãnh hoàn tất.",
+                Remark = "Äáº¡i lÃ½ Ä‘Ã£ thanh toÃ¡n Ä‘á»§ 100% tiá»n mua hÃ ng qua á»§y nhiá»‡m chi VietinBank, HTC Ä‘Ã£ phÃ¡t hÃ nh biÃªn báº£n giáº£i tá»a báº£o lÃ£nh hoÃ n táº¥t.",
                 CreatedAt = DateTime.Now.AddDays(-60)
             };
             db.Guarantees.Add(grt4);
@@ -4549,14 +4560,14 @@ public static class Seeder
                     GuaranteeId = grt4.Id,
                     OrgId = TenantContext.DefaultOrgId,
                     ItemRefNo = "VIN-PALISADE-01",
-                    Description = "Xe Hyundai Palisade Prestige 6 chỗ",
+                    Description = "Xe Hyundai Palisade Prestige 6 chá»—",
                     OrderAmount = 1_559_000_000,
                     GuaranteeValue = 1_500_000_000,
                     GuaranteePercent = 96.22m,
                     DateStart = DateTime.Today.AddDays(-60),
                     DateEnd = DateTime.Today.AddDays(-10),
                     Status = GuaranteeDetailStatus.Released,
-                    Note = "Đã giải tỏa toàn bộ nghĩa vụ bảo lãnh"
+                    Note = "ÄÃ£ giáº£i tá»a toÃ n bá»™ nghÄ©a vá»¥ báº£o lÃ£nh"
                 },
                 new PaymentGuaranteeDetail
                 {
@@ -4570,24 +4581,24 @@ public static class Seeder
                     DateStart = DateTime.Today.AddDays(-60),
                     DateEnd = DateTime.Today.AddDays(-10),
                     Status = GuaranteeDetailStatus.Released,
-                    Note = "Đã giải tỏa toàn bộ nghĩa vụ bảo lãnh"
+                    Note = "ÄÃ£ giáº£i tá»a toÃ n bá»™ nghÄ©a vá»¥ báº£o lÃ£nh"
                 }
             );
             await db.SaveChangesAsync();
         }
 
-        // Dữ liệu mẫu Hồ sơ Thế chấp & Giải chấp tài sản ngân hàng (RM_ReqMortgage & RD_ReqRedeem / BizHTC.GiaiChap)
+        // Dá»¯ liá»‡u máº«u Há»“ sÆ¡ Tháº¿ cháº¥p & Giáº£i cháº¥p tÃ i sáº£n ngÃ¢n hÃ ng (RM_ReqMortgage & RD_ReqRedeem / BizHTC.GiaiChap)
         if (!await db.MortgageRequests.AnyAsync(r => r.OrgId == TenantContext.DefaultOrgId))
         {
-            // 1. Hồ sơ thế chấp kho xe vay VietinBank (CTG) - Đã giải chấp 1 xe, còn 2 xe đang thế chấp
+            // 1. Há»“ sÆ¡ tháº¿ cháº¥p kho xe vay VietinBank (CTG) - ÄÃ£ giáº£i cháº¥p 1 xe, cÃ²n 2 xe Ä‘ang tháº¿ cháº¥p
             var mReq1 = new MortgageRequest
             {
                 OrgId = TenantContext.DefaultOrgId,
                 ReqRMNo = "RM-DEMO-20250501-001",
                 BankCode = "CTG",
-                BankName = "Ngân hàng TMCP Công thương Việt Nam (VietinBank)",
+                BankName = "NgÃ¢n hÃ ng TMCP CÃ´ng thÆ°Æ¡ng Viá»‡t Nam (VietinBank)",
                 PartnerCode = "DLR-HYUNDAI-THANHXUAN",
-                PartnerName = "Đại lý Ô tô Hyundai Thanh Xuân",
+                PartnerName = "Äáº¡i lÃ½ Ã” tÃ´ Hyundai Thanh XuÃ¢n",
                 CreditContractNo = "TD-CTG-2025/09",
                 MortgageDate = DateTime.Today.AddDays(-20),
                 TotalItems = 3,
@@ -4602,7 +4613,7 @@ public static class Seeder
                 CreatedBy = "ChuyenVienTinDung",
                 ApprovedBy = "GiamDocTinDung_VietinBank",
                 ApprovedAt = DateTime.Now.AddDays(-19),
-                Remark = "Thế chấp bảo đảm lô xe du lịch Hyundai phục vụ giải ngân nguồn vốn lưu động",
+                Remark = "Tháº¿ cháº¥p báº£o Ä‘áº£m lÃ´ xe du lá»‹ch Hyundai phá»¥c vá»¥ giáº£i ngÃ¢n nguá»“n vá»‘n lÆ°u Ä‘á»™ng",
                 CreatedAt = DateTime.Now.AddDays(-20)
             };
             db.MortgageRequests.Add(mReq1);
@@ -4626,7 +4637,7 @@ public static class Seeder
                 ApprovedAt = DateTime.Now.AddDays(-19),
                 ReqDMNo = "DM-DEMO-20250512-001",
                 RedeemedAt = DateTime.Now.AddDays(-2),
-                Note = "Đã hoàn tất giải chấp, bàn giao hồ sơ gốc cho đại lý xuất xưởng"
+                Note = "ÄÃ£ hoÃ n táº¥t giáº£i cháº¥p, bÃ n giao há»“ sÆ¡ gá»‘c cho Ä‘áº¡i lÃ½ xuáº¥t xÆ°á»Ÿng"
             };
             var mDtl1_2 = new MortgageDetail
             {
@@ -4644,7 +4655,7 @@ public static class Seeder
                 Status = MortgageDetailStatus.Approved,
                 ApprovedBy = "GiamDocTinDung_VietinBank",
                 ApprovedAt = DateTime.Now.AddDays(-19),
-                Note = "Đang lưu kho phong tỏa thế chấp tại Chi nhánh Hoàn Kiếm"
+                Note = "Äang lÆ°u kho phong tá»a tháº¿ cháº¥p táº¡i Chi nhÃ¡nh HoÃ n Kiáº¿m"
             };
             var mDtl1_3 = new MortgageDetail
             {
@@ -4662,20 +4673,20 @@ public static class Seeder
                 Status = MortgageDetailStatus.Approved,
                 ApprovedBy = "GiamDocTinDung_VietinBank",
                 ApprovedAt = DateTime.Now.AddDays(-19),
-                Note = "Đang lưu kho phong tỏa thế chấp tại Chi nhánh Hoàn Kiếm"
+                Note = "Äang lÆ°u kho phong tá»a tháº¿ cháº¥p táº¡i Chi nhÃ¡nh HoÃ n Kiáº¿m"
             };
             db.MortgageDetails.AddRange(mDtl1_1, mDtl1_2, mDtl1_3);
             await db.SaveChangesAsync();
 
-            // 2. Hồ sơ thế chấp MBBank (MBB) - 2 xe đang thế chấp
+            // 2. Há»“ sÆ¡ tháº¿ cháº¥p MBBank (MBB) - 2 xe Ä‘ang tháº¿ cháº¥p
             var mReq2 = new MortgageRequest
             {
                 OrgId = TenantContext.DefaultOrgId,
                 ReqRMNo = "RM-DEMO-20250510-002",
                 BankCode = "MBB",
-                BankName = "Ngân hàng TMCP Quân đội (MBBank)",
+                BankName = "NgÃ¢n hÃ ng TMCP QuÃ¢n Ä‘á»™i (MBBank)",
                 PartnerCode = "DLR-HYUNDAI-DONGDO",
-                PartnerName = "Đại lý Ô tô Hyundai Đông Đô",
+                PartnerName = "Äáº¡i lÃ½ Ã” tÃ´ Hyundai ÄÃ´ng ÄÃ´",
                 CreditContractNo = "TD-MBB-2025/14",
                 MortgageDate = DateTime.Today.AddDays(-5),
                 TotalItems = 2,
@@ -4690,7 +4701,7 @@ public static class Seeder
                 CreatedBy = "ChuyenVienTinDung",
                 ApprovedBy = "QuanLyTinDung_MBBank",
                 ApprovedAt = DateTime.Now.AddDays(-4),
-                Remark = "Thế chấp kho xe bảo đảm khoản vay thanh toán nhà máy HTMV",
+                Remark = "Tháº¿ cháº¥p kho xe báº£o Ä‘áº£m khoáº£n vay thanh toÃ¡n nhÃ  mÃ¡y HTMV",
                 CreatedAt = DateTime.Now.AddDays(-5)
             };
             db.MortgageRequests.Add(mReq2);
@@ -4712,7 +4723,7 @@ public static class Seeder
                 Status = MortgageDetailStatus.Approved,
                 ApprovedBy = "QuanLyTinDung_MBBank",
                 ApprovedAt = DateTime.Now.AddDays(-4),
-                Note = "Giấy chứng nhận đăng kiểm CQ gốc gửi kho bảo mật MBBank"
+                Note = "Giáº¥y chá»©ng nháº­n Ä‘Äƒng kiá»ƒm CQ gá»‘c gá»­i kho báº£o máº­t MBBank"
             };
             var mDtl2_2 = new MortgageDetail
             {
@@ -4730,20 +4741,20 @@ public static class Seeder
                 Status = MortgageDetailStatus.Approved,
                 ApprovedBy = "QuanLyTinDung_MBBank",
                 ApprovedAt = DateTime.Now.AddDays(-4),
-                Note = "Giấy chứng nhận đăng kiểm CQ gốc gửi kho bảo mật MBBank"
+                Note = "Giáº¥y chá»©ng nháº­n Ä‘Äƒng kiá»ƒm CQ gá»‘c gá»­i kho báº£o máº­t MBBank"
             };
             db.MortgageDetails.AddRange(mDtl2_1, mDtl2_2);
             await db.SaveChangesAsync();
 
-            // 3. Hồ sơ thế chấp Techcombank (TCB) - Mới lập, đang chờ phê duyệt
+            // 3. Há»“ sÆ¡ tháº¿ cháº¥p Techcombank (TCB) - Má»›i láº­p, Ä‘ang chá» phÃª duyá»‡t
             var mReq3 = new MortgageRequest
             {
                 OrgId = TenantContext.DefaultOrgId,
                 ReqRMNo = "RM-DEMO-20250514-003",
                 BankCode = "TCB",
-                BankName = "Ngân hàng TMCP Kỹ thương Việt Nam (Techcombank)",
+                BankName = "NgÃ¢n hÃ ng TMCP Ká»¹ thÆ°Æ¡ng Viá»‡t Nam (Techcombank)",
                 PartnerCode = "DLR-HYUNDAI-PHAMVANVO",
-                PartnerName = "Đại lý Ô tô Hyundai Phạm Văn Đồng",
+                PartnerName = "Äáº¡i lÃ½ Ã” tÃ´ Hyundai Pháº¡m VÄƒn Äá»“ng",
                 CreditContractNo = "TD-TCB-2025/22",
                 MortgageDate = DateTime.Today,
                 TotalItems = 2,
@@ -4756,7 +4767,7 @@ public static class Seeder
                 LoanPeriodDays = 90,
                 Status = MortgageStatus.PendingApproval,
                 CreatedBy = "KeToanVayVon",
-                Remark = "Hồ sơ thế chấp tài sản xe Custin & Palisade đang chờ thẩm định định giá tài sản",
+                Remark = "Há»“ sÆ¡ tháº¿ cháº¥p tÃ i sáº£n xe Custin & Palisade Ä‘ang chá» tháº©m Ä‘á»‹nh Ä‘á»‹nh giÃ¡ tÃ i sáº£n",
                 CreatedAt = DateTime.Now.AddHours(-2)
             };
             db.MortgageRequests.Add(mReq3);
@@ -4777,7 +4788,7 @@ public static class Seeder
                     CollateralValue = 850_000_000,
                     LoanAmount = 600_000_000,
                     Status = MortgageDetailStatus.Pending,
-                    Note = "Chờ cán bộ định giá TCB phê duyệt"
+                    Note = "Chá» cÃ¡n bá»™ Ä‘á»‹nh giÃ¡ TCB phÃª duyá»‡t"
                 },
                 new MortgageDetail
                 {
@@ -4793,12 +4804,12 @@ public static class Seeder
                     CollateralValue = 1_365_000_000,
                     LoanAmount = 950_000_000,
                     Status = MortgageDetailStatus.Pending,
-                    Note = "Chờ cán bộ định giá TCB phê duyệt"
+                    Note = "Chá» cÃ¡n bá»™ Ä‘á»‹nh giÃ¡ TCB phÃª duyá»‡t"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 4. Hồ sơ đề nghị giải chấp đã hoàn tất cho xe SantaFe (VietinBank CTG)
+            // 4. Há»“ sÆ¡ Ä‘á» nghá»‹ giáº£i cháº¥p Ä‘Ã£ hoÃ n táº¥t cho xe SantaFe (VietinBank CTG)
             if (!await db.RedeemRequests.AnyAsync(r => r.OrgId == TenantContext.DefaultOrgId))
             {
                 var rReq1 = new RedeemRequest
@@ -4806,9 +4817,9 @@ public static class Seeder
                     OrgId = TenantContext.DefaultOrgId,
                     ReqDMNo = "DM-DEMO-20250512-001",
                     BankCode = "CTG",
-                    BankName = "Ngân hàng TMCP Công thương Việt Nam (VietinBank)",
+                    BankName = "NgÃ¢n hÃ ng TMCP CÃ´ng thÆ°Æ¡ng Viá»‡t Nam (VietinBank)",
                     PartnerCode = "DLR-HYUNDAI-THANHXUAN",
-                    PartnerName = "Đại lý Ô tô Hyundai Thanh Xuân",
+                    PartnerName = "Äáº¡i lÃ½ Ã” tÃ´ Hyundai Thanh XuÃ¢n",
                     RedeemDate = DateTime.Today.AddDays(-2),
                     TotalItems = 1,
                     ApprovedItems = 1,
@@ -4818,7 +4829,7 @@ public static class Seeder
                     CreatedBy = "KeToanThanhToan",
                     ApprovedBy = "TruongPhongGD_VietinBank",
                     ApprovedAt = DateTime.Now.AddDays(-2),
-                    Remark = "Đại lý nộp đủ 950 triệu đồng tiền tất toán gốc vay xe SantaFe qua tài khoản CTG",
+                    Remark = "Äáº¡i lÃ½ ná»™p Ä‘á»§ 950 triá»‡u Ä‘á»“ng tiá»n táº¥t toÃ¡n gá»‘c vay xe SantaFe qua tÃ i khoáº£n CTG",
                     CreatedAt = DateTime.Now.AddDays(-3)
                 };
                 db.RedeemRequests.Add(rReq1);
@@ -4837,16 +4848,16 @@ public static class Seeder
                     Status = RedeemDetailStatus.Approved,
                     ApprovedBy = "TruongPhongGD_VietinBank",
                     ApprovedAt = DateTime.Now.AddDays(-2),
-                    Note = "Đã thu nợ gốc thành công, phát hành giấy xóa thế chấp xe"
+                    Note = "ÄÃ£ thu ná»£ gá»‘c thÃ nh cÃ´ng, phÃ¡t hÃ nh giáº¥y xÃ³a tháº¿ cháº¥p xe"
                 });
                 await db.SaveChangesAsync();
             }
         }
 
-        // Dữ liệu mẫu Phiếu thanh toán & Ủy nhiệm chi ngân hàng (Pmt_Payment / BizHTC.Payment)
+        // Dá»¯ liá»‡u máº«u Phiáº¿u thanh toÃ¡n & á»¦y nhiá»‡m chi ngÃ¢n hÃ ng (Pmt_Payment / BizHTC.Payment)
         if (!await db.PaymentOrders.AnyAsync(p => p.OrgId == TenantContext.DefaultOrgId))
         {
-            // 1. Phiếu thanh toán UNC ngân hàng (VCB) đã hoàn tất - Thanh toán tiền xe Santa Fe & Tucson
+            // 1. Phiáº¿u thanh toÃ¡n UNC ngÃ¢n hÃ ng (VCB) Ä‘Ã£ hoÃ n táº¥t - Thanh toÃ¡n tiá»n xe Santa Fe & Tucson
             var pm1 = new PaymentOrder
             {
                 OrgId = TenantContext.DefaultOrgId,
@@ -4855,12 +4866,12 @@ public static class Seeder
                 BankPaymentNo = "UNC-VCB-20250501-8899",
                 PaymentEndDate = DateTime.Today.AddDays(15),
                 PartnerCode = "DLR-HYUNDAI-THANHXUAN",
-                PartnerName = "Đại lý Ô tô Hyundai Thanh Xuân",
+                PartnerName = "Äáº¡i lÃ½ Ã” tÃ´ Hyundai Thanh XuÃ¢n",
                 BankCodeSend = "VCB",
-                BankNameSend = "Vietcombank - Chi nhánh Thăng Long",
+                BankNameSend = "Vietcombank - Chi nhÃ¡nh ThÄƒng Long",
                 BankAccountSend = "0011009876543",
                 BankCodeReceive = "CTG",
-                BankNameReceive = "VietinBank - Trụ sở chính",
+                BankNameReceive = "VietinBank - Trá»¥ sá»Ÿ chÃ­nh",
                 BankAccountReceive = "118000234567",
                 Funds = PaymentFundType.OwnCapital,
                 AccountingRecordNo = "PKT-202505-0145",
@@ -4887,14 +4898,14 @@ public static class Seeder
                     Description = "Xe Hyundai Santa Fe Calligraphy 2.5T AWD 2025",
                     ModelCode = "SANTAFE-CAL",
                     UnitPriceActual = 1_369_000_000,
-                    AmountAccum = 450_000_000, // Đã cọc trước 450M
+                    AmountAccum = 450_000_000, // ÄÃ£ cá»c trÆ°á»›c 450M
                     PercentAccum = 32.87m,
-                    Amount = 919_000_000,      // Thanh toán nốt 919M
+                    Amount = 919_000_000,      // Thanh toÃ¡n ná»‘t 919M
                     PercentCurrent = 67.13m,
                     AmountTotal = 1_369_000_000,
                     PercentTotal = 100m,
                     Status = PaymentOrderDetailStatus.Finished,
-                    Note = "Đã tất toán 100% giá trị xe, đủ điều kiện xuất hóa đơn VAT"
+                    Note = "ÄÃ£ táº¥t toÃ¡n 100% giÃ¡ trá»‹ xe, Ä‘á»§ Ä‘iá»u kiá»‡n xuáº¥t hÃ³a Ä‘Æ¡n VAT"
                 },
                 new PaymentOrderDetail
                 {
@@ -4904,36 +4915,36 @@ public static class Seeder
                     Description = "Xe Hyundai Tucson 1.6T Turbo 2025",
                     ModelCode = "TUCSON-TURBO",
                     UnitPriceActual = 959_000_000,
-                    AmountAccum = 500_000_000, // Đã cọc trước 500M
+                    AmountAccum = 500_000_000, // ÄÃ£ cá»c trÆ°á»›c 500M
                     PercentAccum = 52.14m,
-                    Amount = 459_000_000,      // Thanh toán tiếp 459M
+                    Amount = 459_000_000,      // Thanh toÃ¡n tiáº¿p 459M
                     PercentCurrent = 47.86m,
                     AmountTotal = 959_000_000,
                     PercentTotal = 100m,
                     Status = PaymentOrderDetailStatus.Finished,
-                    Note = "Đã tất toán 100% giá trị xe, bàn giao hồ sơ gốc"
+                    Note = "ÄÃ£ táº¥t toÃ¡n 100% giÃ¡ trá»‹ xe, bÃ n giao há»“ sÆ¡ gá»‘c"
                 },
                 new PaymentOrderDetail
                 {
                     PaymentOrderId = pm1.Id,
                     OrgId = TenantContext.DefaultOrgId,
                     ItemRefNo = "VIN-CRETA-PREM-03",
-                    Description = "Xe Hyundai Creta 1.5L Cao cấp 2025",
+                    Description = "Xe Hyundai Creta 1.5L Cao cáº¥p 2025",
                     ModelCode = "CRETA-PREM",
                     UnitPriceActual = 699_000_000,
                     AmountAccum = 0,
                     PercentAccum = 0m,
-                    Amount = 422_000_000,      // Thanh toán đợt 1
+                    Amount = 422_000_000,      // Thanh toÃ¡n Ä‘á»£t 1
                     PercentCurrent = 60.37m,
                     AmountTotal = 422_000_000,
                     PercentTotal = 60.37m,
                     Status = PaymentOrderDetailStatus.Finished,
-                    Note = "Thanh toán đợt 1 (60%), đợt 2 thanh toán khi nhận xe"
+                    Note = "Thanh toÃ¡n Ä‘á»£t 1 (60%), Ä‘á»£t 2 thanh toÃ¡n khi nháº­n xe"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 2. Phiếu thanh toán Bảo lãnh ngân hàng (MBB) - Đã phê duyệt, chờ ngân hàng hạch toán
+            // 2. Phiáº¿u thanh toÃ¡n Báº£o lÃ£nh ngÃ¢n hÃ ng (MBB) - ÄÃ£ phÃª duyá»‡t, chá» ngÃ¢n hÃ ng háº¡ch toÃ¡n
             var pm2 = new PaymentOrder
             {
                 OrgId = TenantContext.DefaultOrgId,
@@ -4942,19 +4953,19 @@ public static class Seeder
                 BankPaymentNo = "BL-MBB-2025/045",
                 PaymentEndDate = DateTime.Today.AddDays(25),
                 PartnerCode = "DLR-HYUNDAI-HOANGVIET",
-                PartnerName = "Đại lý Ô tô Hyundai Hoàng Việt",
+                PartnerName = "Äáº¡i lÃ½ Ã” tÃ´ Hyundai HoÃ ng Viá»‡t",
                 BankCodeSend = "MBB",
-                BankNameSend = "Ngân hàng TMCP Quân đội (MBBank)",
+                BankNameSend = "NgÃ¢n hÃ ng TMCP QuÃ¢n Ä‘á»™i (MBBank)",
                 BankAccountSend = "0880123456789",
                 BankCodeReceive = "CTG",
-                BankNameReceive = "VietinBank - Trụ sở chính",
+                BankNameReceive = "VietinBank - Trá»¥ sá»Ÿ chÃ­nh",
                 BankAccountReceive = "118000234567",
                 Funds = PaymentFundType.CreditLine,
                 AccountingRecordNo = "PKT-202505-0210",
                 TotalAmount = 1_200_000_000,
                 TotalAccumAmount = 1_200_000_000,
                 Status = PaymentOrderStatus.Approved,
-                Remark = "Thanh toán theo Thư bảo lãnh thanh toán MBBank số BL-MBB-2025/045",
+                Remark = "Thanh toÃ¡n theo ThÆ° báº£o lÃ£nh thanh toÃ¡n MBBank sá»‘ BL-MBB-2025/045",
                 CreatedBy = "KeToanThanhToan",
                 CreatedAt = DateTime.Now.AddDays(-4),
                 ApprovedBy = "GiamDocTaiChinh",
@@ -4969,7 +4980,7 @@ public static class Seeder
                     PaymentOrderId = pm2.Id,
                     OrgId = TenantContext.DefaultOrgId,
                     ItemRefNo = "VIN-CRETA-01",
-                    Description = "Xe Hyundai Creta 1.5L Cao cấp",
+                    Description = "Xe Hyundai Creta 1.5L Cao cáº¥p",
                     ModelCode = "CRETA-PREM",
                     UnitPriceActual = 699_000_000,
                     AmountAccum = 0,
@@ -4981,14 +4992,14 @@ public static class Seeder
                     GuaranteeNo = "GRT-20250501-001",
                     BankGrtNo = "BL-MBB-2025/045",
                     Status = PaymentOrderDetailStatus.Approved,
-                    Note = "Bảo lãnh thanh toán phát hành qua MBBank"
+                    Note = "Báº£o lÃ£nh thanh toÃ¡n phÃ¡t hÃ nh qua MBBank"
                 },
                 new PaymentOrderDetail
                 {
                     PaymentOrderId = pm2.Id,
                     OrgId = TenantContext.DefaultOrgId,
                     ItemRefNo = "VIN-STARGAZER-02",
-                    Description = "Xe Hyundai Stargazer X Cao cấp",
+                    Description = "Xe Hyundai Stargazer X Cao cáº¥p",
                     ModelCode = "STARGAZER-X",
                     UnitPriceActual = 650_000_000,
                     AmountAccum = 0,
@@ -5000,12 +5011,12 @@ public static class Seeder
                     GuaranteeNo = "GRT-20250501-001",
                     BankGrtNo = "BL-MBB-2025/045",
                     Status = PaymentOrderDetailStatus.Approved,
-                    Note = "Bảo lãnh thanh toán phát hành qua MBBank"
+                    Note = "Báº£o lÃ£nh thanh toÃ¡n phÃ¡t hÃ nh qua MBBank"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 3. Phiếu thanh toán Nộp tiền cọc vay vốn ngân hàng (TCB) - Đang chờ phê duyệt
+            // 3. Phiáº¿u thanh toÃ¡n Ná»™p tiá»n cá»c vay vá»‘n ngÃ¢n hÃ ng (TCB) - Äang chá» phÃª duyá»‡t
             var pm3 = new PaymentOrder
             {
                 OrgId = TenantContext.DefaultOrgId,
@@ -5014,12 +5025,12 @@ public static class Seeder
                 BankPaymentNo = "UNC-TCB-20250514-0091",
                 PaymentEndDate = DateTime.Today.AddDays(30),
                 PartnerCode = "DLR-HYUNDAI-PHAMVANVO",
-                PartnerName = "Đại lý Ô tô Hyundai Phạm Văn Đồng",
+                PartnerName = "Äáº¡i lÃ½ Ã” tÃ´ Hyundai Pháº¡m VÄƒn Äá»“ng",
                 BankCodeSend = "TCB",
-                BankNameSend = "Techcombank - Chi nhánh Hoàng Gia",
+                BankNameSend = "Techcombank - Chi nhÃ¡nh HoÃ ng Gia",
                 BankAccountSend = "1903344556677",
                 BankCodeReceive = "CTG",
-                BankNameReceive = "VietinBank - Trụ sở chính",
+                BankNameReceive = "VietinBank - Trá»¥ sá»Ÿ chÃ­nh",
                 BankAccountReceive = "118000234567",
                 Funds = PaymentFundType.BankLoan,
                 BankLending = "TCB",
@@ -5028,7 +5039,7 @@ public static class Seeder
                 TotalAmount = 400_000_000,
                 TotalAccumAmount = 400_000_000,
                 Status = PaymentOrderStatus.PendingApproval,
-                Remark = "Nộp cọc mua 02 xe Hyundai Custin & Palisade vay vốn tài trợ Techcombank",
+                Remark = "Ná»™p cá»c mua 02 xe Hyundai Custin & Palisade vay vá»‘n tÃ i trá»£ Techcombank",
                 CreatedBy = "KeToanThanhToan",
                 CreatedAt = DateTime.Now.AddHours(-3)
             };
@@ -5041,58 +5052,58 @@ public static class Seeder
                     PaymentOrderId = pm3.Id,
                     OrgId = TenantContext.DefaultOrgId,
                     ItemRefNo = "VIN-CUSTIN-2025-03",
-                    Description = "Xe Hyundai Custin 1.5 Turbo Tiêu chuẩn",
+                    Description = "Xe Hyundai Custin 1.5 Turbo TiÃªu chuáº©n",
                     ModelCode = "CUSTIN-1.5T",
                     UnitPriceActual = 850_000_000,
                     AmountAccum = 0,
                     PercentAccum = 0m,
-                    Amount = 170_000_000, // Cọc 20%
+                    Amount = 170_000_000, // Cá»c 20%
                     PercentCurrent = 20.0m,
                     AmountTotal = 170_000_000,
                     PercentTotal = 20.0m,
                     Status = PaymentOrderDetailStatus.Pending,
-                    Note = "Cọc giữ chỗ 20% đơn hàng xe theo hợp đồng vay TCB"
+                    Note = "Cá»c giá»¯ chá»— 20% Ä‘Æ¡n hÃ ng xe theo há»£p Ä‘á»“ng vay TCB"
                 },
                 new PaymentOrderDetail
                 {
                     PaymentOrderId = pm3.Id,
                     OrgId = TenantContext.DefaultOrgId,
                     ItemRefNo = "VIN-PALISADE-2025-04",
-                    Description = "Xe Hyundai Palisade Prestige 6 chỗ",
+                    Description = "Xe Hyundai Palisade Prestige 6 chá»—",
                     ModelCode = "PALISADE-PRE",
                     UnitPriceActual = 1_365_000_000,
                     AmountAccum = 0,
                     PercentAccum = 0m,
-                    Amount = 230_000_000, // Cọc ~16.85%
+                    Amount = 230_000_000, // Cá»c ~16.85%
                     PercentCurrent = 16.85m,
                     AmountTotal = 230_000_000,
                     PercentTotal = 16.85m,
                     Status = PaymentOrderDetailStatus.Pending,
-                    Note = "Cọc giữ chỗ đơn hàng xe theo hợp đồng vay TCB"
+                    Note = "Cá»c giá»¯ chá»— Ä‘Æ¡n hÃ ng xe theo há»£p Ä‘á»“ng vay TCB"
                 }
             );
             await db.SaveChangesAsync();
         }
 
-        // Dữ liệu mẫu Biên bản bàn giao xe & chứng từ theo Hối phiếu ngân hàng (Car_BankBillMinutes / BizHTC.Payment)
+        // Dá»¯ liá»‡u máº«u BiÃªn báº£n bÃ n giao xe & chá»©ng tá»« theo Há»‘i phiáº¿u ngÃ¢n hÃ ng (Car_BankBillMinutes / BizHTC.Payment)
         if (!await db.BankBillMinutes.AnyAsync(b => b.OrgId == TenantContext.DefaultOrgId))
         {
-            // 1. Biên bản bàn giao VPBank - Ngân hàng đã tiếp nhận đủ chứng từ gốc xe (BankReceived)
+            // 1. BiÃªn báº£n bÃ n giao VPBank - NgÃ¢n hÃ ng Ä‘Ã£ tiáº¿p nháº­n Ä‘á»§ chá»©ng tá»« gá»‘c xe (BankReceived)
             var bb1 = new BankBillMinutes
             {
                 OrgId = TenantContext.DefaultOrgId,
                 BankBillMnNo = "BBBG-DEMO-20250505-001",
                 BankCode = "VPB",
-                BankName = "Ngân hàng TMCP Việt Nam Thịnh Vượng (VPBank)",
+                BankName = "NgÃ¢n hÃ ng TMCP Viá»‡t Nam Thá»‹nh VÆ°á»£ng (VPBank)",
                 PartnerCode = "DLR-HYUNDAI-HADONG",
-                PartnerName = "Đại lý Ô tô Hyundai Hà Đông",
+                PartnerName = "Äáº¡i lÃ½ Ã” tÃ´ Hyundai HÃ  ÄÃ´ng",
                 BankBillDate = DateTime.Today.AddDays(-10),
                 BankBillPrintDate = DateTime.Today.AddDays(-10),
                 BankBillReciveDate = DateTime.Today.AddDays(-6),
                 TotalVehicles = 3,
                 TotalClaimAmount = 2_750_000_000,
                 Status = BankBillMinutesStatus.BankReceived,
-                Remark = "Bàn giao hồ sơ gốc xe kèm Hối phiếu tài trợ vốn đợt 1 tháng 05/2025 qua VPBank Thăng Long",
+                Remark = "BÃ n giao há»“ sÆ¡ gá»‘c xe kÃ¨m Há»‘i phiáº¿u tÃ i trá»£ vá»‘n Ä‘á»£t 1 thÃ¡ng 05/2025 qua VPBank ThÄƒng Long",
                 CreatedBy = "ChuyenVienHopDong",
                 CreatedAt = DateTime.Now.AddDays(-10),
                 HandedOverBy = "NguyenVanGiao_Logistics",
@@ -5111,7 +5122,7 @@ public static class Seeder
                     VIN = "KMHCT81EPHU100101",
                     ModelCode = "SANTAFE-CAL",
                     SpecCode = "SF-2.5T-AWD",
-                    SpecDescription = "Hyundai Santa Fe Calligraphy 2.5 Turbo 6 chỗ",
+                    SpecDescription = "Hyundai Santa Fe Calligraphy 2.5 Turbo 6 chá»—",
                     EngineNo = "G4KP-088124",
                     CONo = "CO-TCG-2025-09112",
                     CabinCONo = "CQ-2025-08112",
@@ -5125,7 +5136,7 @@ public static class Seeder
                     GuaranteeDateOpen = DateTime.Today.AddDays(-10),
                     NumberOfDaysDeferred = 45,
                     Status = BankBillDetailStatus.BankVerified,
-                    Note = "Bản gốc CO xuất xưởng, Giấy chứng nhận chất lượng CQ, Tờ khai HQ"
+                    Note = "Báº£n gá»‘c CO xuáº¥t xÆ°á»Ÿng, Giáº¥y chá»©ng nháº­n cháº¥t lÆ°á»£ng CQ, Tá» khai HQ"
                 },
                 new BankBillMinutesDetail
                 {
@@ -5134,7 +5145,7 @@ public static class Seeder
                     VIN = "KMHCT81EPHU100102",
                     ModelCode = "TUCSON-TURBO",
                     SpecCode = "TUC-1.6T-HTRAC",
-                    SpecDescription = "Hyundai Tucson 1.6 T-GDi Đặc biệt HTRAC",
+                    SpecDescription = "Hyundai Tucson 1.6 T-GDi Äáº·c biá»‡t HTRAC",
                     EngineNo = "G4FP-190334",
                     CONo = "CO-TCG-2025-09113",
                     CabinCONo = "CQ-2025-08113",
@@ -5148,7 +5159,7 @@ public static class Seeder
                     GuaranteeDateOpen = DateTime.Today.AddDays(-10),
                     NumberOfDaysDeferred = 45,
                     Status = BankBillDetailStatus.BankVerified,
-                    Note = "Bản gốc CO xuất xưởng, Hóa đơn VAT HTC bản gốc"
+                    Note = "Báº£n gá»‘c CO xuáº¥t xÆ°á»Ÿng, HÃ³a Ä‘Æ¡n VAT HTC báº£n gá»‘c"
                 },
                 new BankBillMinutesDetail
                 {
@@ -5157,7 +5168,7 @@ public static class Seeder
                     VIN = "KMHCT81EPHU100103",
                     ModelCode = "ACCENT-AT",
                     SpecCode = "ACC-1.5AT-DB",
-                    SpecDescription = "Hyundai Accent 1.5 AT Bản Đặc biệt",
+                    SpecDescription = "Hyundai Accent 1.5 AT Báº£n Äáº·c biá»‡t",
                     EngineNo = "G4FL-445109",
                     CONo = "CO-TCG-2025-09114",
                     CabinCONo = "CQ-2025-08114",
@@ -5171,26 +5182,26 @@ public static class Seeder
                     GuaranteeDateOpen = DateTime.Today.AddDays(-10),
                     NumberOfDaysDeferred = 30,
                     Status = BankBillDetailStatus.BankVerified,
-                    Note = "Đủ hồ sơ gốc hợp lệ, ngân hàng đã kiểm tra và lưu kho hồ sơ"
+                    Note = "Äá»§ há»“ sÆ¡ gá»‘c há»£p lá»‡, ngÃ¢n hÃ ng Ä‘Ã£ kiá»ƒm tra vÃ  lÆ°u kho há»“ sÆ¡"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 2. Biên bản bàn giao VietinBank (CTG) - Đã xuất trình bàn giao chứng từ sang Ngân hàng (Delivered)
+            // 2. BiÃªn báº£n bÃ n giao VietinBank (CTG) - ÄÃ£ xuáº¥t trÃ¬nh bÃ n giao chá»©ng tá»« sang NgÃ¢n hÃ ng (Delivered)
             var bb2 = new BankBillMinutes
             {
                 OrgId = TenantContext.DefaultOrgId,
                 BankBillMnNo = "BBBG-DEMO-20250508-002",
                 BankCode = "CTG",
-                BankName = "Ngân hàng TMCP Công thương Việt Nam (VietinBank)",
+                BankName = "NgÃ¢n hÃ ng TMCP CÃ´ng thÆ°Æ¡ng Viá»‡t Nam (VietinBank)",
                 PartnerCode = "DLR-HYUNDAI-THANHXUAN",
-                PartnerName = "Đại lý Ô tô Hyundai Thanh Xuân",
+                PartnerName = "Äáº¡i lÃ½ Ã” tÃ´ Hyundai Thanh XuÃ¢n",
                 BankBillDate = DateTime.Today.AddDays(-4),
                 BankBillPrintDate = DateTime.Today.AddDays(-4),
                 TotalVehicles = 2,
                 TotalClaimAmount = 1_200_000_000,
                 Status = BankBillMinutesStatus.Delivered,
-                Remark = "Đã xuất trình bộ hồ sơ xe và Hối phiếu sang VietinBank Tràng An, đang đợi chuyên viên ký nhận",
+                Remark = "ÄÃ£ xuáº¥t trÃ¬nh bá»™ há»“ sÆ¡ xe vÃ  Há»‘i phiáº¿u sang VietinBank TrÃ ng An, Ä‘ang Ä‘á»£i chuyÃªn viÃªn kÃ½ nháº­n",
                 CreatedBy = "ChuyenVienHopDong",
                 CreatedAt = DateTime.Now.AddDays(-4),
                 HandedOverBy = "TranMinhQuan_GiaoNhan",
@@ -5207,7 +5218,7 @@ public static class Seeder
                     VIN = "KMHCT81EPHU100201",
                     ModelCode = "CRETA-PREM",
                     SpecCode = "CRT-1.5-PREM",
-                    SpecDescription = "Hyundai Creta 1.5L Xăng Cao cấp",
+                    SpecDescription = "Hyundai Creta 1.5L XÄƒng Cao cáº¥p",
                     EngineNo = "G4FL-889012",
                     CONo = "CO-TCG-2025-10201",
                     CabinCONo = "CQ-2025-10201",
@@ -5221,7 +5232,7 @@ public static class Seeder
                     GuaranteeDateOpen = DateTime.Today.AddDays(-4),
                     NumberOfDaysDeferred = 30,
                     Status = BankBillDetailStatus.Delivered,
-                    Note = "Bản gốc CO và CQ xuất xưởng"
+                    Note = "Báº£n gá»‘c CO vÃ  CQ xuáº¥t xÆ°á»Ÿng"
                 },
                 new BankBillMinutesDetail
                 {
@@ -5230,7 +5241,7 @@ public static class Seeder
                     VIN = "KMHCT81EPHU100202",
                     ModelCode = "STARGAZER-X",
                     SpecCode = "SGZ-X-PREM",
-                    SpecDescription = "Hyundai Stargazer X 1.5L Cao cấp",
+                    SpecDescription = "Hyundai Stargazer X 1.5L Cao cáº¥p",
                     EngineNo = "G4FL-776214",
                     CONo = "CO-TCG-2025-10202",
                     CabinCONo = "CQ-2025-10202",
@@ -5244,27 +5255,27 @@ public static class Seeder
                     GuaranteeDateOpen = DateTime.Today.AddDays(-4),
                     NumberOfDaysDeferred = 30,
                     Status = BankBillDetailStatus.Delivered,
-                    Note = "Hồ sơ bàn giao niêm phong túi hồ sơ xe"
+                    Note = "Há»“ sÆ¡ bÃ n giao niÃªm phong tÃºi há»“ sÆ¡ xe"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 3. Biên bản bàn giao Techcombank (TCB) - Đã thanh toán quyết toán hối phiếu hoàn tất (Settled)
+            // 3. BiÃªn báº£n bÃ n giao Techcombank (TCB) - ÄÃ£ thanh toÃ¡n quyáº¿t toÃ¡n há»‘i phiáº¿u hoÃ n táº¥t (Settled)
             var bb3 = new BankBillMinutes
             {
                 OrgId = TenantContext.DefaultOrgId,
                 BankBillMnNo = "BBBG-DEMO-20250512-003",
                 BankCode = "TCB",
-                BankName = "Ngân hàng TMCP Kỹ Thương Việt Nam (Techcombank)",
+                BankName = "NgÃ¢n hÃ ng TMCP Ká»¹ ThÆ°Æ¡ng Viá»‡t Nam (Techcombank)",
                 PartnerCode = "DLR-HYUNDAI-PHAMVANVO",
-                PartnerName = "Đại lý Ô tô Hyundai Phạm Văn Đồng",
+                PartnerName = "Äáº¡i lÃ½ Ã” tÃ´ Hyundai Pháº¡m VÄƒn Äá»“ng",
                 BankBillDate = DateTime.Today.AddDays(-15),
                 BankBillPrintDate = DateTime.Today.AddDays(-15),
                 BankBillReciveDate = DateTime.Today.AddDays(-12),
                 TotalVehicles = 2,
                 TotalClaimAmount = 1_850_000_000,
                 Status = BankBillMinutesStatus.Settled,
-                Remark = "Đã thu tiền thanh toán đủ 1.85 tỷ đồng qua hối phiếu Techcombank, hoàn tất quyết toán hồ sơ",
+                Remark = "ÄÃ£ thu tiá»n thanh toÃ¡n Ä‘á»§ 1.85 tá»· Ä‘á»“ng qua há»‘i phiáº¿u Techcombank, hoÃ n táº¥t quyáº¿t toÃ¡n há»“ sÆ¡",
                 CreatedBy = "ChuyenVienHopDong",
                 CreatedAt = DateTime.Now.AddDays(-15),
                 HandedOverBy = "LeVanToan_GiaoNhan",
@@ -5285,7 +5296,7 @@ public static class Seeder
                     VIN = "KMHCT81EPHU100301",
                     ModelCode = "CUSTIN-1.5T",
                     SpecCode = "CST-1.5T-DB",
-                    SpecDescription = "Hyundai Custin 1.5 Turbo Bản Đặc biệt",
+                    SpecDescription = "Hyundai Custin 1.5 Turbo Báº£n Äáº·c biá»‡t",
                     EngineNo = "G4FS-229045",
                     CONo = "CO-TCG-2025-11050",
                     CabinCONo = "CQ-2025-11050",
@@ -5299,7 +5310,7 @@ public static class Seeder
                     GuaranteeDateOpen = DateTime.Today.AddDays(-15),
                     NumberOfDaysDeferred = 60,
                     Status = BankBillDetailStatus.BankVerified,
-                    Note = "Đã quyết toán thanh toán"
+                    Note = "ÄÃ£ quyáº¿t toÃ¡n thanh toÃ¡n"
                 },
                 new BankBillMinutesDetail
                 {
@@ -5308,7 +5319,7 @@ public static class Seeder
                     VIN = "KMHCT81EPHU100302",
                     ModelCode = "PALISADE-PRE",
                     SpecCode = "PLS-2.2D-PREM",
-                    SpecDescription = "Hyundai Palisade 2.2 Diesel Prestige 6 chỗ",
+                    SpecDescription = "Hyundai Palisade 2.2 Diesel Prestige 6 chá»—",
                     EngineNo = "D4HB-667102",
                     CONo = "CO-TCG-2025-11051",
                     CabinCONo = "CQ-2025-11051",
@@ -5322,26 +5333,26 @@ public static class Seeder
                     GuaranteeDateOpen = DateTime.Today.AddDays(-15),
                     NumberOfDaysDeferred = 60,
                     Status = BankBillDetailStatus.BankVerified,
-                    Note = "Đã quyết toán thanh toán"
+                    Note = "ÄÃ£ quyáº¿t toÃ¡n thanh toÃ¡n"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 4. Biên bản bàn giao MBBank - Mới lập, Chờ bàn giao sang ngân hàng (PendingHandover)
+            // 4. BiÃªn báº£n bÃ n giao MBBank - Má»›i láº­p, Chá» bÃ n giao sang ngÃ¢n hÃ ng (PendingHandover)
             var bb4 = new BankBillMinutes
             {
                 OrgId = TenantContext.DefaultOrgId,
                 BankBillMnNo = "BBBG-DEMO-20250514-004",
                 BankCode = "MBB",
-                BankName = "Ngân hàng TMCP Quân Đội (MBBank)",
+                BankName = "NgÃ¢n hÃ ng TMCP QuÃ¢n Äá»™i (MBBank)",
                 PartnerCode = "DLR-HYUNDAI-SAIGON",
-                PartnerName = "Đại lý Ô tô Hyundai Sài Gòn",
+                PartnerName = "Äáº¡i lÃ½ Ã” tÃ´ Hyundai SÃ i GÃ²n",
                 BankBillDate = DateTime.Today,
                 BankBillPrintDate = DateTime.Today,
                 TotalVehicles = 2,
                 TotalClaimAmount = 1_680_000_000,
                 Status = BankBillMinutesStatus.PendingHandover,
-                Remark = "Đợt giao xe Tucson và Elantra bảo lãnh qua MBBank Chi nhánh Sở Giao dịch",
+                Remark = "Äá»£t giao xe Tucson vÃ  Elantra báº£o lÃ£nh qua MBBank Chi nhÃ¡nh Sá»Ÿ Giao dá»‹ch",
                 CreatedBy = "ChuyenVienHopDong",
                 CreatedAt = DateTime.Now.AddHours(-2)
             };
@@ -5370,7 +5381,7 @@ public static class Seeder
                     GuaranteeDateOpen = DateTime.Today,
                     NumberOfDaysDeferred = 30,
                     Status = BankBillDetailStatus.Pending,
-                    Note = "Chuẩn bị niêm phong chứng từ giao Ngân hàng"
+                    Note = "Chuáº©n bá»‹ niÃªm phong chá»©ng tá»« giao NgÃ¢n hÃ ng"
                 },
                 new BankBillMinutesDetail
                 {
@@ -5379,7 +5390,7 @@ public static class Seeder
                     VIN = "KMHCT81EPHU100402",
                     ModelCode = "ELANTRA-NLINE",
                     SpecCode = "ELN-1.6T-NL",
-                    SpecDescription = "Hyundai Elantra N Line 1.6 T-GDi Thể thao",
+                    SpecDescription = "Hyundai Elantra N Line 1.6 T-GDi Thá»ƒ thao",
                     EngineNo = "G4FJ-551098",
                     CONo = "CO-TCG-2025-12302",
                     CabinCONo = "CQ-2025-12302",
@@ -5393,23 +5404,23 @@ public static class Seeder
                     GuaranteeDateOpen = DateTime.Today,
                     NumberOfDaysDeferred = 30,
                     Status = BankBillDetailStatus.Pending,
-                    Note = "Bản gốc CO và CQ đầy đủ"
+                    Note = "Báº£n gá»‘c CO vÃ  CQ Ä‘áº§y Ä‘á»§"
                 }
             );
             await db.SaveChangesAsync();
         }
 
-        // Dữ liệu mẫu Bảng kê thanh toán chi phí kiểm tra xe PDI (Pmt_PaymentPDI / BizHTC.Payment)
+        // Dá»¯ liá»‡u máº«u Báº£ng kÃª thanh toÃ¡n chi phÃ­ kiá»ƒm tra xe PDI (Pmt_PaymentPDI / BizHTC.Payment)
         if (!await db.PaymentPDIs.AnyAsync(p => p.OrgId == TenantContext.DefaultOrgId))
         {
-            // 1. Bảng kê tháng 04/2025 - Đã thanh toán & Quyết toán chi phí hoàn tất (Paid)
+            // 1. Báº£ng kÃª thÃ¡ng 04/2025 - ÄÃ£ thanh toÃ¡n & Quyáº¿t toÃ¡n chi phÃ­ hoÃ n táº¥t (Paid)
             var pdi1 = new PaymentPDI
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PmtPDINo = "PDI-202504-001",
                 PmtMonth = "2025-04",
                 ServiceUnitCode = "TCMS",
-                ServiceUnitName = "Trung tâm Dịch vụ Kỹ thuật & PDI Ô tô TCMS",
+                ServiceUnitName = "Trung tÃ¢m Dá»‹ch vá»¥ Ká»¹ thuáº­t & PDI Ã” tÃ´ TCMS",
                 TotalVehicles = 4,
                 TotalCostIn = 600_000,   // 4 * 150k
                 TotalCostOut = 800_000,  // 4 * 200k
@@ -5432,7 +5443,7 @@ public static class Seeder
                 PaidAt = DateTime.Now.AddDays(-8),
                 BankTxnRef = "UNC-VCB-PDI-202504-8891",
                 FilePath = "/documents/pdi/PDI-202504-001-Signed.pdf",
-                Remark = "Thanh toán chi phí PDI xe nhập/xuất kho kỳ tháng 04/2025 tại Kho Nhà máy Ninh Bình",
+                Remark = "Thanh toÃ¡n chi phÃ­ PDI xe nháº­p/xuáº¥t kho ká»³ thÃ¡ng 04/2025 táº¡i Kho NhÃ  mÃ¡y Ninh BÃ¬nh",
                 CreatedBy = "LeMinhKhoa_KiemDinhVien",
                 CreatedAt = DateTime.Now.AddDays(-15)
             };
@@ -5449,8 +5460,8 @@ public static class Seeder
                     ModelCode = "SANTAFE-CAL",
                     ModelName = "Hyundai Santa Fe Calligraphy 2.5T",
                     SpecCode = "SF-2.5T-AWD",
-                    SpecDescription = "Bản 6 chỗ cao cấp HTRAC AWD",
-                    ColorExtNameVN = "Trắng ngọc trai",
+                    SpecDescription = "Báº£n 6 chá»— cao cáº¥p HTRAC AWD",
+                    ColorExtNameVN = "Tráº¯ng ngá»c trai",
                     StorageCodeInit = "KHO-NINHBINH",
                     StoreDate = DateTime.Today.AddDays(-30),
                     DeliveryOutDate = DateTime.Today.AddDays(-16),
@@ -5460,7 +5471,7 @@ public static class Seeder
                     CostOutCheck = 200_000,
                     TotalCostCheck = 350_000,
                     Status = PaymentPDIDetailStatus.Approved,
-                    Remark = "PDI nhập kho: 100% đạt tiêu chuẩn; PDI xuất kho: rửa sạch, nạp ắc quy, kiểm tra áp suất lốp"
+                    Remark = "PDI nháº­p kho: 100% Ä‘áº¡t tiÃªu chuáº©n; PDI xuáº¥t kho: rá»­a sáº¡ch, náº¡p áº¯c quy, kiá»ƒm tra Ã¡p suáº¥t lá»‘p"
                 },
                 new PaymentPDIDetail
                 {
@@ -5471,8 +5482,8 @@ public static class Seeder
                     ModelCode = "TUCSON-TURBO",
                     ModelName = "Hyundai Tucson 1.6 T-GDi",
                     SpecCode = "TUC-1.6T-PREM",
-                    SpecDescription = "Bản 1.6 Turbo Xăng HTRAC",
-                    ColorExtNameVN = "Đen Ánh kim",
+                    SpecDescription = "Báº£n 1.6 Turbo XÄƒng HTRAC",
+                    ColorExtNameVN = "Äen Ãnh kim",
                     StorageCodeInit = "KHO-NINHBINH",
                     StoreDate = DateTime.Today.AddDays(-28),
                     DeliveryOutDate = DateTime.Today.AddDays(-15),
@@ -5482,7 +5493,7 @@ public static class Seeder
                     CostOutCheck = 200_000,
                     TotalCostCheck = 350_000,
                     Status = PaymentPDIDetailStatus.Approved,
-                    Remark = "PDI đầy đủ hệ thống điện, cảm biến và cân bằng điện tử ESC"
+                    Remark = "PDI Ä‘áº§y Ä‘á»§ há»‡ thá»‘ng Ä‘iá»‡n, cáº£m biáº¿n vÃ  cÃ¢n báº±ng Ä‘iá»‡n tá»­ ESC"
                 },
                 new PaymentPDIDetail
                 {
@@ -5491,10 +5502,10 @@ public static class Seeder
                     VIN = "KMHCT81EPHU200103",
                     CarId = "CAR-CRT-0103",
                     ModelCode = "CRETA-PRE",
-                    ModelName = "Hyundai Creta 1.5 Cao cấp",
+                    ModelName = "Hyundai Creta 1.5 Cao cáº¥p",
                     SpecCode = "CRT-1.5L-PRE",
-                    SpecDescription = "Bản SmartSense cao cấp",
-                    ColorExtNameVN = "Đỏ Đô",
+                    SpecDescription = "Báº£n SmartSense cao cáº¥p",
+                    ColorExtNameVN = "Äá» ÄÃ´",
                     StorageCodeInit = "KHO-NINHBINH",
                     StoreDate = DateTime.Today.AddDays(-27),
                     DeliveryOutDate = DateTime.Today.AddDays(-14),
@@ -5504,7 +5515,7 @@ public static class Seeder
                     CostOutCheck = 200_000,
                     TotalCostCheck = 350_000,
                     Status = PaymentPDIDetailStatus.Approved,
-                    Remark = "PDI đạt yêu cầu, kiểm tra đèn LED trước sau hoàn hảo"
+                    Remark = "PDI Ä‘áº¡t yÃªu cáº§u, kiá»ƒm tra Ä‘Ã¨n LED trÆ°á»›c sau hoÃ n háº£o"
                 },
                 new PaymentPDIDetail
                 {
@@ -5513,10 +5524,10 @@ public static class Seeder
                     VIN = "KMHCT81EPHU200104",
                     CarId = "CAR-ACC-0104",
                     ModelCode = "ACCENT-AT",
-                    ModelName = "Hyundai Accent 1.5 AT Đặc biệt",
+                    ModelName = "Hyundai Accent 1.5 AT Äáº·c biá»‡t",
                     SpecCode = "ACC-1.5L-DB",
-                    SpecDescription = "Số tự động bản Đặc biệt 2025",
-                    ColorExtNameVN = "Bạc Ánh kim",
+                    SpecDescription = "Sá»‘ tá»± Ä‘á»™ng báº£n Äáº·c biá»‡t 2025",
+                    ColorExtNameVN = "Báº¡c Ãnh kim",
                     StorageCodeInit = "KHO-NINHBINH",
                     StoreDate = DateTime.Today.AddDays(-25),
                     DeliveryOutDate = DateTime.Today.AddDays(-13),
@@ -5526,19 +5537,19 @@ public static class Seeder
                     CostOutCheck = 200_000,
                     TotalCostCheck = 350_000,
                     Status = PaymentPDIDetailStatus.Approved,
-                    Remark = "PDI động cơ SmartStream G1.5 kiểm tra áp suất dầu và dung dịch làm mát"
+                    Remark = "PDI Ä‘á»™ng cÆ¡ SmartStream G1.5 kiá»ƒm tra Ã¡p suáº¥t dáº§u vÃ  dung dá»‹ch lÃ m mÃ¡t"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 2. Bảng kê tháng 05/2025 đợt 1 - HTV Đã phê duyệt cấp 2 (HTVApproved), Chờ kế toán chuyển khoản thanh toán
+            // 2. Báº£ng kÃª thÃ¡ng 05/2025 Ä‘á»£t 1 - HTV ÄÃ£ phÃª duyá»‡t cáº¥p 2 (HTVApproved), Chá» káº¿ toÃ¡n chuyá»ƒn khoáº£n thanh toÃ¡n
             var pdi2 = new PaymentPDI
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PmtPDINo = "PDI-202505-001",
                 PmtMonth = "2025-05",
                 ServiceUnitCode = "TCMS",
-                ServiceUnitName = "Trung tâm Dịch vụ Kỹ thuật & PDI Ô tô TCMS",
+                ServiceUnitName = "Trung tÃ¢m Dá»‹ch vá»¥ Ká»¹ thuáº­t & PDI Ã” tÃ´ TCMS",
                 TotalVehicles = 3,
                 TotalCostIn = 450_000,   // 3 * 150k
                 TotalCostOut = 600_000,  // 3 * 200k
@@ -5558,7 +5569,7 @@ public static class Seeder
                 Appr2By = "TranThiHong_TruongPhongKT_HTV",
                 Appr2DTime = DateTime.Now.AddDays(-3),
                 FilePath = "/documents/pdi/PDI-202505-001-Approved.pdf",
-                Remark = "Bảng kê đợt 1 tháng 05/2025 xe Palisade, Custin, Stargazer X tại Kho Đông Anh",
+                Remark = "Báº£ng kÃª Ä‘á»£t 1 thÃ¡ng 05/2025 xe Palisade, Custin, Stargazer X táº¡i Kho ÄÃ´ng Anh",
                 CreatedBy = "LeMinhKhoa_KiemDinhVien",
                 CreatedAt = DateTime.Now.AddDays(-6)
             };
@@ -5575,8 +5586,8 @@ public static class Seeder
                     ModelCode = "PALISADE-PRE",
                     ModelName = "Hyundai Palisade 2.2D Prestige",
                     SpecCode = "PLS-2.2D-PRE",
-                    SpecDescription = "Bản Prestige máy Dầu 6 chỗ",
-                    ColorExtNameVN = "Xanh Bóng Đêm",
+                    SpecDescription = "Báº£n Prestige mÃ¡y Dáº§u 6 chá»—",
+                    ColorExtNameVN = "Xanh BÃ³ng ÄÃªm",
                     StorageCodeInit = "KHO-DONGANH",
                     StoreDate = DateTime.Today.AddDays(-12),
                     DeliveryOutDate = DateTime.Today.AddDays(-5),
@@ -5586,7 +5597,7 @@ public static class Seeder
                     CostOutCheck = 200_000,
                     TotalCostCheck = 350_000,
                     Status = PaymentPDIDetailStatus.Approved,
-                    Remark = "PDI hệ thống âm thanh Infinity 12 loa, kiểm tra radar SmartSense"
+                    Remark = "PDI há»‡ thá»‘ng Ã¢m thanh Infinity 12 loa, kiá»ƒm tra radar SmartSense"
                 },
                 new PaymentPDIDetail
                 {
@@ -5595,10 +5606,10 @@ public static class Seeder
                     VIN = "KMHCT81EPHU200202",
                     CarId = "CAR-CST-0202",
                     ModelCode = "CUSTIN-1.5T",
-                    ModelName = "Hyundai Custin 1.5 Turbo Đặc biệt",
+                    ModelName = "Hyundai Custin 1.5 Turbo Äáº·c biá»‡t",
                     SpecCode = "CST-1.5T-DB",
-                    SpecDescription = "Bản MPV 7 chỗ cửa trượt điện",
-                    ColorExtNameVN = "Trắng ngọc trai",
+                    SpecDescription = "Báº£n MPV 7 chá»— cá»­a trÆ°á»£t Ä‘iá»‡n",
+                    ColorExtNameVN = "Tráº¯ng ngá»c trai",
                     StorageCodeInit = "KHO-DONGANH",
                     StoreDate = DateTime.Today.AddDays(-11),
                     DeliveryOutDate = DateTime.Today.AddDays(-4),
@@ -5608,7 +5619,7 @@ public static class Seeder
                     CostOutCheck = 200_000,
                     TotalCostCheck = 350_000,
                     Status = PaymentPDIDetailStatus.Approved,
-                    Remark = "PDI ghế cơ trưởng hàng ghế 2 chỉnh điện, cửa gió điều hòa độc lập"
+                    Remark = "PDI gháº¿ cÆ¡ trÆ°á»Ÿng hÃ ng gháº¿ 2 chá»‰nh Ä‘iá»‡n, cá»­a giÃ³ Ä‘iá»u hÃ²a Ä‘á»™c láº­p"
                 },
                 new PaymentPDIDetail
                 {
@@ -5617,10 +5628,10 @@ public static class Seeder
                     VIN = "KMHCT81EPHU200203",
                     CarId = "CAR-SGZ-0203",
                     ModelCode = "STARGAZER-X",
-                    ModelName = "Hyundai Stargazer X Cao cấp",
+                    ModelName = "Hyundai Stargazer X Cao cáº¥p",
                     SpecCode = "SGZ-X-PREM",
-                    SpecDescription = "Bản Crossover MPV 7 chỗ",
-                    ColorExtNameVN = "Xám Kim loại",
+                    SpecDescription = "Báº£n Crossover MPV 7 chá»—",
+                    ColorExtNameVN = "XÃ¡m Kim loáº¡i",
                     StorageCodeInit = "KHO-DONGANH",
                     StoreDate = DateTime.Today.AddDays(-10),
                     DeliveryOutDate = DateTime.Today.AddDays(-4),
@@ -5630,19 +5641,19 @@ public static class Seeder
                     CostOutCheck = 200_000,
                     TotalCostCheck = 350_000,
                     Status = PaymentPDIDetailStatus.Approved,
-                    Remark = "PDI phanh tay điện tử EPB và Auto Hold hoạt động chuẩn"
+                    Remark = "PDI phanh tay Ä‘iá»‡n tá»­ EPB vÃ  Auto Hold hoáº¡t Ä‘á»™ng chuáº©n"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 3. Bảng kê tháng 05/2025 đợt 2 - TCMS Đã duyệt cấp 1 (TCMSApproved), Đang chờ lãnh đạo HTV duyệt cấp 2
+            // 3. Báº£ng kÃª thÃ¡ng 05/2025 Ä‘á»£t 2 - TCMS ÄÃ£ duyá»‡t cáº¥p 1 (TCMSApproved), Äang chá» lÃ£nh Ä‘áº¡o HTV duyá»‡t cáº¥p 2
             var pdi3 = new PaymentPDI
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PmtPDINo = "PDI-202505-002",
                 PmtMonth = "2025-05",
                 ServiceUnitCode = "TCMS",
-                ServiceUnitName = "Trung tâm Dịch vụ Kỹ thuật & PDI Ô tô TCMS",
+                ServiceUnitName = "Trung tÃ¢m Dá»‹ch vá»¥ Ká»¹ thuáº­t & PDI Ã” tÃ´ TCMS",
                 TotalVehicles = 3,
                 TotalCostIn = 450_000,
                 TotalCostOut = 600_000,
@@ -5657,7 +5668,7 @@ public static class Seeder
                 HTVSignStatus = PDISignStatus.Pending,
                 Appr1By = "NguyenVanQuan_GDKyThuat_TCMS",
                 Appr1DTime = DateTime.Now.AddDays(-1),
-                Remark = "Đợt giao xe Elantra N Line, Accent và Creta cho đại lý khu vực Miền Bắc",
+                Remark = "Äá»£t giao xe Elantra N Line, Accent vÃ  Creta cho Ä‘áº¡i lÃ½ khu vá»±c Miá»n Báº¯c",
                 CreatedBy = "VuThiThu_CanBoKeHoach",
                 CreatedAt = DateTime.Now.AddDays(-2)
             };
@@ -5674,8 +5685,8 @@ public static class Seeder
                     ModelCode = "ELANTRA-NLINE",
                     ModelName = "Hyundai Elantra N Line 1.6 Turbo",
                     SpecCode = "ELN-1.6T-NL",
-                    SpecDescription = "Bản thể thao 204 mã lực ly hợp kép 7 cấp",
-                    ColorExtNameVN = "Đỏ Thể thao",
+                    SpecDescription = "Báº£n thá»ƒ thao 204 mÃ£ lá»±c ly há»£p kÃ©p 7 cáº¥p",
+                    ColorExtNameVN = "Äá» Thá»ƒ thao",
                     StorageCodeInit = "KHO-NINHBINH",
                     StoreDate = DateTime.Today.AddDays(-5),
                     DeliveryOutDate = DateTime.Today.AddDays(-2),
@@ -5685,7 +5696,7 @@ public static class Seeder
                     CostOutCheck = 200_000,
                     TotalCostCheck = 350_000,
                     Status = PaymentPDIDetailStatus.Approved,
-                    Remark = "PDI chế độ lái Sport+, cánh gió thể thao và ống xả kép thể thao"
+                    Remark = "PDI cháº¿ Ä‘á»™ lÃ¡i Sport+, cÃ¡nh giÃ³ thá»ƒ thao vÃ  á»‘ng xáº£ kÃ©p thá»ƒ thao"
                 },
                 new PaymentPDIDetail
                 {
@@ -5694,10 +5705,10 @@ public static class Seeder
                     VIN = "KMHCT81EPHU200302",
                     CarId = "CAR-ACC-0302",
                     ModelCode = "ACCENT-AT",
-                    ModelName = "Hyundai Accent 1.5 AT Tiêu chuẩn",
+                    ModelName = "Hyundai Accent 1.5 AT TiÃªu chuáº©n",
                     SpecCode = "ACC-1.5L-TC",
-                    SpecDescription = "Bản tự động tiêu chuẩn 2025",
-                    ColorExtNameVN = "Trắng",
+                    SpecDescription = "Báº£n tá»± Ä‘á»™ng tiÃªu chuáº©n 2025",
+                    ColorExtNameVN = "Tráº¯ng",
                     StorageCodeInit = "KHO-NINHBINH",
                     StoreDate = DateTime.Today.AddDays(-5),
                     DeliveryOutDate = DateTime.Today.AddDays(-2),
@@ -5707,7 +5718,7 @@ public static class Seeder
                     CostOutCheck = 200_000,
                     TotalCostCheck = 350_000,
                     Status = PaymentPDIDetailStatus.Approved,
-                    Remark = "PDI kiểm tra 4 lốp, hệ thống cân bằng áp suất TPMS chuẩn"
+                    Remark = "PDI kiá»ƒm tra 4 lá»‘p, há»‡ thá»‘ng cÃ¢n báº±ng Ã¡p suáº¥t TPMS chuáº©n"
                 },
                 new PaymentPDIDetail
                 {
@@ -5716,10 +5727,10 @@ public static class Seeder
                     VIN = "KMHCT81EPHU200303",
                     CarId = "CAR-CRT-0303",
                     ModelCode = "CRETA-PRE",
-                    ModelName = "Hyundai Creta 1.5 Đặc biệt",
+                    ModelName = "Hyundai Creta 1.5 Äáº·c biá»‡t",
                     SpecCode = "CRT-1.5L-DB",
-                    SpecDescription = "Bản máy xăng Đặc biệt",
-                    ColorExtNameVN = "Xanh Dương",
+                    SpecDescription = "Báº£n mÃ¡y xÄƒng Äáº·c biá»‡t",
+                    ColorExtNameVN = "Xanh DÆ°Æ¡ng",
                     StorageCodeInit = "KHO-NINHBINH",
                     StoreDate = DateTime.Today.AddDays(-4),
                     DeliveryOutDate = DateTime.Today.AddDays(-1),
@@ -5729,19 +5740,19 @@ public static class Seeder
                     CostOutCheck = 200_000,
                     TotalCostCheck = 350_000,
                     Status = PaymentPDIDetailStatus.Approved,
-                    Remark = "PDI hoàn thiện tem nhãn, sổ hướng dẫn sử dụng và phụ kiện theo xe"
+                    Remark = "PDI hoÃ n thiá»‡n tem nhÃ£n, sá»• hÆ°á»›ng dáº«n sá»­ dá»¥ng vÃ  phá»¥ kiá»‡n theo xe"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 4. Bảng kê tháng 05/2025 đợt 3 - Mới tạo nháp (Draft), Đang chuẩn bị kiểm định xe
+            // 4. Báº£ng kÃª thÃ¡ng 05/2025 Ä‘á»£t 3 - Má»›i táº¡o nhÃ¡p (Draft), Äang chuáº©n bá»‹ kiá»ƒm Ä‘á»‹nh xe
             var pdi4 = new PaymentPDI
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PmtPDINo = "PDI-202505-003",
                 PmtMonth = "2025-05",
                 ServiceUnitCode = "TCMS",
-                ServiceUnitName = "Trung tâm Dịch vụ Kỹ thuật & PDI Ô tô TCMS",
+                ServiceUnitName = "Trung tÃ¢m Dá»‹ch vá»¥ Ká»¹ thuáº­t & PDI Ã” tÃ´ TCMS",
                 TotalVehicles = 2,
                 TotalCostIn = 300_000,
                 TotalCostOut = 400_000,
@@ -5752,7 +5763,7 @@ public static class Seeder
                 Status = PaymentPDIStatus.Draft,
                 TCMSSignStatus = PDISignStatus.Pending,
                 HTVSignStatus = PDISignStatus.Pending,
-                Remark = "Đợt bàn giao xe điện thuần IONIQ 5 và SUV đô thị Venue vừa hoàn tất kiểm tra kho",
+                Remark = "Äá»£t bÃ n giao xe Ä‘iá»‡n thuáº§n IONIQ 5 vÃ  SUV Ä‘Ã´ thá»‹ Venue vá»«a hoÃ n táº¥t kiá»ƒm tra kho",
                 CreatedBy = "HoangVanBac_KTV",
                 CreatedAt = DateTime.Now.AddHours(-3)
             };
@@ -5769,8 +5780,8 @@ public static class Seeder
                     ModelCode = "IONIQ-5-PRE",
                     ModelName = "Hyundai IONIQ 5 Prestige EV",
                     SpecCode = "IQ5-72KWH-PRE",
-                    SpecDescription = "Xe thuần điện Pin 72.6 kWh công nghệ sạc 800V siêu nhanh",
-                    ColorExtNameVN = "Vàng Titan Mờ",
+                    SpecDescription = "Xe thuáº§n Ä‘iá»‡n Pin 72.6 kWh cÃ´ng nghá»‡ sáº¡c 800V siÃªu nhanh",
+                    ColorExtNameVN = "VÃ ng Titan Má»",
                     StorageCodeInit = "KHO-NINHBINH",
                     StoreDate = DateTime.Today.AddDays(-2),
                     DeliveryOutDate = DateTime.Today,
@@ -5780,7 +5791,7 @@ public static class Seeder
                     CostOutCheck = 200_000,
                     TotalCostCheck = 350_000,
                     Status = PaymentPDIDetailStatus.Pending,
-                    Remark = "PDI dung lượng pin SOC 85%, cổng sạc CCS2 và bộ sạc di động 220V kèm xe"
+                    Remark = "PDI dung lÆ°á»£ng pin SOC 85%, cá»•ng sáº¡c CCS2 vÃ  bá»™ sáº¡c di Ä‘á»™ng 220V kÃ¨m xe"
                 },
                 new PaymentPDIDetail
                 {
@@ -5789,10 +5800,10 @@ public static class Seeder
                     VIN = "KMHCT81EPHU200402",
                     CarId = "CAR-VNU-0402",
                     ModelCode = "VENUE-TURBO",
-                    ModelName = "Hyundai Venue 1.0 Turbo Đặc biệt",
+                    ModelName = "Hyundai Venue 1.0 Turbo Äáº·c biá»‡t",
                     SpecCode = "VNU-1.0T-DB",
-                    SpecDescription = "Bản SUV cỡ A động cơ Turbo T-GDi",
-                    ColorExtNameVN = "Xanh Ngọc",
+                    SpecDescription = "Báº£n SUV cá»¡ A Ä‘á»™ng cÆ¡ Turbo T-GDi",
+                    ColorExtNameVN = "Xanh Ngá»c",
                     StorageCodeInit = "KHO-NINHBINH",
                     StoreDate = DateTime.Today.AddDays(-2),
                     DeliveryOutDate = DateTime.Today,
@@ -5802,23 +5813,23 @@ public static class Seeder
                     CostOutCheck = 200_000,
                     TotalCostCheck = 350_000,
                     Status = PaymentPDIDetailStatus.Pending,
-                    Remark = "PDI kiểm tra động cơ tăng áp 1.0L, hộp số tự động 7DCT mượt mà"
+                    Remark = "PDI kiá»ƒm tra Ä‘á»™ng cÆ¡ tÄƒng Ã¡p 1.0L, há»™p sá»‘ tá»± Ä‘á»™ng 7DCT mÆ°á»£t mÃ "
                 }
             );
             await db.SaveChangesAsync();
         }
 
-        // ===== 10. Seed Dữ liệu mẫu Hồ sơ Quản lý & Tính phạt Chậm thanh toán Xe (Late Payment Delay Penalty) =====
+        // ===== 10. Seed Dá»¯ liá»‡u máº«u Há»“ sÆ¡ Quáº£n lÃ½ & TÃ­nh pháº¡t Cháº­m thanh toÃ¡n Xe (Late Payment Delay Penalty) =====
         if (!await db.LatePaymentPenalties.AnyAsync())
         {
-            // 1. Hồ sơ phạt ĐÃ QUYẾT TOÁN THU PHẠT (Settled) - Đại lý Hyundai Hà Đông
+            // 1. Há»“ sÆ¡ pháº¡t ÄÃƒ QUYáº¾T TOÃN THU PHáº T (Settled) - Äáº¡i lÃ½ Hyundai HÃ  ÄÃ´ng
             var pen1 = new LatePaymentPenalty
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PenaltyRecordNo = "PEN-202504-001",
                 SOCode = "SO-2025-04-HD01",
                 DealerCode = "DLR-HYUNDAI-HADONG",
-                DealerName = "Hyundai Hà Đông (Ủy quyền phân phối)",
+                DealerName = "Hyundai HÃ  ÄÃ´ng (á»¦y quyá»n phÃ¢n phá»‘i)",
                 ContractNo = "HD-2025-0418-HTC",
                 SOApprovedDate = DateTime.Today.AddDays(-65),
                 TotalApprovedQuantity = 3,
@@ -5834,8 +5845,8 @@ public static class Seeder
                 PenalizeActual = 10_000_000,
                 WaivedAmount = 2_821_918,
                 Status = LatePaymentPenaltyStatus.Settled,
-                Remark = "Lô 3 xe SantaFe và Tucson giao đợt 1 tháng 04/2025",
-                AdjustmentReason = "Miễn giảm 2.821.918 đ do đại lý đối soát bù trừ tài khoản bảo lãnh ngân hàng VPBank",
+                Remark = "LÃ´ 3 xe SantaFe vÃ  Tucson giao Ä‘á»£t 1 thÃ¡ng 04/2025",
+                AdjustmentReason = "Miá»…n giáº£m 2.821.918 Ä‘ do Ä‘áº¡i lÃ½ Ä‘á»‘i soÃ¡t bÃ¹ trá»« tÃ i khoáº£n báº£o lÃ£nh ngÃ¢n hÃ ng VPBank",
                 PaymentProofRef = "UNC-VCB-7749102",
                 CreatedBy = "VuThiThu_KeToanCongNo",
                 CreatedAt = DateTime.Now.AddDays(-30),
@@ -5859,7 +5870,7 @@ public static class Seeder
                     VIN = "KMHCT81EPHU300101",
                     ModelCode = "SANTAFE-CAL",
                     ModelName = "Hyundai SantaFe Calligraphy 2.5 AWD",
-                    ColorName = "Đen Huyền Bí",
+                    ColorName = "Äen Huyá»n BÃ­",
                     UnitPriceActual = 1_369_000_000,
                     DepositDueDate = DateTime.Today.AddDays(-60),
                     ActualDepositDate = DateTime.Today.AddDays(-56),
@@ -5880,7 +5891,7 @@ public static class Seeder
                     ItemPenaltyAmount = 5_401_644,
                     ActualItemPenalty = 4_212_000,
                     Status = LatePaymentPenaltyDetailStatus.Settled,
-                    Note = "Trễ mốc thanh toán bảo lãnh 12 ngày do ngân hàng chuyển lệnh muộn"
+                    Note = "Trá»… má»‘c thanh toÃ¡n báº£o lÃ£nh 12 ngÃ y do ngÃ¢n hÃ ng chuyá»ƒn lá»‡nh muá»™n"
                 },
                 new LatePaymentPenaltyDetail
                 {
@@ -5889,8 +5900,8 @@ public static class Seeder
                     CarId = "CAR-SAN-2025-02",
                     VIN = "KMHCT81EPHU300102",
                     ModelCode = "SANTAFE-PRE",
-                    ModelName = "Hyundai SantaFe Cao cấp 2.5 H-Trac",
-                    ColorName = "Trắng Tinh Khôi",
+                    ModelName = "Hyundai SantaFe Cao cáº¥p 2.5 H-Trac",
+                    ColorName = "Tráº¯ng Tinh KhÃ´i",
                     UnitPriceActual = 1_269_000_000,
                     DepositDueDate = DateTime.Today.AddDays(-60),
                     ActualDepositDate = DateTime.Today.AddDays(-57),
@@ -5911,7 +5922,7 @@ public static class Seeder
                     ItemPenaltyAmount = 4_172_055,
                     ActualItemPenalty = 3_254_000,
                     Status = LatePaymentPenaltyDetailStatus.Settled,
-                    Note = "Trễ hạn bảo lãnh ngân hàng 10 ngày"
+                    Note = "Trá»… háº¡n báº£o lÃ£nh ngÃ¢n hÃ ng 10 ngÃ y"
                 },
                 new LatePaymentPenaltyDetail
                 {
@@ -5921,7 +5932,7 @@ public static class Seeder
                     VIN = "KMHCT81EPHU300103",
                     ModelCode = "TUCSON-TURBO",
                     ModelName = "Hyundai Tucson 1.6T HTRAC Turbo",
-                    ColorName = "Đỏ Mận",
+                    ColorName = "Äá» Máº­n",
                     UnitPriceActual = 612_000_000,
                     DepositDueDate = DateTime.Today.AddDays(-60),
                     ActualDepositDate = DateTime.Today.AddDays(-59),
@@ -5942,19 +5953,19 @@ public static class Seeder
                     ItemPenaltyAmount = 3_248_219,
                     ActualItemPenalty = 2_534_000,
                     Status = LatePaymentPenaltyDetailStatus.Settled,
-                    Note = "Thanh toán dứt điểm khi nhận hồ sơ gốc"
+                    Note = "Thanh toÃ¡n dá»©t Ä‘iá»ƒm khi nháº­n há»“ sÆ¡ gá»‘c"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 2. Hồ sơ phạt ĐÃ PHÊ DUYỆT CHỐT PHẠT (Approved) - Đại lý Hyundai Sài Gòn
+            // 2. Há»“ sÆ¡ pháº¡t ÄÃƒ PHÃŠ DUYá»†T CHá»T PHáº T (Approved) - Äáº¡i lÃ½ Hyundai SÃ i GÃ²n
             var pen2 = new LatePaymentPenalty
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PenaltyRecordNo = "PEN-202505-001",
                 SOCode = "SO-2025-05-SG02",
                 DealerCode = "DLR-HYUNDAI-SAIGON",
-                DealerName = "Hyundai Sài Gòn 1S (Đại lý Miền Nam)",
+                DealerName = "Hyundai SÃ i GÃ²n 1S (Äáº¡i lÃ½ Miá»n Nam)",
                 ContractNo = "HD-2025-0502-HTC",
                 SOApprovedDate = DateTime.Today.AddDays(-40),
                 TotalApprovedQuantity = 2,
@@ -5970,8 +5981,8 @@ public static class Seeder
                 PenalizeActual = 8_500_000,
                 WaivedAmount = 2_043_562,
                 Status = LatePaymentPenaltyStatus.Approved,
-                Remark = "Đơn xe giao khu vực phía Nam lô đầu tháng 05/2025",
-                AdjustmentReason = "Giảm 2.043.562 đ do thời gian vận chuyển tàu hỏa Bắc - Nam bị chậm tiến độ giao nhận",
+                Remark = "ÄÆ¡n xe giao khu vá»±c phÃ­a Nam lÃ´ Ä‘áº§u thÃ¡ng 05/2025",
+                AdjustmentReason = "Giáº£m 2.043.562 Ä‘ do thá»i gian váº­n chuyá»ƒn tÃ u há»a Báº¯c - Nam bá»‹ cháº­m tiáº¿n Ä‘á»™ giao nháº­n",
                 PaymentProofRef = null,
                 CreatedBy = "VuThiThu_KeToanCongNo",
                 CreatedAt = DateTime.Now.AddDays(-14),
@@ -5992,8 +6003,8 @@ public static class Seeder
                     CarId = "CAR-CUS-2025-01",
                     VIN = "KMHCT81EPHU300201",
                     ModelCode = "CUSTIN-2.0T",
-                    ModelName = "Hyundai Custin 2.0L Turbo Cao Cấp",
-                    ColorName = "Bạc Ánh Kim",
+                    ModelName = "Hyundai Custin 2.0L Turbo Cao Cáº¥p",
+                    ColorName = "Báº¡c Ãnh Kim",
                     UnitPriceActual = 1_079_000_000,
                     DepositDueDate = DateTime.Today.AddDays(-38),
                     ActualDepositDate = DateTime.Today.AddDays(-33),
@@ -6014,7 +6025,7 @@ public static class Seeder
                     ItemPenaltyAmount = 5_321_096,
                     ActualItemPenalty = 4_290_000,
                     Status = LatePaymentPenaltyDetailStatus.Approved,
-                    Note = "Chậm thanh toán bảo lãnh tại MBBank"
+                    Note = "Cháº­m thanh toÃ¡n báº£o lÃ£nh táº¡i MBBank"
                 },
                 new LatePaymentPenaltyDetail
                 {
@@ -6023,8 +6034,8 @@ public static class Seeder
                     CarId = "CAR-SAN-2025-03",
                     VIN = "KMHCT81EPHU300202",
                     ModelCode = "SANTAFE-EXT",
-                    ModelName = "Hyundai SantaFe Tiêu chuẩn 2.5L",
-                    ColorName = "Đen",
+                    ModelName = "Hyundai SantaFe TiÃªu chuáº©n 2.5L",
+                    ColorName = "Äen",
                     UnitPriceActual = 1_059_000_000,
                     DepositDueDate = DateTime.Today.AddDays(-38),
                     ActualDepositDate = DateTime.Today.AddDays(-35),
@@ -6045,19 +6056,19 @@ public static class Seeder
                     ItemPenaltyAmount = 5_222_466,
                     ActualItemPenalty = 4_210_000,
                     Status = LatePaymentPenaltyDetailStatus.Approved,
-                    Note = "Ban Giám đốc đã ký duyệt chốt số tiền phạt"
+                    Note = "Ban GiÃ¡m Ä‘á»‘c Ä‘Ã£ kÃ½ duyá»‡t chá»‘t sá»‘ tiá»n pháº¡t"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 3. Hồ sơ phạt ĐANG THẨM ĐỊNH (Reviewed) - Đại lý Hyundai Đông Anh
+            // 3. Há»“ sÆ¡ pháº¡t ÄANG THáº¨M Äá»ŠNH (Reviewed) - Äáº¡i lÃ½ Hyundai ÄÃ´ng Anh
             var pen3 = new LatePaymentPenalty
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PenaltyRecordNo = "PEN-202505-002",
                 SOCode = "SO-2025-05-DA03",
                 DealerCode = "DLR-HYUNDAI-DONGANH",
-                DealerName = "Hyundai Đông Anh (Chi nhánh miền Bắc)",
+                DealerName = "Hyundai ÄÃ´ng Anh (Chi nhÃ¡nh miá»n Báº¯c)",
                 ContractNo = "HD-2025-0511-HTC",
                 SOApprovedDate = DateTime.Today.AddDays(-25),
                 TotalApprovedQuantity = 2,
@@ -6073,8 +6084,8 @@ public static class Seeder
                 PenalizeActual = 3_500_000,
                 WaivedAmount = 545_151,
                 Status = LatePaymentPenaltyStatus.Reviewed,
-                Remark = "Đơn xe Creta và Accent đợt giữa tháng 05",
-                AdjustmentReason = "Kế toán thẩm định đề xuất mức phạt 3.500.000 đ theo đề xuất giải trình của đại lý",
+                Remark = "ÄÆ¡n xe Creta vÃ  Accent Ä‘á»£t giá»¯a thÃ¡ng 05",
+                AdjustmentReason = "Káº¿ toÃ¡n tháº©m Ä‘á»‹nh Ä‘á» xuáº¥t má»©c pháº¡t 3.500.000 Ä‘ theo Ä‘á» xuáº¥t giáº£i trÃ¬nh cá»§a Ä‘áº¡i lÃ½",
                 PaymentProofRef = null,
                 CreatedBy = "VuThiThu_KeToanCongNo",
                 CreatedAt = DateTime.Now.AddDays(-7),
@@ -6093,8 +6104,8 @@ public static class Seeder
                     CarId = "CAR-CRT-2025-01",
                     VIN = "KMHCT81EPHU300301",
                     ModelCode = "CRETA-CAO-CAP",
-                    ModelName = "Hyundai Creta 1.5 Cao Cấp",
-                    ColorName = "Đỏ Mận",
+                    ModelName = "Hyundai Creta 1.5 Cao Cáº¥p",
+                    ColorName = "Äá» Máº­n",
                     UnitPriceActual = 740_000_000,
                     DepositDueDate = DateTime.Today.AddDays(-22),
                     ActualDepositDate = DateTime.Today.AddDays(-19),
@@ -6115,7 +6126,7 @@ public static class Seeder
                     ItemPenaltyAmount = 1_946_301,
                     ActualItemPenalty = 1_684_000,
                     Status = LatePaymentPenaltyDetailStatus.Calculated,
-                    Note = "Chậm tiến độ thanh toán tiền bảo lãnh 8 ngày"
+                    Note = "Cháº­m tiáº¿n Ä‘á»™ thanh toÃ¡n tiá»n báº£o lÃ£nh 8 ngÃ y"
                 },
                 new LatePaymentPenaltyDetail
                 {
@@ -6124,8 +6135,8 @@ public static class Seeder
                     CarId = "CAR-ACC-2025-01",
                     VIN = "KMHCT81EPHU300302",
                     ModelCode = "ACCENT-AT-DACBIET",
-                    ModelName = "Hyundai Accent 1.5 AT Đặc Biệt",
-                    ColorName = "Trắng",
+                    ModelName = "Hyundai Accent 1.5 AT Äáº·c Biá»‡t",
+                    ColorName = "Tráº¯ng",
                     UnitPriceActual = 798_000_000,
                     DepositDueDate = DateTime.Today.AddDays(-22),
                     ActualDepositDate = DateTime.Today.AddDays(-20),
@@ -6146,19 +6157,19 @@ public static class Seeder
                     ItemPenaltyAmount = 2_098_850,
                     ActualItemPenalty = 1_816_000,
                     Status = LatePaymentPenaltyDetailStatus.Calculated,
-                    Note = "Chờ Giám đốc Tài chính phê duyệt mức phạt cuối"
+                    Note = "Chá» GiÃ¡m Ä‘á»‘c TÃ i chÃ­nh phÃª duyá»‡t má»©c pháº¡t cuá»‘i"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 4. Hồ sơ phạt VỪA TÍNH TỰ ĐỘNG (Calculated) - Đại lý Hyundai An Khánh
+            // 4. Há»“ sÆ¡ pháº¡t Vá»ªA TÃNH Tá»° Äá»˜NG (Calculated) - Äáº¡i lÃ½ Hyundai An KhÃ¡nh
             var pen4 = new LatePaymentPenalty
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PenaltyRecordNo = "PEN-202505-003",
                 SOCode = "SO-2025-05-AK04",
                 DealerCode = "DLR-HYUNDAI-ANKHANH",
-                DealerName = "Hyundai An Khánh (Đại lý 3S)",
+                DealerName = "Hyundai An KhÃ¡nh (Äáº¡i lÃ½ 3S)",
                 ContractNo = "HD-2025-0518-HTC",
                 SOApprovedDate = DateTime.Today.AddDays(-15),
                 TotalApprovedQuantity = 1,
@@ -6174,7 +6185,7 @@ public static class Seeder
                 PenalizeActual = 935_342,
                 WaivedAmount = 0,
                 Status = LatePaymentPenaltyStatus.Calculated,
-                Remark = "Đơn bổ sung xe Accent số tự động cho đại lý An Khánh",
+                Remark = "ÄÆ¡n bá»• sung xe Accent sá»‘ tá»± Ä‘á»™ng cho Ä‘áº¡i lÃ½ An KhÃ¡nh",
                 AdjustmentReason = null,
                 CreatedBy = "VuThiThu_KeToanCongNo",
                 CreatedAt = DateTime.Now.AddDays(-2),
@@ -6191,8 +6202,8 @@ public static class Seeder
                     CarId = "CAR-ACC-2025-02",
                     VIN = "KMHCT81EPHU300401",
                     ModelCode = "ACCENT-AT-TIEUCHUAN",
-                    ModelName = "Hyundai Accent 1.5 AT Tiêu Chuẩn",
-                    ColorName = "Bạc",
+                    ModelName = "Hyundai Accent 1.5 AT TiÃªu Chuáº©n",
+                    ColorName = "Báº¡c",
                     UnitPriceActual = 569_000_000,
                     DepositDueDate = DateTime.Today.AddDays(-12),
                     ActualDepositDate = DateTime.Today.AddDays(-10),
@@ -6213,30 +6224,30 @@ public static class Seeder
                     ItemPenaltyAmount = 935_342,
                     ActualItemPenalty = 935_342,
                     Status = LatePaymentPenaltyDetailStatus.Calculated,
-                    Note = "Hồ sơ mới tính toán, đang chuẩn bị chuyển thẩm định"
+                    Note = "Há»“ sÆ¡ má»›i tÃ­nh toÃ¡n, Ä‘ang chuáº©n bá»‹ chuyá»ƒn tháº©m Ä‘á»‹nh"
                 }
             );
             await db.SaveChangesAsync();
         }
 
-        // ===== 11. Seed Dữ liệu mẫu Bảng kê Thanh toán Chi phí Vận tải & Bảo hiểm Xe (Pmt_TransportIns) =====
+        // ===== 11. Seed Dá»¯ liá»‡u máº«u Báº£ng kÃª Thanh toÃ¡n Chi phÃ­ Váº­n táº£i & Báº£o hiá»ƒm Xe (Pmt_TransportIns) =====
         if (!await db.TransportInsPayments.AnyAsync())
         {
-            // 1. Bảng kê ĐÃ QUYẾT TOÁN THANH TOÁN (Settled) - Đơn vị vận tải NewWay (Tháng 04/2025)
-            // Tuyến Ninh Bình -> Hà Nội, 3 xe du lịch SantaFe, Tucson, Creta
+            // 1. Báº£ng kÃª ÄÃƒ QUYáº¾T TOÃN THANH TOÃN (Settled) - ÄÆ¡n vá»‹ váº­n táº£i NewWay (ThÃ¡ng 04/2025)
+            // Tuyáº¿n Ninh BÃ¬nh -> HÃ  Ná»™i, 3 xe du lá»‹ch SantaFe, Tucson, Creta
             var tip1 = new TransportInsPayment
             {
                 OrgId = TenantContext.DefaultOrgId,
                 TransportInsNo = "VTBH-202504-001",
                 PmtMonth = "2025-04",
                 TransporterCode = "TRANS-NEWWAY",
-                TransporterName = "Công ty Cổ phần Vận tải NewWay",
+                TransporterName = "CÃ´ng ty Cá»• pháº§n Váº­n táº£i NewWay",
                 InsuranceCompanyCode = "PVI",
-                InsuranceCompanyName = "Tổng Công ty Cổ phần Bảo hiểm Dầu khí Việt Nam (PVI)",
+                InsuranceCompanyName = "Tá»•ng CÃ´ng ty Cá»• pháº§n Báº£o hiá»ƒm Dáº§u khÃ­ Viá»‡t Nam (PVI)",
                 InsuranceContractNo = "HD-BH-PVI-2025/VT09",
                 TotalVehicles = 3,
                 TotalTransportCost = 5_550_000,    // 3 xe * 1,850,000
-                TotalDelayPenalty = 0,            // Đúng hạn
+                TotalDelayPenalty = 0,            // ÄÃºng háº¡n
                 TotalInsuranceCost = 1_550_000,   // 650k + 500k + 400k
                 TotalAmount = 7_100_000,          // TotalTransportCost + TotalInsuranceCost - TotalDelayPenalty
                 VATRate = 10.0m,
@@ -6256,7 +6267,7 @@ public static class Seeder
                 SettledBy = "PhamVanThanh_KeToanThanhToan",
                 SettledAt = DateTime.Now.AddDays(-14),
                 BankTxnRef = "UNC-VCB-20250428-9901",
-                Remark = "Quyết toán thanh toán cước vận tải và phí bảo hiểm hàng hóa xe đợt 1 tháng 4 qua VCB",
+                Remark = "Quyáº¿t toÃ¡n thanh toÃ¡n cÆ°á»›c váº­n táº£i vÃ  phÃ­ báº£o hiá»ƒm hÃ ng hÃ³a xe Ä‘á»£t 1 thÃ¡ng 4 qua VCB",
                 CreatedBy = "VuMinhTu_DieuVan",
                 CreatedAt = DateTime.Now.AddDays(-25)
             };
@@ -6273,12 +6284,12 @@ public static class Seeder
                     ModelCode = "SANTAFE-CALLI",
                     ModelName = "Hyundai Santa Fe Calligraphy 2.5T",
                     SpecCode = "SF-2.5T-CAL",
-                    SpecDescription = "Bản cao cấp 6 chỗ ngồi dẫn động HTRAC",
-                    ColorName = "Đen Phantom",
+                    SpecDescription = "Báº£n cao cáº¥p 6 chá»— ngá»“i dáº«n Ä‘á»™ng HTRAC",
+                    ColorName = "Äen Phantom",
                     FStorageCode = "KHO-NINHBINH",
-                    FProvinceName = "Ninh Bình",
+                    FProvinceName = "Ninh BÃ¬nh",
                     TStorageCode = "KHO-THANHXUAN",
-                    TProvinceName = "Hà Nội",
+                    TProvinceName = "HÃ  Ná»™i",
                     TranspReqType = "CARTRANSPORT",
                     DlvMnNo = "BBVC-NW-2025-0401",
                     DlvStartDate = DateTime.Today.AddDays(-24),
@@ -6293,7 +6304,7 @@ public static class Seeder
                     InsuranceCost = 650_000,
                     Val_Transport = 2_500_000,
                     Status = TransportInsDetailStatus.Settled,
-                    Remark = "Bàn giao an toàn tại đại lý Hyundai Thanh Xuân"
+                    Remark = "BÃ n giao an toÃ n táº¡i Ä‘áº¡i lÃ½ Hyundai Thanh XuÃ¢n"
                 },
                 new TransportInsPaymentDetail
                 {
@@ -6304,12 +6315,12 @@ public static class Seeder
                     ModelCode = "TUCSON-TURBO",
                     ModelName = "Hyundai Tucson 1.6 T-GDi Turbo",
                     SpecCode = "TUC-1.6T-PREM",
-                    SpecDescription = "Bản máy xăng tăng áp HTRAC",
-                    ColorName = "Trắng Tinh Khôi",
+                    SpecDescription = "Báº£n mÃ¡y xÄƒng tÄƒng Ã¡p HTRAC",
+                    ColorName = "Tráº¯ng Tinh KhÃ´i",
                     FStorageCode = "KHO-NINHBINH",
-                    FProvinceName = "Ninh Bình",
+                    FProvinceName = "Ninh BÃ¬nh",
                     TStorageCode = "KHO-THANHXUAN",
-                    TProvinceName = "Hà Nội",
+                    TProvinceName = "HÃ  Ná»™i",
                     TranspReqType = "CARTRANSPORT",
                     DlvMnNo = "BBVC-NW-2025-0401",
                     DlvStartDate = DateTime.Today.AddDays(-24),
@@ -6324,7 +6335,7 @@ public static class Seeder
                     InsuranceCost = 500_000,
                     Val_Transport = 2_350_000,
                     Status = TransportInsDetailStatus.Settled,
-                    Remark = "Đầy đủ biên bản bàn giao kèm tem niêm phong"
+                    Remark = "Äáº§y Ä‘á»§ biÃªn báº£n bÃ n giao kÃ¨m tem niÃªm phong"
                 },
                 new TransportInsPaymentDetail
                 {
@@ -6333,14 +6344,14 @@ public static class Seeder
                     VIN = "KMHCT81EPHU500103",
                     CarId = "CAR-CRETA-0103",
                     ModelCode = "CRETA-PREMIUM",
-                    ModelName = "Hyundai Creta 1.5 Cao Cấp",
+                    ModelName = "Hyundai Creta 1.5 Cao Cáº¥p",
                     SpecCode = "CRT-1.5L-PRE",
-                    SpecDescription = "Bản máy xăng cao cấp gói SmartSense",
-                    ColorName = "Đỏ Mận",
+                    SpecDescription = "Báº£n mÃ¡y xÄƒng cao cáº¥p gÃ³i SmartSense",
+                    ColorName = "Äá» Máº­n",
                     FStorageCode = "KHO-NINHBINH",
-                    FProvinceName = "Ninh Bình",
+                    FProvinceName = "Ninh BÃ¬nh",
                     TStorageCode = "KHO-THANHXUAN",
-                    TProvinceName = "Hà Nội",
+                    TProvinceName = "HÃ  Ná»™i",
                     TranspReqType = "CARTRANSPORT",
                     DlvMnNo = "BBVC-NW-2025-0402",
                     DlvStartDate = DateTime.Today.AddDays(-23),
@@ -6355,25 +6366,25 @@ public static class Seeder
                     InsuranceCost = 400_000,
                     Val_Transport = 2_250_000,
                     Status = TransportInsDetailStatus.Settled,
-                    Remark = "Giao đủ phụ kiện theo xe"
+                    Remark = "Giao Ä‘á»§ phá»¥ kiá»‡n theo xe"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 2. Bảng kê ĐÃ KÝ SỐ CA HOÀN TẤT (Signed) - Nhà xe Đạt Đức (Tháng 05/2025 đợt 1)
-            // Tuyến Ninh Bình -> Sài Gòn, 2 xe lớn Palisade và Custin
+            // 2. Báº£ng kÃª ÄÃƒ KÃ Sá» CA HOÃ€N Táº¤T (Signed) - NhÃ  xe Äáº¡t Äá»©c (ThÃ¡ng 05/2025 Ä‘á»£t 1)
+            // Tuyáº¿n Ninh BÃ¬nh -> SÃ i GÃ²n, 2 xe lá»›n Palisade vÃ  Custin
             var tip2 = new TransportInsPayment
             {
                 OrgId = TenantContext.DefaultOrgId,
                 TransportInsNo = "VTBH-202505-001",
                 PmtMonth = "2025-05",
                 TransporterCode = "TRANS-DATDUC",
-                TransporterName = "Công ty TNHH Vận tải Thương mại Đạt Đức",
+                TransporterName = "CÃ´ng ty TNHH Váº­n táº£i ThÆ°Æ¡ng máº¡i Äáº¡t Äá»©c",
                 InsuranceCompanyCode = "BAOVIET",
-                InsuranceCompanyName = "Tổng Công ty Bảo hiểm Bảo Việt",
+                InsuranceCompanyName = "Tá»•ng CÃ´ng ty Báº£o hiá»ƒm Báº£o Viá»‡t",
                 InsuranceContractNo = "HD-BH-BV-2025/SG12",
                 TotalVehicles = 2,
-                TotalTransportCost = 13_000_000,  // 2 xe * 6,500,000 (Bắc - Nam)
+                TotalTransportCost = 13_000_000,  // 2 xe * 6,500,000 (Báº¯c - Nam)
                 TotalDelayPenalty = 0,
                 TotalInsuranceCost = 1_225_000,   // 750k + 475k
                 TotalAmount = 14_225_000,
@@ -6392,7 +6403,7 @@ public static class Seeder
                 Appr2By = "NguyenThiMai_GDTaiChinh_HTV",
                 Appr2DTime = DateTime.Now.AddDays(-5),
                 FilePath = "/certs/signatures/VTBH-202505-001-signed.pdf",
-                Remark = "Đợt vận chuyển Bắc - Nam xe phân khúc cao cấp đã ký số CA hoàn tất, chuẩn bị phát hành UNC",
+                Remark = "Äá»£t váº­n chuyá»ƒn Báº¯c - Nam xe phÃ¢n khÃºc cao cáº¥p Ä‘Ã£ kÃ½ sá»‘ CA hoÃ n táº¥t, chuáº©n bá»‹ phÃ¡t hÃ nh UNC",
                 CreatedBy = "VuMinhTu_DieuVan",
                 CreatedAt = DateTime.Now.AddDays(-10)
             };
@@ -6409,12 +6420,12 @@ public static class Seeder
                     ModelCode = "PALISADE-PRE",
                     ModelName = "Hyundai Palisade Prestige 6S",
                     SpecCode = "PAL-3.8L-6S",
-                    SpecDescription = "SUV Flagship 6 chỗ máy dầu cao cấp",
-                    ColorName = "Xanh Bóng Đêm",
+                    SpecDescription = "SUV Flagship 6 chá»— mÃ¡y dáº§u cao cáº¥p",
+                    ColorName = "Xanh BÃ³ng ÄÃªm",
                     FStorageCode = "KHO-NINHBINH",
-                    FProvinceName = "Ninh Bình",
+                    FProvinceName = "Ninh BÃ¬nh",
                     TStorageCode = "KHO-SAIGON",
-                    TProvinceName = "Hồ Chí Minh",
+                    TProvinceName = "Há»“ ChÃ­ Minh",
                     TranspReqType = "CARTRANSPORT",
                     DlvMnNo = "BBVC-DD-2025-0501",
                     DlvStartDate = DateTime.Today.AddDays(-9),
@@ -6429,7 +6440,7 @@ public static class Seeder
                     InsuranceCost = 750_000,
                     Val_Transport = 7_250_000,
                     Status = TransportInsDetailStatus.Approved,
-                    Remark = "Bàn giao đúng tiến độ cho đại lý Hyundai Sài Gòn 1S"
+                    Remark = "BÃ n giao Ä‘Ãºng tiáº¿n Ä‘á»™ cho Ä‘áº¡i lÃ½ Hyundai SÃ i GÃ²n 1S"
                 },
                 new TransportInsPaymentDetail
                 {
@@ -6438,14 +6449,14 @@ public static class Seeder
                     VIN = "KMHCT81EPHU500202",
                     CarId = "CAR-CUSTIN-0202",
                     ModelCode = "CUSTIN-TURBO",
-                    ModelName = "Hyundai Custin 2.0 T-GDi Cao Cấp",
+                    ModelName = "Hyundai Custin 2.0 T-GDi Cao Cáº¥p",
                     SpecCode = "CUS-2.0T-PRE",
-                    SpecDescription = "MPV 7 chỗ ghế thương gia tích hợp làm mát",
-                    ColorName = "Bạc Ánh Kim",
+                    SpecDescription = "MPV 7 chá»— gháº¿ thÆ°Æ¡ng gia tÃ­ch há»£p lÃ m mÃ¡t",
+                    ColorName = "Báº¡c Ãnh Kim",
                     FStorageCode = "KHO-NINHBINH",
-                    FProvinceName = "Ninh Bình",
+                    FProvinceName = "Ninh BÃ¬nh",
                     TStorageCode = "KHO-SAIGON",
-                    TProvinceName = "Hồ Chí Minh",
+                    TProvinceName = "Há»“ ChÃ­ Minh",
                     TranspReqType = "CARTRANSPORT",
                     DlvMnNo = "BBVC-DD-2025-0501",
                     DlvStartDate = DateTime.Today.AddDays(-9),
@@ -6460,26 +6471,26 @@ public static class Seeder
                     InsuranceCost = 475_000,
                     Val_Transport = 6_975_000,
                     Status = TransportInsDetailStatus.Approved,
-                    Remark = "Xe kiểm tra ngoại thất nguyên vẹn, không trầy xước"
+                    Remark = "Xe kiá»ƒm tra ngoáº¡i tháº¥t nguyÃªn váº¹n, khÃ´ng tráº§y xÆ°á»›c"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 3. Bảng kê TCMS ĐÃ DUYỆT CẤP 1 (TCMSApproved) - Vận tải Miền Bắc (Tháng 05/2025 đợt 2)
-            // Tuyến Ninh Bình -> Đà Nẵng, 2 xe Accent và Stargazer (Có 1 xe trễ hạn 1 ngày bị phạt)
+            // 3. Báº£ng kÃª TCMS ÄÃƒ DUYá»†T Cáº¤P 1 (TCMSApproved) - Váº­n táº£i Miá»n Báº¯c (ThÃ¡ng 05/2025 Ä‘á»£t 2)
+            // Tuyáº¿n Ninh BÃ¬nh -> ÄÃ  Náºµng, 2 xe Accent vÃ  Stargazer (CÃ³ 1 xe trá»… háº¡n 1 ngÃ y bá»‹ pháº¡t)
             var tip3 = new TransportInsPayment
             {
                 OrgId = TenantContext.DefaultOrgId,
                 TransportInsNo = "VTBH-202505-002",
                 PmtMonth = "2025-05",
                 TransporterCode = "TRANS-MIENBAC",
-                TransporterName = "Công ty Vận tải & Tiếp vận Miền Bắc",
+                TransporterName = "CÃ´ng ty Váº­n táº£i & Tiáº¿p váº­n Miá»n Báº¯c",
                 InsuranceCompanyCode = "MIC",
-                InsuranceCompanyName = "Tổng Công ty Cổ phần Bảo hiểm Quân đội (MIC)",
+                InsuranceCompanyName = "Tá»•ng CÃ´ng ty Cá»• pháº§n Báº£o hiá»ƒm QuÃ¢n Ä‘á»™i (MIC)",
                 InsuranceContractNo = "HD-BH-MIC-2025/DN03",
                 TotalVehicles = 2,
-                TotalTransportCost = 7_600_000,   // 2 xe * 3,800,000 (Ninh Bình - Đà Nẵng)
-                TotalDelayPenalty = 200_000,      // Trễ 1 ngày phạt 200k
+                TotalTransportCost = 7_600_000,   // 2 xe * 3,800,000 (Ninh BÃ¬nh - ÄÃ  Náºµng)
+                TotalDelayPenalty = 200_000,      // Trá»… 1 ngÃ y pháº¡t 200k
                 TotalInsuranceCost = 625_000,     // 325k + 300k
                 TotalAmount = 8_025_000,          // 7,600,000 + 625,000 - 200,000
                 VATRate = 10.0m,
@@ -6490,7 +6501,7 @@ public static class Seeder
                 HTVSignStatus = TransportSignCAStatus.Pending,
                 Appr1By = "DangVanHai_GDKyThuat_TCMS",
                 Appr1DTime = DateTime.Now.AddDays(-2),
-                Remark = "Đợt giao xe miền Trung có sự cố mưa lũ chậm 1 ngày, TCMS đã duyệt giảm trừ phạt chậm theo hợp đồng",
+                Remark = "Äá»£t giao xe miá»n Trung cÃ³ sá»± cá»‘ mÆ°a lÅ© cháº­m 1 ngÃ y, TCMS Ä‘Ã£ duyá»‡t giáº£m trá»« pháº¡t cháº­m theo há»£p Ä‘á»“ng",
                 CreatedBy = "VuMinhTu_DieuVan",
                 CreatedAt = DateTime.Now.AddDays(-4)
             };
@@ -6505,20 +6516,20 @@ public static class Seeder
                     VIN = "KMHCT81EPHU500301",
                     CarId = "CAR-ACCENT-0301",
                     ModelCode = "ACCENT-AT-DB",
-                    ModelName = "Hyundai Accent 1.5 AT Đặc Biệt",
+                    ModelName = "Hyundai Accent 1.5 AT Äáº·c Biá»‡t",
                     SpecCode = "ACC-1.5L-DB",
-                    SpecDescription = "Sedan hạng B thế hệ mới động cơ Smartstream",
-                    ColorName = "Đỏ Tươi",
+                    SpecDescription = "Sedan háº¡ng B tháº¿ há»‡ má»›i Ä‘á»™ng cÆ¡ Smartstream",
+                    ColorName = "Äá» TÆ°Æ¡i",
                     FStorageCode = "KHO-NINHBINH",
-                    FProvinceName = "Ninh Bình",
+                    FProvinceName = "Ninh BÃ¬nh",
                     TStorageCode = "KHO-DANANG",
-                    TProvinceName = "Đà Nẵng",
+                    TProvinceName = "ÄÃ  Náºµng",
                     TranspReqType = "CARTRANSPORT",
                     DlvMnNo = "BBVC-MB-2025-0511",
                     DlvStartDate = DateTime.Today.AddDays(-5),
                     ExpectedDays = 3,
                     ExpectedDlvEndDate = DateTime.Today.AddDays(-2),
-                    DlvEndDate = DateTime.Today.AddDays(-1), // Trễ 1 ngày
+                    DlvEndDate = DateTime.Today.AddDays(-1), // Trá»… 1 ngÃ y
                     DelayDays = 1,
                     TFValReal = 3_800_000,
                     TPValReal = 200_000,
@@ -6527,8 +6538,8 @@ public static class Seeder
                     InsuranceCost = 325_000,
                     Val_Transport = 3_925_000,
                     Status = TransportInsDetailStatus.Approved,
-                    StandardRemark = "Mưa lũ trên đèo Hải Vân gây ùn tắc kéo dài 1 ngày",
-                    Remark = "Đại lý đã xác nhận nhận xe đủ điều kiện"
+                    StandardRemark = "MÆ°a lÅ© trÃªn Ä‘Ã¨o Háº£i VÃ¢n gÃ¢y Ã¹n táº¯c kÃ©o dÃ i 1 ngÃ y",
+                    Remark = "Äáº¡i lÃ½ Ä‘Ã£ xÃ¡c nháº­n nháº­n xe Ä‘á»§ Ä‘iá»u kiá»‡n"
                 },
                 new TransportInsPaymentDetail
                 {
@@ -6537,20 +6548,20 @@ public static class Seeder
                     VIN = "KMHCT81EPHU500302",
                     CarId = "CAR-STARGAZER-0302",
                     ModelCode = "STARGAZER-X",
-                    ModelName = "Hyundai Stargazer X Cao Cấp",
+                    ModelName = "Hyundai Stargazer X Cao Cáº¥p",
                     SpecCode = "SGZ-1.5L-PRE",
-                    SpecDescription = "Crossover MPV 7 chỗ phong cách thể thao",
-                    ColorName = "Trắng Mờ",
+                    SpecDescription = "Crossover MPV 7 chá»— phong cÃ¡ch thá»ƒ thao",
+                    ColorName = "Tráº¯ng Má»",
                     FStorageCode = "KHO-NINHBINH",
-                    FProvinceName = "Ninh Bình",
+                    FProvinceName = "Ninh BÃ¬nh",
                     TStorageCode = "KHO-DANANG",
-                    TProvinceName = "Đà Nẵng",
+                    TProvinceName = "ÄÃ  Náºµng",
                     TranspReqType = "STORAGEREARRANGE",
                     DlvMnNo = "BBVC-MB-2025-0512",
                     DlvStartDate = DateTime.Today.AddDays(-4),
                     ExpectedDays = 3,
                     ExpectedDlvEndDate = DateTime.Today.AddDays(-1),
-                    DlvEndDate = DateTime.Today.AddDays(-1), // Đúng hạn
+                    DlvEndDate = DateTime.Today.AddDays(-1), // ÄÃºng háº¡n
                     DelayDays = 0,
                     TFValReal = 3_800_000,
                     TPValReal = 0,
@@ -6559,25 +6570,25 @@ public static class Seeder
                     InsuranceCost = 300_000,
                     Val_Transport = 4_100_000,
                     Status = TransportInsDetailStatus.Approved,
-                    Remark = "Lệnh điều chuyển kho bãi phục vụ trưng bày triển lãm"
+                    Remark = "Lá»‡nh Ä‘iá»u chuyá»ƒn kho bÃ£i phá»¥c vá»¥ trÆ°ng bÃ y triá»ƒn lÃ£m"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 4. Bảng kê MỚI TẠO NHÁP (Draft) - Đơn vị vận tải Sài Gòn (Tháng 05/2025 đợt 3)
-            // Tuyến Ninh Bình -> Cần Thơ, xe điện thuần IONIQ 5 và SUV Venue
+            // 4. Báº£ng kÃª Má»šI Táº O NHÃP (Draft) - ÄÆ¡n vá»‹ váº­n táº£i SÃ i GÃ²n (ThÃ¡ng 05/2025 Ä‘á»£t 3)
+            // Tuyáº¿n Ninh BÃ¬nh -> Cáº§n ThÆ¡, xe Ä‘iá»‡n thuáº§n IONIQ 5 vÃ  SUV Venue
             var tip4 = new TransportInsPayment
             {
                 OrgId = TenantContext.DefaultOrgId,
                 TransportInsNo = "VTBH-202505-003",
                 PmtMonth = "2025-05",
                 TransporterCode = "TRANS-SAIGON",
-                TransporterName = "Công ty Dịch vụ Vận tải Ô tô Sài Gòn",
+                TransporterName = "CÃ´ng ty Dá»‹ch vá»¥ Váº­n táº£i Ã” tÃ´ SÃ i GÃ²n",
                 InsuranceCompanyCode = "PVI",
-                InsuranceCompanyName = "Tổng Công ty Cổ phần Bảo hiểm Dầu khí Việt Nam (PVI)",
+                InsuranceCompanyName = "Tá»•ng CÃ´ng ty Cá»• pháº§n Báº£o hiá»ƒm Dáº§u khÃ­ Viá»‡t Nam (PVI)",
                 InsuranceContractNo = "HD-BH-PVI-2025/CT01",
                 TotalVehicles = 2,
-                TotalTransportCost = 13_800_000, // Tuyến Miền Tây 6,900,000 * 2
+                TotalTransportCost = 13_800_000, // Tuyáº¿n Miá»n TÃ¢y 6,900,000 * 2
                 TotalDelayPenalty = 0,
                 TotalInsuranceCost = 1_000_000,  // 700k + 300k
                 TotalAmount = 14_800_000,
@@ -6587,7 +6598,7 @@ public static class Seeder
                 Status = TransportInsStatus.Draft,
                 TCMSSignStatus = TransportSignCAStatus.Pending,
                 HTVSignStatus = TransportSignCAStatus.Pending,
-                Remark = "Đợt giao xe khu vực Tây Nam Bộ mới lập bảng kê, chuẩn bị gửi TCMS thẩm định",
+                Remark = "Äá»£t giao xe khu vá»±c TÃ¢y Nam Bá»™ má»›i láº­p báº£ng kÃª, chuáº©n bá»‹ gá»­i TCMS tháº©m Ä‘á»‹nh",
                 CreatedBy = "VuMinhTu_DieuVan",
                 CreatedAt = DateTime.Now.AddHours(-4)
             };
@@ -6604,12 +6615,12 @@ public static class Seeder
                     ModelCode = "IONIQ-5-PREM",
                     ModelName = "Hyundai IONIQ 5 Exclusive EV",
                     SpecCode = "IQ5-72KWH-EXC",
-                    SpecDescription = "Xe thuần điện Pin 72.6 kWh công nghệ sạc 800V siêu nhanh",
-                    ColorName = "Xám Xi Măng",
+                    SpecDescription = "Xe thuáº§n Ä‘iá»‡n Pin 72.6 kWh cÃ´ng nghá»‡ sáº¡c 800V siÃªu nhanh",
+                    ColorName = "XÃ¡m Xi MÄƒng",
                     FStorageCode = "KHO-NINHBINH",
-                    FProvinceName = "Ninh Bình",
+                    FProvinceName = "Ninh BÃ¬nh",
                     TStorageCode = "KHO-CANTHO",
-                    TProvinceName = "Cần Thơ",
+                    TProvinceName = "Cáº§n ThÆ¡",
                     TranspReqType = "CARTRANSPORT",
                     DlvMnNo = "BBVC-SG-2025-0520",
                     DlvStartDate = DateTime.Today.AddDays(-2),
@@ -6624,7 +6635,7 @@ public static class Seeder
                     InsuranceCost = 700_000,
                     Val_Transport = 7_600_000,
                     Status = TransportInsDetailStatus.Pending,
-                    Remark = "Vận chuyển bằng xe lồng bọc kín chuyên dụng cho xe điện"
+                    Remark = "Váº­n chuyá»ƒn báº±ng xe lá»“ng bá»c kÃ­n chuyÃªn dá»¥ng cho xe Ä‘iá»‡n"
                 },
                 new TransportInsPaymentDetail
                 {
@@ -6633,14 +6644,14 @@ public static class Seeder
                     VIN = "KMHCT81EPHU500402",
                     CarId = "CAR-VENUE-0402",
                     ModelCode = "VENUE-TURBO",
-                    ModelName = "Hyundai Venue 1.0 T-GDi Đặc Biệt",
+                    ModelName = "Hyundai Venue 1.0 T-GDi Äáº·c Biá»‡t",
                     SpecCode = "VNU-1.0T-DB",
-                    SpecDescription = "SUV đô thị nhỏ gọn động cơ Turbo hộp số ly hợp kép 7DCT",
-                    ColorName = "Đỏ Mận",
+                    SpecDescription = "SUV Ä‘Ã´ thá»‹ nhá» gá»n Ä‘á»™ng cÆ¡ Turbo há»™p sá»‘ ly há»£p kÃ©p 7DCT",
+                    ColorName = "Äá» Máº­n",
                     FStorageCode = "KHO-NINHBINH",
-                    FProvinceName = "Ninh Bình",
+                    FProvinceName = "Ninh BÃ¬nh",
                     TStorageCode = "KHO-CANTHO",
-                    TProvinceName = "Cần Thơ",
+                    TProvinceName = "Cáº§n ThÆ¡",
                     TranspReqType = "CARTRANSPORT",
                     DlvMnNo = "BBVC-SG-2025-0520",
                     DlvStartDate = DateTime.Today.AddDays(-2),
@@ -6655,28 +6666,28 @@ public static class Seeder
                     InsuranceCost = 300_000,
                     Val_Transport = 7_200_000,
                     Status = TransportInsDetailStatus.Pending,
-                    Remark = "Bàn giao kèm theo phụ kiện tiêu chuẩn theo xe"
+                    Remark = "BÃ n giao kÃ¨m theo phá»¥ kiá»‡n tiÃªu chuáº©n theo xe"
                 }
             );
             await db.SaveChangesAsync();
         }
 
-        // Dữ liệu mẫu Bảng kê thanh toán chi phí lưu kho xe ô tô (Pmt_PaymentStorage & Pmt_PaymentStorageDetail)
+        // Dá»¯ liá»‡u máº«u Báº£ng kÃª thanh toÃ¡n chi phÃ­ lÆ°u kho xe Ã´ tÃ´ (Pmt_PaymentStorage & Pmt_PaymentStorageDetail)
         if (!await db.PaymentStorages.AnyAsync(p => p.OrgId == TenantContext.DefaultOrgId))
         {
-            // 1. Bảng kê Tháng 04/2025 - Đã quyết toán chi trả chuyển khoản UNC VietinBank (Settled)
-            // Tổng kho Ninh Bình (KHO-NBD), 3 xe SantaFe, Tucson, Creta
+            // 1. Báº£ng kÃª ThÃ¡ng 04/2025 - ÄÃ£ quyáº¿t toÃ¡n chi tráº£ chuyá»ƒn khoáº£n UNC VietinBank (Settled)
+            // Tá»•ng kho Ninh BÃ¬nh (KHO-NBD), 3 xe SantaFe, Tucson, Creta
             var ps1 = new PaymentStorage
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PaymentStorageNo = "LK-202504-001",
                 PmtMonth = "2025-04",
                 StorageOperatorCode = "KHO-NBD",
-                StorageOperatorName = "Tổng kho Phân phối Ô tô Hyundai Ninh Bình",
+                StorageOperatorName = "Tá»•ng kho PhÃ¢n phá»‘i Ã” tÃ´ Hyundai Ninh BÃ¬nh",
                 TotalVehicles = 3,
-                TotalCoatCost = 150_000,      // 3 xe * 50k bạt che phủ
-                TotalStorageCost = 2_250_000,  // (30 + 30 + 30 ngày) * 25k = 90 * 25k = 2,250,000
-                TotalAmount = 2_400_000,       // Trước VAT
+                TotalCoatCost = 150_000,      // 3 xe * 50k báº¡t che phá»§
+                TotalStorageCost = 2_250_000,  // (30 + 30 + 30 ngÃ y) * 25k = 90 * 25k = 2,250,000
+                TotalAmount = 2_400_000,       // TrÆ°á»›c VAT
                 VATRate = 10.0m,
                 UnitPriceVAT = 240_000,        // 10% VAT
                 AmountTotal = 2_640_000,       // Sau VAT
@@ -6695,7 +6706,7 @@ public static class Seeder
                 SettledAt = DateTime.Today.AddDays(-18),
                 BankTxnRef = "UNC-CTG-LK-20250422-8812",
                 FilePath = "/documents/storage/LK-202504-001-Signed.pdf",
-                Remark = "Thanh toán dứt điểm chi phí lưu giữ kho bãi và bạt phủ xe tháng 04/2025",
+                Remark = "Thanh toÃ¡n dá»©t Ä‘iá»ƒm chi phÃ­ lÆ°u giá»¯ kho bÃ£i vÃ  báº¡t phá»§ xe thÃ¡ng 04/2025",
                 CreatedBy = "PhamVanDuc_QuanLyKho",
                 CreatedAt = DateTime.Today.AddDays(-25)
             };
@@ -6713,14 +6724,14 @@ public static class Seeder
                     ModelCode = "SANTAFE-CALLI",
                     ModelName = "Hyundai SantaFe 2.5 Turbo Calligraphy",
                     SpecCode = "SAN-2.5T-CAL",
-                    SpecDescription = "SUV 7 chỗ máy xăng Turbo dẫn động 4 bánh HTRAC",
-                    ColorExtNameVN = "Trắng Tinh Khôi",
+                    SpecDescription = "SUV 7 chá»— mÃ¡y xÄƒng Turbo dáº«n Ä‘á»™ng 4 bÃ¡nh HTRAC",
+                    ColorExtNameVN = "Tráº¯ng Tinh KhÃ´i",
                     StorageCodeInit = "KHO-NBD",
                     StorageDate = DateTime.Today.AddDays(-60),
                     ApprovedDate2 = DateTime.Today.AddDays(-28),
                     DeliveryOutDate = DateTime.Today.AddDays(-15),
                     DealerCode = "DLR-HYUNDAI-ANPHU",
-                    DealerName = "Hyundai An Phú Sài Gòn",
+                    DealerName = "Hyundai An PhÃº SÃ i GÃ²n",
                     InCostStorageDate = new DateTime(2025, 4, 1),
                     OutCostStorageDate = new DateTime(2025, 4, 30),
                     CostStorageMonth = 30,
@@ -6730,7 +6741,7 @@ public static class Seeder
                     CostStorage = 750_000, // 30 * 25k
                     TotalAmount = 800_000,
                     Status = PaymentStorageDetailStatus.Approved,
-                    Remark = "Bạt bọc kín chống tia cực tím tiêu chuẩn HTC"
+                    Remark = "Báº¡t bá»c kÃ­n chá»‘ng tia cá»±c tÃ­m tiÃªu chuáº©n HTC"
                 },
                 new PaymentStorageDetail
                 {
@@ -6740,16 +6751,16 @@ public static class Seeder
                     VIN = "KMHCT81EPHU600102",
                     CarId = "CAR-TUC-6002",
                     ModelCode = "TUCSON-1.6T",
-                    ModelName = "Hyundai Tucson 1.6 T-GDi Đặc Biệt",
+                    ModelName = "Hyundai Tucson 1.6 T-GDi Äáº·c Biá»‡t",
                     SpecCode = "TUC-1.6T-DB",
-                    SpecDescription = "Crossover 5 chỗ máy Turbo hộp số ly hợp kép 7 cấp",
-                    ColorExtNameVN = "Đen Sang Trọng",
+                    SpecDescription = "Crossover 5 chá»— mÃ¡y Turbo há»™p sá»‘ ly há»£p kÃ©p 7 cáº¥p",
+                    ColorExtNameVN = "Äen Sang Trá»ng",
                     StorageCodeInit = "KHO-NBD",
                     StorageDate = DateTime.Today.AddDays(-55),
                     ApprovedDate2 = DateTime.Today.AddDays(-26),
                     DeliveryOutDate = DateTime.Today.AddDays(-16),
                     DealerCode = "DLR-HYUNDAI-THANHXUAN",
-                    DealerName = "Hyundai Thanh Xuân Hà Nội",
+                    DealerName = "Hyundai Thanh XuÃ¢n HÃ  Ná»™i",
                     InCostStorageDate = new DateTime(2025, 4, 1),
                     OutCostStorageDate = new DateTime(2025, 4, 30),
                     CostStorageMonth = 30,
@@ -6759,7 +6770,7 @@ public static class Seeder
                     CostStorage = 750_000,
                     TotalAmount = 800_000,
                     Status = PaymentStorageDetailStatus.Approved,
-                    Remark = "Lưu kho khu vực có mái che phụ"
+                    Remark = "LÆ°u kho khu vá»±c cÃ³ mÃ¡i che phá»¥"
                 },
                 new PaymentStorageDetail
                 {
@@ -6769,16 +6780,16 @@ public static class Seeder
                     VIN = "KMHCT81EPHU600103",
                     CarId = "CAR-CRT-6003",
                     ModelCode = "CRETA-PREM",
-                    ModelName = "Hyundai Creta 1.5L Cao Cấp",
+                    ModelName = "Hyundai Creta 1.5L Cao Cáº¥p",
                     SpecCode = "CRT-1.5L-PRE",
-                    SpecDescription = "SUV đô thị nhỏ gọn gói công nghệ an toàn SmartSense",
-                    ColorExtNameVN = "Đỏ Mận",
+                    SpecDescription = "SUV Ä‘Ã´ thá»‹ nhá» gá»n gÃ³i cÃ´ng nghá»‡ an toÃ n SmartSense",
+                    ColorExtNameVN = "Äá» Máº­n",
                     StorageCodeInit = "KHO-NBD",
                     StorageDate = DateTime.Today.AddDays(-50),
                     ApprovedDate2 = DateTime.Today.AddDays(-25),
                     DeliveryOutDate = DateTime.Today.AddDays(-18),
                     DealerCode = "DLR-HYUNDAI-DANANG",
-                    DealerName = "Hyundai Cẩm Lệ Đà Nẵng",
+                    DealerName = "Hyundai Cáº©m Lá»‡ ÄÃ  Náºµng",
                     InCostStorageDate = new DateTime(2025, 4, 1),
                     OutCostStorageDate = new DateTime(2025, 4, 30),
                     CostStorageMonth = 30,
@@ -6788,23 +6799,23 @@ public static class Seeder
                     CostStorage = 750_000,
                     TotalAmount = 800_000,
                     Status = PaymentStorageDetailStatus.Approved,
-                    Remark = "Kiểm tra bảo dưỡng lốp định kỳ trong thời gian lưu bãi"
+                    Remark = "Kiá»ƒm tra báº£o dÆ°á»¡ng lá»‘p Ä‘á»‹nh ká»³ trong thá»i gian lÆ°u bÃ£i"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 2. Bảng kê Tháng 05/2025 Đợt 1 - Đã ký số CA 2 cấp hoàn tất (Signed)
-            // Tổng kho Đông Anh (KHO-DA), 3 xe Palisade, Custin, Stargazer X
+            // 2. Báº£ng kÃª ThÃ¡ng 05/2025 Äá»£t 1 - ÄÃ£ kÃ½ sá»‘ CA 2 cáº¥p hoÃ n táº¥t (Signed)
+            // Tá»•ng kho ÄÃ´ng Anh (KHO-DA), 3 xe Palisade, Custin, Stargazer X
             var ps2 = new PaymentStorage
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PaymentStorageNo = "LK-202505-001",
                 PmtMonth = "2025-05",
                 StorageOperatorCode = "KHO-DA",
-                StorageOperatorName = "Tổng kho Ô tô Hyundai Miền Bắc - Đông Anh",
+                StorageOperatorName = "Tá»•ng kho Ã” tÃ´ Hyundai Miá»n Báº¯c - ÄÃ´ng Anh",
                 TotalVehicles = 3,
                 TotalCoatCost = 150_000,       // 3 * 50k
-                TotalStorageCost = 1_500_000,   // (20 + 20 + 20 ngày) * 25k = 60 * 25k = 1,500,000
+                TotalStorageCost = 1_500_000,   // (20 + 20 + 20 ngÃ y) * 25k = 60 * 25k = 1,500,000
                 TotalAmount = 1_650_000,
                 VATRate = 10.0m,
                 UnitPriceVAT = 165_000,
@@ -6821,7 +6832,7 @@ public static class Seeder
                 Appr2By = "TranQuocTuan_GDKyThuat_TCMS",
                 Appr2DTime = DateTime.Today.AddDays(-5),
                 FilePath = "/documents/storage/LK-202505-001-Signed.pdf",
-                Remark = "Bảng kê đợt 1 tháng 05 xe lưu giữ kho bãi Đông Anh chuẩn bị giao đại lý phía Bắc",
+                Remark = "Báº£ng kÃª Ä‘á»£t 1 thÃ¡ng 05 xe lÆ°u giá»¯ kho bÃ£i ÄÃ´ng Anh chuáº©n bá»‹ giao Ä‘áº¡i lÃ½ phÃ­a Báº¯c",
                 CreatedBy = "VuDinhTruong_ThuKhoDA",
                 CreatedAt = DateTime.Today.AddDays(-7)
             };
@@ -6839,14 +6850,14 @@ public static class Seeder
                     ModelCode = "PALISADE-PRE",
                     ModelName = "Hyundai Palisade 2.2D Prestige",
                     SpecCode = "PLS-2.2D-PRE",
-                    SpecDescription = "SUV Flagship 7 chỗ động cơ Diesel dẫn động HTRAC",
-                    ColorExtNameVN = "Xanh Bóng Đêm",
+                    SpecDescription = "SUV Flagship 7 chá»— Ä‘á»™ng cÆ¡ Diesel dáº«n Ä‘á»™ng HTRAC",
+                    ColorExtNameVN = "Xanh BÃ³ng ÄÃªm",
                     StorageCodeInit = "KHO-DA",
                     StorageDate = DateTime.Today.AddDays(-35),
                     ApprovedDate2 = DateTime.Today.AddDays(-10),
                     DeliveryOutDate = DateTime.Today.AddDays(-3),
                     DealerCode = "DLR-HYUNDAI-LEVANLUONG",
-                    DealerName = "Hyundai Lê Văn Lương",
+                    DealerName = "Hyundai LÃª VÄƒn LÆ°Æ¡ng",
                     InCostStorageDate = new DateTime(2025, 5, 1),
                     OutCostStorageDate = new DateTime(2025, 5, 20),
                     CostStorageMonth = 20,
@@ -6856,7 +6867,7 @@ public static class Seeder
                     CostStorage = 500_000, // 20 * 25k
                     TotalAmount = 550_000,
                     Status = PaymentStorageDetailStatus.Approved,
-                    Remark = "Xe bọc bạt phủ chuyên dụng bảo vệ lớp sơn bóng"
+                    Remark = "Xe bá»c báº¡t phá»§ chuyÃªn dá»¥ng báº£o vá»‡ lá»›p sÆ¡n bÃ³ng"
                 },
                 new PaymentStorageDetail
                 {
@@ -6866,16 +6877,16 @@ public static class Seeder
                     VIN = "KMHCT81EPHU600202",
                     CarId = "CAR-CUS-6005",
                     ModelCode = "CUSTIN-2.0T",
-                    ModelName = "Hyundai Custin 2.0 T-GDi Cao Cấp",
+                    ModelName = "Hyundai Custin 2.0 T-GDi Cao Cáº¥p",
                     SpecCode = "CST-2.0T-PRE",
-                    SpecDescription = "MPV cỡ trung cao cấp cửa trượt điện thông minh",
-                    ColorExtNameVN = "Trắng Tuyết",
+                    SpecDescription = "MPV cá»¡ trung cao cáº¥p cá»­a trÆ°á»£t Ä‘iá»‡n thÃ´ng minh",
+                    ColorExtNameVN = "Tráº¯ng Tuyáº¿t",
                     StorageCodeInit = "KHO-DA",
                     StorageDate = DateTime.Today.AddDays(-32),
                     ApprovedDate2 = DateTime.Today.AddDays(-8),
                     DeliveryOutDate = DateTime.Today.AddDays(-2),
                     DealerCode = "DLR-HYUNDAI-PHAMVANVO",
-                    DealerName = "Hyundai Phạm Văn Đồng",
+                    DealerName = "Hyundai Pháº¡m VÄƒn Äá»“ng",
                     InCostStorageDate = new DateTime(2025, 5, 1),
                     OutCostStorageDate = new DateTime(2025, 5, 20),
                     CostStorageMonth = 20,
@@ -6885,7 +6896,7 @@ public static class Seeder
                     CostStorage = 500_000,
                     TotalAmount = 550_000,
                     Status = PaymentStorageDetailStatus.Approved,
-                    Remark = "Kiểm tra ắc quy và áp suất lốp trước khi xuất"
+                    Remark = "Kiá»ƒm tra áº¯c quy vÃ  Ã¡p suáº¥t lá»‘p trÆ°á»›c khi xuáº¥t"
                 },
                 new PaymentStorageDetail
                 {
@@ -6895,16 +6906,16 @@ public static class Seeder
                     VIN = "KMHCT81EPHU600203",
                     CarId = "CAR-SGZ-6006",
                     ModelCode = "STARGAZER-X",
-                    ModelName = "Hyundai Stargazer X Cao Cấp",
+                    ModelName = "Hyundai Stargazer X Cao Cáº¥p",
                     SpecCode = "SGZ-1.5L-PRE",
-                    SpecDescription = "Crossover MPV 7 chỗ phong cách thể thao gầm cao",
-                    ColorExtNameVN = "Bạc Ánh Kim",
+                    SpecDescription = "Crossover MPV 7 chá»— phong cÃ¡ch thá»ƒ thao gáº§m cao",
+                    ColorExtNameVN = "Báº¡c Ãnh Kim",
                     StorageCodeInit = "KHO-DA",
                     StorageDate = DateTime.Today.AddDays(-30),
                     ApprovedDate2 = DateTime.Today.AddDays(-9),
                     DeliveryOutDate = DateTime.Today.AddDays(-1),
                     DealerCode = "DLR-HYUNDAI-HADONG",
-                    DealerName = "Hyundai Hà Đông",
+                    DealerName = "Hyundai HÃ  ÄÃ´ng",
                     InCostStorageDate = new DateTime(2025, 5, 1),
                     OutCostStorageDate = new DateTime(2025, 5, 20),
                     CostStorageMonth = 20,
@@ -6914,23 +6925,23 @@ public static class Seeder
                     CostStorage = 500_000,
                     TotalAmount = 550_000,
                     Status = PaymentStorageDetailStatus.Approved,
-                    Remark = "Đã rửa sạch bụi bẩn trước bàn giao nhà xe vận chuyển"
+                    Remark = "ÄÃ£ rá»­a sáº¡ch bá»¥i báº©n trÆ°á»›c bÃ n giao nhÃ  xe váº­n chuyá»ƒn"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 3. Bảng kê Tháng 05/2025 Đợt 2 - TCMS Thẩm định duyệt cấp 2 (TCMSApproved)
-            // Đang chờ lãnh đạo ký số CA điện tử. Tổng kho Đà Nẵng (KHO-DN), 2 xe Accent, Venue
+            // 3. Báº£ng kÃª ThÃ¡ng 05/2025 Äá»£t 2 - TCMS Tháº©m Ä‘á»‹nh duyá»‡t cáº¥p 2 (TCMSApproved)
+            // Äang chá» lÃ£nh Ä‘áº¡o kÃ½ sá»‘ CA Ä‘iá»‡n tá»­. Tá»•ng kho ÄÃ  Náºµng (KHO-DN), 2 xe Accent, Venue
             var ps3 = new PaymentStorage
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PaymentStorageNo = "LK-202505-002",
                 PmtMonth = "2025-05",
                 StorageOperatorCode = "KHO-DN",
-                StorageOperatorName = "Tổng kho Trung chuyển Ô tô Hyundai Miền Trung - Đà Nẵng",
+                StorageOperatorName = "Tá»•ng kho Trung chuyá»ƒn Ã” tÃ´ Hyundai Miá»n Trung - ÄÃ  Náºµng",
                 TotalVehicles = 2,
                 TotalCoatCost = 100_000,       // 2 * 50k
-                TotalStorageCost = 600_000,     // (12 + 12 ngày) * 25k = 24 * 25k = 600,000
+                TotalStorageCost = 600_000,     // (12 + 12 ngÃ y) * 25k = 24 * 25k = 600,000
                 TotalAmount = 700_000,
                 VATRate = 10.0m,
                 UnitPriceVAT = 70_000,
@@ -6942,7 +6953,7 @@ public static class Seeder
                 Appr1DTime = DateTime.Today.AddDays(-3),
                 Appr2By = "TranQuocTuan_GDKyThuat_TCMS",
                 Appr2DTime = DateTime.Today.AddDays(-2),
-                Remark = "Đợt 2 tháng 05/2025 kho Đà Nẵng phân bổ cho các đại lý khu vực Miền Trung",
+                Remark = "Äá»£t 2 thÃ¡ng 05/2025 kho ÄÃ  Náºµng phÃ¢n bá»• cho cÃ¡c Ä‘áº¡i lÃ½ khu vá»±c Miá»n Trung",
                 CreatedBy = "NguyenThiMai_ThuKhoDN",
                 CreatedAt = DateTime.Today.AddDays(-5)
             };
@@ -6958,16 +6969,16 @@ public static class Seeder
                     VIN = "KMHCT81EPHU600301",
                     CarId = "CAR-ACC-6007",
                     ModelCode = "ACCENT-AT-DB",
-                    ModelName = "Hyundai Accent 1.5 AT Đặc Biệt",
+                    ModelName = "Hyundai Accent 1.5 AT Äáº·c Biá»‡t",
                     SpecCode = "ACC-1.5L-DB",
-                    SpecDescription = "Sedan phân khúc B thế hệ mới động cơ Smartstream",
-                    ColorExtNameVN = "Trắng",
+                    SpecDescription = "Sedan phÃ¢n khÃºc B tháº¿ há»‡ má»›i Ä‘á»™ng cÆ¡ Smartstream",
+                    ColorExtNameVN = "Tráº¯ng",
                     StorageCodeInit = "KHO-DN",
                     StorageDate = DateTime.Today.AddDays(-20),
                     ApprovedDate2 = DateTime.Today.AddDays(-5),
-                    DeliveryOutDate = null, // Chưa xuất kho
+                    DeliveryOutDate = null, // ChÆ°a xuáº¥t kho
                     DealerCode = "DLR-HYUNDAI-SONTRA",
-                    DealerName = "Hyundai Sơn Trà Đà Nẵng",
+                    DealerName = "Hyundai SÆ¡n TrÃ  ÄÃ  Náºµng",
                     InCostStorageDate = new DateTime(2025, 5, 1),
                     OutCostStorageDate = new DateTime(2025, 5, 12),
                     CostStorageMonth = 12,
@@ -6977,7 +6988,7 @@ public static class Seeder
                     CostStorage = 300_000, // 12 * 25k
                     TotalAmount = 350_000,
                     Status = PaymentStorageDetailStatus.Approved,
-                    Remark = "Bạt phủ che nắng vùng miền Trung"
+                    Remark = "Báº¡t phá»§ che náº¯ng vÃ¹ng miá»n Trung"
                 },
                 new PaymentStorageDetail
                 {
@@ -6987,16 +6998,16 @@ public static class Seeder
                     VIN = "KMHCT81EPHU600302",
                     CarId = "CAR-VNU-6008",
                     ModelCode = "VENUE-TURBO",
-                    ModelName = "Hyundai Venue 1.0 T-GDi Đặc Biệt",
+                    ModelName = "Hyundai Venue 1.0 T-GDi Äáº·c Biá»‡t",
                     SpecCode = "VNU-1.0T-DB",
-                    SpecDescription = "A-SUV phong cách trẻ trung thể thao hiện đại",
-                    ColorExtNameVN = "Đỏ Mận",
+                    SpecDescription = "A-SUV phong cÃ¡ch tráº» trung thá»ƒ thao hiá»‡n Ä‘áº¡i",
+                    ColorExtNameVN = "Äá» Máº­n",
                     StorageCodeInit = "KHO-DN",
                     StorageDate = DateTime.Today.AddDays(-18),
                     ApprovedDate2 = DateTime.Today.AddDays(-4),
                     DeliveryOutDate = null,
                     DealerCode = "DLR-HYUNDAI-QUANGNAM",
-                    DealerName = "Hyundai Quảng Nam",
+                    DealerName = "Hyundai Quáº£ng Nam",
                     InCostStorageDate = new DateTime(2025, 5, 1),
                     OutCostStorageDate = new DateTime(2025, 5, 12),
                     CostStorageMonth = 12,
@@ -7006,23 +7017,23 @@ public static class Seeder
                     CostStorage = 300_000,
                     TotalAmount = 350_000,
                     Status = PaymentStorageDetailStatus.Approved,
-                    Remark = "Lưu kho an toàn có camera giám sát 24/7"
+                    Remark = "LÆ°u kho an toÃ n cÃ³ camera giÃ¡m sÃ¡t 24/7"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 4. Bảng kê Tháng 05/2025 Đợt 3 - MỚI TẠO NHÁP (Draft)
-            // Tổng kho Bình Dương (KHO-BD), 2 xe điện thuần IONIQ 5 và SUV Tucson
+            // 4. Báº£ng kÃª ThÃ¡ng 05/2025 Äá»£t 3 - Má»šI Táº O NHÃP (Draft)
+            // Tá»•ng kho BÃ¬nh DÆ°Æ¡ng (KHO-BD), 2 xe Ä‘iá»‡n thuáº§n IONIQ 5 vÃ  SUV Tucson
             var ps4 = new PaymentStorage
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PaymentStorageNo = "LK-202505-003",
                 PmtMonth = "2025-05",
                 StorageOperatorCode = "KHO-BD",
-                StorageOperatorName = "Tổng kho Lưu chuyển Ô tô Hyundai Miền Nam - Bình Dương",
+                StorageOperatorName = "Tá»•ng kho LÆ°u chuyá»ƒn Ã” tÃ´ Hyundai Miá»n Nam - BÃ¬nh DÆ°Æ¡ng",
                 TotalVehicles = 2,
                 TotalCoatCost = 100_000,       // 2 * 50k
-                TotalStorageCost = 450_000,     // (9 + 9 ngày) * 25k = 18 * 25k = 450,000
+                TotalStorageCost = 450_000,     // (9 + 9 ngÃ y) * 25k = 18 * 25k = 450,000
                 TotalAmount = 550_000,
                 VATRate = 10.0m,
                 UnitPriceVAT = 55_000,
@@ -7030,7 +7041,7 @@ public static class Seeder
                 Status = PaymentStorageStatus.Draft,
                 TCMSSignStatus = StorageSignCAStatus.Pending,
                 HTVSignStatus = StorageSignCAStatus.Pending,
-                Remark = "Đợt 3 tháng 05/2025 kho Bình Dương đang kiểm đếm bạt che phủ và hạn xuất kho",
+                Remark = "Äá»£t 3 thÃ¡ng 05/2025 kho BÃ¬nh DÆ°Æ¡ng Ä‘ang kiá»ƒm Ä‘áº¿m báº¡t che phá»§ vÃ  háº¡n xuáº¥t kho",
                 CreatedBy = "VoVanNam_QuanLyKhoBD",
                 CreatedAt = DateTime.Now.AddHours(-3)
             };
@@ -7048,14 +7059,14 @@ public static class Seeder
                     ModelCode = "IONIQ-5-PREM",
                     ModelName = "Hyundai IONIQ 5 Exclusive EV",
                     SpecCode = "IQ5-72KWH-EXC",
-                    SpecDescription = "Xe thuần điện Pin 72.6 kWh sạc siêu nhanh 800V",
-                    ColorExtNameVN = "Xám Xi Măng",
+                    SpecDescription = "Xe thuáº§n Ä‘iá»‡n Pin 72.6 kWh sáº¡c siÃªu nhanh 800V",
+                    ColorExtNameVN = "XÃ¡m Xi MÄƒng",
                     StorageCodeInit = "KHO-BD",
                     StorageDate = DateTime.Today.AddDays(-10),
-                    ApprovedDate2 = null, // Chưa duyệt LXX
+                    ApprovedDate2 = null, // ChÆ°a duyá»‡t LXX
                     DeliveryOutDate = null,
                     DealerCode = "DLR-HYUNDAI-BINHDUONG",
-                    DealerName = "Hyundai Bình Dương",
+                    DealerName = "Hyundai BÃ¬nh DÆ°Æ¡ng",
                     InCostStorageDate = new DateTime(2025, 5, 1),
                     OutCostStorageDate = new DateTime(2025, 5, 9),
                     CostStorageMonth = 9,
@@ -7065,7 +7076,7 @@ public static class Seeder
                     CostStorage = 225_000, // 9 * 25k
                     TotalAmount = 275_000,
                     Status = PaymentStorageDetailStatus.Pending,
-                    Remark = "Khoang lưu giữ xe điện cách ly nhiệt độ và kiểm tra điện áp pin"
+                    Remark = "Khoang lÆ°u giá»¯ xe Ä‘iá»‡n cÃ¡ch ly nhiá»‡t Ä‘á»™ vÃ  kiá»ƒm tra Ä‘iá»‡n Ã¡p pin"
                 },
                 new PaymentStorageDetail
                 {
@@ -7075,16 +7086,16 @@ public static class Seeder
                     VIN = "KMHCT81EPHU600402",
                     CarId = "CAR-TUC-6010",
                     ModelCode = "TUCSON-2.0D",
-                    ModelName = "Hyundai Tucson 2.0 Diesel Đặc Biệt",
+                    ModelName = "Hyundai Tucson 2.0 Diesel Äáº·c Biá»‡t",
                     SpecCode = "TUC-2.0D-DB",
-                    SpecDescription = "Crossover 5 chỗ máy dầu tiết kiệm nhiên liệu hộp số 8 cấp",
-                    ColorExtNameVN = "Nâu Vàng Ánh Kim",
+                    SpecDescription = "Crossover 5 chá»— mÃ¡y dáº§u tiáº¿t kiá»‡m nhiÃªn liá»‡u há»™p sá»‘ 8 cáº¥p",
+                    ColorExtNameVN = "NÃ¢u VÃ ng Ãnh Kim",
                     StorageCodeInit = "KHO-BD",
                     StorageDate = DateTime.Today.AddDays(-12),
                     ApprovedDate2 = null,
                     DeliveryOutDate = null,
                     DealerCode = "DLR-HYUNDAI-MIENTAY",
-                    DealerName = "Hyundai Miền Tây Sài Gòn",
+                    DealerName = "Hyundai Miá»n TÃ¢y SÃ i GÃ²n",
                     InCostStorageDate = new DateTime(2025, 5, 1),
                     OutCostStorageDate = new DateTime(2025, 5, 9),
                     CostStorageMonth = 9,
@@ -7094,24 +7105,24 @@ public static class Seeder
                     CostStorage = 225_000,
                     TotalAmount = 275_000,
                     Status = PaymentStorageDetailStatus.Pending,
-                    Remark = "Xe mới nhập kho đang lắp bạt phủ chống bụi"
+                    Remark = "Xe má»›i nháº­p kho Ä‘ang láº¯p báº¡t phá»§ chá»‘ng bá»¥i"
                 }
             );
             await db.SaveChangesAsync();
         }
 
-        // ===== 12. Seed Dữ liệu mẫu Công văn Đề nghị Gia hạn Thư Bảo lãnh Ngân hàng (Pmt_GrtClaimExt) =====
+        // ===== 12. Seed Dá»¯ liá»‡u máº«u CÃ´ng vÄƒn Äá» nghá»‹ Gia háº¡n ThÆ° Báº£o lÃ£nh NgÃ¢n hÃ ng (Pmt_GrtClaimExt) =====
         if (!await db.GuaranteeExtensionDispatches.AnyAsync(d => d.OrgId == TenantContext.DefaultOrgId))
         {
-            // 1. Công văn ĐÃ ĐƯỢC NGÂN HÀNG CHẤP THUẬN GIA HẠN (BankAccepted) - VPBank & Hyundai Hà Đông
+            // 1. CÃ´ng vÄƒn ÄÃƒ ÄÆ¯á»¢C NGÃ‚N HÃ€NG CHáº¤P THUáº¬N GIA Háº N (BankAccepted) - VPBank & Hyundai HÃ  ÄÃ´ng
             var ged1 = new GuaranteeExtensionDispatch
             {
                 OrgId = TenantContext.DefaultOrgId,
                 DispatchNo = "CVGH-202504-001",
                 DealerCode = "DLR-HYUNDAI-HADONG",
-                DealerName = "Công ty CP Ô tô Hyundai Hà Đông",
+                DealerName = "CÃ´ng ty CP Ã” tÃ´ Hyundai HÃ  ÄÃ´ng",
                 BankCode = "VPB",
-                BankName = "Ngân hàng TMCP Việt Nam Thịnh Vượng (VPBank)",
+                BankName = "NgÃ¢n hÃ ng TMCP Viá»‡t Nam Thá»‹nh VÆ°á»£ng (VPBank)",
                 BankCodeMonitor = "VPBANK_HO",
                 FlagIsHTC = "1",
                 NumberOfDaysExt = 30,
@@ -7127,7 +7138,7 @@ public static class Seeder
                 BankResponseRef = "VPB-CV-2025/0428-BL",
                 BankAcceptedAt = DateTime.Today.AddDays(-20),
                 FilePath = "/documents/extension/CVGH-202504-001-Signed.pdf",
-                Remark = "Đề nghị gia hạn 30 ngày do thủ tục đăng ký xe theo hợp đồng dự án của đại lý bị chậm",
+                Remark = "Äá» nghá»‹ gia háº¡n 30 ngÃ y do thá»§ tá»¥c Ä‘Äƒng kÃ½ xe theo há»£p Ä‘á»“ng dá»± Ã¡n cá»§a Ä‘áº¡i lÃ½ bá»‹ cháº­m",
                 CreatedBy = "VuMinhTu_TinDung",
                 CreatedAt = DateTime.Today.AddDays(-25)
             };
@@ -7144,8 +7155,8 @@ public static class Seeder
                     ModelCode = "SANTAFE-CALLI",
                     ModelName = "Hyundai SantaFe 2.5 Turbo Calligraphy",
                     SpecCode = "SAN-2.5T-CAL",
-                    SpecDescription = "SUV 7 chỗ máy xăng Turbo dẫn động HTRAC",
-                    ColorName = "Đen Sang Trọng",
+                    SpecDescription = "SUV 7 chá»— mÃ¡y xÄƒng Turbo dáº«n Ä‘á»™ng HTRAC",
+                    ColorName = "Äen Sang Trá»ng",
                     SOCode = "SO-2025-0401",
                     DlrCtrNo = "PLHD-HADONG-2025/04",
                     GuaranteeNo = "GRT-2025-0401",
@@ -7158,7 +7169,7 @@ public static class Seeder
                     IsDelivered = true,
                     DeliveryDate = DateTime.Today.AddDays(-25),
                     Status = GuaranteeExtensionDetailStatus.BankAccepted,
-                    Remark = "Đã giao xe cho đại lý, đang hoàn thiện đăng ký lưu hành"
+                    Remark = "ÄÃ£ giao xe cho Ä‘áº¡i lÃ½, Ä‘ang hoÃ n thiá»‡n Ä‘Äƒng kÃ½ lÆ°u hÃ nh"
                 },
                 new GuaranteeExtensionDetail
                 {
@@ -7169,8 +7180,8 @@ public static class Seeder
                     ModelCode = "TUCSON-TURBO",
                     ModelName = "Hyundai Tucson 1.6 T-GDi Turbo",
                     SpecCode = "TUC-1.6T-PREM",
-                    SpecDescription = "Crossover 5 chỗ Turbo HTRAC",
-                    ColorName = "Trắng Tinh Khôi",
+                    SpecDescription = "Crossover 5 chá»— Turbo HTRAC",
+                    ColorName = "Tráº¯ng Tinh KhÃ´i",
                     SOCode = "SO-2025-0401",
                     DlrCtrNo = "PLHD-HADONG-2025/04",
                     GuaranteeNo = "GRT-2025-0401",
@@ -7183,7 +7194,7 @@ public static class Seeder
                     IsDelivered = true,
                     DeliveryDate = DateTime.Today.AddDays(-25),
                     Status = GuaranteeExtensionDetailStatus.BankAccepted,
-                    Remark = "Đã giao xe trưng bày showroom"
+                    Remark = "ÄÃ£ giao xe trÆ°ng bÃ y showroom"
                 },
                 new GuaranteeExtensionDetail
                 {
@@ -7192,10 +7203,10 @@ public static class Seeder
                     CarId = "CAR-CRT-7003",
                     VIN = "KMHCT81EPHU700103",
                     ModelCode = "CRETA-PREM",
-                    ModelName = "Hyundai Creta 1.5L Cao Cấp",
+                    ModelName = "Hyundai Creta 1.5L Cao Cáº¥p",
                     SpecCode = "CRT-1.5L-PRE",
-                    SpecDescription = "SUV đô thị gói an toàn SmartSense",
-                    ColorName = "Đỏ Mận",
+                    SpecDescription = "SUV Ä‘Ã´ thá»‹ gÃ³i an toÃ n SmartSense",
+                    ColorName = "Äá» Máº­n",
                     SOCode = "SO-2025-0401",
                     DlrCtrNo = "PLHD-HADONG-2025/04",
                     GuaranteeNo = "GRT-2025-0401",
@@ -7208,20 +7219,20 @@ public static class Seeder
                     IsDelivered = false,
                     DeliveryDate = null,
                     Status = GuaranteeExtensionDetailStatus.BankAccepted,
-                    Remark = "Chờ bàn giao chứng từ gốc xe tại ngân hàng"
+                    Remark = "Chá» bÃ n giao chá»©ng tá»« gá»‘c xe táº¡i ngÃ¢n hÃ ng"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 2. Công văn ĐÃ KÝ SỐ CA PHÁT HÀNH (Signed) - Đang gửi VietinBank chờ phúc đáp
+            // 2. CÃ´ng vÄƒn ÄÃƒ KÃ Sá» CA PHÃT HÃ€NH (Signed) - Äang gá»­i VietinBank chá» phÃºc Ä‘Ã¡p
             var ged2 = new GuaranteeExtensionDispatch
             {
                 OrgId = TenantContext.DefaultOrgId,
                 DispatchNo = "CVGH-202505-001",
                 DealerCode = "DLR-HYUNDAI-PHAMVANVO",
-                DealerName = "Công ty CP Hyundai Phạm Văn Đồng",
+                DealerName = "CÃ´ng ty CP Hyundai Pháº¡m VÄƒn Äá»“ng",
                 BankCode = "CTG",
-                BankName = "Ngân hàng TMCP Công Thương Việt Nam (VietinBank)",
+                BankName = "NgÃ¢n hÃ ng TMCP CÃ´ng ThÆ°Æ¡ng Viá»‡t Nam (VietinBank)",
                 BankCodeMonitor = "CTG_HANOI",
                 FlagIsHTC = "2", // HTV
                 NumberOfDaysExt = 30,
@@ -7235,7 +7246,7 @@ public static class Seeder
                 SignedAt = DateTime.Today.AddDays(-5),
                 CertThumbprint = "C8A234B5D6E7F890",
                 FilePath = "/documents/extension/CVGH-202505-001-Signed.pdf",
-                Remark = "Đề nghị VietinBank gia hạn bảo lãnh theo gói tín dụng liên kết phân phối ô tô HTV",
+                Remark = "Äá» nghá»‹ VietinBank gia háº¡n báº£o lÃ£nh theo gÃ³i tÃ­n dá»¥ng liÃªn káº¿t phÃ¢n phá»‘i Ã´ tÃ´ HTV",
                 CreatedBy = "VuMinhTu_TinDung",
                 CreatedAt = DateTime.Today.AddDays(-8)
             };
@@ -7252,8 +7263,8 @@ public static class Seeder
                     ModelCode = "PALISADE-PRE",
                     ModelName = "Hyundai Palisade 2.2D Prestige",
                     SpecCode = "PLS-2.2D-PRE",
-                    SpecDescription = "SUV Flagship 7 chỗ Diesel HTRAC",
-                    ColorName = "Xanh Bóng Đêm",
+                    SpecDescription = "SUV Flagship 7 chá»— Diesel HTRAC",
+                    ColorName = "Xanh BÃ³ng ÄÃªm",
                     SOCode = "SO-2025-0501",
                     DlrCtrNo = "PLHD-PVD-2025/05",
                     GuaranteeNo = "GRT-2025-0501",
@@ -7266,7 +7277,7 @@ public static class Seeder
                     IsDelivered = false,
                     DeliveryDate = null,
                     Status = GuaranteeExtensionDetailStatus.Active,
-                    Remark = "Xe đang lưu kho Đông Anh chờ xuất trình hồ sơ"
+                    Remark = "Xe Ä‘ang lÆ°u kho ÄÃ´ng Anh chá» xuáº¥t trÃ¬nh há»“ sÆ¡"
                 },
                 new GuaranteeExtensionDetail
                 {
@@ -7275,10 +7286,10 @@ public static class Seeder
                     CarId = "CAR-CUS-7005",
                     VIN = "KMHCT81EPHU700202",
                     ModelCode = "CUSTIN-2.0T",
-                    ModelName = "Hyundai Custin 2.0 T-GDi Cao Cấp",
+                    ModelName = "Hyundai Custin 2.0 T-GDi Cao Cáº¥p",
                     SpecCode = "CST-2.0T-PRE",
-                    SpecDescription = "MPV cao cấp cửa lùa điện thông minh",
-                    ColorName = "Trắng Tuyết",
+                    SpecDescription = "MPV cao cáº¥p cá»­a lÃ¹a Ä‘iá»‡n thÃ´ng minh",
+                    ColorName = "Tráº¯ng Tuyáº¿t",
                     SOCode = "SO-2025-0501",
                     DlrCtrNo = "PLHD-PVD-2025/05",
                     GuaranteeNo = "GRT-2025-0501",
@@ -7291,7 +7302,7 @@ public static class Seeder
                     IsDelivered = false,
                     DeliveryDate = null,
                     Status = GuaranteeExtensionDetailStatus.Active,
-                    Remark = "Chờ đại lý tất toán đợt thanh toán trước"
+                    Remark = "Chá» Ä‘áº¡i lÃ½ táº¥t toÃ¡n Ä‘á»£t thanh toÃ¡n trÆ°á»›c"
                 },
                 new GuaranteeExtensionDetail
                 {
@@ -7300,10 +7311,10 @@ public static class Seeder
                     CarId = "CAR-ACC-7006",
                     VIN = "KMHCT81EPHU700203",
                     ModelCode = "ACCENT-AT-DB",
-                    ModelName = "Hyundai Accent 1.5 AT Đặc Biệt",
+                    ModelName = "Hyundai Accent 1.5 AT Äáº·c Biá»‡t",
                     SpecCode = "ACC-1.5L-DB",
-                    SpecDescription = "Sedan phân khúc B Smartstream",
-                    ColorName = "Bạc Ánh Kim",
+                    SpecDescription = "Sedan phÃ¢n khÃºc B Smartstream",
+                    ColorName = "Báº¡c Ãnh Kim",
                     SOCode = "SO-2025-0501",
                     DlrCtrNo = "PLHD-PVD-2025/05",
                     GuaranteeNo = "GRT-2025-0501",
@@ -7316,20 +7327,20 @@ public static class Seeder
                     IsDelivered = true,
                     DeliveryDate = DateTime.Today.AddDays(-10),
                     Status = GuaranteeExtensionDetailStatus.Active,
-                    Remark = "Đã giao xe về đại lý"
+                    Remark = "ÄÃ£ giao xe vá» Ä‘áº¡i lÃ½"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 3. Công văn MỚI TẠO DỰ THẢO (Draft) - Techcombank & Hyundai An Phú Sài Gòn
+            // 3. CÃ´ng vÄƒn Má»šI Táº O Dá»° THáº¢O (Draft) - Techcombank & Hyundai An PhÃº SÃ i GÃ²n
             var ged3 = new GuaranteeExtensionDispatch
             {
                 OrgId = TenantContext.DefaultOrgId,
                 DispatchNo = "CVGH-202505-002",
                 DealerCode = "DLR-HYUNDAI-ANPHU",
-                DealerName = "Hyundai An Phú Sài Gòn",
+                DealerName = "Hyundai An PhÃº SÃ i GÃ²n",
                 BankCode = "TCB",
-                BankName = "Ngân hàng TMCP Kỹ Thương Việt Nam (Techcombank)",
+                BankName = "NgÃ¢n hÃ ng TMCP Ká»¹ ThÆ°Æ¡ng Viá»‡t Nam (Techcombank)",
                 BankCodeMonitor = "TCB_HO",
                 FlagIsHTC = "1",
                 NumberOfDaysExt = 15,
@@ -7339,7 +7350,7 @@ public static class Seeder
                 TotalCarsDelivered = 0,
                 Status = GuaranteeExtensionStatus.Draft,
                 SignCAStatus = ExtensionSignCAStatus.Pending,
-                Remark = "Dự thảo công văn xin gia hạn bảo lãnh xe điện IONIQ 5 và SUV Venue",
+                Remark = "Dá»± tháº£o cÃ´ng vÄƒn xin gia háº¡n báº£o lÃ£nh xe Ä‘iá»‡n IONIQ 5 vÃ  SUV Venue",
                 CreatedBy = "LeHongPhong_TinDung",
                 CreatedAt = DateTime.Now.AddHours(-6)
             };
@@ -7356,8 +7367,8 @@ public static class Seeder
                     ModelCode = "IONIQ-5-PREM",
                     ModelName = "Hyundai IONIQ 5 Exclusive EV",
                     SpecCode = "IQ5-72KWH-EXC",
-                    SpecDescription = "Xe thuần điện Pin 72.6 kWh sạc 800V siêu nhanh",
-                    ColorName = "Xám Xi Măng",
+                    SpecDescription = "Xe thuáº§n Ä‘iá»‡n Pin 72.6 kWh sáº¡c 800V siÃªu nhanh",
+                    ColorName = "XÃ¡m Xi MÄƒng",
                     SOCode = "SO-2025-0505",
                     DlrCtrNo = "PLHD-ANPHU-2025/05",
                     GuaranteeNo = "GRT-2025-0505",
@@ -7370,7 +7381,7 @@ public static class Seeder
                     IsDelivered = false,
                     DeliveryDate = null,
                     Status = GuaranteeExtensionDetailStatus.Pending,
-                    Remark = "Xe đang chờ vận chuyển vào kho Bình Dương"
+                    Remark = "Xe Ä‘ang chá» váº­n chuyá»ƒn vÃ o kho BÃ¬nh DÆ°Æ¡ng"
                 },
                 new GuaranteeExtensionDetail
                 {
@@ -7379,10 +7390,10 @@ public static class Seeder
                     CarId = "CAR-VNU-7008",
                     VIN = "KMHCT81EPHU700302",
                     ModelCode = "VENUE-TURBO",
-                    ModelName = "Hyundai Venue 1.0 T-GDi Đặc Biệt",
+                    ModelName = "Hyundai Venue 1.0 T-GDi Äáº·c Biá»‡t",
                     SpecCode = "VNU-1.0T-DB",
-                    SpecDescription = "SUV đô thị nhỏ gọn 1.0 Turbo 7DCT",
-                    ColorName = "Đỏ Mận",
+                    SpecDescription = "SUV Ä‘Ã´ thá»‹ nhá» gá»n 1.0 Turbo 7DCT",
+                    ColorName = "Äá» Máº­n",
                     SOCode = "SO-2025-0505",
                     DlrCtrNo = "PLHD-ANPHU-2025/05",
                     GuaranteeNo = "GRT-2025-0505",
@@ -7395,20 +7406,20 @@ public static class Seeder
                     IsDelivered = false,
                     DeliveryDate = null,
                     Status = GuaranteeExtensionDetailStatus.Pending,
-                    Remark = "Chờ hoàn thiện thủ tục ký duyệt công văn"
+                    Remark = "Chá» hoÃ n thiá»‡n thá»§ tá»¥c kÃ½ duyá»‡t cÃ´ng vÄƒn"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 4. Công văn NGÂN HÀNG TỪ CHỐI GIA HẠN (BankRejected) - MBBank & Hyundai Cẩm Lệ Đà Nẵng
+            // 4. CÃ´ng vÄƒn NGÃ‚N HÃ€NG Tá»ª CHá»I GIA Háº N (BankRejected) - MBBank & Hyundai Cáº©m Lá»‡ ÄÃ  Náºµng
             var ged4 = new GuaranteeExtensionDispatch
             {
                 OrgId = TenantContext.DefaultOrgId,
                 DispatchNo = "CVGH-202505-003",
                 DealerCode = "DLR-HYUNDAI-DANANG",
-                DealerName = "Hyundai Cẩm Lệ Đà Nẵng",
+                DealerName = "Hyundai Cáº©m Lá»‡ ÄÃ  Náºµng",
                 BankCode = "MBB",
-                BankName = "Ngân hàng TMCP Quân Đội (MBBank)",
+                BankName = "NgÃ¢n hÃ ng TMCP QuÃ¢n Äá»™i (MBBank)",
                 BankCodeMonitor = "MBB_DANANG",
                 FlagIsHTC = "1",
                 NumberOfDaysExt = 45,
@@ -7421,9 +7432,9 @@ public static class Seeder
                 SignedBy = "NguyenVanHieu_TongGiamDoc_HTV",
                 SignedAt = DateTime.Today.AddDays(-4),
                 CertThumbprint = "D1E2F3A4B5C67890",
-                BankRejectReason = "Đại lý đã vượt hạn mức cấp tín dụng xoay vòng quý 2/2025 theo Hợp đồng hạn mức số MB-HDTD-2024/099",
+                BankRejectReason = "Äáº¡i lÃ½ Ä‘Ã£ vÆ°á»£t háº¡n má»©c cáº¥p tÃ­n dá»¥ng xoay vÃ²ng quÃ½ 2/2025 theo Há»£p Ä‘á»“ng háº¡n má»©c sá»‘ MB-HDTD-2024/099",
                 FilePath = "/documents/extension/CVGH-202505-003-Signed.pdf",
-                Remark = "Đề nghị gia hạn 45 ngày nhưng bị ngân hàng từ chối do chạm trần hạn mức tín dụng",
+                Remark = "Äá» nghá»‹ gia háº¡n 45 ngÃ y nhÆ°ng bá»‹ ngÃ¢n hÃ ng tá»« chá»‘i do cháº¡m tráº§n háº¡n má»©c tÃ­n dá»¥ng",
                 CreatedBy = "VuMinhTu_TinDung",
                 CreatedAt = DateTime.Today.AddDays(-6)
             };
@@ -7438,10 +7449,10 @@ public static class Seeder
                     CarId = "CAR-SGZ-7009",
                     VIN = "KMHCT81EPHU700401",
                     ModelCode = "STARGAZER-X",
-                    ModelName = "Hyundai Stargazer X Cao Cấp",
+                    ModelName = "Hyundai Stargazer X Cao Cáº¥p",
                     SpecCode = "SGZ-1.5L-PRE",
-                    SpecDescription = "Crossover MPV 7 chỗ gầm cao",
-                    ColorName = "Trắng Mờ",
+                    SpecDescription = "Crossover MPV 7 chá»— gáº§m cao",
+                    ColorName = "Tráº¯ng Má»",
                     SOCode = "SO-2025-0508",
                     DlrCtrNo = "PLHD-DANANG-2025/05",
                     GuaranteeNo = "GRT-2025-0508",
@@ -7454,7 +7465,7 @@ public static class Seeder
                     IsDelivered = false,
                     DeliveryDate = null,
                     Status = GuaranteeExtensionDetailStatus.BankRejected,
-                    Remark = "Ngân hàng yêu cầu đại lý thanh toán dứt điểm hoặc bổ sung tài sản bảo đảm"
+                    Remark = "NgÃ¢n hÃ ng yÃªu cáº§u Ä‘áº¡i lÃ½ thanh toÃ¡n dá»©t Ä‘iá»ƒm hoáº·c bá»• sung tÃ i sáº£n báº£o Ä‘áº£m"
                 },
                 new GuaranteeExtensionDetail
                 {
@@ -7463,10 +7474,10 @@ public static class Seeder
                     CarId = "CAR-TUC-7010",
                     VIN = "KMHCT81EPHU700402",
                     ModelCode = "TUCSON-2.0D",
-                    ModelName = "Hyundai Tucson 2.0 Diesel Đặc Biệt",
+                    ModelName = "Hyundai Tucson 2.0 Diesel Äáº·c Biá»‡t",
                     SpecCode = "TUC-2.0D-DB",
-                    SpecDescription = "Crossover 5 chỗ máy dầu tiết kiệm nhiên liệu",
-                    ColorName = "Nâu Vàng Ánh Kim",
+                    SpecDescription = "Crossover 5 chá»— mÃ¡y dáº§u tiáº¿t kiá»‡m nhiÃªn liá»‡u",
+                    ColorName = "NÃ¢u VÃ ng Ãnh Kim",
                     SOCode = "SO-2025-0508",
                     DlrCtrNo = "PLHD-DANANG-2025/05",
                     GuaranteeNo = "GRT-2025-0508",
@@ -7479,24 +7490,24 @@ public static class Seeder
                     IsDelivered = false,
                     DeliveryDate = null,
                     Status = GuaranteeExtensionDetailStatus.BankRejected,
-                    Remark = "Chuyển phương án yêu cầu thanh toán chuyển khoản UNC trực tiếp"
+                    Remark = "Chuyá»ƒn phÆ°Æ¡ng Ã¡n yÃªu cáº§u thanh toÃ¡n chuyá»ƒn khoáº£n UNC trá»±c tiáº¿p"
                 }
             );
             await db.SaveChangesAsync();
         }
 
-        // ===== 13. Seed Dữ liệu mẫu Công văn Đòi Tiền Bảo Lãnh Ngân Hàng (Pmt_GrtClaim / FrmMngGrtClaim) =====
+        // ===== 13. Seed Dá»¯ liá»‡u máº«u CÃ´ng vÄƒn ÄÃ²i Tiá»n Báº£o LÃ£nh NgÃ¢n HÃ ng (Pmt_GrtClaim / FrmMngGrtClaim) =====
         if (!await db.GuaranteeClaims.AnyAsync(c => c.OrgId == TenantContext.DefaultOrgId))
         {
-            // 1. Công văn ĐÃ THU HỒI BỒI HOÀN THÀNH CÔNG (Settled) - Vietcombank & Hyundai Hà Đông
+            // 1. CÃ´ng vÄƒn ÄÃƒ THU Há»’I Bá»’I HOÃ€N THÃ€NH CÃ”NG (Settled) - Vietcombank & Hyundai HÃ  ÄÃ´ng
             var gcd1 = new BankGuaranteeClaim
             {
                 OrgId = TenantContext.DefaultOrgId,
                 ClaimNo = "CVDBL-202505-001",
                 DealerCode = "DLR-HADONG",
-                DealerName = "Hyundai Hà Đông",
+                DealerName = "Hyundai HÃ  ÄÃ´ng",
                 BankCode = "VCB",
-                BankName = "Ngân hàng TMCP Ngoại Thương Việt Nam (Vietcombank)",
+                BankName = "NgÃ¢n hÃ ng TMCP Ngoáº¡i ThÆ°Æ¡ng Viá»‡t Nam (Vietcombank)",
                 BankCodeMonitor = "VCB_HO",
                 FlagIsHTC = "1",
                 TotalCarCount = 3,
@@ -7513,7 +7524,7 @@ public static class Seeder
                 SettledBy = "TranMinhThu_KTT_HTC",
                 BankTxnRef = "FT2025050899881",
                 FilePath = "/documents/claims/CVDBL-202505-001-Signed.pdf",
-                Remark = "Đại lý quá hạn thanh toán tiền xe 26 ngày theo Hợp đồng số HD-2025-0101. Vietcombank đã trích nợ bồi hoàn thành công 100% nghĩa vụ bảo lãnh.",
+                Remark = "Äáº¡i lÃ½ quÃ¡ háº¡n thanh toÃ¡n tiá»n xe 26 ngÃ y theo Há»£p Ä‘á»“ng sá»‘ HD-2025-0101. Vietcombank Ä‘Ã£ trÃ­ch ná»£ bá»“i hoÃ n thÃ nh cÃ´ng 100% nghÄ©a vá»¥ báº£o lÃ£nh.",
                 CreatedBy = "VuMinhTu_TinDung",
                 CreatedAt = DateTime.Today.AddDays(-14)
             };
@@ -7528,10 +7539,10 @@ public static class Seeder
                     CarId = "CAR-SAN-8001",
                     VIN = "KMHCT81EPHU800101",
                     ModelCode = "SANTAFE-2.2D",
-                    ModelName = "Hyundai Santa Fe 2.2 Diesel Cao Cấp",
+                    ModelName = "Hyundai Santa Fe 2.2 Diesel Cao Cáº¥p",
                     SpecCode = "SAN-2.2D-PRE",
-                    SpecDescription = "SUV 7 chỗ máy dầu thế hệ mới",
-                    ColorName = "Đen Ánh Kim",
+                    SpecDescription = "SUV 7 chá»— mÃ¡y dáº§u tháº¿ há»‡ má»›i",
+                    ColorName = "Äen Ãnh Kim",
                     SOCode = "SO-2025-0401",
                     ContractNo = "PLHD-HADONG-2025/01",
                     GuaranteeNo = "GRT-2025-0401",
@@ -7543,7 +7554,7 @@ public static class Seeder
                     GrtValue = 950_000_000,
                     GrtPercent = 100.0,
                     Status = GuaranteeClaimDetailStatus.Settled,
-                    Remark = "Vietcombank đã trích nợ tài khoản phong tỏa chi trả bồi hoàn cho HTC"
+                    Remark = "Vietcombank Ä‘Ã£ trÃ­ch ná»£ tÃ i khoáº£n phong tá»a chi tráº£ bá»“i hoÃ n cho HTC"
                 },
                 new BankGuaranteeClaimDetail
                 {
@@ -7554,8 +7565,8 @@ public static class Seeder
                     ModelCode = "TUCSON-1.6T",
                     ModelName = "Hyundai Tucson 1.6 Turbo HTRAC",
                     SpecCode = "TUC-1.6T-DB",
-                    SpecDescription = "Crossover 5 chỗ tăng áp",
-                    ColorName = "Trắng Tinh Khôi",
+                    SpecDescription = "Crossover 5 chá»— tÄƒng Ã¡p",
+                    ColorName = "Tráº¯ng Tinh KhÃ´i",
                     SOCode = "SO-2025-0401",
                     ContractNo = "PLHD-HADONG-2025/01",
                     GuaranteeNo = "GRT-2025-0401",
@@ -7567,7 +7578,7 @@ public static class Seeder
                     GrtValue = 700_000_000,
                     GrtPercent = 100.0,
                     Status = GuaranteeClaimDetailStatus.Settled,
-                    Remark = "Vietcombank đã trích nợ tài khoản phong tỏa chi trả bồi hoàn cho HTC"
+                    Remark = "Vietcombank Ä‘Ã£ trÃ­ch ná»£ tÃ i khoáº£n phong tá»a chi tráº£ bá»“i hoÃ n cho HTC"
                 },
                 new BankGuaranteeClaimDetail
                 {
@@ -7576,10 +7587,10 @@ public static class Seeder
                     CarId = "CAR-CRE-8003",
                     VIN = "KMHCT81EPHU800103",
                     ModelCode = "CRETA-1.5L",
-                    ModelName = "Hyundai Creta 1.5 Cao Cấp",
+                    ModelName = "Hyundai Creta 1.5 Cao Cáº¥p",
                     SpecCode = "CRE-1.5L-PRE",
-                    SpecDescription = "B-SUV đô thị đa dụng",
-                    ColorName = "Đỏ Mận",
+                    SpecDescription = "B-SUV Ä‘Ã´ thá»‹ Ä‘a dá»¥ng",
+                    ColorName = "Äá» Máº­n",
                     SOCode = "SO-2025-0401",
                     ContractNo = "PLHD-HADONG-2025/01",
                     GuaranteeNo = "GRT-2025-0401",
@@ -7591,20 +7602,20 @@ public static class Seeder
                     GrtValue = 500_000_000,
                     GrtPercent = 100.0,
                     Status = GuaranteeClaimDetailStatus.Settled,
-                    Remark = "Vietcombank đã trích nợ tài khoản phong tỏa chi trả bồi hoàn cho HTC"
+                    Remark = "Vietcombank Ä‘Ã£ trÃ­ch ná»£ tÃ i khoáº£n phong tá»a chi tráº£ bá»“i hoÃ n cho HTC"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 2. Công văn ĐANG GỬI NGÂN HÀNG ĐÒI TIỀN (SentToBank) - Techcombank & Hyundai Phạm Hùng
+            // 2. CÃ´ng vÄƒn ÄANG Gá»¬I NGÃ‚N HÃ€NG ÄÃ’I TIá»€N (SentToBank) - Techcombank & Hyundai Pháº¡m HÃ¹ng
             var gcd2 = new BankGuaranteeClaim
             {
                 OrgId = TenantContext.DefaultOrgId,
                 ClaimNo = "CVDBL-202505-002",
                 DealerCode = "DLR-PHAMHUNG",
-                DealerName = "Hyundai Phạm Hùng",
+                DealerName = "Hyundai Pháº¡m HÃ¹ng",
                 BankCode = "TCB",
-                BankName = "Ngân hàng TMCP Kỹ Thương Việt Nam (Techcombank)",
+                BankName = "NgÃ¢n hÃ ng TMCP Ká»¹ ThÆ°Æ¡ng Viá»‡t Nam (Techcombank)",
                 BankCodeMonitor = "TCB_HO",
                 FlagIsHTC = "1",
                 TotalCarCount = 2,
@@ -7618,7 +7629,7 @@ public static class Seeder
                 SentToBankAt = DateTime.Today.AddDays(-2),
                 BankRefNo = "TCB-CLAIM-REC-20250512",
                 FilePath = "/documents/claims/CVDBL-202505-002-Signed.pdf",
-                Remark = "Đại lý quá hạn cam kết thanh toán xe 18 ngày. Techcombank đang tiến hành phong tỏa tài khoản và chuẩn bị trích tiền bồi hoàn.",
+                Remark = "Äáº¡i lÃ½ quÃ¡ háº¡n cam káº¿t thanh toÃ¡n xe 18 ngÃ y. Techcombank Ä‘ang tiáº¿n hÃ nh phong tá»a tÃ i khoáº£n vÃ  chuáº©n bá»‹ trÃ­ch tiá»n bá»“i hoÃ n.",
                 CreatedBy = "VuMinhTu_TinDung",
                 CreatedAt = DateTime.Today.AddDays(-4)
             };
@@ -7633,10 +7644,10 @@ public static class Seeder
                     CarId = "CAR-CUS-8004",
                     VIN = "KMHCT81EPHU800201",
                     ModelCode = "CUSTIN-2.0T",
-                    ModelName = "Hyundai Custin 2.0 Turbo Cao Cấp",
+                    ModelName = "Hyundai Custin 2.0 Turbo Cao Cáº¥p",
                     SpecCode = "CUS-2.0T-PRE",
-                    SpecDescription = "MPV 7 chỗ thương gia cửa lùa điện",
-                    ColorName = "Trắng Ngọc Trai",
+                    SpecDescription = "MPV 7 chá»— thÆ°Æ¡ng gia cá»­a lÃ¹a Ä‘iá»‡n",
+                    ColorName = "Tráº¯ng Ngá»c Trai",
                     SOCode = "SO-2025-0402",
                     ContractNo = "PLHD-PHAMHUNG-2025/02",
                     GuaranteeNo = "GRT-2025-0402",
@@ -7648,7 +7659,7 @@ public static class Seeder
                     GrtValue = 980_000_000,
                     GrtPercent = 100.0,
                     Status = GuaranteeClaimDetailStatus.Claimed,
-                    Remark = "Đang chờ Techcombank thực hiện nghĩa vụ bảo lãnh thanh toán"
+                    Remark = "Äang chá» Techcombank thá»±c hiá»‡n nghÄ©a vá»¥ báº£o lÃ£nh thanh toÃ¡n"
                 },
                 new BankGuaranteeClaimDetail
                 {
@@ -7657,10 +7668,10 @@ public static class Seeder
                     CarId = "CAR-CRE-8005",
                     VIN = "KMHCT81EPHU800202",
                     ModelCode = "CRETA-1.5L",
-                    ModelName = "Hyundai Creta 1.5 Đặc Biệt",
+                    ModelName = "Hyundai Creta 1.5 Äáº·c Biá»‡t",
                     SpecCode = "CRE-1.5L-DB",
-                    SpecDescription = "B-SUV đô thị",
-                    ColorName = "Xám Titan",
+                    SpecDescription = "B-SUV Ä‘Ã´ thá»‹",
+                    ColorName = "XÃ¡m Titan",
                     SOCode = "SO-2025-0402",
                     ContractNo = "PLHD-PHAMHUNG-2025/02",
                     GuaranteeNo = "GRT-2025-0402",
@@ -7672,20 +7683,20 @@ public static class Seeder
                     GrtValue = 600_000_000,
                     GrtPercent = 100.0,
                     Status = GuaranteeClaimDetailStatus.Claimed,
-                    Remark = "Đang chờ Techcombank thực hiện nghĩa vụ bảo lãnh thanh toán"
+                    Remark = "Äang chá» Techcombank thá»±c hiá»‡n nghÄ©a vá»¥ báº£o lÃ£nh thanh toÃ¡n"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 3. Công văn ĐÃ TRÌNH THẨM ĐỊNH PHÁP CHẾ & RỦI RO (Submitted) - MBBank & Hyundai Sài Gòn
+            // 3. CÃ´ng vÄƒn ÄÃƒ TRÃŒNH THáº¨M Äá»ŠNH PHÃP CHáº¾ & Rá»¦I RO (Submitted) - MBBank & Hyundai SÃ i GÃ²n
             var gcd3 = new BankGuaranteeClaim
             {
                 OrgId = TenantContext.DefaultOrgId,
                 ClaimNo = "CVDBL-202505-003",
                 DealerCode = "DLR-SAIGON",
-                DealerName = "Hyundai Sài Gòn 1S",
+                DealerName = "Hyundai SÃ i GÃ²n 1S",
                 BankCode = "MBB",
-                BankName = "Ngân hàng TMCP Quân Đội (MBBank)",
+                BankName = "NgÃ¢n hÃ ng TMCP QuÃ¢n Äá»™i (MBBank)",
                 BankCodeMonitor = "MBB_SAIGON",
                 FlagIsHTC = "2",
                 TotalCarCount = 2,
@@ -7693,7 +7704,7 @@ public static class Seeder
                 SettledAmount = 0,
                 Status = GuaranteeClaimStatus.Submitted,
                 SignCAStatus = ClaimSignCAStatus.Pending,
-                Remark = "Đại lý quá hạn cam kết bảo lãnh 14 ngày. Hồ sơ đang được Ban Pháp chế & Rủi ro tín dụng HTV thẩm định trước khi ký số CA.",
+                Remark = "Äáº¡i lÃ½ quÃ¡ háº¡n cam káº¿t báº£o lÃ£nh 14 ngÃ y. Há»“ sÆ¡ Ä‘ang Ä‘Æ°á»£c Ban PhÃ¡p cháº¿ & Rá»§i ro tÃ­n dá»¥ng HTV tháº©m Ä‘á»‹nh trÆ°á»›c khi kÃ½ sá»‘ CA.",
                 CreatedBy = "NguyenVanHieu_TinDungHTV",
                 CreatedAt = DateTime.Today.AddDays(-2)
             };
@@ -7708,10 +7719,10 @@ public static class Seeder
                     CarId = "CAR-ACC-8006",
                     VIN = "KMHCT81EPHU800301",
                     ModelCode = "ACCENT-1.5AT",
-                    ModelName = "All New Hyundai Accent 1.5 AT Đặc Biệt",
+                    ModelName = "All New Hyundai Accent 1.5 AT Äáº·c Biá»‡t",
                     SpecCode = "ACC-1.5AT-DB",
-                    SpecDescription = "Sedan hạng B thế hệ mới",
-                    ColorName = "Trắng",
+                    SpecDescription = "Sedan háº¡ng B tháº¿ há»‡ má»›i",
+                    ColorName = "Tráº¯ng",
                     SOCode = "SO-2025-0403",
                     ContractNo = "PLHD-SAIGON-2025/03",
                     GuaranteeNo = "GRT-2025-0403",
@@ -7723,7 +7734,7 @@ public static class Seeder
                     GrtValue = 430_000_000,
                     GrtPercent = 100.0,
                     Status = GuaranteeClaimDetailStatus.Pending,
-                    Remark = "Chờ hoàn thiện thủ tục thẩm định pháp chế để ký số CA"
+                    Remark = "Chá» hoÃ n thiá»‡n thá»§ tá»¥c tháº©m Ä‘á»‹nh phÃ¡p cháº¿ Ä‘á»ƒ kÃ½ sá»‘ CA"
                 },
                 new BankGuaranteeClaimDetail
                 {
@@ -7732,10 +7743,10 @@ public static class Seeder
                     CarId = "CAR-SGZ-8007",
                     VIN = "KMHCT81EPHU800302",
                     ModelCode = "STARGAZER-X",
-                    ModelName = "Hyundai Stargazer X Tiêu Chuẩn",
+                    ModelName = "Hyundai Stargazer X TiÃªu Chuáº©n",
                     SpecCode = "SGZ-1.5L-STD",
-                    SpecDescription = "MPV 7 chỗ gầm cao",
-                    ColorName = "Bạc",
+                    SpecDescription = "MPV 7 chá»— gáº§m cao",
+                    ColorName = "Báº¡c",
                     SOCode = "SO-2025-0403",
                     ContractNo = "PLHD-SAIGON-2025/03",
                     GuaranteeNo = "GRT-2025-0403",
@@ -7747,20 +7758,20 @@ public static class Seeder
                     GrtValue = 450_000_000,
                     GrtPercent = 100.0,
                     Status = GuaranteeClaimDetailStatus.Pending,
-                    Remark = "Chờ hoàn thiện thủ tục thẩm định pháp chế để ký số CA"
+                    Remark = "Chá» hoÃ n thiá»‡n thá»§ tá»¥c tháº©m Ä‘á»‹nh phÃ¡p cháº¿ Ä‘á»ƒ kÃ½ sá»‘ CA"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 4. Công văn MỚI TẠO DỰ THẢO (Draft) - VietinBank & Hyundai Đông Anh
+            // 4. CÃ´ng vÄƒn Má»šI Táº O Dá»° THáº¢O (Draft) - VietinBank & Hyundai ÄÃ´ng Anh
             var gcd4 = new BankGuaranteeClaim
             {
                 OrgId = TenantContext.DefaultOrgId,
                 ClaimNo = "CVDBL-202505-004",
                 DealerCode = "DLR-DONGANH",
-                DealerName = "Hyundai Đông Anh",
+                DealerName = "Hyundai ÄÃ´ng Anh",
                 BankCode = "CTG",
-                BankName = "Ngân hàng TMCP Công Thương Việt Nam (VietinBank)",
+                BankName = "NgÃ¢n hÃ ng TMCP CÃ´ng ThÆ°Æ¡ng Viá»‡t Nam (VietinBank)",
                 BankCodeMonitor = "CTG_DONGANH",
                 FlagIsHTC = "1",
                 TotalCarCount = 2,
@@ -7768,7 +7779,7 @@ public static class Seeder
                 SettledAmount = 0,
                 Status = GuaranteeClaimStatus.Draft,
                 SignCAStatus = ClaimSignCAStatus.Pending,
-                Remark = "Hồ sơ dự thảo đòi nợ xe Palisade & Tucson quá hạn 8 ngày. Đang kiểm tra bổ sung đối chiếu biên bản bàn giao xe theo hối phiếu.",
+                Remark = "Há»“ sÆ¡ dá»± tháº£o Ä‘Ã²i ná»£ xe Palisade & Tucson quÃ¡ háº¡n 8 ngÃ y. Äang kiá»ƒm tra bá»• sung Ä‘á»‘i chiáº¿u biÃªn báº£n bÃ n giao xe theo há»‘i phiáº¿u.",
                 CreatedBy = "VuMinhTu_TinDung",
                 CreatedAt = DateTime.Today.AddDays(-1)
             };
@@ -7783,10 +7794,10 @@ public static class Seeder
                     CarId = "CAR-PAL-8008",
                     VIN = "KMHCT81EPHU800401",
                     ModelCode = "PALISADE-2.2D",
-                    ModelName = "Hyundai Palisade 2.2 Diesel Prestige 6 Chỗ",
+                    ModelName = "Hyundai Palisade 2.2 Diesel Prestige 6 Chá»—",
                     SpecCode = "PAL-2.2D-PRE6",
-                    SpecDescription = "SUV đầu bảng sang trọng",
-                    ColorName = "Xanh Bóng Đêm",
+                    SpecDescription = "SUV Ä‘áº§u báº£ng sang trá»ng",
+                    ColorName = "Xanh BÃ³ng ÄÃªm",
                     SOCode = "SO-2025-0501",
                     ContractNo = "PLHD-DONGANH-2025/05",
                     GuaranteeNo = "GRT-2025-0501",
@@ -7798,7 +7809,7 @@ public static class Seeder
                     GrtValue = 1_550_000_000,
                     GrtPercent = 100.0,
                     Status = GuaranteeClaimDetailStatus.Pending,
-                    Remark = "Hồ sơ dự thảo đang rà soát phụ lục hợp đồng"
+                    Remark = "Há»“ sÆ¡ dá»± tháº£o Ä‘ang rÃ  soÃ¡t phá»¥ lá»¥c há»£p Ä‘á»“ng"
                 },
                 new BankGuaranteeClaimDetail
                 {
@@ -7807,10 +7818,10 @@ public static class Seeder
                     CarId = "CAR-TUC-8009",
                     VIN = "KMHCT81EPHU800402",
                     ModelCode = "TUCSON-2.0D",
-                    ModelName = "Hyundai Tucson 2.0 Diesel Đặc Biệt",
+                    ModelName = "Hyundai Tucson 2.0 Diesel Äáº·c Biá»‡t",
                     SpecCode = "TUC-2.0D-DB",
-                    SpecDescription = "Crossover máy dầu tiết kiệm",
-                    ColorName = "Đỏ Mận",
+                    SpecDescription = "Crossover mÃ¡y dáº§u tiáº¿t kiá»‡m",
+                    ColorName = "Äá» Máº­n",
                     SOCode = "SO-2025-0501",
                     ContractNo = "PLHD-DONGANH-2025/05",
                     GuaranteeNo = "GRT-2025-0501",
@@ -7822,20 +7833,20 @@ public static class Seeder
                     GrtValue = 900_000_000,
                     GrtPercent = 100.0,
                     Status = GuaranteeClaimDetailStatus.Pending,
-                    Remark = "Hồ sơ dự thảo đang rà soát phụ lục hợp đồng"
+                    Remark = "Há»“ sÆ¡ dá»± tháº£o Ä‘ang rÃ  soÃ¡t phá»¥ lá»¥c há»£p Ä‘á»“ng"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 5. Công văn ĐÃ HỦY DO ĐẠI LÝ NỘP TIỀN TRỰC TIẾP (Cancelled) - VPBank & Hyundai An Khánh
+            // 5. CÃ´ng vÄƒn ÄÃƒ Há»¦Y DO Äáº I LÃ Ná»˜P TIá»€N TRá»°C TIáº¾P (Cancelled) - VPBank & Hyundai An KhÃ¡nh
             var gcd5 = new BankGuaranteeClaim
             {
                 OrgId = TenantContext.DefaultOrgId,
                 ClaimNo = "CVDBL-202505-005",
                 DealerCode = "DLR-ANKHANH",
-                DealerName = "Hyundai An Khánh",
+                DealerName = "Hyundai An KhÃ¡nh",
                 BankCode = "VPB",
-                BankName = "Ngân hàng TMCP Việt Nam Thịnh Vượng (VPBank)",
+                BankName = "NgÃ¢n hÃ ng TMCP Viá»‡t Nam Thá»‹nh VÆ°á»£ng (VPBank)",
                 BankCodeMonitor = "VPB_HO",
                 FlagIsHTC = "1",
                 TotalCarCount = 2,
@@ -7844,8 +7855,8 @@ public static class Seeder
                 Status = GuaranteeClaimStatus.Cancelled,
                 SignCAStatus = ClaimSignCAStatus.Pending,
                 CancelledAt = DateTime.Today.AddDays(-1),
-                CancelReason = "Đại lý đã thanh toán chuyển khoản dứt điểm 100% tiền xe qua UNC Vietcombank nên HTC hủy công văn đòi nợ bảo lãnh.",
-                Remark = "Đại lý đã nộp đủ tiền khắc phục vi phạm trước khi gửi công văn chính thức tới VPBank.",
+                CancelReason = "Äáº¡i lÃ½ Ä‘Ã£ thanh toÃ¡n chuyá»ƒn khoáº£n dá»©t Ä‘iá»ƒm 100% tiá»n xe qua UNC Vietcombank nÃªn HTC há»§y cÃ´ng vÄƒn Ä‘Ã²i ná»£ báº£o lÃ£nh.",
+                Remark = "Äáº¡i lÃ½ Ä‘Ã£ ná»™p Ä‘á»§ tiá»n kháº¯c phá»¥c vi pháº¡m trÆ°á»›c khi gá»­i cÃ´ng vÄƒn chÃ­nh thá»©c tá»›i VPBank.",
                 CreatedBy = "VuMinhTu_TinDung",
                 CreatedAt = DateTime.Today.AddDays(-5)
             };
@@ -7860,10 +7871,10 @@ public static class Seeder
                     CarId = "CAR-SAN-8010",
                     VIN = "KMHCT81EPHU800501",
                     ModelCode = "SANTAFE-2.5X",
-                    ModelName = "Hyundai Santa Fe 2.5 Xăng Cao Cấp",
+                    ModelName = "Hyundai Santa Fe 2.5 XÄƒng Cao Cáº¥p",
                     SpecCode = "SAN-2.5X-PRE",
-                    SpecDescription = "SUV 7 chỗ máy xăng",
-                    ColorName = "Trắng Tinh Khôi",
+                    SpecDescription = "SUV 7 chá»— mÃ¡y xÄƒng",
+                    ColorName = "Tráº¯ng Tinh KhÃ´i",
                     SOCode = "SO-2025-0450",
                     ContractNo = "PLHD-ANKHANH-2025/04",
                     GuaranteeNo = "GRT-2025-0450",
@@ -7875,7 +7886,7 @@ public static class Seeder
                     GrtValue = 950_000_000,
                     GrtPercent = 100.0,
                     Status = GuaranteeClaimDetailStatus.Cancelled,
-                    Remark = "Đại lý nộp tiền trực tiếp vào tài khoản HTC, hủy hồ sơ đòi nợ"
+                    Remark = "Äáº¡i lÃ½ ná»™p tiá»n trá»±c tiáº¿p vÃ o tÃ i khoáº£n HTC, há»§y há»“ sÆ¡ Ä‘Ã²i ná»£"
                 },
                 new BankGuaranteeClaimDetail
                 {
@@ -7884,10 +7895,10 @@ public static class Seeder
                     CarId = "CAR-CRE-8011",
                     VIN = "KMHCT81EPHU800502",
                     ModelCode = "CRETA-1.5L",
-                    ModelName = "Hyundai Creta 1.5 Cao Cấp",
+                    ModelName = "Hyundai Creta 1.5 Cao Cáº¥p",
                     SpecCode = "CRE-1.5L-PRE",
-                    SpecDescription = "B-SUV đô thị",
-                    ColorName = "Đỏ Mận",
+                    SpecDescription = "B-SUV Ä‘Ã´ thá»‹",
+                    ColorName = "Äá» Máº­n",
                     SOCode = "SO-2025-0450",
                     ContractNo = "PLHD-ANKHANH-2025/04",
                     GuaranteeNo = "GRT-2025-0450",
@@ -7899,24 +7910,24 @@ public static class Seeder
                     GrtValue = 750_000_000,
                     GrtPercent = 100.0,
                     Status = GuaranteeClaimDetailStatus.Cancelled,
-                    Remark = "Đại lý nộp tiền trực tiếp vào tài khoản HTC, hủy hồ sơ đòi nợ"
+                    Remark = "Äáº¡i lÃ½ ná»™p tiá»n trá»±c tiáº¿p vÃ o tÃ i khoáº£n HTC, há»§y há»“ sÆ¡ Ä‘Ã²i ná»£"
                 }
             );
             await db.SaveChangesAsync();
         }
 
-        // Dữ liệu mẫu Bảng kê thanh toán chi phí thiết bị AVN trên xe ô tô (Pmt_PaymentAVN & Pmt_PaymentAVNDetail / BizHTC.Payment)
+        // Dá»¯ liá»‡u máº«u Báº£ng kÃª thanh toÃ¡n chi phÃ­ thiáº¿t bá»‹ AVN trÃªn xe Ã´ tÃ´ (Pmt_PaymentAVN & Pmt_PaymentAVNDetail / BizHTC.Payment)
         if (!await db.PaymentAVNs.AnyAsync(p => p.OrgId == TenantContext.DefaultOrgId))
         {
-            // 1. Bảng kê Tháng 04/2025 - ĐÃ QUYẾT TOÁN CHUYỂN TIỀN UNC VIETCOMBANK (Settled)
-            // Cung cấp bởi Mobis Auto Parts VN, 4 xe SantaFe, Tucson, Creta, Accent
+            // 1. Báº£ng kÃª ThÃ¡ng 04/2025 - ÄÃƒ QUYáº¾T TOÃN CHUYá»‚N TIá»€N UNC VIETCOMBANK (Settled)
+            // Cung cáº¥p bá»Ÿi Mobis Auto Parts VN, 4 xe SantaFe, Tucson, Creta, Accent
             var avn1 = new PaymentAVN
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PaymentAVNNo = "AVN-202504-001",
                 PmtMonth = "2025-04",
                 SupplierCode = "MOBIS-VN",
-                SupplierName = "Công ty TNHH Mobis Auto Parts Việt Nam",
+                SupplierName = "CÃ´ng ty TNHH Mobis Auto Parts Viá»‡t Nam",
                 TotalVehicles = 4,
                 TotalAmount = 41_500_000,          // 12.5M + 11.0M + 9.5M + 8.5M = 41,500,000
                 VATRate = 10.0m,
@@ -7937,7 +7948,7 @@ public static class Seeder
                 SettledAt = DateTime.Today.AddDays(-15),
                 BankTxnRef = "UNC-VCB-AVN-202504-8901",
                 FilePath = "/documents/avn/AVN-202504-001-Signed.pdf",
-                Remark = "Quyết toán thanh toán chi phí màn hình AVN dẫn đường tích hợp bản đồ Việt Nam kỳ tháng 04/2025",
+                Remark = "Quyáº¿t toÃ¡n thanh toÃ¡n chi phÃ­ mÃ n hÃ¬nh AVN dáº«n Ä‘Æ°á»ng tÃ­ch há»£p báº£n Ä‘á»“ Viá»‡t Nam ká»³ thÃ¡ng 04/2025",
                 CreatedBy = "LeMinhKhoa_KyThuatVien",
                 CreatedAt = DateTime.Today.AddDays(-22)
             };
@@ -7953,17 +7964,17 @@ public static class Seeder
                     VIN = "KMHCT81EPHU900101",
                     EngineNo = "G4KP-991201",
                     ModelCode = "SANTAFE",
-                    ModelName = "Hyundai Santa Fe 2.5 Xăng Cao Cấp",
+                    ModelName = "Hyundai Santa Fe 2.5 XÄƒng Cao Cáº¥p",
                     SpecCode = "SF-2.5G-PREM",
-                    SpecDescription = "Màn hình cong đôi Panoramic 12.3 inch tích hợp bản đồ vệ tinh",
-                    ColorName = "Trắng Ngọc Trai",
+                    SpecDescription = "MÃ n hÃ¬nh cong Ä‘Ã´i Panoramic 12.3 inch tÃ­ch há»£p báº£n Ä‘á»“ vá»‡ tinh",
+                    ColorName = "Tráº¯ng Ngá»c Trai",
                     AVNCode = "AVN-STF-GEN5-PREM",
                     SerialNo = "AVN-SN-STF-990101",
                     UnitPriceAVN = 12_500_000,
                     AVNDate = DateTime.Today.AddDays(-32),
                     InStorageDate = DateTime.Today.AddDays(-28),
                     Status = PaymentAVNDetailStatus.Approved,
-                    Remark = "Kiểm tra kết nối GPS và Apple CarPlay/Android Auto không dây hoạt động tốt"
+                    Remark = "Kiá»ƒm tra káº¿t ná»‘i GPS vÃ  Apple CarPlay/Android Auto khÃ´ng dÃ¢y hoáº¡t Ä‘á»™ng tá»‘t"
                 },
                 new PaymentAVNDetail
                 {
@@ -7975,15 +7986,15 @@ public static class Seeder
                     ModelCode = "TUCSON",
                     ModelName = "Hyundai Tucson 1.6 T-GDi Turbo",
                     SpecCode = "TUC-1.6T-HTRAC",
-                    SpecDescription = "Màn hình giải trí trung tâm 10.25 inch cảm ứng đa điểm",
-                    ColorName = "Đen Ánh Kim",
+                    SpecDescription = "MÃ n hÃ¬nh giáº£i trÃ­ trung tÃ¢m 10.25 inch cáº£m á»©ng Ä‘a Ä‘iá»ƒm",
+                    ColorName = "Äen Ãnh Kim",
                     AVNCode = "AVN-TUC-GEN5-1025",
                     SerialNo = "AVN-SN-TUC-882302",
                     UnitPriceAVN = 11_000_000,
                     AVNDate = DateTime.Today.AddDays(-30),
                     InStorageDate = DateTime.Today.AddDays(-27),
                     Status = PaymentAVNDetailStatus.Approved,
-                    Remark = "Cài đặt bản đồ định vị Việt Nam V9 mới nhất"
+                    Remark = "CÃ i Ä‘áº·t báº£n Ä‘á»“ Ä‘á»‹nh vá»‹ Viá»‡t Nam V9 má»›i nháº¥t"
                 },
                 new PaymentAVNDetail
                 {
@@ -7993,17 +8004,17 @@ public static class Seeder
                     VIN = "KMHCT81EPHU900103",
                     EngineNo = "G4FL-773403",
                     ModelCode = "CRETA",
-                    ModelName = "Hyundai Creta 1.5 Cao Cấp",
+                    ModelName = "Hyundai Creta 1.5 Cao Cáº¥p",
                     SpecCode = "CRT-1.5L-PREM",
-                    SpecDescription = "Màn hình 10.25 inch âm thanh 8 loa Bose",
-                    ColorName = "Đỏ Mận",
+                    SpecDescription = "MÃ n hÃ¬nh 10.25 inch Ã¢m thanh 8 loa Bose",
+                    ColorName = "Äá» Máº­n",
                     AVNCode = "AVN-CRT-1025-NAV",
                     SerialNo = "AVN-SN-CRT-773403",
                     UnitPriceAVN = 9_500_000,
                     AVNDate = DateTime.Today.AddDays(-29),
                     InStorageDate = DateTime.Today.AddDays(-25),
                     Status = PaymentAVNDetailStatus.Approved,
-                    Remark = "Âm thanh Bose và camera lùi hiển thị sắc nét"
+                    Remark = "Ã‚m thanh Bose vÃ  camera lÃ¹i hiá»ƒn thá»‹ sáº¯c nÃ©t"
                 },
                 new PaymentAVNDetail
                 {
@@ -8013,30 +8024,30 @@ public static class Seeder
                     VIN = "KMHCT81EPHU900104",
                     EngineNo = "G4LC-664504",
                     ModelCode = "ACCENT",
-                    ModelName = "Hyundai Accent 1.5 AT Đặc Biệt",
+                    ModelName = "Hyundai Accent 1.5 AT Äáº·c Biá»‡t",
                     SpecCode = "ACC-1.5AT-DB",
-                    SpecDescription = "Màn hình liền khối 8 inch hỗ trợ định vị bản đồ tiếng Việt",
-                    ColorName = "Bạc",
+                    SpecDescription = "MÃ n hÃ¬nh liá»n khá»‘i 8 inch há»— trá»£ Ä‘á»‹nh vá»‹ báº£n Ä‘á»“ tiáº¿ng Viá»‡t",
+                    ColorName = "Báº¡c",
                     AVNCode = "AVN-ACC-GEN5-8IN",
                     SerialNo = "AVN-SN-ACC-664504",
                     UnitPriceAVN = 8_500_000,
                     AVNDate = DateTime.Today.AddDays(-28),
                     InStorageDate = DateTime.Today.AddDays(-24),
                     Status = PaymentAVNDetailStatus.Approved,
-                    Remark = "Lắp đặt đạt chuẩn QA xưởng lắp ráp hoàn thiện HTMV"
+                    Remark = "Láº¯p Ä‘áº·t Ä‘áº¡t chuáº©n QA xÆ°á»Ÿng láº¯p rÃ¡p hoÃ n thiá»‡n HTMV"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 2. Bảng kê Tháng 05/2025 - ĐÃ KÝ SỐ CA HOÀN TẤT (Signed)
-            // Đối tác Motrex Auto Electronics, 3 xe cao cấp Palisade, Custin, Ioniq 5
+            // 2. Báº£ng kÃª ThÃ¡ng 05/2025 - ÄÃƒ KÃ Sá» CA HOÃ€N Táº¤T (Signed)
+            // Äá»‘i tÃ¡c Motrex Auto Electronics, 3 xe cao cáº¥p Palisade, Custin, Ioniq 5
             var avn2 = new PaymentAVN
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PaymentAVNNo = "AVN-202505-001",
                 PmtMonth = "2025-05",
                 SupplierCode = "MOTREX-VN",
-                SupplierName = "Công ty TNHH Điện tử Motrex Việt Nam",
+                SupplierName = "CÃ´ng ty TNHH Äiá»‡n tá»­ Motrex Viá»‡t Nam",
                 TotalVehicles = 3,
                 TotalAmount = 48_500_000,          // 16.5M (Palisade) + 14.0M (Custin) + 18.0M (Ioniq 5) = 48,500,000
                 VATRate = 10.0m,
@@ -8054,7 +8065,7 @@ public static class Seeder
                 Appr2By = "LeHongPhong_TruongPhongKD_HTV",
                 Appr2DTime = DateTime.Today.AddDays(-5),
                 FilePath = "/documents/avn/AVN-202505-001-Signed.pdf",
-                Remark = "Bảng kê màn hình giải trí thế hệ mới cho các mẫu xe SUV đầu bảng và xe điện",
+                Remark = "Báº£ng kÃª mÃ n hÃ¬nh giáº£i trÃ­ tháº¿ há»‡ má»›i cho cÃ¡c máº«u xe SUV Ä‘áº§u báº£ng vÃ  xe Ä‘iá»‡n",
                 CreatedBy = "VuMinhTu_LinhKien",
                 CreatedAt = DateTime.Today.AddDays(-8)
             };
@@ -8072,15 +8083,15 @@ public static class Seeder
                     ModelCode = "PALISADE",
                     ModelName = "Hyundai Palisade 2.2 Diesel Prestige",
                     SpecCode = "PAL-2.2D-PRE6",
-                    SpecDescription = "Màn hình giải trí kép 12.3 inch âm thanh vòm Infinity 12 loa",
-                    ColorName = "Xanh Bóng Đêm",
+                    SpecDescription = "MÃ n hÃ¬nh giáº£i trÃ­ kÃ©p 12.3 inch Ã¢m thanh vÃ²m Infinity 12 loa",
+                    ColorName = "Xanh BÃ³ng ÄÃªm",
                     AVNCode = "AVN-PAL-DUAL-12.3IN",
                     SerialNo = "AVN-SN-PAL-110201",
                     UnitPriceAVN = 16_500_000,
                     AVNDate = DateTime.Today.AddDays(-12),
                     InStorageDate = DateTime.Today.AddDays(-9),
                     Status = PaymentAVNDetailStatus.Approved,
-                    Remark = "Hệ thống hiển thị camera 360 toàn cảnh SVM và giám sát điểm mù BVM"
+                    Remark = "Há»‡ thá»‘ng hiá»ƒn thá»‹ camera 360 toÃ n cáº£nh SVM vÃ  giÃ¡m sÃ¡t Ä‘iá»ƒm mÃ¹ BVM"
                 },
                 new PaymentAVNDetail
                 {
@@ -8090,17 +8101,17 @@ public static class Seeder
                     VIN = "KMHCT81EPHU900202",
                     EngineNo = "G4NN-220202",
                     ModelCode = "CUSTIN",
-                    ModelName = "Hyundai Custin 2.0 T-GDi Cao Cấp",
+                    ModelName = "Hyundai Custin 2.0 T-GDi Cao Cáº¥p",
                     SpecCode = "CST-2.0T-PREM",
-                    SpecDescription = "Màn hình dọc 10.4 inch giao diện tiếng Việt điều khiển tiện nghi hàng ghế 2",
-                    ColorName = "Trắng",
+                    SpecDescription = "MÃ n hÃ¬nh dá»c 10.4 inch giao diá»‡n tiáº¿ng Viá»‡t Ä‘iá»u khiá»ƒn tiá»‡n nghi hÃ ng gháº¿ 2",
+                    ColorName = "Tráº¯ng",
                     AVNCode = "AVN-CST-PORTRAIT-104",
                     SerialNo = "AVN-SN-CST-220202",
                     UnitPriceAVN = 14_000_000,
                     AVNDate = DateTime.Today.AddDays(-11),
                     InStorageDate = DateTime.Today.AddDays(-8),
                     Status = PaymentAVNDetailStatus.Approved,
-                    Remark = "Điều khiển điều hòa và chế độ ghế thương gia tích hợp màn hình"
+                    Remark = "Äiá»u khiá»ƒn Ä‘iá»u hÃ²a vÃ  cháº¿ Ä‘á»™ gháº¿ thÆ°Æ¡ng gia tÃ­ch há»£p mÃ n hÃ¬nh"
                 },
                 new PaymentAVNDetail
                 {
@@ -8112,28 +8123,28 @@ public static class Seeder
                     ModelCode = "IONIQ-5",
                     ModelName = "Hyundai IONIQ 5 Exclusive EV",
                     SpecCode = "IQ5-72KWH-EXC",
-                    SpecDescription = "Màn hình đôi thông tin & giải trí kép 12.3 inch hiển thị trạng thái sạc Pin EV",
-                    ColorName = "Xám Xi Măng",
+                    SpecDescription = "MÃ n hÃ¬nh Ä‘Ã´i thÃ´ng tin & giáº£i trÃ­ kÃ©p 12.3 inch hiá»ƒn thá»‹ tráº¡ng thÃ¡i sáº¡c Pin EV",
+                    ColorName = "XÃ¡m Xi MÄƒng",
                     AVNCode = "AVN-IQ5-EV-DUAL-12.3",
                     SerialNo = "AVN-SN-IQ5-330203",
                     UnitPriceAVN = 18_000_000,
                     AVNDate = DateTime.Today.AddDays(-10),
                     InStorageDate = DateTime.Today.AddDays(-7),
                     Status = PaymentAVNDetailStatus.Approved,
-                    Remark = "Định vị bản đồ trạm sạc điện toàn quốc và tối ưu hành trình EV"
+                    Remark = "Äá»‹nh vá»‹ báº£n Ä‘á»“ tráº¡m sáº¡c Ä‘iá»‡n toÃ n quá»‘c vÃ  tá»‘i Æ°u hÃ nh trÃ¬nh EV"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 3. Bảng kê Tháng 05/2025 - HTV ĐÃ PHÊ DUYỆT CẤP 2 (HTVApproved)
-            // Đã được TCMS ký CA, đang chờ lãnh đạo HTV ký số hoàn tất
+            // 3. Báº£ng kÃª ThÃ¡ng 05/2025 - HTV ÄÃƒ PHÃŠ DUYá»†T Cáº¤P 2 (HTVApproved)
+            // ÄÃ£ Ä‘Æ°á»£c TCMS kÃ½ CA, Ä‘ang chá» lÃ£nh Ä‘áº¡o HTV kÃ½ sá»‘ hoÃ n táº¥t
             var avn3 = new PaymentAVN
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PaymentAVNNo = "AVN-202505-002",
                 PmtMonth = "2025-05",
                 SupplierCode = "MOBIS-VN",
-                SupplierName = "Công ty TNHH Mobis Auto Parts Việt Nam",
+                SupplierName = "CÃ´ng ty TNHH Mobis Auto Parts Viá»‡t Nam",
                 TotalVehicles = 3,
                 TotalAmount = 29_100_000,          // 9.8M (Elantra) + 8.8M (Stargazer) + 10.5M (Elantra N-Line) = 29,100,000
                 VATRate = 10.0m,
@@ -8148,7 +8159,7 @@ public static class Seeder
                 Appr1DTime = DateTime.Today.AddDays(-4),
                 Appr2By = "TranThiHong_TruongPhongKT_HTV",
                 Appr2DTime = DateTime.Today.AddDays(-3),
-                Remark = "Bảng kê đợt 2 tháng 05/2025: Lô xe Elantra & Stargazer đã kiểm định PDI đạt chuẩn",
+                Remark = "Báº£ng kÃª Ä‘á»£t 2 thÃ¡ng 05/2025: LÃ´ xe Elantra & Stargazer Ä‘Ã£ kiá»ƒm Ä‘á»‹nh PDI Ä‘áº¡t chuáº©n",
                 CreatedBy = "LeMinhKhoa_KyThuatVien",
                 CreatedAt = DateTime.Today.AddDays(-5)
             };
@@ -8164,17 +8175,17 @@ public static class Seeder
                     VIN = "KMHCT81EPHU900301",
                     EngineNo = "G4NL-440301",
                     ModelCode = "ELANTRA",
-                    ModelName = "Hyundai Elantra 2.0 AT Cao Cấp",
+                    ModelName = "Hyundai Elantra 2.0 AT Cao Cáº¥p",
                     SpecCode = "ELN-2.0AT-PREM",
-                    SpecDescription = "Màn hình thông tin giải trí 10.25 inch liền khối",
-                    ColorName = "Xanh Dương",
+                    SpecDescription = "MÃ n hÃ¬nh thÃ´ng tin giáº£i trÃ­ 10.25 inch liá»n khá»‘i",
+                    ColorName = "Xanh DÆ°Æ¡ng",
                     AVNCode = "AVN-ELN-1025-WIDESCREEN",
                     SerialNo = "AVN-SN-ELN-440301",
                     UnitPriceAVN = 9_800_000,
                     AVNDate = DateTime.Today.AddDays(-7),
                     InStorageDate = DateTime.Today.AddDays(-5),
                     Status = PaymentAVNDetailStatus.Approved,
-                    Remark = "Kết nối Bluetooth đa thiết bị và nhận diện giọng nói"
+                    Remark = "Káº¿t ná»‘i Bluetooth Ä‘a thiáº¿t bá»‹ vÃ  nháº­n diá»‡n giá»ng nÃ³i"
                 },
                 new PaymentAVNDetail
                 {
@@ -8184,17 +8195,17 @@ public static class Seeder
                     VIN = "KMHCT81EPHU900302",
                     EngineNo = "G4FL-550302",
                     ModelCode = "STARGAZER",
-                    ModelName = "Hyundai Stargazer X Cao Cấp",
+                    ModelName = "Hyundai Stargazer X Cao Cáº¥p",
                     SpecCode = "SGZ-1.5L-PREM",
-                    SpecDescription = "Màn hình cảm ứng 10.25 inch âm thanh 6 loa",
-                    ColorName = "Trắng Mờ",
+                    SpecDescription = "MÃ n hÃ¬nh cáº£m á»©ng 10.25 inch Ã¢m thanh 6 loa",
+                    ColorName = "Tráº¯ng Má»",
                     AVNCode = "AVN-SGZ-1025-NAV",
                     SerialNo = "AVN-SN-SGZ-550302",
                     UnitPriceAVN = 8_800_000,
                     AVNDate = DateTime.Today.AddDays(-6),
                     InStorageDate = DateTime.Today.AddDays(-4),
                     Status = PaymentAVNDetailStatus.Approved,
-                    Remark = "Giao diện thân thiện hỗ trợ kiểm soát sạc không dây Qi"
+                    Remark = "Giao diá»‡n thÃ¢n thiá»‡n há»— trá»£ kiá»ƒm soÃ¡t sáº¡c khÃ´ng dÃ¢y Qi"
                 },
                 new PaymentAVNDetail
                 {
@@ -8206,28 +8217,28 @@ public static class Seeder
                     ModelCode = "ELANTRA-NLINE",
                     ModelName = "Hyundai Elantra N Line 1.6 Turbo",
                     SpecCode = "ELN-1.6T-NL",
-                    SpecDescription = "Màn hình thể thao giao diện N-Mode đo lường lực G và gia tốc",
-                    ColorName = "Đỏ N Line",
+                    SpecDescription = "MÃ n hÃ¬nh thá»ƒ thao giao diá»‡n N-Mode Ä‘o lÆ°á»ng lá»±c G vÃ  gia tá»‘c",
+                    ColorName = "Äá» N Line",
                     AVNCode = "AVN-ELN-NLINE-SPORT",
                     SerialNo = "AVN-SN-ELN-660303",
                     UnitPriceAVN = 10_500_000,
                     AVNDate = DateTime.Today.AddDays(-5),
                     InStorageDate = DateTime.Today.AddDays(-3),
                     Status = PaymentAVNDetailStatus.Approved,
-                    Remark = "Đo lường thời gian vòng chạy Lap timer và áp suất lốp TPMS tích hợp"
+                    Remark = "Äo lÆ°á»ng thá»i gian vÃ²ng cháº¡y Lap timer vÃ  Ã¡p suáº¥t lá»‘p TPMS tÃ­ch há»£p"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 4. Bảng kê Tháng 05/2025 - MỚI TẠO DỰ THẢO (Draft)
-            // Lô xe mới lắp ráp xong tại phân xưởng Ninh Bình, 2 xe SantaFe Calligraphy & Tucson Turbo
+            // 4. Báº£ng kÃª ThÃ¡ng 05/2025 - Má»šI Táº O Dá»° THáº¢O (Draft)
+            // LÃ´ xe má»›i láº¯p rÃ¡p xong táº¡i phÃ¢n xÆ°á»Ÿng Ninh BÃ¬nh, 2 xe SantaFe Calligraphy & Tucson Turbo
             var avn4 = new PaymentAVN
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PaymentAVNNo = "AVN-202505-003",
                 PmtMonth = "2025-05",
                 SupplierCode = "MOBIS-VN",
-                SupplierName = "Công ty TNHH Mobis Auto Parts Việt Nam",
+                SupplierName = "CÃ´ng ty TNHH Mobis Auto Parts Viá»‡t Nam",
                 TotalVehicles = 2,
                 TotalAmount = 25_500_000,          // 14.0M (SantaFe Calligraphy) + 11.5M (Tucson Turbo) = 25,500,000
                 VATRate = 10.0m,
@@ -8236,7 +8247,7 @@ public static class Seeder
                 Status = PaymentAVNStatus.Draft,
                 TCMSSignStatus = AVNSignCAStatus.Pending,
                 HTVSignStatus = AVNSignCAStatus.Pending,
-                Remark = "Dự thảo bảng kê thanh toán màn hình AVN lô xuất xưởng tuần thứ 3 tháng 05/2025",
+                Remark = "Dá»± tháº£o báº£ng kÃª thanh toÃ¡n mÃ n hÃ¬nh AVN lÃ´ xuáº¥t xÆ°á»Ÿng tuáº§n thá»© 3 thÃ¡ng 05/2025",
                 CreatedBy = "LeMinhKhoa_KyThuatVien",
                 CreatedAt = DateTime.Today.AddDays(-1)
             };
@@ -8254,15 +8265,15 @@ public static class Seeder
                     ModelCode = "SANTAFE-CAL",
                     ModelName = "Hyundai Santa Fe Calligraphy 2.5T",
                     SpecCode = "SF-2.5T-CAL6",
-                    SpecDescription = "Màn hình cong liền khối 12.3 inch thế hệ ccNC mới nhất",
-                    ColorName = "Đồng Ánh Kim",
+                    SpecDescription = "MÃ n hÃ¬nh cong liá»n khá»‘i 12.3 inch tháº¿ há»‡ ccNC má»›i nháº¥t",
+                    ColorName = "Äá»“ng Ãnh Kim",
                     AVNCode = "AVN-STF-CAL-12.3IN",
                     SerialNo = "AVN-SN-STF-770401",
                     UnitPriceAVN = 14_000_000,
                     AVNDate = DateTime.Today.AddDays(-2),
                     InStorageDate = DateTime.Today.AddDays(-1),
                     Status = PaymentAVNDetailStatus.Pending,
-                    Remark = "Cập nhật phần mềm hệ điều hành ccNC hỗ trợ kết nối không dây kép"
+                    Remark = "Cáº­p nháº­t pháº§n má»m há»‡ Ä‘iá»u hÃ nh ccNC há»— trá»£ káº¿t ná»‘i khÃ´ng dÃ¢y kÃ©p"
                 },
                 new PaymentAVNDetail
                 {
@@ -8274,28 +8285,28 @@ public static class Seeder
                     ModelCode = "TUCSON-TURBO",
                     ModelName = "Hyundai Tucson 1.6 T-GDi Turbo",
                     SpecCode = "TUC-1.6T-PREM",
-                    SpecDescription = "Màn hình đôi 12.3 inch tích hợp điều khiển cảm ứng",
-                    ColorName = "Trắng",
+                    SpecDescription = "MÃ n hÃ¬nh Ä‘Ã´i 12.3 inch tÃ­ch há»£p Ä‘iá»u khiá»ƒn cáº£m á»©ng",
+                    ColorName = "Tráº¯ng",
                     AVNCode = "AVN-TUC-TURBO-1025",
                     SerialNo = "AVN-SN-TUC-880402",
                     UnitPriceAVN = 11_500_000,
                     AVNDate = DateTime.Today.AddDays(-2),
                     InStorageDate = DateTime.Today.AddDays(-1),
                     Status = PaymentAVNDetailStatus.Pending,
-                    Remark = "Hệ thống bản đồ 3D offline hỗ trợ cảnh báo tốc độ"
+                    Remark = "Há»‡ thá»‘ng báº£n Ä‘á»“ 3D offline há»— trá»£ cáº£nh bÃ¡o tá»‘c Ä‘á»™"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 5. Bảng kê Tháng 03/2025 - ĐÃ HỦY (Cancelled)
-            // Hủy do đối tác giao nhầm lô màn hình mã cũ, đã lập bảng kê thay thế
+            // 5. Báº£ng kÃª ThÃ¡ng 03/2025 - ÄÃƒ Há»¦Y (Cancelled)
+            // Há»§y do Ä‘á»‘i tÃ¡c giao nháº§m lÃ´ mÃ n hÃ¬nh mÃ£ cÅ©, Ä‘Ã£ láº­p báº£ng kÃª thay tháº¿
             var avn5 = new PaymentAVN
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PaymentAVNNo = "AVN-202503-099",
                 PmtMonth = "2025-03",
                 SupplierCode = "VIETTEL-AVN",
-                SupplierName = "Tổng Công ty Giải pháp Doanh nghiệp Viettel (VTS)",
+                SupplierName = "Tá»•ng CÃ´ng ty Giáº£i phÃ¡p Doanh nghiá»‡p Viettel (VTS)",
                 TotalVehicles = 2,
                 TotalAmount = 17_000_000,
                 VATRate = 10.0m,
@@ -8305,8 +8316,8 @@ public static class Seeder
                 TCMSSignStatus = AVNSignCAStatus.Pending,
                 HTVSignStatus = AVNSignCAStatus.Pending,
                 CancelledAt = DateTime.Today.AddDays(-40),
-                RejectReason = "Hủy bảng kê do đối tác cấp sai lô mã linh kiện AVN-ACC-GEN4 thay vì GEN5. Đã lập bảng kê bù trong tháng 04.",
-                Remark = "Bảng kê bị hủy trước khi trình duyệt cấp 1",
+                RejectReason = "Há»§y báº£ng kÃª do Ä‘á»‘i tÃ¡c cáº¥p sai lÃ´ mÃ£ linh kiá»‡n AVN-ACC-GEN4 thay vÃ¬ GEN5. ÄÃ£ láº­p báº£ng kÃª bÃ¹ trong thÃ¡ng 04.",
+                Remark = "Báº£ng kÃª bá»‹ há»§y trÆ°á»›c khi trÃ¬nh duyá»‡t cáº¥p 1",
                 CreatedBy = "VuMinhTu_LinhKien",
                 CreatedAt = DateTime.Today.AddDays(-45)
             };
@@ -8324,15 +8335,15 @@ public static class Seeder
                     ModelCode = "ACCENT",
                     ModelName = "Hyundai Accent 1.5 AT",
                     SpecCode = "ACC-1.5AT-STD",
-                    SpecDescription = "Màn hình AVN mẫu cũ",
-                    ColorName = "Đen",
+                    SpecDescription = "MÃ n hÃ¬nh AVN máº«u cÅ©",
+                    ColorName = "Äen",
                     AVNCode = "AVN-ACC-GEN4-7IN",
                     SerialNo = "AVN-SN-OLD-990501",
                     UnitPriceAVN = 8_500_000,
                     AVNDate = DateTime.Today.AddDays(-44),
                     InStorageDate = DateTime.Today.AddDays(-42),
                     Status = PaymentAVNDetailStatus.Cancelled,
-                    Remark = "Hủy dòng xe do không khớp chứng từ nhập linh kiện"
+                    Remark = "Há»§y dÃ²ng xe do khÃ´ng khá»›p chá»©ng tá»« nháº­p linh kiá»‡n"
                 },
                 new PaymentAVNDetail
                 {
@@ -8344,21 +8355,21 @@ public static class Seeder
                     ModelCode = "ACCENT",
                     ModelName = "Hyundai Accent 1.5 AT",
                     SpecCode = "ACC-1.5AT-STD",
-                    SpecDescription = "Màn hình AVN mẫu cũ",
-                    ColorName = "Trắng",
+                    SpecDescription = "MÃ n hÃ¬nh AVN máº«u cÅ©",
+                    ColorName = "Tráº¯ng",
                     AVNCode = "AVN-ACC-GEN4-7IN",
                     SerialNo = "AVN-SN-OLD-990502",
                     UnitPriceAVN = 8_500_000,
                     AVNDate = DateTime.Today.AddDays(-44),
                     InStorageDate = DateTime.Today.AddDays(-42),
                     Status = PaymentAVNDetailStatus.Cancelled,
-                    Remark = "Hủy dòng xe do không khớp chứng từ nhập linh kiện"
+                    Remark = "Há»§y dÃ²ng xe do khÃ´ng khá»›p chá»©ng tá»« nháº­p linh kiá»‡n"
                 }
             );
             await db.SaveChangesAsync();
         }
 
-        // Dữ liệu mẫu Bảng đơn giá định mức thuê bao dịch vụ GPS (Mst_UnitPriceGPS / BizHTC.Payment)
+        // Dá»¯ liá»‡u máº«u Báº£ng Ä‘Æ¡n giÃ¡ Ä‘á»‹nh má»©c thuÃª bao dá»‹ch vá»¥ GPS (Mst_UnitPriceGPS / BizHTC.Payment)
         if (!await db.UnitPriceGPSs.AnyAsync(u => u.OrgId == TenantContext.DefaultOrgId))
         {
             db.UnitPriceGPSs.AddRange(
@@ -8367,57 +8378,57 @@ public static class Seeder
                     OrgId = TenantContext.DefaultOrgId,
                     ContractNo = "HD-GPS-VIETTEL-2024",
                     ProviderCode = "VIETTEL",
-                    ProviderName = "Tổng Công ty Viễn thông Viettel (Viettel Telecom)",
+                    ProviderName = "Tá»•ng CÃ´ng ty Viá»…n thÃ´ng Viettel (Viettel Telecom)",
                     DailyPrice = 2_500,
                     MonthlyRate = 75_000,
                     EffectiveStartDate = new DateTime(2024, 1, 1),
                     IsActive = true,
-                    Remark = "Hợp đồng khung cung cấp thiết bị và dịch vụ định vị GPS Viettel 4G toàn quốc"
+                    Remark = "Há»£p Ä‘á»“ng khung cung cáº¥p thiáº¿t bá»‹ vÃ  dá»‹ch vá»¥ Ä‘á»‹nh vá»‹ GPS Viettel 4G toÃ n quá»‘c"
                 },
                 new UnitPriceGPS
                 {
                     OrgId = TenantContext.DefaultOrgId,
                     ContractNo = "HD-GPS-VNPT-TRACK",
                     ProviderCode = "VNPT",
-                    ProviderName = "Tổng Công ty Dịch vụ Viễn thông VNPT (VNPT VinaPhone)",
+                    ProviderName = "Tá»•ng CÃ´ng ty Dá»‹ch vá»¥ Viá»…n thÃ´ng VNPT (VNPT VinaPhone)",
                     DailyPrice = 2_400,
                     MonthlyRate = 72_000,
                     EffectiveStartDate = new DateTime(2024, 1, 1),
                     IsActive = true,
-                    Remark = "Hợp đồng thuê bao định vị vệ tinh VNPT Smart Motor & Fleet"
+                    Remark = "Há»£p Ä‘á»“ng thuÃª bao Ä‘á»‹nh vá»‹ vá»‡ tinh VNPT Smart Motor & Fleet"
                 },
                 new UnitPriceGPS
                 {
                     OrgId = TenantContext.DefaultOrgId,
                     ContractNo = "HD-GPS-BINHANH",
                     ProviderCode = "BAGPS",
-                    ProviderName = "Công ty TNHH Phát triển Công nghệ Điện tử Bình Anh (BA GPS)",
+                    ProviderName = "CÃ´ng ty TNHH PhÃ¡t triá»ƒn CÃ´ng nghá»‡ Äiá»‡n tá»­ BÃ¬nh Anh (BA GPS)",
                     DailyPrice = 2_300,
                     MonthlyRate = 69_000,
                     EffectiveStartDate = new DateTime(2024, 1, 1),
                     IsActive = true,
-                    Remark = "Hợp đồng thiết bị giám sát hành trình hợp chuẩn BA-GPS"
+                    Remark = "Há»£p Ä‘á»“ng thiáº¿t bá»‹ giÃ¡m sÃ¡t hÃ nh trÃ¬nh há»£p chuáº©n BA-GPS"
                 },
                 new UnitPriceGPS
                 {
                     OrgId = TenantContext.DefaultOrgId,
                     ContractNo = "HD-GPS-BKAV-SMART",
                     ProviderCode = "BKAV",
-                    ProviderName = "Tập đoàn Công nghệ BKAV - Smart Vehicle IoT Solutions",
+                    ProviderName = "Táº­p Ä‘oÃ n CÃ´ng nghá»‡ BKAV - Smart Vehicle IoT Solutions",
                     DailyPrice = 2_600,
                     MonthlyRate = 78_000,
                     EffectiveStartDate = new DateTime(2024, 1, 1),
                     IsActive = true,
-                    Remark = "Hợp đồng giám sát thông minh IoT và an ninh dữ liệu vị trí xe BKAV"
+                    Remark = "Há»£p Ä‘á»“ng giÃ¡m sÃ¡t thÃ´ng minh IoT vÃ  an ninh dá»¯ liá»‡u vá»‹ trÃ­ xe BKAV"
                 }
             );
             await db.SaveChangesAsync();
         }
 
-        // Dữ liệu mẫu Bảng kê thanh toán chi phí định vị GPS trên xe ô tô (Pmt_PaymentGPS & Pmt_PaymentGPSDetail / BizHTC.Payment)
+        // Dá»¯ liá»‡u máº«u Báº£ng kÃª thanh toÃ¡n chi phÃ­ Ä‘á»‹nh vá»‹ GPS trÃªn xe Ã´ tÃ´ (Pmt_PaymentGPS & Pmt_PaymentGPSDetail / BizHTC.Payment)
         if (!await db.PaymentGPSs.AnyAsync(p => p.OrgId == TenantContext.DefaultOrgId))
         {
-            // 1. Bảng kê Tháng 04/2025 - ĐÃ QUYẾT TOÁN THANH TOÁN (Settled)
+            // 1. Báº£ng kÃª ThÃ¡ng 04/2025 - ÄÃƒ QUYáº¾T TOÃN THANH TOÃN (Settled)
             var gps1 = new PaymentGPS
             {
                 OrgId = TenantContext.DefaultOrgId,
@@ -8425,7 +8436,7 @@ public static class Seeder
                 PmtMonth = "2025-04",
                 ContractNo = "HD-GPS-VIETTEL-2024",
                 ProviderCode = "VIETTEL",
-                ProviderName = "Tổng Công ty Viễn thông Viettel (Viettel Telecom)",
+                ProviderName = "Tá»•ng CÃ´ng ty Viá»…n thÃ´ng Viettel (Viettel Telecom)",
                 TotalVehicles = 4,
                 TotalPlanDays = 107,
                 TotalDeductDays = 3,
@@ -8449,7 +8460,7 @@ public static class Seeder
                 SettledAt = DateTime.Today.AddDays(-25),
                 BankTxnRef = "UNC-GPS-20250428-1122",
                 FilePath = "CR_Pmt_PaymentGPS_202504_001_Signed.pdf",
-                Remark = "Quyết toán thanh toán phí dịch vụ định vị GPS Viettel tháng 04/2025 cho lô xe kho Ninh Bình",
+                Remark = "Quyáº¿t toÃ¡n thanh toÃ¡n phÃ­ dá»‹ch vá»¥ Ä‘á»‹nh vá»‹ GPS Viettel thÃ¡ng 04/2025 cho lÃ´ xe kho Ninh BÃ¬nh",
                 CreatedBy = "VuMinhTu_QuanLyXe",
                 CreatedAt = DateTime.Today.AddDays(-31)
             };
@@ -8468,7 +8479,7 @@ public static class Seeder
                     ModelCode = "SANTAFE",
                     ModelName = "Hyundai Santa Fe 2.5 HTRAC",
                     SpecCode = "SF-2.5-GAS",
-                    SpecDescription = "Bản xăng cao cấp",
+                    SpecDescription = "Báº£n xÄƒng cao cáº¥p",
                     GPSID = "GPS-VTT-950101",
                     ContractGPS = gps1.ContractNo,
                     GPSStartDate = new DateTime(2025, 3, 20),
@@ -8480,7 +8491,7 @@ public static class Seeder
                     PriceGPS = 2_500,
                     AmountGPS = 75_000,
                     Status = PaymentGPSDetailStatus.Approved,
-                    Remark = "Thiết bị phát sóng định vị GPS 4G chuẩn xác liên tục 24/7"
+                    Remark = "Thiáº¿t bá»‹ phÃ¡t sÃ³ng Ä‘á»‹nh vá»‹ GPS 4G chuáº©n xÃ¡c liÃªn tá»¥c 24/7"
                 },
                 new PaymentGPSDetail
                 {
@@ -8493,7 +8504,7 @@ public static class Seeder
                     ModelCode = "TUCSON",
                     ModelName = "Hyundai Tucson 2.0 MPI",
                     SpecCode = "TUC-2.0-AT",
-                    SpecDescription = "Bản đặc biệt máy xăng",
+                    SpecDescription = "Báº£n Ä‘áº·c biá»‡t mÃ¡y xÄƒng",
                     GPSID = "GPS-VTT-950102",
                     ContractGPS = gps1.ContractNo,
                     GPSStartDate = new DateTime(2025, 3, 22),
@@ -8505,7 +8516,7 @@ public static class Seeder
                     PriceGPS = 2_500,
                     AmountGPS = 70_000,
                     Status = PaymentGPSDetailStatus.Adjusted,
-                    Remark = "Khấu trừ 2 ngày xe vào xưởng hiệu chỉnh ăng-ten ngưng phát sóng"
+                    Remark = "Kháº¥u trá»« 2 ngÃ y xe vÃ o xÆ°á»Ÿng hiá»‡u chá»‰nh Äƒng-ten ngÆ°ng phÃ¡t sÃ³ng"
                 },
                 new PaymentGPSDetail
                 {
@@ -8518,7 +8529,7 @@ public static class Seeder
                     ModelCode = "CRETA",
                     ModelName = "Hyundai Creta 1.5L Smart Stream",
                     SpecCode = "CRT-1.5L-PREM",
-                    SpecDescription = "Bản cao cấp 2 tông màu",
+                    SpecDescription = "Báº£n cao cáº¥p 2 tÃ´ng mÃ u",
                     GPSID = "GPS-VTT-950103",
                     ContractGPS = gps1.ContractNo,
                     GPSStartDate = new DateTime(2025, 4, 5),
@@ -8530,7 +8541,7 @@ public static class Seeder
                     PriceGPS = 2_500,
                     AmountGPS = 65_000,
                     Status = PaymentGPSDetailStatus.Approved,
-                    Remark = "Kích hoạt giám sát định vị từ ngày hoàn tất kiểm tra xuất xưởng PDI"
+                    Remark = "KÃ­ch hoáº¡t giÃ¡m sÃ¡t Ä‘á»‹nh vá»‹ tá»« ngÃ y hoÃ n táº¥t kiá»ƒm tra xuáº¥t xÆ°á»Ÿng PDI"
                 },
                 new PaymentGPSDetail
                 {
@@ -8543,7 +8554,7 @@ public static class Seeder
                     ModelCode = "ACCENT",
                     ModelName = "Hyundai Accent 1.5 AT",
                     SpecCode = "ACC-1.5AT-PREM",
-                    SpecDescription = "Bản đặc biệt",
+                    SpecDescription = "Báº£n Ä‘áº·c biá»‡t",
                     GPSID = "GPS-VTT-950104",
                     ContractGPS = gps1.ContractNo,
                     GPSStartDate = new DateTime(2025, 4, 10),
@@ -8555,12 +8566,12 @@ public static class Seeder
                     PriceGPS = 2_500,
                     AmountGPS = 50_000,
                     Status = PaymentGPSDetailStatus.Adjusted,
-                    Remark = "Khấu trừ 1 ngày kiểm tra kỹ thuật định kỳ tại bãi"
+                    Remark = "Kháº¥u trá»« 1 ngÃ y kiá»ƒm tra ká»¹ thuáº­t Ä‘á»‹nh ká»³ táº¡i bÃ£i"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 2. Bảng kê Tháng 05/2025 - ĐÃ KÝ SỐ CA HOÀN TẤT (Signed)
+            // 2. Báº£ng kÃª ThÃ¡ng 05/2025 - ÄÃƒ KÃ Sá» CA HOÃ€N Táº¤T (Signed)
             var gps2 = new PaymentGPS
             {
                 OrgId = TenantContext.DefaultOrgId,
@@ -8568,7 +8579,7 @@ public static class Seeder
                 PmtMonth = "2025-05",
                 ContractNo = "HD-GPS-VNPT-TRACK",
                 ProviderCode = "VNPT",
-                ProviderName = "Tổng Công ty Dịch vụ Viễn thông VNPT (VNPT VinaPhone)",
+                ProviderName = "Tá»•ng CÃ´ng ty Dá»‹ch vá»¥ Viá»…n thÃ´ng VNPT (VNPT VinaPhone)",
                 TotalVehicles = 3,
                 TotalPlanDays = 93,
                 TotalDeductDays = 1,
@@ -8589,7 +8600,7 @@ public static class Seeder
                 Appr2By = "DangThanhTung_KeToanTruong_TCMS",
                 Appr2DTime = DateTime.Today.AddDays(-4),
                 FilePath = "CR_Pmt_PaymentGPS_202505_001_Signed.pdf",
-                Remark = "Bảng kê giám sát GPS xe nhập khẩu phân phối đợt 1 tháng 05/2025 - Chờ kế toán chuyển khoản UNC",
+                Remark = "Báº£ng kÃª giÃ¡m sÃ¡t GPS xe nháº­p kháº©u phÃ¢n phá»‘i Ä‘á»£t 1 thÃ¡ng 05/2025 - Chá» káº¿ toÃ¡n chuyá»ƒn khoáº£n UNC",
                 CreatedBy = "VuMinhTu_QuanLyXe",
                 CreatedAt = DateTime.Today.AddDays(-6)
             };
@@ -8608,7 +8619,7 @@ public static class Seeder
                     ModelCode = "PALISADE",
                     ModelName = "Hyundai Palisade 2.2 Diesel HTRAC",
                     SpecCode = "PAL-2.2D-PREM",
-                    SpecDescription = "Bản 6 chỗ ngồi thương gia",
+                    SpecDescription = "Báº£n 6 chá»— ngá»“i thÆ°Æ¡ng gia",
                     GPSID = "GPS-VNP-950201",
                     ContractGPS = gps2.ContractNo,
                     GPSStartDate = new DateTime(2025, 4, 25),
@@ -8620,7 +8631,7 @@ public static class Seeder
                     PriceGPS = 2_400,
                     AmountGPS = 74_400,
                     Status = PaymentGPSDetailStatus.Approved,
-                    Remark = "Giám sát vị trí lưu kho tại tổng kho Hiệp Phước Nhà Bè"
+                    Remark = "GiÃ¡m sÃ¡t vá»‹ trÃ­ lÆ°u kho táº¡i tá»•ng kho Hiá»‡p PhÆ°á»›c NhÃ  BÃ¨"
                 },
                 new PaymentGPSDetail
                 {
@@ -8631,9 +8642,9 @@ public static class Seeder
                     EngineNo = "G4KN-220202",
                     CarID = "CAR-HP-202",
                     ModelCode = "CUSTIN",
-                    ModelName = "Hyundai Custin 2.0 T-GDi Cao Cấp",
+                    ModelName = "Hyundai Custin 2.0 T-GDi Cao Cáº¥p",
                     SpecCode = "CST-2.0T-PREM",
-                    SpecDescription = "Bản cao cấp cửa lùa điện kép",
+                    SpecDescription = "Báº£n cao cáº¥p cá»­a lÃ¹a Ä‘iá»‡n kÃ©p",
                     GPSID = "GPS-VNP-950202",
                     ContractGPS = gps2.ContractNo,
                     GPSStartDate = new DateTime(2025, 4, 26),
@@ -8645,7 +8656,7 @@ public static class Seeder
                     PriceGPS = 2_400,
                     AmountGPS = 72_000,
                     Status = PaymentGPSDetailStatus.Adjusted,
-                    Remark = "Khấu trừ 1 ngày kiểm định môi trường khí thải xe"
+                    Remark = "Kháº¥u trá»« 1 ngÃ y kiá»ƒm Ä‘á»‹nh mÃ´i trÆ°á»ng khÃ­ tháº£i xe"
                 },
                 new PaymentGPSDetail
                 {
@@ -8658,7 +8669,7 @@ public static class Seeder
                     ModelCode = "IONIQ-5",
                     ModelName = "Hyundai IONIQ 5 Exclusive EV",
                     SpecCode = "IQ5-72KWH-EXC",
-                    SpecDescription = "Xe điện Pin 72.6 kWh công nghệ E-GMP",
+                    SpecDescription = "Xe Ä‘iá»‡n Pin 72.6 kWh cÃ´ng nghá»‡ E-GMP",
                     GPSID = "GPS-VNP-950203",
                     ContractGPS = gps2.ContractNo,
                     GPSStartDate = new DateTime(2025, 4, 28),
@@ -8670,12 +8681,12 @@ public static class Seeder
                     PriceGPS = 2_400,
                     AmountGPS = 74_400,
                     Status = PaymentGPSDetailStatus.Approved,
-                    Remark = "Giám sát trạng thái sạc Pin và vị trí xe an toàn 24/7"
+                    Remark = "GiÃ¡m sÃ¡t tráº¡ng thÃ¡i sáº¡c Pin vÃ  vá»‹ trÃ­ xe an toÃ n 24/7"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 3. Bảng kê Tháng 05/2025 - HTV ĐÃ PHÊ DUYỆT CẤP 1 (HTVApproved)
+            // 3. Báº£ng kÃª ThÃ¡ng 05/2025 - HTV ÄÃƒ PHÃŠ DUYá»†T Cáº¤P 1 (HTVApproved)
             var gps3 = new PaymentGPS
             {
                 OrgId = TenantContext.DefaultOrgId,
@@ -8683,7 +8694,7 @@ public static class Seeder
                 PmtMonth = "2025-05",
                 ContractNo = "HD-GPS-BINHANH",
                 ProviderCode = "BAGPS",
-                ProviderName = "Công ty TNHH Phát triển Công nghệ Điện tử Bình Anh (BA GPS)",
+                ProviderName = "CÃ´ng ty TNHH PhÃ¡t triá»ƒn CÃ´ng nghá»‡ Äiá»‡n tá»­ BÃ¬nh Anh (BA GPS)",
                 TotalVehicles = 3,
                 TotalPlanDays = 80,
                 TotalDeductDays = 2,
@@ -8697,7 +8708,7 @@ public static class Seeder
                 TCMSSignStatus = GPSSignCAStatus.Pending,
                 Appr1By = "TranVanHung_GiamDocVanTai_HTV",
                 Appr1DTime = DateTime.Today.AddDays(-2),
-                Remark = "Bảng kê đợt 2 tháng 05/2025: Thiết bị BA-GPS trên dòng xe sedan & MPV, chờ TCMS duyệt A2",
+                Remark = "Báº£ng kÃª Ä‘á»£t 2 thÃ¡ng 05/2025: Thiáº¿t bá»‹ BA-GPS trÃªn dÃ²ng xe sedan & MPV, chá» TCMS duyá»‡t A2",
                 CreatedBy = "VuMinhTu_QuanLyXe",
                 CreatedAt = DateTime.Today.AddDays(-4)
             };
@@ -8714,9 +8725,9 @@ public static class Seeder
                     EngineNo = "G4NL-330301",
                     CarID = "CAR-DA-301",
                     ModelCode = "ELANTRA",
-                    ModelName = "Hyundai Elantra 2.0 AT Cao Cấp",
+                    ModelName = "Hyundai Elantra 2.0 AT Cao Cáº¥p",
                     SpecCode = "ELN-2.0AT-PREM",
-                    SpecDescription = "Bản cao cấp thế hệ 7",
+                    SpecDescription = "Báº£n cao cáº¥p tháº¿ há»‡ 7",
                     GPSID = "GPS-BA-950301",
                     ContractGPS = gps3.ContractNo,
                     GPSStartDate = new DateTime(2025, 4, 30),
@@ -8728,7 +8739,7 @@ public static class Seeder
                     PriceGPS = 2_300,
                     AmountGPS = 71_300,
                     Status = PaymentGPSDetailStatus.Approved,
-                    Remark = "Kết nối hộp đen BA-GPS đạt chuẩn kỹ thuật QCVN 31:2014"
+                    Remark = "Káº¿t ná»‘i há»™p Ä‘en BA-GPS Ä‘áº¡t chuáº©n ká»¹ thuáº­t QCVN 31:2014"
                 },
                 new PaymentGPSDetail
                 {
@@ -8739,9 +8750,9 @@ public static class Seeder
                     EngineNo = "G4FL-330302",
                     CarID = "CAR-DA-302",
                     ModelCode = "STARGAZER",
-                    ModelName = "Hyundai Stargazer X Cao Cấp",
+                    ModelName = "Hyundai Stargazer X Cao Cáº¥p",
                     SpecCode = "SGZ-1.5L-PREM",
-                    SpecDescription = "Bản MPV phong cách SUV",
+                    SpecDescription = "Báº£n MPV phong cÃ¡ch SUV",
                     GPSID = "GPS-BA-950302",
                     ContractGPS = gps3.ContractNo,
                     GPSStartDate = new DateTime(2025, 5, 4),
@@ -8753,7 +8764,7 @@ public static class Seeder
                     PriceGPS = 2_300,
                     AmountGPS = 62_100,
                     Status = PaymentGPSDetailStatus.Approved,
-                    Remark = "Truyền dữ liệu tốc độ và định vị máy chủ ổn định"
+                    Remark = "Truyá»n dá»¯ liá»‡u tá»‘c Ä‘á»™ vÃ  Ä‘á»‹nh vá»‹ mÃ¡y chá»§ á»•n Ä‘á»‹nh"
                 },
                 new PaymentGPSDetail
                 {
@@ -8766,7 +8777,7 @@ public static class Seeder
                     ModelCode = "ELANTRA-NLINE",
                     ModelName = "Hyundai Elantra N Line 1.6 Turbo",
                     SpecCode = "ELN-1.6T-NL",
-                    SpecDescription = "Bản thể thao Turbo",
+                    SpecDescription = "Báº£n thá»ƒ thao Turbo",
                     GPSID = "GPS-BA-950303",
                     ContractGPS = gps3.ContractNo,
                     GPSStartDate = new DateTime(2025, 5, 9),
@@ -8778,12 +8789,12 @@ public static class Seeder
                     PriceGPS = 2_300,
                     AmountGPS = 46_000,
                     Status = PaymentGPSDetailStatus.Adjusted,
-                    Remark = "Khấu trừ 2 ngày xe trưng bày sự kiện nội bộ không di chuyển"
+                    Remark = "Kháº¥u trá»« 2 ngÃ y xe trÆ°ng bÃ y sá»± kiá»‡n ná»™i bá»™ khÃ´ng di chuyá»ƒn"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 4. Bảng kê Tháng 05/2025 - DỰ THẢO (Draft)
+            // 4. Báº£ng kÃª ThÃ¡ng 05/2025 - Dá»° THáº¢O (Draft)
             var gps4 = new PaymentGPS
             {
                 OrgId = TenantContext.DefaultOrgId,
@@ -8791,7 +8802,7 @@ public static class Seeder
                 PmtMonth = "2025-05",
                 ContractNo = "HD-GPS-VIETTEL-2024",
                 ProviderCode = "VIETTEL",
-                ProviderName = "Tổng Công ty Viễn thông Viettel (Viettel Telecom)",
+                ProviderName = "Tá»•ng CÃ´ng ty Viá»…n thÃ´ng Viettel (Viettel Telecom)",
                 TotalVehicles = 2,
                 TotalPlanDays = 34,
                 TotalDeductDays = 0,
@@ -8803,7 +8814,7 @@ public static class Seeder
                 Status = PaymentGPSStatus.Draft,
                 HTVSignStatus = GPSSignCAStatus.Pending,
                 TCMSSignStatus = GPSSignCAStatus.Pending,
-                Remark = "Dự thảo bảng kê thanh toán GPS đợt 3 tháng 05/2025 - Mới kích hoạt SIM và thiết bị",
+                Remark = "Dá»± tháº£o báº£ng kÃª thanh toÃ¡n GPS Ä‘á»£t 3 thÃ¡ng 05/2025 - Má»›i kÃ­ch hoáº¡t SIM vÃ  thiáº¿t bá»‹",
                 CreatedBy = "VuMinhTu_QuanLyXe",
                 CreatedAt = DateTime.Today.AddDays(-1)
             };
@@ -8822,7 +8833,7 @@ public static class Seeder
                     ModelCode = "SANTAFE-CAL",
                     ModelName = "Hyundai Santa Fe Calligraphy 2.5T",
                     SpecCode = "SF-2.5T-CAL6",
-                    SpecDescription = "Bản cao cấp nhất 6 chỗ mâm 21 inch",
+                    SpecDescription = "Báº£n cao cáº¥p nháº¥t 6 chá»— mÃ¢m 21 inch",
                     GPSID = "GPS-VTT-950401",
                     ContractGPS = gps4.ContractNo,
                     GPSStartDate = new DateTime(2025, 5, 14),
@@ -8834,7 +8845,7 @@ public static class Seeder
                     PriceGPS = 2_500,
                     AmountGPS = 42_500,
                     Status = PaymentGPSDetailStatus.Pending,
-                    Remark = "Định vị 4G kết nối hệ thống viễn thông thông minh Bluelink"
+                    Remark = "Äá»‹nh vá»‹ 4G káº¿t ná»‘i há»‡ thá»‘ng viá»…n thÃ´ng thÃ´ng minh Bluelink"
                 },
                 new PaymentGPSDetail
                 {
@@ -8847,7 +8858,7 @@ public static class Seeder
                     ModelCode = "TUCSON-TURBO",
                     ModelName = "Hyundai Tucson 1.6 T-GDi Turbo",
                     SpecCode = "TUC-1.6T-PREM",
-                    SpecDescription = "Bản máy xăng tăng áp HTRAC",
+                    SpecDescription = "Báº£n mÃ¡y xÄƒng tÄƒng Ã¡p HTRAC",
                     GPSID = "GPS-VTT-950402",
                     ContractGPS = gps4.ContractNo,
                     GPSStartDate = new DateTime(2025, 5, 14),
@@ -8859,12 +8870,12 @@ public static class Seeder
                     PriceGPS = 2_500,
                     AmountGPS = 42_500,
                     Status = PaymentGPSDetailStatus.Pending,
-                    Remark = "Cài đặt hàng rào điện tử cảnh báo rời kho tổng Ninh Bình"
+                    Remark = "CÃ i Ä‘áº·t hÃ ng rÃ o Ä‘iá»‡n tá»­ cáº£nh bÃ¡o rá»i kho tá»•ng Ninh BÃ¬nh"
                 }
             );
             await db.SaveChangesAsync();
 
-            // 5. Bảng kê Tháng 03/2025 - ĐÃ HỦY (Cancelled)
+            // 5. Báº£ng kÃª ThÃ¡ng 03/2025 - ÄÃƒ Há»¦Y (Cancelled)
             var gps5 = new PaymentGPS
             {
                 OrgId = TenantContext.DefaultOrgId,
@@ -8872,7 +8883,7 @@ public static class Seeder
                 PmtMonth = "2025-03",
                 ContractNo = "HD-GPS-BKAV-SMART",
                 ProviderCode = "BKAV",
-                ProviderName = "Tập đoàn Công nghệ BKAV - Smart Vehicle IoT Solutions",
+                ProviderName = "Táº­p Ä‘oÃ n CÃ´ng nghá»‡ BKAV - Smart Vehicle IoT Solutions",
                 TotalVehicles = 2,
                 TotalPlanDays = 62,
                 TotalDeductDays = 0,
@@ -8885,8 +8896,8 @@ public static class Seeder
                 HTVSignStatus = GPSSignCAStatus.Pending,
                 TCMSSignStatus = GPSSignCAStatus.Pending,
                 CancelledAt = DateTime.Today.AddDays(-40),
-                RejectReason = "Hủy bảng kê do thay đổi phụ lục số 02 điều chỉnh đơn giá sang nhà mạng Viettel",
-                Remark = "Bảng kê thử nghiệm thiết bị BKAV bị hủy",
+                RejectReason = "Há»§y báº£ng kÃª do thay Ä‘á»•i phá»¥ lá»¥c sá»‘ 02 Ä‘iá»u chá»‰nh Ä‘Æ¡n giÃ¡ sang nhÃ  máº¡ng Viettel",
+                Remark = "Báº£ng kÃª thá»­ nghiá»‡m thiáº¿t bá»‹ BKAV bá»‹ há»§y",
                 CreatedBy = "VuMinhTu_QuanLyXe",
                 CreatedAt = DateTime.Today.AddDays(-45)
             };
@@ -8905,7 +8916,7 @@ public static class Seeder
                     ModelCode = "ACCENT",
                     ModelName = "Hyundai Accent 1.5 AT",
                     SpecCode = "ACC-1.5AT-STD",
-                    SpecDescription = "Bản tiêu chuẩn",
+                    SpecDescription = "Báº£n tiÃªu chuáº©n",
                     GPSID = "GPS-BKAV-550501",
                     ContractGPS = gps5.ContractNo,
                     GPSStartDate = new DateTime(2025, 3, 1),
@@ -8917,7 +8928,7 @@ public static class Seeder
                     PriceGPS = 2_600,
                     AmountGPS = 80_600,
                     Status = PaymentGPSDetailStatus.Cancelled,
-                    Remark = "Hủy do thay đổi phương án triển khai thiết bị thử nghiệm"
+                    Remark = "Há»§y do thay Ä‘á»•i phÆ°Æ¡ng Ã¡n triá»ƒn khai thiáº¿t bá»‹ thá»­ nghiá»‡m"
                 },
                 new PaymentGPSDetail
                 {
@@ -8930,7 +8941,7 @@ public static class Seeder
                     ModelCode = "ACCENT",
                     ModelName = "Hyundai Accent 1.5 AT",
                     SpecCode = "ACC-1.5AT-STD",
-                    SpecDescription = "Bản tiêu chuẩn",
+                    SpecDescription = "Báº£n tiÃªu chuáº©n",
                     GPSID = "GPS-BKAV-550502",
                     ContractGPS = gps5.ContractNo,
                     GPSStartDate = new DateTime(2025, 3, 1),
@@ -8942,23 +8953,23 @@ public static class Seeder
                     PriceGPS = 2_600,
                     AmountGPS = 80_600,
                     Status = PaymentGPSDetailStatus.Cancelled,
-                    Remark = "Hủy do thay đổi phương án triển khai thiết bị thử nghiệm"
+                    Remark = "Há»§y do thay Ä‘á»•i phÆ°Æ¡ng Ã¡n triá»ƒn khai thiáº¿t bá»‹ thá»­ nghiá»‡m"
                 }
             );
             await db.SaveChangesAsync();
         }
 
-        // 16. Dữ liệu mẫu Bảng tính Chi phí Tài chính (CPTC) & Chiết khấu Thanh toán TCG (CKTT) cho Đại lý (DMS40_FnExp_Calc_FnExp_PmDc)
+        // 16. Dá»¯ liá»‡u máº«u Báº£ng tÃ­nh Chi phÃ­ TÃ i chÃ­nh (CPTC) & Chiáº¿t kháº¥u Thanh toÃ¡n TCG (CKTT) cho Äáº¡i lÃ½ (DMS40_FnExp_Calc_FnExp_PmDc)
         if (!await db.FnExpStatements.AnyAsync(s => s.OrgId == TenantContext.DefaultOrgId))
         {
-            // Statement 1: ĐÃ QUYẾT TOÁN (Settled) - Hyundai Hà Đông (Kỳ 04/2025)
+            // Statement 1: ÄÃƒ QUYáº¾T TOÃN (Settled) - Hyundai HÃ  ÄÃ´ng (Ká»³ 04/2025)
             var fn1 = new FinancialExpenseStatement
             {
                 OrgId = TenantContext.DefaultOrgId,
                 CaNo = "CAN-202504-HADONG-01",
                 DealerCode = "DLR-HADONG",
-                DealerName = "Hyundai Hà Đông",
-                CAName = "Bảng tính CPTC & CKTT TCG tháng 04/2025 - Hyundai Hà Đông",
+                DealerName = "Hyundai HÃ  ÄÃ´ng",
+                CAName = "Báº£ng tÃ­nh CPTC & CKTT TCG thÃ¡ng 04/2025 - Hyundai HÃ  ÄÃ´ng",
                 TermFrom = new DateTime(2025, 4, 1),
                 TermTo = new DateTime(2025, 4, 30),
                 TermPrevFrom = new DateTime(2025, 3, 1),
@@ -8987,7 +8998,7 @@ public static class Seeder
                 BankTxnRef = "UNC-FNEXP-202504-HADONG-01",
                 FilePathFnExp = "/docs/ca/CAN-202504-HADONG-01-FNEXP.pdf",
                 FilePathPmtDc = "/docs/ca/CAN-202504-HADONG-01-PMTDC.pdf",
-                Remark = "Quyết toán hoàn tất chuyển tiền hỗ trợ lãi suất và chiết khấu TCG kỳ 04/2025 qua Vietcombank",
+                Remark = "Quyáº¿t toÃ¡n hoÃ n táº¥t chuyá»ƒn tiá»n há»— trá»£ lÃ£i suáº¥t vÃ  chiáº¿t kháº¥u TCG ká»³ 04/2025 qua Vietcombank",
                 CreatedBy = "NguyenQuocTuan_ChuyenVienTaiChinhHTC",
                 CreatedAt = new DateTime(2025, 5, 1, 8, 30, 0)
             };
@@ -9005,8 +9016,8 @@ public static class Seeder
                     ModelCode = "SANTAFE-CAL",
                     ModelName = "Hyundai Santa Fe Calligraphy 2.5T",
                     SpecCode = "SF-2.5T-CAL6",
-                    SpecDescription = "Bản cao cấp 6 chỗ HTRAC",
-                    ColorName = "Trắng ngọc trai",
+                    SpecDescription = "Báº£n cao cáº¥p 6 chá»— HTRAC",
+                    ColorName = "Tráº¯ng ngá»c trai",
                     SOCode = "SO-202504-HD01",
                     AssemblyType = VehicleAssemblyType.CKD,
                     UnitPriceActual = 1_365_000_000,
@@ -9025,7 +9036,7 @@ public static class Seeder
                     PDAmount = 386_750,
                     CarTotalSettlement = 8_589_073,
                     Status = FinancialExpenseDetailStatus.Active,
-                    Remark = "Đại lý nộp cọc và thanh toán trước hạn bảo lãnh 10 ngày"
+                    Remark = "Äáº¡i lÃ½ ná»™p cá»c vÃ  thanh toÃ¡n trÆ°á»›c háº¡n báº£o lÃ£nh 10 ngÃ y"
                 },
                 new FinancialExpenseDetail
                 {
@@ -9037,8 +9048,8 @@ public static class Seeder
                     ModelCode = "TUCSON-TURBO",
                     ModelName = "Hyundai Tucson 1.6 T-GDi Turbo",
                     SpecCode = "TUC-1.6T-PREM",
-                    SpecDescription = "Bản máy xăng tăng áp HTRAC",
-                    ColorName = "Đen huyền bí",
+                    SpecDescription = "Báº£n mÃ¡y xÄƒng tÄƒng Ã¡p HTRAC",
+                    ColorName = "Äen huyá»n bÃ­",
                     SOCode = "SO-202504-HD02",
                     AssemblyType = VehicleAssemblyType.CKD,
                     UnitPriceActual = 989_000_000,
@@ -9057,7 +9068,7 @@ public static class Seeder
                     PDAmount = 364_282,
                     CarTotalSettlement = 5_209_695,
                     Status = FinancialExpenseDetailStatus.Active,
-                    Remark = "Hưởng chiết khấu thanh toán sớm 13 ngày"
+                    Remark = "HÆ°á»Ÿng chiáº¿t kháº¥u thanh toÃ¡n sá»›m 13 ngÃ y"
                 },
                 new FinancialExpenseDetail
                 {
@@ -9069,8 +9080,8 @@ public static class Seeder
                     ModelCode = "STARIA-LOUNGE",
                     ModelName = "Hyundai Staria Lounge 9 Seats CBU",
                     SpecCode = "STA-2.2D-CBU9",
-                    SpecDescription = "Bản nhập khẩu nguyên chiếc CBU",
-                    ColorName = "Đen ngọc bích",
+                    SpecDescription = "Báº£n nháº­p kháº©u nguyÃªn chiáº¿c CBU",
+                    ColorName = "Äen ngá»c bÃ­ch",
                     SOCode = "SO-202504-HD03",
                     AssemblyType = VehicleAssemblyType.CBU,
                     UnitPriceActual = 1_850_000_000,
@@ -9089,19 +9100,19 @@ public static class Seeder
                     PDAmount = 863_333,
                     CarTotalSettlement = 13_967_500,
                     Status = FinancialExpenseDetailStatus.Active,
-                    Remark = "Xe CBU áp dụng tỷ lệ cọc 30% và bảo lãnh 70%, chiết khấu sớm 20 ngày"
+                    Remark = "Xe CBU Ã¡p dá»¥ng tá»· lá»‡ cá»c 30% vÃ  báº£o lÃ£nh 70%, chiáº¿t kháº¥u sá»›m 20 ngÃ y"
                 }
             );
             await db.SaveChangesAsync();
 
-            // Statement 2: ĐÃ KÝ SỐ CA HTC (HTCSigned) - Hyundai Đông Anh (Kỳ 05/2025)
+            // Statement 2: ÄÃƒ KÃ Sá» CA HTC (HTCSigned) - Hyundai ÄÃ´ng Anh (Ká»³ 05/2025)
             var fn2 = new FinancialExpenseStatement
             {
                 OrgId = TenantContext.DefaultOrgId,
                 CaNo = "CAN-202505-DONGANH-01",
                 DealerCode = "DLR-DONGANH",
-                DealerName = "Hyundai Đông Anh",
-                CAName = "Bảng tính CPTC & CKTT TCG tháng 05/2025 - Hyundai Đông Anh",
+                DealerName = "Hyundai ÄÃ´ng Anh",
+                CAName = "Báº£ng tÃ­nh CPTC & CKTT TCG thÃ¡ng 05/2025 - Hyundai ÄÃ´ng Anh",
                 TermFrom = new DateTime(2025, 5, 1),
                 TermTo = new DateTime(2025, 5, 31),
                 TermPrevFrom = new DateTime(2025, 4, 1),
@@ -9127,7 +9138,7 @@ public static class Seeder
                 HTCAppr1DTime = new DateTime(2025, 6, 3, 10, 0, 0),
                 FilePathFnExp = "/docs/ca/CAN-202505-DONGANH-01-FNEXP.pdf",
                 FilePathPmtDc = "/docs/ca/CAN-202505-DONGANH-01-PMTDC.pdf",
-                Remark = "Đã hoàn tất ký số CA 2 cấp, kế toán chuẩn bị lập UNC thanh toán qua BIDV",
+                Remark = "ÄÃ£ hoÃ n táº¥t kÃ½ sá»‘ CA 2 cáº¥p, káº¿ toÃ¡n chuáº©n bá»‹ láº­p UNC thanh toÃ¡n qua BIDV",
                 CreatedBy = "NguyenQuocTuan_ChuyenVienTaiChinhHTC",
                 CreatedAt = new DateTime(2025, 6, 1, 9, 0, 0)
             };
@@ -9145,8 +9156,8 @@ public static class Seeder
                     ModelCode = "PALISADE-PREM",
                     ModelName = "Hyundai Palisade 2.2D Prestige",
                     SpecCode = "PAL-2.2D-PRE7",
-                    SpecDescription = "Bản SUV 7 chỗ máy dầu",
-                    ColorName = "Xanh lục bảo",
+                    SpecDescription = "Báº£n SUV 7 chá»— mÃ¡y dáº§u",
+                    ColorName = "Xanh lá»¥c báº£o",
                     SOCode = "SO-202505-DA01",
                     AssemblyType = VehicleAssemblyType.CKD,
                     UnitPriceActual = 1_589_000_000,
@@ -9165,7 +9176,7 @@ public static class Seeder
                     PDAmount = 506_494,
                     CarTotalSettlement = 12_103_454,
                     Status = FinancialExpenseDetailStatus.Active,
-                    Remark = "Xe dòng cao cấp Palisade, chiết khấu sớm 9 ngày"
+                    Remark = "Xe dÃ²ng cao cáº¥p Palisade, chiáº¿t kháº¥u sá»›m 9 ngÃ y"
                 },
                 new FinancialExpenseDetail
                 {
@@ -9175,10 +9186,10 @@ public static class Seeder
                     CarId = "CAR-FN-05",
                     VIN = "KMHCT81EPHU880105",
                     ModelCode = "CUSTIN-TURBO",
-                    ModelName = "Hyundai Custin 2.0T Cao Cấp",
+                    ModelName = "Hyundai Custin 2.0T Cao Cáº¥p",
                     SpecCode = "CUS-2.0T-PREM",
-                    SpecDescription = "Bản MPV cửa trượt điện 7 chỗ",
-                    ColorName = "Trắng tuyết",
+                    SpecDescription = "Báº£n MPV cá»­a trÆ°á»£t Ä‘iá»‡n 7 chá»—",
+                    ColorName = "Tráº¯ng tuyáº¿t",
                     SOCode = "SO-202505-DA02",
                     AssemblyType = VehicleAssemblyType.CKD,
                     UnitPriceActual = 974_000_000,
@@ -9197,19 +9208,19 @@ public static class Seeder
                     PDAmount = 1_151_175,
                     CarTotalSettlement = 8_299_434,
                     Status = FinancialExpenseDetailStatus.Active,
-                    Remark = "Dòng MPV gia đình Custin thế hệ mới"
+                    Remark = "DÃ²ng MPV gia Ä‘Ã¬nh Custin tháº¿ há»‡ má»›i"
                 }
             );
             await db.SaveChangesAsync();
 
-            // Statement 3: ĐẠI LÝ ĐÃ KÝ SỐ CA (DlrSigned) - Hyundai Sài Gòn 1S (Kỳ 05/2025)
+            // Statement 3: Äáº I LÃ ÄÃƒ KÃ Sá» CA (DlrSigned) - Hyundai SÃ i GÃ²n 1S (Ká»³ 05/2025)
             var fn3 = new FinancialExpenseStatement
             {
                 OrgId = TenantContext.DefaultOrgId,
                 CaNo = "CAN-202505-SAIGON-01",
                 DealerCode = "DLR-SAIGON",
-                DealerName = "Hyundai Sài Gòn 1S",
-                CAName = "Bảng tính CPTC & CKTT TCG tháng 05/2025 - Hyundai Sài Gòn 1S",
+                DealerName = "Hyundai SÃ i GÃ²n 1S",
+                CAName = "Báº£ng tÃ­nh CPTC & CKTT TCG thÃ¡ng 05/2025 - Hyundai SÃ i GÃ²n 1S",
                 TermFrom = new DateTime(2025, 5, 1),
                 TermTo = new DateTime(2025, 5, 31),
                 TermPrevFrom = new DateTime(2025, 4, 1),
@@ -9230,7 +9241,7 @@ public static class Seeder
                 DlrAppr1By = "NguyenThiMai_KeToanSaiGon",
                 DlrAppr1DTime = new DateTime(2025, 6, 2, 10, 15, 0),
                 FilePathFnExp = "/docs/ca/CAN-202505-SAIGON-01-FNEXP.pdf",
-                Remark = "Đại lý đã ký số CA xác nhận số liệu, chờ chuyên viên QLPP HTC thẩm định A1",
+                Remark = "Äáº¡i lÃ½ Ä‘Ã£ kÃ½ sá»‘ CA xÃ¡c nháº­n sá»‘ liá»‡u, chá» chuyÃªn viÃªn QLPP HTC tháº©m Ä‘á»‹nh A1",
                 CreatedBy = "NguyenQuocTuan_ChuyenVienTaiChinhHTC",
                 CreatedAt = new DateTime(2025, 6, 1, 10, 30, 0)
             };
@@ -9248,8 +9259,8 @@ public static class Seeder
                     ModelCode = "IONIQ5-PREM",
                     ModelName = "Hyundai Ioniq 5 Prestige EV",
                     SpecCode = "IQ5-EV-PREM",
-                    SpecDescription = "Bản xe điện thông minh E-GMP",
-                    ColorName = "Bạc ánh kim",
+                    SpecDescription = "Báº£n xe Ä‘iá»‡n thÃ´ng minh E-GMP",
+                    ColorName = "Báº¡c Ã¡nh kim",
                     SOCode = "SO-202505-SG01",
                     AssemblyType = VehicleAssemblyType.CKD,
                     UnitPriceActual = 1_450_000_000,
@@ -9268,7 +9279,7 @@ public static class Seeder
                     PDAmount = 246_500,
                     CarTotalSettlement = 9_163_242,
                     Status = FinancialExpenseDetailStatus.Active,
-                    Remark = "Dòng xe thuần điện EV hỗ trợ lãi suất kích cầu xanh"
+                    Remark = "DÃ²ng xe thuáº§n Ä‘iá»‡n EV há»— trá»£ lÃ£i suáº¥t kÃ­ch cáº§u xanh"
                 },
                 new FinancialExpenseDetail
                 {
@@ -9278,10 +9289,10 @@ public static class Seeder
                     CarId = "CAR-FN-07",
                     VIN = "KMHCT81EPHU880106",
                     ModelCode = "CRETA-PREM",
-                    ModelName = "Hyundai Creta 1.5 Cao Cấp",
+                    ModelName = "Hyundai Creta 1.5 Cao Cáº¥p",
                     SpecCode = "CRE-1.5L-PREM",
-                    SpecDescription = "Bản SUV cỡ B SmartSense",
-                    ColorName = "Đỏ mận",
+                    SpecDescription = "Báº£n SUV cá»¡ B SmartSense",
+                    ColorName = "Äá» máº­n",
                     SOCode = "SO-202505-SG02",
                     AssemblyType = VehicleAssemblyType.CKD,
                     UnitPriceActual = 699_000_000,
@@ -9300,19 +9311,19 @@ public static class Seeder
                     PDAmount = 204_790,
                     CarTotalSettlement = 2_822_766,
                     Status = FinancialExpenseDetailStatus.Active,
-                    Remark = "SUV Creta phiên bản cao cấp SmartSense"
+                    Remark = "SUV Creta phiÃªn báº£n cao cáº¥p SmartSense"
                 }
             );
             await db.SaveChangesAsync();
 
-            // Statement 4: HTC ĐÃ THẨM ĐỊNH DUYỆT CẤP 1 (HTCApproved1) - Hyundai Phạm Văn Đồng (Kỳ 05/2025)
+            // Statement 4: HTC ÄÃƒ THáº¨M Äá»ŠNH DUYá»†T Cáº¤P 1 (HTCApproved1) - Hyundai Pháº¡m VÄƒn Äá»“ng (Ká»³ 05/2025)
             var fn4 = new FinancialExpenseStatement
             {
                 OrgId = TenantContext.DefaultOrgId,
                 CaNo = "CAN-202505-PVD-01",
                 DealerCode = "DLR-PHAMVANDONG",
-                DealerName = "Hyundai Phạm Văn Đồng",
-                CAName = "Bảng tính CPTC & CKTT TCG tháng 05/2025 - Hyundai Phạm Văn Đồng",
+                DealerName = "Hyundai Pháº¡m VÄƒn Äá»“ng",
+                CAName = "Báº£ng tÃ­nh CPTC & CKTT TCG thÃ¡ng 05/2025 - Hyundai Pháº¡m VÄƒn Äá»“ng",
                 TermFrom = new DateTime(2025, 5, 1),
                 TermTo = new DateTime(2025, 5, 31),
                 TermPrevFrom = new DateTime(2025, 4, 1),
@@ -9334,7 +9345,7 @@ public static class Seeder
                 DlrAppr1DTime = new DateTime(2025, 6, 1, 15, 0, 0),
                 HTCAppr1By = "NguyenQuocTuan_ChuyenVienTaiChinhHTC",
                 HTCAppr1DTime = new DateTime(2025, 6, 4, 9, 0, 0),
-                Remark = "Chuyên viên HTC đã thẩm định khớp hồ sơ bảo lãnh VietinBank, chờ Lãnh đạo HTC ký số CA",
+                Remark = "ChuyÃªn viÃªn HTC Ä‘Ã£ tháº©m Ä‘á»‹nh khá»›p há»“ sÆ¡ báº£o lÃ£nh VietinBank, chá» LÃ£nh Ä‘áº¡o HTC kÃ½ sá»‘ CA",
                 CreatedBy = "NguyenQuocTuan_ChuyenVienTaiChinhHTC",
                 CreatedAt = new DateTime(2025, 6, 1, 11, 0, 0)
             };
@@ -9350,10 +9361,10 @@ public static class Seeder
                     CarId = "CAR-FN-08",
                     VIN = "KMHCT81EPHU880108",
                     ModelCode = "ELANTRA-PREM",
-                    ModelName = "Hyundai Elantra 2.0 AT Cao Cấp",
+                    ModelName = "Hyundai Elantra 2.0 AT Cao Cáº¥p",
                     SpecCode = "ELN-2.0AT-PREM",
-                    SpecDescription = "Bản sedan thể thao phân khúc C",
-                    ColorName = "Đỏ đô",
+                    SpecDescription = "Báº£n sedan thá»ƒ thao phÃ¢n khÃºc C",
+                    ColorName = "Äá» Ä‘Ã´",
                     SOCode = "SO-202505-PVD01",
                     AssemblyType = VehicleAssemblyType.CKD,
                     UnitPriceActual = 729_000_000,
@@ -9372,7 +9383,7 @@ public static class Seeder
                     PDAmount = 165_240,
                     CarTotalSettlement = 3_711_178,
                     Status = FinancialExpenseDetailStatus.Active,
-                    Remark = "Dòng sedan Elantra thanh toán sớm 8 ngày"
+                    Remark = "DÃ²ng sedan Elantra thanh toÃ¡n sá»›m 8 ngÃ y"
                 },
                 new FinancialExpenseDetail
                 {
@@ -9382,10 +9393,10 @@ public static class Seeder
                     CarId = "CAR-FN-09",
                     VIN = "KMHCT81EPHU880109",
                     ModelCode = "ACCENT-AT",
-                    ModelName = "Hyundai Accent 1.5 AT Đặc Biệt",
+                    ModelName = "Hyundai Accent 1.5 AT Äáº·c Biá»‡t",
                     SpecCode = "ACC-1.5AT-SPEC",
-                    SpecDescription = "Bản sedan B bán chạy",
-                    ColorName = "Bạc",
+                    SpecDescription = "Báº£n sedan B bÃ¡n cháº¡y",
+                    ColorName = "Báº¡c",
                     SOCode = "SO-202505-PVD02",
                     AssemblyType = VehicleAssemblyType.CKD,
                     UnitPriceActual = 569_000_000,
@@ -9404,19 +9415,19 @@ public static class Seeder
                     PDAmount = 404_340,
                     CarTotalSettlement = 4_261_833,
                     Status = FinancialExpenseDetailStatus.Active,
-                    Remark = "Accent thanh toán dứt điểm trước hạn 14 ngày"
+                    Remark = "Accent thanh toÃ¡n dá»©t Ä‘iá»ƒm trÆ°á»›c háº¡n 14 ngÃ y"
                 }
             );
             await db.SaveChangesAsync();
 
-            // Statement 5: DỰ THẢO MỚI (Draft) - Hyundai Đà Nẵng (Kỳ 05/2025)
+            // Statement 5: Dá»° THáº¢O Má»šI (Draft) - Hyundai ÄÃ  Náºµng (Ká»³ 05/2025)
             var fn5 = new FinancialExpenseStatement
             {
                 OrgId = TenantContext.DefaultOrgId,
                 CaNo = "CAN-202505-DANANG-01",
                 DealerCode = "DLR-DANANG",
-                DealerName = "Hyundai Sông Hàn - Đà Nẵng",
-                CAName = "Bảng tính CPTC & CKTT TCG tháng 05/2025 - Hyundai Sông Hàn",
+                DealerName = "Hyundai SÃ´ng HÃ n - ÄÃ  Náºµng",
+                CAName = "Báº£ng tÃ­nh CPTC & CKTT TCG thÃ¡ng 05/2025 - Hyundai SÃ´ng HÃ n",
                 TermFrom = new DateTime(2025, 5, 1),
                 TermTo = new DateTime(2025, 5, 31),
                 TermPrevFrom = new DateTime(2025, 4, 1),
@@ -9432,7 +9443,7 @@ public static class Seeder
                 Status = FinancialExpenseStatus.Draft,
                 DlrSignStatus = FnExpSignCAStatus.Pending,
                 HTCSignStatus = FnExpSignCAStatus.Pending,
-                Remark = "Dự thảo bảng tính chi phí tài chính mới lập, đang gửi kế toán đại lý thẩm định",
+                Remark = "Dá»± tháº£o báº£ng tÃ­nh chi phÃ­ tÃ i chÃ­nh má»›i láº­p, Ä‘ang gá»­i káº¿ toÃ¡n Ä‘áº¡i lÃ½ tháº©m Ä‘á»‹nh",
                 CreatedBy = "NguyenQuocTuan_ChuyenVienTaiChinhHTC",
                 CreatedAt = DateTime.Now.AddDays(-1)
             };
@@ -9448,10 +9459,10 @@ public static class Seeder
                     CarId = "CAR-FN-10",
                     VIN = "KMHCT81EPHU880110",
                     ModelCode = "CRETA-PREM",
-                    ModelName = "Hyundai Creta 1.5 Cao Cấp",
+                    ModelName = "Hyundai Creta 1.5 Cao Cáº¥p",
                     SpecCode = "CRE-1.5L-PREM",
-                    SpecDescription = "Bản SUV cỡ B SmartSense",
-                    ColorName = "Trắng",
+                    SpecDescription = "Báº£n SUV cá»¡ B SmartSense",
+                    ColorName = "Tráº¯ng",
                     SOCode = "SO-202505-DN01",
                     AssemblyType = VehicleAssemblyType.CKD,
                     UnitPriceActual = 699_000_000,
@@ -9470,7 +9481,7 @@ public static class Seeder
                     PDAmount = 137_535,
                     CarTotalSettlement = 3_405_362,
                     Status = FinancialExpenseDetailStatus.Active,
-                    Remark = "Dự thảo dòng xe Creta"
+                    Remark = "Dá»± tháº£o dÃ²ng xe Creta"
                 },
                 new FinancialExpenseDetail
                 {
@@ -9480,10 +9491,10 @@ public static class Seeder
                     CarId = "CAR-FN-11",
                     VIN = "KMHCT81EPHU880111",
                     ModelCode = "ACCENT-STD",
-                    ModelName = "Hyundai Accent 1.5 MT Tiêu Chuẩn",
+                    ModelName = "Hyundai Accent 1.5 MT TiÃªu Chuáº©n",
                     SpecCode = "ACC-1.5MT-STD",
-                    SpecDescription = "Bản số sàn tiết kiệm",
-                    ColorName = "Đen",
+                    SpecDescription = "Báº£n sá»‘ sÃ n tiáº¿t kiá»‡m",
+                    ColorName = "Äen",
                     SOCode = "SO-202505-DN02",
                     AssemblyType = VehicleAssemblyType.CKD,
                     UnitPriceActual = 439_000_000,
@@ -9502,19 +9513,19 @@ public static class Seeder
                     PDAmount = 129_015,
                     CarTotalSettlement = 2_015_693,
                     Status = FinancialExpenseDetailStatus.Active,
-                    Remark = "Dự thảo dòng xe Accent"
+                    Remark = "Dá»± tháº£o dÃ²ng xe Accent"
                 }
             );
             await db.SaveChangesAsync();
 
-            // Statement 6: ĐÃ HỦY (Cancelled) - Hyundai Hà Đông (Kỳ 03/2025)
+            // Statement 6: ÄÃƒ Há»¦Y (Cancelled) - Hyundai HÃ  ÄÃ´ng (Ká»³ 03/2025)
             var fn6 = new FinancialExpenseStatement
             {
                 OrgId = TenantContext.DefaultOrgId,
                 CaNo = "CAN-202503-HADONG-09",
                 DealerCode = "DLR-HADONG",
-                DealerName = "Hyundai Hà Đông",
-                CAName = "Bảng tính CPTC & CKTT tháng 03/2025 (Hủy làm lại)",
+                DealerName = "Hyundai HÃ  ÄÃ´ng",
+                CAName = "Báº£ng tÃ­nh CPTC & CKTT thÃ¡ng 03/2025 (Há»§y lÃ m láº¡i)",
                 TermFrom = new DateTime(2025, 3, 1),
                 TermTo = new DateTime(2025, 3, 31),
                 TermPrevFrom = new DateTime(2025, 2, 1),
@@ -9532,8 +9543,8 @@ public static class Seeder
                 HTCSignStatus = FnExpSignCAStatus.Pending,
                 CancelBy = "NguyenQuocTuan_ChuyenVienTaiChinhHTC",
                 CancelDTime = new DateTime(2025, 4, 5, 11, 0, 0),
-                CancelReason = "Hủy do đại lý điều chỉnh phụ lục thay đổi ngày nộp cọc đơn hàng SO",
-                Remark = "Bảng tính bị hủy làm lại đợt khác",
+                CancelReason = "Há»§y do Ä‘áº¡i lÃ½ Ä‘iá»u chá»‰nh phá»¥ lá»¥c thay Ä‘á»•i ngÃ y ná»™p cá»c Ä‘Æ¡n hÃ ng SO",
+                Remark = "Báº£ng tÃ­nh bá»‹ há»§y lÃ m láº¡i Ä‘á»£t khÃ¡c",
                 CreatedBy = "NguyenQuocTuan_ChuyenVienTaiChinhHTC",
                 CreatedAt = new DateTime(2025, 4, 2, 14, 0, 0)
             };
@@ -9541,25 +9552,25 @@ public static class Seeder
             await db.SaveChangesAsync();
         }
 
-        // 17. Dữ liệu mẫu Hồ sơ Đề nghị Giao dịch Ngân hàng & Tài trợ Vốn Vay / Bảo lãnh Đại lý (RQ_BankingTransactions)
+        // 17. Dá»¯ liá»‡u máº«u Há»“ sÆ¡ Äá» nghá»‹ Giao dá»‹ch NgÃ¢n hÃ ng & TÃ i trá»£ Vá»‘n Vay / Báº£o lÃ£nh Äáº¡i lÃ½ (RQ_BankingTransactions)
         if (!await db.DisbursementRequests.AnyAsync(r => r.OrgId == TenantContext.DefaultOrgId))
         {
-            // 1. Hồ sơ GNTT VPBank ĐÃ HOÀN TẤT GIẢI NGÂN (Completed / Disbursed) - Hyundai Giải Phóng
+            // 1. Há»“ sÆ¡ GNTT VPBank ÄÃƒ HOÃ€N Táº¤T GIáº¢I NGÃ‚N (Completed / Disbursed) - Hyundai Giáº£i PhÃ³ng
             var req1 = new BankingDisbursementRequest
             {
                 OrgId = TenantContext.DefaultOrgId,
                 TransNo = "DNTT-202505-001",
                 TransType = BankingTransType.GNTT,
                 DealerCode = "HYUNDAI-GP",
-                DealerName = "Hyundai Giải Phóng",
+                DealerName = "Hyundai Giáº£i PhÃ³ng",
                 BizResNumber = "0102839102-001",
                 BankCode = "VPBANK",
-                BankName = "Ngân hàng TMCP Việt Nam Thịnh Vượng (VPBank)",
+                BankName = "NgÃ¢n hÃ ng TMCP Viá»‡t Nam Thá»‹nh VÆ°á»£ng (VPBank)",
                 PaymentAccount = "108899882991",
-                PaymentBankName = "VPBank - CN Thăng Long",
-                ReceivingUnit = "CÔNG TY CỔ PHẦN LIÊN DOANH Ô TÔ HYUNDAI THÀNH CÔNG VIỆT NAM",
+                PaymentBankName = "VPBank - CN ThÄƒng Long",
+                ReceivingUnit = "CÃ”NG TY Cá»” PHáº¦N LIÃŠN DOANH Ã” TÃ” HYUNDAI THÃ€NH CÃ”NG VIá»†T NAM",
                 ReceivingAccount = "113000088999",
-                ReceivingBank = "VietinBank - CN Đống Đa",
+                ReceivingBank = "VietinBank - CN Äá»‘ng Äa",
                 TotalCars = 9,
                 TotalContractAmount = 10_781_000_000,
                 TotalDisbursementAmount = 8_822_600_000,
@@ -9567,16 +9578,16 @@ public static class Seeder
                 Status = BankingTransStatus.Completed,
                 BankStatus = BankingTransBankStatus.Disbursed,
                 RefBankCode = "VPB-LN-20250510-001",
-                BankRemark = "Hội đồng tín dụng VPBank đã phê duyệt và giải ngân thành công 8.822.600.000 VND theo Khế ước nhận nợ LD-VPB-20250510-001.",
+                BankRemark = "Há»™i Ä‘á»“ng tÃ­n dá»¥ng VPBank Ä‘Ã£ phÃª duyá»‡t vÃ  giáº£i ngÃ¢n thÃ nh cÃ´ng 8.822.600.000 VND theo Kháº¿ Æ°á»›c nháº­n ná»£ LD-VPB-20250510-001.",
                 LDNo = "LD-VPB-20250510-001",
                 DisbursementDate = DateTime.Today.AddDays(-5),
-                DisbursementTerm = "03 tháng",
+                DisbursementTerm = "03 thÃ¡ng",
                 DisbursementInterestRate = 8.5m,
                 FirstInterestPmtDate = DateTime.Today.AddDays(25),
                 LoanLimit = 20_000_000_000,
                 SentToBankAt = DateTime.Today.AddDays(-7),
                 CompletedAt = DateTime.Today.AddDays(-5),
-                Remark = "Đề nghị giải ngân vốn lưu động mua xe lô tháng 05/2025 theo HĐNT-2025/HTC-GP",
+                Remark = "Äá» nghá»‹ giáº£i ngÃ¢n vá»‘n lÆ°u Ä‘á»™ng mua xe lÃ´ thÃ¡ng 05/2025 theo HÄNT-2025/HTC-GP",
                 CreatedBy = "VuMinhTu_TinDungGP",
                 CreatedAt = DateTime.Today.AddDays(-8)
             };
@@ -9593,7 +9604,7 @@ public static class Seeder
                     ModelCode = "SANTAFE-CAL",
                     ModelName = "Hyundai Santa Fe Calligraphy 2.5T",
                     SpecCode = "SF-2.5T-CAL6",
-                    SpecDescription = "Bản cao cấp 6 chỗ HTRAC",
+                    SpecDescription = "Báº£n cao cáº¥p 6 chá»— HTRAC",
                     AssemblyType = VehicleAssemblyType.CKD,
                     ContractDate = DateTime.Today.AddDays(-10),
                     PrincipalContractNo = "HDNT-2025/HTC-GP",
@@ -9604,7 +9615,7 @@ public static class Seeder
                     TotalAmount = 6_825_000_000,
                     LtvRate = 80.0m,
                     DisbursementAmount = 5_460_000_000,
-                    Remark = "Lô 5 xe Santa Fe giao tuần 2 tháng 5"
+                    Remark = "LÃ´ 5 xe Santa Fe giao tuáº§n 2 thÃ¡ng 5"
                 },
                 new BankingDisbursementDetail
                 {
@@ -9615,7 +9626,7 @@ public static class Seeder
                     ModelCode = "TUCSON-TURBO",
                     ModelName = "Hyundai Tucson 1.6 T-GDi Turbo",
                     SpecCode = "TUC-1.6T-PREM",
-                    SpecDescription = "Bản máy xăng tăng áp HTRAC",
+                    SpecDescription = "Báº£n mÃ¡y xÄƒng tÄƒng Ã¡p HTRAC",
                     AssemblyType = VehicleAssemblyType.CKD,
                     ContractDate = DateTime.Today.AddDays(-9),
                     PrincipalContractNo = "HDNT-2025/HTC-GP",
@@ -9626,7 +9637,7 @@ public static class Seeder
                     TotalAmount = 3_956_000_000,
                     LtvRate = 85.0m,
                     DisbursementAmount = 3_362_600_000,
-                    Remark = "Lô 4 xe Tucson Turbo phục vụ trưng bày & bán lẻ"
+                    Remark = "LÃ´ 4 xe Tucson Turbo phá»¥c vá»¥ trÆ°ng bÃ y & bÃ¡n láº»"
                 }
             );
 
@@ -9690,22 +9701,22 @@ public static class Seeder
             );
             await db.SaveChangesAsync();
 
-            // 2. Hồ sơ Phát hành Thư bảo lãnh mở L/C (PhatHanhBLLC) VietinBank ĐANG CHỜ KÝ SỐ CA (Processing / RequireSignCA) - Hyundai Thanh Xuân
+            // 2. Há»“ sÆ¡ PhÃ¡t hÃ nh ThÆ° báº£o lÃ£nh má»Ÿ L/C (PhatHanhBLLC) VietinBank ÄANG CHá»œ KÃ Sá» CA (Processing / RequireSignCA) - Hyundai Thanh XuÃ¢n
             var req2 = new BankingDisbursementRequest
             {
                 OrgId = TenantContext.DefaultOrgId,
                 TransNo = "DNTT-202505-002",
                 TransType = BankingTransType.PhatHanhBLLC,
                 DealerCode = "HYUNDAI-TX",
-                DealerName = "Hyundai Thanh Xuân",
+                DealerName = "Hyundai Thanh XuÃ¢n",
                 BizResNumber = "0103774819-002",
                 BankCode = "VIETINBANK",
-                BankName = "Ngân hàng TMCP Công Thương Việt Nam (VietinBank)",
+                BankName = "NgÃ¢n hÃ ng TMCP CÃ´ng ThÆ°Æ¡ng Viá»‡t Nam (VietinBank)",
                 PaymentAccount = "118000992817",
-                PaymentBankName = "VietinBank - CN Thanh Xuân",
-                ReceivingUnit = "CÔNG TY CỔ PHẦN LIÊN DOANH Ô TÔ HYUNDAI THÀNH CÔNG VIỆT NAM",
+                PaymentBankName = "VietinBank - CN Thanh XuÃ¢n",
+                ReceivingUnit = "CÃ”NG TY Cá»” PHáº¦N LIÃŠN DOANH Ã” TÃ” HYUNDAI THÃ€NH CÃ”NG VIá»†T NAM",
                 ReceivingAccount = "113000088999",
-                ReceivingBank = "VietinBank - CN Đống Đa",
+                ReceivingBank = "VietinBank - CN Äá»‘ng Äa",
                 TotalCars = 5,
                 TotalContractAmount = 7_528_000_000,
                 TotalDisbursementAmount = 5_804_900_000,
@@ -9713,14 +9724,14 @@ public static class Seeder
                 Status = BankingTransStatus.Processing,
                 BankStatus = BankingTransBankStatus.RequireSignCA,
                 RefBankCode = "CTG-LN-20250512-002",
-                BankRemark = "Hồ sơ tín dụng đã được phê duyệt sơ bộ. Đề nghị đại lý ký số CA trên Thư cam kết trả nợ để Hội sở phát hành thư bảo lãnh.",
-                DisbursementTerm = "45 ngày",
+                BankRemark = "Há»“ sÆ¡ tÃ­n dá»¥ng Ä‘Ã£ Ä‘Æ°á»£c phÃª duyá»‡t sÆ¡ bá»™. Äá» nghá»‹ Ä‘áº¡i lÃ½ kÃ½ sá»‘ CA trÃªn ThÆ° cam káº¿t tráº£ ná»£ Ä‘á»ƒ Há»™i sá»Ÿ phÃ¡t hÃ nh thÆ° báº£o lÃ£nh.",
+                DisbursementTerm = "45 ngÃ y",
                 DisbursementInterestRate = 0m,
-                GrtTerm = "45 ngày",
+                GrtTerm = "45 ngÃ y",
                 GrtFee = 11_609_800,
                 LoanLimit = 15_000_000_000,
                 SentToBankAt = DateTime.Today.AddDays(-3),
-                Remark = "Đề nghị phát hành Thư bảo lãnh thanh toán mở L/C mua lô xe điện Ioniq 5 và Palisade",
+                Remark = "Äá» nghá»‹ phÃ¡t hÃ nh ThÆ° báº£o lÃ£nh thanh toÃ¡n má»Ÿ L/C mua lÃ´ xe Ä‘iá»‡n Ioniq 5 vÃ  Palisade",
                 CreatedBy = "TranThiLan_KeToanTX",
                 CreatedAt = DateTime.Today.AddDays(-4)
             };
@@ -9737,7 +9748,7 @@ public static class Seeder
                     ModelCode = "IONIQ5-PREM",
                     ModelName = "Hyundai Ioniq 5 Prestige EV",
                     SpecCode = "IQ5-EV-PREM",
-                    SpecDescription = "Bản xe điện thông minh E-GMP",
+                    SpecDescription = "Báº£n xe Ä‘iá»‡n thÃ´ng minh E-GMP",
                     AssemblyType = VehicleAssemblyType.CKD,
                     ContractDate = DateTime.Today.AddDays(-5),
                     PrincipalContractNo = "HDNT-2025/HTC-TX",
@@ -9748,7 +9759,7 @@ public static class Seeder
                     TotalAmount = 4_350_000_000,
                     LtvRate = 75.0m,
                     DisbursementAmount = 3_262_500_000,
-                    Remark = "3 xe điện Ioniq 5 cao cấp"
+                    Remark = "3 xe Ä‘iá»‡n Ioniq 5 cao cáº¥p"
                 },
                 new BankingDisbursementDetail
                 {
@@ -9759,7 +9770,7 @@ public static class Seeder
                     ModelCode = "PALISADE-PREM",
                     ModelName = "Hyundai Palisade 2.2D Prestige",
                     SpecCode = "PAL-2.2D-PREM",
-                    SpecDescription = "Bản SUV cỡ lớn máy dầu 7 chỗ",
+                    SpecDescription = "Báº£n SUV cá»¡ lá»›n mÃ¡y dáº§u 7 chá»—",
                     AssemblyType = VehicleAssemblyType.CKD,
                     ContractDate = DateTime.Today.AddDays(-4),
                     PrincipalContractNo = "HDNT-2025/HTC-TX",
@@ -9828,22 +9839,22 @@ public static class Seeder
             );
             await db.SaveChangesAsync();
 
-            // 3. Hồ sơ GNTT VIB ĐANG THẨM ĐỊNH (Processing / Reviewing) - Hyundai Phạm Văn Đồng
+            // 3. Há»“ sÆ¡ GNTT VIB ÄANG THáº¨M Äá»ŠNH (Processing / Reviewing) - Hyundai Pháº¡m VÄƒn Äá»“ng
             var req3 = new BankingDisbursementRequest
             {
                 OrgId = TenantContext.DefaultOrgId,
                 TransNo = "DNTT-202505-003",
                 TransType = BankingTransType.GNTT,
                 DealerCode = "HYUNDAI-PVD",
-                DealerName = "Hyundai Phạm Văn Đồng",
+                DealerName = "Hyundai Pháº¡m VÄƒn Äá»“ng",
                 BizResNumber = "0104992817-003",
                 BankCode = "VIB",
-                BankName = "Ngân hàng TMCP Quốc tế Việt Nam (VIB)",
+                BankName = "NgÃ¢n hÃ ng TMCP Quá»‘c táº¿ Viá»‡t Nam (VIB)",
                 PaymentAccount = "025704068899",
-                PaymentBankName = "VIB - CN Cầu Giấy",
-                ReceivingUnit = "CÔNG TY CỔ PHẦN LIÊN DOANH Ô TÔ HYUNDAI THÀNH CÔNG VIỆT NAM",
+                PaymentBankName = "VIB - CN Cáº§u Giáº¥y",
+                ReceivingUnit = "CÃ”NG TY Cá»” PHáº¦N LIÃŠN DOANH Ã” TÃ” HYUNDAI THÃ€NH CÃ”NG VIá»†T NAM",
                 ReceivingAccount = "113000088999",
-                ReceivingBank = "VietinBank - CN Đống Đa",
+                ReceivingBank = "VietinBank - CN Äá»‘ng Äa",
                 TotalCars = 6,
                 TotalContractAmount = 5_844_000_000,
                 TotalDisbursementAmount = 4_675_200_000,
@@ -9851,12 +9862,12 @@ public static class Seeder
                 Status = BankingTransStatus.Processing,
                 BankStatus = BankingTransBankStatus.Reviewing,
                 RefBankCode = "VIB-LN-20250514-003",
-                BankRemark = "Cán bộ tín dụng VIB đang thẩm định thực địa kho bãi và đối chiếu hạn mức bảo đảm theo hợp đồng nguyên tắc.",
-                DisbursementTerm = "03 tháng",
+                BankRemark = "CÃ¡n bá»™ tÃ­n dá»¥ng VIB Ä‘ang tháº©m Ä‘á»‹nh thá»±c Ä‘á»‹a kho bÃ£i vÃ  Ä‘á»‘i chiáº¿u háº¡n má»©c báº£o Ä‘áº£m theo há»£p Ä‘á»“ng nguyÃªn táº¯c.",
+                DisbursementTerm = "03 thÃ¡ng",
                 DisbursementInterestRate = 8.8m,
                 LoanLimit = 12_000_000_000,
                 SentToBankAt = DateTime.Today.AddDays(-2),
-                Remark = "Đề nghị giải ngân vốn vay mua lô 6 xe MPV Custin",
+                Remark = "Äá» nghá»‹ giáº£i ngÃ¢n vá»‘n vay mua lÃ´ 6 xe MPV Custin",
                 CreatedBy = "PhamVanDuc_KeToanPVD",
                 CreatedAt = DateTime.Today.AddDays(-3)
             };
@@ -9871,9 +9882,9 @@ public static class Seeder
                     TransNo = req3.TransNo,
                     DlrCtrNo = "PLHD-2025-05/PVD01",
                     ModelCode = "CUSTIN-TURBO",
-                    ModelName = "Hyundai Custin 2.0T Cao Cấp",
+                    ModelName = "Hyundai Custin 2.0T Cao Cáº¥p",
                     SpecCode = "CUS-2.0T-PREM",
-                    SpecDescription = "Bản MPV cửa trượt điện 7 chỗ",
+                    SpecDescription = "Báº£n MPV cá»­a trÆ°á»£t Ä‘iá»‡n 7 chá»—",
                     AssemblyType = VehicleAssemblyType.CKD,
                     ContractDate = DateTime.Today.AddDays(-3),
                     PrincipalContractNo = "HDNT-2025/HTC-PVD",
@@ -9884,7 +9895,7 @@ public static class Seeder
                     TotalAmount = 5_844_000_000,
                     LtvRate = 80.0m,
                     DisbursementAmount = 4_675_200_000,
-                    Remark = "6 xe Custin 2.0T màu trắng tuyết"
+                    Remark = "6 xe Custin 2.0T mÃ u tráº¯ng tuyáº¿t"
                 }
             );
 
@@ -9920,32 +9931,32 @@ public static class Seeder
             );
             await db.SaveChangesAsync();
 
-            // 4. Hồ sơ DỰ THẢO MỚI (Draft / Pending) - Techcombank & Hyundai Sài Gòn
+            // 4. Há»“ sÆ¡ Dá»° THáº¢O Má»šI (Draft / Pending) - Techcombank & Hyundai SÃ i GÃ²n
             var req4 = new BankingDisbursementRequest
             {
                 OrgId = TenantContext.DefaultOrgId,
                 TransNo = "DNTT-202505-004",
                 TransType = BankingTransType.GNTTLC,
                 DealerCode = "HYUNDAI-SG",
-                DealerName = "Hyundai Sài Gòn 1S",
+                DealerName = "Hyundai SÃ i GÃ²n 1S",
                 BizResNumber = "0309118274-001",
                 BankCode = "TECHCOMBANK",
-                BankName = "Ngân hàng TMCP Kỹ Thương Việt Nam (Techcombank)",
+                BankName = "NgÃ¢n hÃ ng TMCP Ká»¹ ThÆ°Æ¡ng Viá»‡t Nam (Techcombank)",
                 PaymentAccount = "19028819283011",
-                PaymentBankName = "Techcombank - CN Sài Gòn",
-                ReceivingUnit = "CÔNG TY CỔ PHẦN LIÊN DOANH Ô TÔ HYUNDAI THÀNH CÔNG VIỆT NAM",
+                PaymentBankName = "Techcombank - CN SÃ i GÃ²n",
+                ReceivingUnit = "CÃ”NG TY Cá»” PHáº¦N LIÃŠN DOANH Ã” TÃ” HYUNDAI THÃ€NH CÃ”NG VIá»†T NAM",
                 ReceivingAccount = "113000088999",
-                ReceivingBank = "VietinBank - CN Đống Đa",
+                ReceivingBank = "VietinBank - CN Äá»‘ng Äa",
                 TotalCars = 4,
                 TotalContractAmount = 2_796_000_000,
                 TotalDisbursementAmount = 2_236_800_000,
                 ActualDisbursedAmount = 0,
                 Status = BankingTransStatus.Draft,
                 BankStatus = BankingTransBankStatus.Pending,
-                DisbursementTerm = "03 tháng",
+                DisbursementTerm = "03 thÃ¡ng",
                 DisbursementInterestRate = 8.2m,
                 LoanLimit = 18_000_000_000,
-                Remark = "Dự thảo đề nghị tài trợ giải ngân theo L/C cho 4 xe Creta Cao Cấp",
+                Remark = "Dá»± tháº£o Ä‘á» nghá»‹ tÃ i trá»£ giáº£i ngÃ¢n theo L/C cho 4 xe Creta Cao Cáº¥p",
                 CreatedBy = "VoThiMai_KeToanSG",
                 CreatedAt = DateTime.Today.AddDays(-1)
             };
@@ -9960,9 +9971,9 @@ public static class Seeder
                     TransNo = req4.TransNo,
                     DlrCtrNo = "PLHD-2025-05/SG01",
                     ModelCode = "CRETA-PREM",
-                    ModelName = "Hyundai Creta 1.5 Cao Cấp",
+                    ModelName = "Hyundai Creta 1.5 Cao Cáº¥p",
                     SpecCode = "CRE-1.5L-PREM",
-                    SpecDescription = "Bản SUV cỡ B SmartSense",
+                    SpecDescription = "Báº£n SUV cá»¡ B SmartSense",
                     AssemblyType = VehicleAssemblyType.CKD,
                     ContractDate = DateTime.Today.AddDays(-2),
                     PrincipalContractNo = "HDNT-2025/HTC-SG",
@@ -9973,7 +9984,7 @@ public static class Seeder
                     TotalAmount = 2_796_000_000,
                     LtvRate = 80.0m,
                     DisbursementAmount = 2_236_800_000,
-                    Remark = "4 xe Creta SUV B phân phối thị trường phía Nam"
+                    Remark = "4 xe Creta SUV B phÃ¢n phá»‘i thá»‹ trÆ°á»ng phÃ­a Nam"
                 }
             );
 
@@ -9993,31 +10004,31 @@ public static class Seeder
             await db.SaveChangesAsync();
         }
 
-        // Dữ liệu mẫu Hồ sơ Đề nghị Hủy Gán Ngân Hàng Bảo Lãnh Hợp Đồng Xe Ô Tô (DMS40_DlrCtr_CancelBankMD / BizHTC.Payment)
+        // Dá»¯ liá»‡u máº«u Há»“ sÆ¡ Äá» nghá»‹ Há»§y GÃ¡n NgÃ¢n HÃ ng Báº£o LÃ£nh Há»£p Äá»“ng Xe Ã” TÃ´ (DMS40_DlrCtr_CancelBankMD / BizHTC.Payment)
         if (!await db.CancelBankMDRequests.AnyAsync(r => r.OrgId == TenantContext.DefaultOrgId))
         {
-            // 1. Hồ sơ 01: HTC ĐÃ DUYỆT HOÀN TẤT (Finished) - Hyundai Thanh Xuân đổi bảo lãnh VPBank sang VietinBank
+            // 1. Há»“ sÆ¡ 01: HTC ÄÃƒ DUYá»†T HOÃ€N Táº¤T (Finished) - Hyundai Thanh XuÃ¢n Ä‘á»•i báº£o lÃ£nh VPBank sang VietinBank
             var can1 = new ContractBankMDCancel
             {
                 OrgId = TenantContext.DefaultOrgId,
                 CancelBankMDNo = "CANMD-202505-001",
                 DlrCtrNo = "PLHD-2025-05/TX01",
                 DealerCode = "HYUNDAI-TX",
-                DealerName = "Hyundai Thanh Xuân",
+                DealerName = "Hyundai Thanh XuÃ¢n",
                 BankCodeMD = "VPB",
-                BankNameMD = "Ngân hàng TMCP Việt Nam Thịnh Vượng (VPBank)",
+                BankNameMD = "NgÃ¢n hÃ ng TMCP Viá»‡t Nam Thá»‹nh VÆ°á»£ng (VPBank)",
                 NewBankCodeMD = "CTG",
-                NewBankNameMD = "Ngân hàng TMCP Công Thương Việt Nam (VietinBank)",
+                NewBankNameMD = "NgÃ¢n hÃ ng TMCP CÃ´ng ThÆ°Æ¡ng Viá»‡t Nam (VietinBank)",
                 GuaranteeType = GuaranteeType.Payment,
                 ContractAmount = 3_178_000_000,
                 GuaranteeAmount = 2_700_000_000,
                 ReasonType = CancelBankMDReasonType.ChangeBank,
-                ReasonDescription = "Đại lý chuyển sang VietinBank tài trợ do được cấp hạn mức tín dụng và lãi suất ưu đãi tốt hơn",
+                ReasonDescription = "Äáº¡i lÃ½ chuyá»ƒn sang VietinBank tÃ i trá»£ do Ä‘Æ°á»£c cáº¥p háº¡n má»©c tÃ­n dá»¥ng vÃ  lÃ£i suáº¥t Æ°u Ä‘Ã£i tá»‘t hÆ¡n",
                 Status = CancelBankMDStatus.Finished,
                 TotalVehicles = 2,
-                RemarkDlr = "Kính đề nghị Ban Lãnh đạo HTC và Ngân hàng VPBank chấp thuận hủy cam kết bảo lãnh cũ để gán VietinBank",
-                RemarkBank = "VPBank xác nhận chưa phát hành thư bảo lãnh chính thức và đồng ý giải phóng nghĩa vụ bảo lãnh cho hợp đồng PLHD-2025-05/TX01",
-                RemarkHTC = "HTC phê duyệt hoàn tất hủy gán bảo lãnh VPBank. Đã cập nhật BankCodeMD = NULL và cho phép đại lý đăng ký bảo lãnh VietinBank",
+                RemarkDlr = "KÃ­nh Ä‘á» nghá»‹ Ban LÃ£nh Ä‘áº¡o HTC vÃ  NgÃ¢n hÃ ng VPBank cháº¥p thuáº­n há»§y cam káº¿t báº£o lÃ£nh cÅ© Ä‘á»ƒ gÃ¡n VietinBank",
+                RemarkBank = "VPBank xÃ¡c nháº­n chÆ°a phÃ¡t hÃ nh thÆ° báº£o lÃ£nh chÃ­nh thá»©c vÃ  Ä‘á»“ng Ã½ giáº£i phÃ³ng nghÄ©a vá»¥ báº£o lÃ£nh cho há»£p Ä‘á»“ng PLHD-2025-05/TX01",
+                RemarkHTC = "HTC phÃª duyá»‡t hoÃ n táº¥t há»§y gÃ¡n báº£o lÃ£nh VPBank. ÄÃ£ cáº­p nháº­t BankCodeMD = NULL vÃ  cho phÃ©p Ä‘áº¡i lÃ½ Ä‘Äƒng kÃ½ báº£o lÃ£nh VietinBank",
                 ApproveBy = "TranQuocTuan_GiamDocTinDung_VPBank",
                 ApproveDateTime = DateTime.Today.AddDays(-3),
                 FinishBy = "LeQuangHuy_PhoTGDTaiChinh_HTC",
@@ -10039,13 +10050,13 @@ public static class Seeder
                     ModelCode = "SANTAFE-CAL",
                     ModelName = "Hyundai Santa Fe Calligraphy 2.5T",
                     SpecCode = "SF-2.5T-CAL6",
-                    SpecDescription = "Bản cao cấp 6 chỗ HTRAC",
-                    ColorExtNameVN = "Trắng ngọc trai",
+                    SpecDescription = "Báº£n cao cáº¥p 6 chá»— HTRAC",
+                    ColorExtNameVN = "Tráº¯ng ngá»c trai",
                     EngineNo = "ENG-SF-2025-01",
                     UnitPrice = 1_589_000_000,
                     GuaranteeAmount = 1_350_000_000,
                     Status = CancelBankMDDetailStatus.Finished,
-                    Remark = "Đã hoàn tất hủy gán bảo lãnh VPBank"
+                    Remark = "ÄÃ£ hoÃ n táº¥t há»§y gÃ¡n báº£o lÃ£nh VPBank"
                 },
                 new ContractBankMDCancelDetail
                 {
@@ -10057,35 +10068,35 @@ public static class Seeder
                     ModelCode = "SANTAFE-CAL",
                     ModelName = "Hyundai Santa Fe Calligraphy 2.5T",
                     SpecCode = "SF-2.5T-CAL6",
-                    SpecDescription = "Bản cao cấp 6 chỗ HTRAC",
-                    ColorExtNameVN = "Đen Midnight",
+                    SpecDescription = "Báº£n cao cáº¥p 6 chá»— HTRAC",
+                    ColorExtNameVN = "Äen Midnight",
                     EngineNo = "ENG-SF-2025-02",
                     UnitPrice = 1_589_000_000,
                     GuaranteeAmount = 1_350_000_000,
                     Status = CancelBankMDDetailStatus.Finished,
-                    Remark = "Đã hoàn tất hủy gán bảo lãnh VPBank"
+                    Remark = "ÄÃ£ hoÃ n táº¥t há»§y gÃ¡n báº£o lÃ£nh VPBank"
                 }
             );
 
-            // 2. Hồ sơ 02: NGÂN HÀNG ĐÃ DUYỆT (Approved) - Hyundai Hà Đông chuyển sang thanh toán vốn tự có
+            // 2. Há»“ sÆ¡ 02: NGÃ‚N HÃ€NG ÄÃƒ DUYá»†T (Approved) - Hyundai HÃ  ÄÃ´ng chuyá»ƒn sang thanh toÃ¡n vá»‘n tá»± cÃ³
             var can2 = new ContractBankMDCancel
             {
                 OrgId = TenantContext.DefaultOrgId,
                 CancelBankMDNo = "CANMD-202505-002",
                 DlrCtrNo = "PLHD-2025-05/HD02",
                 DealerCode = "HYUNDAI-HD",
-                DealerName = "Hyundai Hà Đông",
+                DealerName = "Hyundai HÃ  ÄÃ´ng",
                 BankCodeMD = "CTG",
-                BankNameMD = "Ngân hàng TMCP Công Thương Việt Nam (VietinBank)",
+                BankNameMD = "NgÃ¢n hÃ ng TMCP CÃ´ng ThÆ°Æ¡ng Viá»‡t Nam (VietinBank)",
                 GuaranteeType = GuaranteeType.Payment,
                 ContractAmount = 2_447_000_000,
                 GuaranteeAmount = 2_000_000_000,
                 ReasonType = CancelBankMDReasonType.SwitchToOwnCapital,
-                ReasonDescription = "Đại lý chuyển đổi sang thanh toán bằng vốn tự có qua UNC ngân hàng để tiết kiệm chi phí phí phát hành bảo lãnh",
+                ReasonDescription = "Äáº¡i lÃ½ chuyá»ƒn Ä‘á»•i sang thanh toÃ¡n báº±ng vá»‘n tá»± cÃ³ qua UNC ngÃ¢n hÃ ng Ä‘á»ƒ tiáº¿t kiá»‡m chi phÃ­ phÃ­ phÃ¡t hÃ nh báº£o lÃ£nh",
                 Status = CancelBankMDStatus.Approved,
                 TotalVehicles = 3,
-                RemarkDlr = "Đại lý đã chuẩn bị đủ nguồn tiền vốn tự có tại tài khoản BIDV, đề nghị hủy bảo lãnh VietinBank",
-                RemarkBank = "VietinBank Chi nhánh Hà Tây chấp thuận hủy chỉ định bảo lãnh cho hợp đồng PLHD-2025-05/HD02 theo đề nghị của khách hàng",
+                RemarkDlr = "Äáº¡i lÃ½ Ä‘Ã£ chuáº©n bá»‹ Ä‘á»§ nguá»“n tiá»n vá»‘n tá»± cÃ³ táº¡i tÃ i khoáº£n BIDV, Ä‘á» nghá»‹ há»§y báº£o lÃ£nh VietinBank",
+                RemarkBank = "VietinBank Chi nhÃ¡nh HÃ  TÃ¢y cháº¥p thuáº­n há»§y chá»‰ Ä‘á»‹nh báº£o lÃ£nh cho há»£p Ä‘á»“ng PLHD-2025-05/HD02 theo Ä‘á» nghá»‹ cá»§a khÃ¡ch hÃ ng",
                 ApproveBy = "NguyenVanBinh_TruongPhongKHDN_VietinBank",
                 ApproveDateTime = DateTime.Today.AddDays(-1),
                 CreatedBy = "NguyenThiMai_KeToanHD",
@@ -10103,15 +10114,15 @@ public static class Seeder
                     VIN = "KMHCT81EPHU770201",
                     CarId = "CAR-CRT-0201",
                     ModelCode = "CRETA-PREM",
-                    ModelName = "Hyundai Creta 1.5 Cao Cấp",
+                    ModelName = "Hyundai Creta 1.5 Cao Cáº¥p",
                     SpecCode = "CRT-1.5L-PRE",
-                    SpecDescription = "Bản SUV đô thị SmartSense",
-                    ColorExtNameVN = "Đỏ Mận",
+                    SpecDescription = "Báº£n SUV Ä‘Ã´ thá»‹ SmartSense",
+                    ColorExtNameVN = "Äá» Máº­n",
                     EngineNo = "ENG-CR-2025-11",
                     UnitPrice = 699_000_000,
                     GuaranteeAmount = 570_000_000,
                     Status = CancelBankMDDetailStatus.Approved,
-                    Remark = "Ngân hàng VietinBank đã duyệt chấp thuận hủy"
+                    Remark = "NgÃ¢n hÃ ng VietinBank Ä‘Ã£ duyá»‡t cháº¥p thuáº­n há»§y"
                 },
                 new ContractBankMDCancelDetail
                 {
@@ -10121,15 +10132,15 @@ public static class Seeder
                     VIN = "KMHCT81EPHU770202",
                     CarId = "CAR-CST-0202",
                     ModelCode = "CUSTIN-2.0T",
-                    ModelName = "Hyundai Custin 2.0 T-GDi Cao Cấp",
+                    ModelName = "Hyundai Custin 2.0 T-GDi Cao Cáº¥p",
                     SpecCode = "CUS-2.0T-PREM",
-                    SpecDescription = "Bản MPV cửa lùa điện kép",
-                    ColorExtNameVN = "Trắng",
+                    SpecDescription = "Báº£n MPV cá»­a lÃ¹a Ä‘iá»‡n kÃ©p",
+                    ColorExtNameVN = "Tráº¯ng",
                     EngineNo = "ENG-CS-2025-22",
                     UnitPrice = 974_000_000,
                     GuaranteeAmount = 800_000_000,
                     Status = CancelBankMDDetailStatus.Approved,
-                    Remark = "Ngân hàng VietinBank đã duyệt chấp thuận hủy"
+                    Remark = "NgÃ¢n hÃ ng VietinBank Ä‘Ã£ duyá»‡t cháº¥p thuáº­n há»§y"
                 },
                 new ContractBankMDCancelDetail
                 {
@@ -10141,36 +10152,36 @@ public static class Seeder
                     ModelCode = "TUCSON-TURBO",
                     ModelName = "Hyundai Tucson 1.6 T-GDi HTRAC",
                     SpecCode = "TUC-1.6T-TUR",
-                    SpecDescription = "Bản máy xăng tăng áp thể thao",
-                    ColorExtNameVN = "Xanh Dương",
+                    SpecDescription = "Báº£n mÃ¡y xÄƒng tÄƒng Ã¡p thá»ƒ thao",
+                    ColorExtNameVN = "Xanh DÆ°Æ¡ng",
                     EngineNo = "ENG-TC-2025-33",
                     UnitPrice = 774_000_000,
                     GuaranteeAmount = 630_000_000,
                     Status = CancelBankMDDetailStatus.Approved,
-                    Remark = "Ngân hàng VietinBank đã duyệt chấp thuận hủy"
+                    Remark = "NgÃ¢n hÃ ng VietinBank Ä‘Ã£ duyá»‡t cháº¥p thuáº­n há»§y"
                 }
             );
 
-            // 3. Hồ sơ 03: MỚI LẬP CHỜ XỬ LÝ (Pending) - Hyundai Đông Anh đề nghị đổi sang Techcombank
+            // 3. Há»“ sÆ¡ 03: Má»šI Láº¬P CHá»œ Xá»¬ LÃ (Pending) - Hyundai ÄÃ´ng Anh Ä‘á» nghá»‹ Ä‘á»•i sang Techcombank
             var can3 = new ContractBankMDCancel
             {
                 OrgId = TenantContext.DefaultOrgId,
                 CancelBankMDNo = "CANMD-202505-003",
                 DlrCtrNo = "PLHD-2025-05/DA03",
                 DealerCode = "HYUNDAI-DA",
-                DealerName = "Hyundai Đông Anh",
+                DealerName = "Hyundai ÄÃ´ng Anh",
                 BankCodeMD = "MBB",
-                BankNameMD = "Ngân hàng TMCP Quân Đội (MBBank)",
+                BankNameMD = "NgÃ¢n hÃ ng TMCP QuÃ¢n Äá»™i (MBBank)",
                 NewBankCodeMD = "TCB",
-                NewBankNameMD = "Ngân hàng TMCP Kỹ Thương Việt Nam (Techcombank)",
+                NewBankNameMD = "NgÃ¢n hÃ ng TMCP Ká»¹ ThÆ°Æ¡ng Viá»‡t Nam (Techcombank)",
                 GuaranteeType = GuaranteeType.Payment,
                 ContractAmount = 3_118_000_000,
                 GuaranteeAmount = 2_600_000_000,
                 ReasonType = CancelBankMDReasonType.ChangeBank,
-                ReasonDescription = "Đại lý chuyển bảo lãnh sang Techcombank để hưởng chính sách ưu đãi hạn mức và thời gian trả chậm dài hơn",
+                ReasonDescription = "Äáº¡i lÃ½ chuyá»ƒn báº£o lÃ£nh sang Techcombank Ä‘á»ƒ hÆ°á»Ÿng chÃ­nh sÃ¡ch Æ°u Ä‘Ã£i háº¡n má»©c vÃ  thá»i gian tráº£ cháº­m dÃ i hÆ¡n",
                 Status = CancelBankMDStatus.Pending,
                 TotalVehicles = 2,
-                RemarkDlr = "Kính chuyển Hội sở MBBank xem xét chấp thuận hủy chỉ định bảo lãnh để đại lý gán Techcombank",
+                RemarkDlr = "KÃ­nh chuyá»ƒn Há»™i sá»Ÿ MBBank xem xÃ©t cháº¥p thuáº­n há»§y chá»‰ Ä‘á»‹nh báº£o lÃ£nh Ä‘á»ƒ Ä‘áº¡i lÃ½ gÃ¡n Techcombank",
                 CreatedBy = "VuDinhTruong_KeToanDA",
                 CreatedAt = DateTime.Today.AddDays(-1)
             };
@@ -10188,13 +10199,13 @@ public static class Seeder
                     ModelCode = "PALISADE-PRE",
                     ModelName = "Hyundai Palisade 2.2D Prestige",
                     SpecCode = "PLS-2.2D-PRE",
-                    SpecDescription = "Bản SUV cỡ lớn 7 chỗ máy dầu",
-                    ColorExtNameVN = "Xanh Bóng Đêm",
+                    SpecDescription = "Báº£n SUV cá»¡ lá»›n 7 chá»— mÃ¡y dáº§u",
+                    ColorExtNameVN = "Xanh BÃ³ng ÄÃªm",
                     EngineNo = "ENG-PL-2025-41",
                     UnitPrice = 1_559_000_000,
                     GuaranteeAmount = 1_300_000_000,
                     Status = CancelBankMDDetailStatus.Pending,
-                    Remark = "Chờ MBBank thẩm định chấp thuận"
+                    Remark = "Chá» MBBank tháº©m Ä‘á»‹nh cháº¥p thuáº­n"
                 },
                 new ContractBankMDCancelDetail
                 {
@@ -10206,38 +10217,38 @@ public static class Seeder
                     ModelCode = "PALISADE-PRE",
                     ModelName = "Hyundai Palisade 2.2D Prestige",
                     SpecCode = "PLS-2.2D-PRE",
-                    SpecDescription = "Bản SUV cỡ lớn 7 chỗ máy dầu",
-                    ColorExtNameVN = "Đen",
+                    SpecDescription = "Báº£n SUV cá»¡ lá»›n 7 chá»— mÃ¡y dáº§u",
+                    ColorExtNameVN = "Äen",
                     EngineNo = "ENG-PL-2025-42",
                     UnitPrice = 1_559_000_000,
                     GuaranteeAmount = 1_300_000_000,
                     Status = CancelBankMDDetailStatus.Pending,
-                    Remark = "Chờ MBBank thẩm định chấp thuận"
+                    Remark = "Chá» MBBank tháº©m Ä‘á»‹nh cháº¥p thuáº­n"
                 }
             );
 
-            // 4. Hồ sơ 04: TỪ CHỐI (Rejected) - Hyundai Phạm Văn Đồng
+            // 4. Há»“ sÆ¡ 04: Tá»ª CHá»I (Rejected) - Hyundai Pháº¡m VÄƒn Äá»“ng
             var can4 = new ContractBankMDCancel
             {
                 OrgId = TenantContext.DefaultOrgId,
                 CancelBankMDNo = "CANMD-202505-004",
                 DlrCtrNo = "PLHD-2025-05/PVD04",
                 DealerCode = "HYUNDAI-PVD",
-                DealerName = "Hyundai Phạm Văn Đồng",
+                DealerName = "Hyundai Pháº¡m VÄƒn Äá»“ng",
                 BankCodeMD = "VCB",
-                BankNameMD = "Ngân hàng TMCP Ngoại Thương Việt Nam (Vietcombank)",
+                BankNameMD = "NgÃ¢n hÃ ng TMCP Ngoáº¡i ThÆ°Æ¡ng Viá»‡t Nam (Vietcombank)",
                 GuaranteeType = GuaranteeType.Payment,
                 ContractAmount = 1_450_000_000,
                 GuaranteeAmount = 1_450_000_000,
                 ReasonType = CancelBankMDReasonType.ContractRestructuring,
-                ReasonDescription = "Đại lý đề nghị hủy bảo lãnh để điều chỉnh cơ cấu phân bổ dòng xe",
+                ReasonDescription = "Äáº¡i lÃ½ Ä‘á» nghá»‹ há»§y báº£o lÃ£nh Ä‘á»ƒ Ä‘iá»u chá»‰nh cÆ¡ cáº¥u phÃ¢n bá»• dÃ²ng xe",
                 Status = CancelBankMDStatus.Rejected,
                 TotalVehicles = 1,
-                RemarkDlr = "Kính đề nghị HTC xem xét hủy bảo lãnh xe điện Ioniq 5 để cơ cấu lại hợp đồng",
+                RemarkDlr = "KÃ­nh Ä‘á» nghá»‹ HTC xem xÃ©t há»§y báº£o lÃ£nh xe Ä‘iá»‡n Ioniq 5 Ä‘á»ƒ cÆ¡ cáº¥u láº¡i há»£p Ä‘á»“ng",
                 RejectBy = "NguyenDucThanh_GiamDocPhapChe_HTC",
                 RejectDateTime = DateTime.Today.AddDays(-2),
-                RejectReason = "Xe đã hoàn tất thủ tục xuất kho và đang trên đường vận chuyển giao đại lý theo biên bản BBBG, không thể hủy gán ngân hàng bảo lãnh.",
-                RemarkHTC = "[HTC từ chối] Xe đã hoàn tất thủ tục xuất kho và đang trên đường vận chuyển giao đại lý theo biên bản BBBG, không thể hủy gán ngân hàng bảo lãnh.",
+                RejectReason = "Xe Ä‘Ã£ hoÃ n táº¥t thá»§ tá»¥c xuáº¥t kho vÃ  Ä‘ang trÃªn Ä‘Æ°á»ng váº­n chuyá»ƒn giao Ä‘áº¡i lÃ½ theo biÃªn báº£n BBBG, khÃ´ng thá»ƒ há»§y gÃ¡n ngÃ¢n hÃ ng báº£o lÃ£nh.",
+                RemarkHTC = "[HTC tá»« chá»‘i] Xe Ä‘Ã£ hoÃ n táº¥t thá»§ tá»¥c xuáº¥t kho vÃ  Ä‘ang trÃªn Ä‘Æ°á»ng váº­n chuyá»ƒn giao Ä‘áº¡i lÃ½ theo biÃªn báº£n BBBG, khÃ´ng thá»ƒ há»§y gÃ¡n ngÃ¢n hÃ ng báº£o lÃ£nh.",
                 CreatedBy = "PhamVanDuc_KeToanPVD",
                 CreatedAt = DateTime.Today.AddDays(-4)
             };
@@ -10255,20 +10266,20 @@ public static class Seeder
                     ModelCode = "IONIQ-5",
                     ModelName = "Hyundai IONIQ 5 Exclusive EV",
                     SpecCode = "IQ5-72KWH-EXC",
-                    SpecDescription = "Xe điện công nghệ sạc siêu nhanh E-GMP",
-                    ColorExtNameVN = "Bạc Nhám Gravity Gold",
+                    SpecDescription = "Xe Ä‘iá»‡n cÃ´ng nghá»‡ sáº¡c siÃªu nhanh E-GMP",
+                    ColorExtNameVN = "Báº¡c NhÃ¡m Gravity Gold",
                     EngineNo = "EM07-2025-99",
                     UnitPrice = 1_450_000_000,
                     GuaranteeAmount = 1_450_000_000,
                     Status = CancelBankMDDetailStatus.Cancelled,
-                    Remark = "Từ chối do xe đã vận chuyển đi"
+                    Remark = "Tá»« chá»‘i do xe Ä‘Ã£ váº­n chuyá»ƒn Ä‘i"
                 }
             );
 
             await db.SaveChangesAsync();
         }
 
-        // ===== 19. Seed Dữ liệu mẫu Thu Tiền Thanh Toán & Quyết Toán Bồi Thường Bảo Hiểm Xe Ô Tô (Insurance Claim Payment) =====
+        // ===== 19. Seed Dá»¯ liá»‡u máº«u Thu Tiá»n Thanh ToÃ¡n & Quyáº¿t ToÃ¡n Bá»“i ThÆ°á»ng Báº£o Hiá»ƒm Xe Ã” TÃ´ (Insurance Claim Payment) =====
         if (!await db.InsuranceClaimDebits.AnyAsync())
         {
             var d1 = new InsuranceClaimDebit
@@ -10276,13 +10287,13 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-INS-202505-001",
                 InsNo = "INS-PTI",
-                InsName = "Tổng Công ty Cổ phần Bảo hiểm Bưu điện (PTI)",
+                InsName = "Tá»•ng CÃ´ng ty Cá»• pháº§n Báº£o hiá»ƒm BÆ°u Ä‘iá»‡n (PTI)",
                 RONo = "RO-2025-0501",
                 VIN = "KMHCT81EPHU990101",
                 PlateNo = "30H-889.99",
                 ModelCode = "SANTAFE",
                 ModelName = "Hyundai Santa Fe 2.5 HTRAC",
-                CustomerName = "Trần Đình Trọng",
+                CustomerName = "Tráº§n ÄÃ¬nh Trá»ng",
                 CustomerPhone = "0912345678",
                 DebitDate = DateTime.Today.AddDays(-20),
                 DueDate = DateTime.Today.AddDays(10),
@@ -10290,7 +10301,7 @@ public static class Seeder
                 PaidAmount = 28_500_000,
                 RemainAmount = 0,
                 Status = InsuranceDebitStatus.Settled,
-                Note = "Sơn sấy cản trước và thay cụm đèn pha LED bên lái sau va quẹt",
+                Note = "SÆ¡n sáº¥y cáº£n trÆ°á»›c vÃ  thay cá»¥m Ä‘Ã¨n pha LED bÃªn lÃ¡i sau va quáº¹t",
                 CreatedBy = "VuVanChien_CVDV",
                 CreatedAt = DateTime.Today.AddDays(-20)
             };
@@ -10300,13 +10311,13 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-INS-202505-002",
                 InsNo = "INS-PTI",
-                InsName = "Tổng Công ty Cổ phần Bảo hiểm Bưu điện (PTI)",
+                InsName = "Tá»•ng CÃ´ng ty Cá»• pháº§n Báº£o hiá»ƒm BÆ°u Ä‘iá»‡n (PTI)",
                 RONo = "RO-2025-0502",
                 VIN = "KMHCT81EPHU990102",
                 PlateNo = "30G-668.88",
                 ModelCode = "TUCSON",
                 ModelName = "Hyundai Tucson 2.0 AT",
-                CustomerName = "Nguyễn Thị Mai",
+                CustomerName = "Nguyá»…n Thá»‹ Mai",
                 CustomerPhone = "0987654321",
                 DebitDate = DateTime.Today.AddDays(-18),
                 DueDate = DateTime.Today.AddDays(12),
@@ -10314,7 +10325,7 @@ public static class Seeder
                 PaidAmount = 16_200_000,
                 RemainAmount = 0,
                 Status = InsuranceDebitStatus.Settled,
-                Note = "Gò nắn tai xe bên phụ và sơn phủ bóng 2 lớp",
+                Note = "GÃ² náº¯n tai xe bÃªn phá»¥ vÃ  sÆ¡n phá»§ bÃ³ng 2 lá»›p",
                 CreatedBy = "VuVanChien_CVDV",
                 CreatedAt = DateTime.Today.AddDays(-18)
             };
@@ -10324,13 +10335,13 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-INS-202505-003",
                 InsNo = "INS-PTI",
-                InsName = "Tổng Công ty Cổ phần Bảo hiểm Bưu điện (PTI)",
+                InsName = "Tá»•ng CÃ´ng ty Cá»• pháº§n Báº£o hiá»ƒm BÆ°u Ä‘iá»‡n (PTI)",
                 RONo = "RO-2025-0503",
                 VIN = "KMHCT81EPHU990103",
                 PlateNo = "29A-995.12",
                 ModelCode = "CRETA",
-                ModelName = "Hyundai Creta 1.5 Cao Cấp",
-                CustomerName = "Lê Hoàng Long",
+                ModelName = "Hyundai Creta 1.5 Cao Cáº¥p",
+                CustomerName = "LÃª HoÃ ng Long",
                 CustomerPhone = "0903112233",
                 DebitDate = DateTime.Today.AddDays(-15),
                 DueDate = DateTime.Today.AddDays(15),
@@ -10338,7 +10349,7 @@ public static class Seeder
                 PaidAmount = 10_300_000,
                 RemainAmount = 9_500_000,
                 Status = InsuranceDebitStatus.PartiallyPaid,
-                Note = "Thay kính chắn gió trước chính hãng và sơn sườn xe",
+                Note = "Thay kÃ­nh cháº¯n giÃ³ trÆ°á»›c chÃ­nh hÃ£ng vÃ  sÆ¡n sÆ°á»n xe",
                 CreatedBy = "NguyenVanHieu_CVDV",
                 CreatedAt = DateTime.Today.AddDays(-15)
             };
@@ -10348,13 +10359,13 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-INS-202505-004",
                 InsNo = "INS-PTI",
-                InsName = "Tổng Công ty Cổ phần Bảo hiểm Bưu điện (PTI)",
+                InsName = "Tá»•ng CÃ´ng ty Cá»• pháº§n Báº£o hiá»ƒm BÆ°u Ä‘iá»‡n (PTI)",
                 RONo = "RO-2025-0504",
                 VIN = "KMHCT81EPHU990104",
                 PlateNo = "30F-334.56",
                 ModelCode = "ACCENT",
-                ModelName = "Hyundai Accent 1.5 AT Đặc Biệt",
-                CustomerName = "Đặng Quang Huy",
+                ModelName = "Hyundai Accent 1.5 AT Äáº·c Biá»‡t",
+                CustomerName = "Äáº·ng Quang Huy",
                 CustomerPhone = "0945678901",
                 DebitDate = DateTime.Today.AddDays(-5),
                 DueDate = DateTime.Today.AddDays(25),
@@ -10362,7 +10373,7 @@ public static class Seeder
                 PaidAmount = 0,
                 RemainAmount = 7_500_000,
                 Status = InsuranceDebitStatus.Pending,
-                Note = "Sơn phục hồi trầy xước nắp capo và cản sau",
+                Note = "SÆ¡n phá»¥c há»“i tráº§y xÆ°á»›c náº¯p capo vÃ  cáº£n sau",
                 CreatedBy = "NguyenVanHieu_CVDV",
                 CreatedAt = DateTime.Today.AddDays(-5)
             };
@@ -10372,13 +10383,13 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-INS-202505-005",
                 InsNo = "INS-BV",
-                InsName = "Tổng Công ty Bảo hiểm Bảo Việt",
+                InsName = "Tá»•ng CÃ´ng ty Báº£o hiá»ƒm Báº£o Viá»‡t",
                 RONo = "RO-2025-0505",
                 VIN = "KMHCT81EPHU990201",
                 PlateNo = "30E-778.90",
                 ModelCode = "SANTAFE",
                 ModelName = "Hyundai Santa Fe 2.5 HTRAC",
-                CustomerName = "Phạm Hồng Quân",
+                CustomerName = "Pháº¡m Há»“ng QuÃ¢n",
                 CustomerPhone = "0934567890",
                 DebitDate = DateTime.Today.AddDays(-12),
                 DueDate = DateTime.Today.AddDays(18),
@@ -10386,7 +10397,7 @@ public static class Seeder
                 PaidAmount = 34_000_000,
                 RemainAmount = 0,
                 Status = InsuranceDebitStatus.Settled,
-                Note = "Thay thế thước lái điện tử và bảo dưỡng phục hồi giảm xóc trước",
+                Note = "Thay tháº¿ thÆ°á»›c lÃ¡i Ä‘iá»‡n tá»­ vÃ  báº£o dÆ°á»¡ng phá»¥c há»“i giáº£m xÃ³c trÆ°á»›c",
                 CreatedBy = "VuVanChien_CVDV",
                 CreatedAt = DateTime.Today.AddDays(-12)
             };
@@ -10396,13 +10407,13 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-INS-202505-006",
                 InsNo = "INS-BV",
-                InsName = "Tổng Công ty Bảo hiểm Bảo Việt",
+                InsName = "Tá»•ng CÃ´ng ty Báº£o hiá»ƒm Báº£o Viá»‡t",
                 RONo = "RO-2025-0506",
                 VIN = "KMHCT81EPHU990202",
                 PlateNo = "30K-112.33",
                 ModelCode = "PALISADE",
                 ModelName = "Hyundai Palisade 2.2D Prestige",
-                CustomerName = "Hoàng Thu Trang",
+                CustomerName = "HoÃ ng Thu Trang",
                 CustomerPhone = "0967890123",
                 DebitDate = DateTime.Today.AddDays(-3),
                 DueDate = DateTime.Today.AddDays(27),
@@ -10410,7 +10421,7 @@ public static class Seeder
                 PaidAmount = 0,
                 RemainAmount = 42_500_000,
                 Status = InsuranceDebitStatus.Pending,
-                Note = "Phục hồi cánh cửa sau bên phụ và sơn phủ bóng cốp điện",
+                Note = "Phá»¥c há»“i cÃ¡nh cá»­a sau bÃªn phá»¥ vÃ  sÆ¡n phá»§ bÃ³ng cá»‘p Ä‘iá»‡n",
                 CreatedBy = "NguyenVanHieu_CVDV",
                 CreatedAt = DateTime.Today.AddDays(-3)
             };
@@ -10420,13 +10431,13 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-INS-202505-007",
                 InsNo = "INS-PJICO",
-                InsName = "Tổng Công ty Cổ phần Bảo hiểm Petrolimex (PJICO)",
+                InsName = "Tá»•ng CÃ´ng ty Cá»• pháº§n Báº£o hiá»ƒm Petrolimex (PJICO)",
                 RONo = "RO-2025-0507",
                 VIN = "KMHCT81EPHU990301",
                 PlateNo = "29B-445.67",
                 ModelCode = "CRETA",
-                ModelName = "Hyundai Creta 1.5 Cao Cấp",
-                CustomerName = "Đỗ Đức Toàn",
+                ModelName = "Hyundai Creta 1.5 Cao Cáº¥p",
+                CustomerName = "Äá»— Äá»©c ToÃ n",
                 CustomerPhone = "0978901234",
                 DebitDate = DateTime.Today.AddDays(-10),
                 DueDate = DateTime.Today.AddDays(20),
@@ -10434,7 +10445,7 @@ public static class Seeder
                 PaidAmount = 21_000_000,
                 RemainAmount = 0,
                 Status = InsuranceDebitStatus.Settled,
-                Note = "Sửa chữa hệ thống giải nhiệt két nước và cản trước",
+                Note = "Sá»­a chá»¯a há»‡ thá»‘ng giáº£i nhiá»‡t kÃ©t nÆ°á»›c vÃ  cáº£n trÆ°á»›c",
                 CreatedBy = "VuVanChien_CVDV",
                 CreatedAt = DateTime.Today.AddDays(-10)
             };
@@ -10444,13 +10455,13 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-INS-202505-008",
                 InsNo = "INS-PJICO",
-                InsName = "Tổng Công ty Cổ phần Bảo hiểm Petrolimex (PJICO)",
+                InsName = "Tá»•ng CÃ´ng ty Cá»• pháº§n Báº£o hiá»ƒm Petrolimex (PJICO)",
                 RONo = "RO-2025-0508",
                 VIN = "KMHCT81EPHU990302",
                 PlateNo = "30A-556.78",
                 ModelCode = "ELANTRA",
                 ModelName = "Hyundai Elantra N-Line 1.6 Turbo",
-                CustomerName = "Bùi Anh Tuấn",
+                CustomerName = "BÃ¹i Anh Tuáº¥n",
                 CustomerPhone = "0923456789",
                 DebitDate = DateTime.Today.AddDays(-7),
                 DueDate = DateTime.Today.AddDays(23),
@@ -10458,7 +10469,7 @@ public static class Seeder
                 PaidAmount = 6_000_000,
                 RemainAmount = 6_800_000,
                 Status = InsuranceDebitStatus.PartiallyPaid,
-                Note = "Sơn sấy hông trái và cửa trước",
+                Note = "SÆ¡n sáº¥y hÃ´ng trÃ¡i vÃ  cá»­a trÆ°á»›c",
                 CreatedBy = "NguyenVanHieu_CVDV",
                 CreatedAt = DateTime.Today.AddDays(-7)
             };
@@ -10468,13 +10479,13 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-INS-202505-009",
                 InsNo = "INS-PVI",
-                InsName = "Tổng Công ty Bảo hiểm PVI (Dầu khí)",
+                InsName = "Tá»•ng CÃ´ng ty Báº£o hiá»ƒm PVI (Dáº§u khÃ­)",
                 RONo = "RO-2025-0509",
                 VIN = "KMHCT81EPHU990401",
                 PlateNo = "30H-223.45",
                 ModelCode = "TUCSON",
                 ModelName = "Hyundai Tucson 2.0 AT",
-                CustomerName = "Ngô Minh Khang",
+                CustomerName = "NgÃ´ Minh Khang",
                 CustomerPhone = "0918765432",
                 DebitDate = DateTime.Today.AddDays(-2),
                 DueDate = DateTime.Today.AddDays(28),
@@ -10482,7 +10493,7 @@ public static class Seeder
                 PaidAmount = 0,
                 RemainAmount = 38_000_000,
                 Status = InsuranceDebitStatus.Pending,
-                Note = "Bảo dưỡng đại tu gầm và sơn ba-đờ-sốc sau",
+                Note = "Báº£o dÆ°á»¡ng Ä‘áº¡i tu gáº§m vÃ  sÆ¡n ba-Ä‘á»-sá»‘c sau",
                 CreatedBy = "VuVanChien_CVDV",
                 CreatedAt = DateTime.Today.AddDays(-2)
             };
@@ -10492,13 +10503,13 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-INS-202505-010",
                 InsNo = "INS-MIC",
-                InsName = "Tổng Công ty Cổ phần Bảo hiểm Quân đội (MIC)",
+                InsName = "Tá»•ng CÃ´ng ty Cá»• pháº§n Báº£o hiá»ƒm QuÃ¢n Ä‘á»™i (MIC)",
                 RONo = "RO-2025-0510",
                 VIN = "KMHCT81EPHU990501",
                 PlateNo = "29D-889.01",
                 ModelCode = "ACCENT",
-                ModelName = "Hyundai Accent 1.5 AT Đặc Biệt",
-                CustomerName = "Vũ Đình Nam",
+                ModelName = "Hyundai Accent 1.5 AT Äáº·c Biá»‡t",
+                CustomerName = "VÅ© ÄÃ¬nh Nam",
                 CustomerPhone = "0909876543",
                 DebitDate = DateTime.Today.AddDays(-1),
                 DueDate = DateTime.Today.AddDays(29),
@@ -10506,7 +10517,7 @@ public static class Seeder
                 PaidAmount = 0,
                 RemainAmount = 9_600_000,
                 Status = InsuranceDebitStatus.Pending,
-                Note = "Thay cụm gương chiếu hậu có camera 360 và sơn cánh cửa",
+                Note = "Thay cá»¥m gÆ°Æ¡ng chiáº¿u háº­u cÃ³ camera 360 vÃ  sÆ¡n cÃ¡nh cá»­a",
                 CreatedBy = "NguyenVanHieu_CVDV",
                 CreatedAt = DateTime.Today.AddDays(-1)
             };
@@ -10514,27 +10525,27 @@ public static class Seeder
             db.InsuranceClaimDebits.AddRange(d1, d2, d3, d4, d5, d6, d7, d8, d9, d10);
             await db.SaveChangesAsync();
 
-            // Phiếu thu 1: PTI thanh toán gộp 55,000,000 VND (chuyển khoản VietinBank)
+            // Phiáº¿u thu 1: PTI thanh toÃ¡n gá»™p 55,000,000 VND (chuyá»ƒn khoáº£n VietinBank)
             var p1 = new InsurancePayment
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PaymentNo = "PM-INS-202505-001",
                 InsNo = "INS-PTI",
-                InsName = "Tổng Công ty Cổ phần Bảo hiểm Bưu điện (PTI)",
+                InsName = "Tá»•ng CÃ´ng ty Cá»• pháº§n Báº£o hiá»ƒm BÆ°u Ä‘iá»‡n (PTI)",
                 PayDate = DateTime.Today.AddDays(-8),
-                PayPersonName = "Nguyễn Văn Tuấn (Giám định viên PTI)",
+                PayPersonName = "Nguyá»…n VÄƒn Tuáº¥n (GiÃ¡m Ä‘á»‹nh viÃªn PTI)",
                 PayPersonIDCardNo = "001089012345",
                 PayPersonPhone = "0911223344",
                 PaymentAmount = 55_000_000,
                 PaymentMethod = InsurancePaymentMethod.BankTransfer,
                 BankCode = "CTG",
-                BankName = "VietinBank - CN Đống Đa",
+                BankName = "VietinBank - CN Äá»‘ng Äa",
                 BankAccountNo = "113000088999",
                 BankTxnRef = "FT250508001882",
                 TotalAllocated = 55_000_000,
                 UnallocatedAmount = 0,
                 Status = InsurancePaymentStatus.Settled,
-                Note = "PTI thanh toán bồi thường đợt 1 tháng 05/2025 cho 3 xe",
+                Note = "PTI thanh toÃ¡n bá»“i thÆ°á»ng Ä‘á»£t 1 thÃ¡ng 05/2025 cho 3 xe",
                 CreatedBy = "NguyenThiThu_KeToanThuNgan",
                 ConfirmedBy = "TranDinhTuan_KeToanTruong",
                 ConfirmedAt = DateTime.Today.AddDays(-8),
@@ -10559,7 +10570,7 @@ public static class Seeder
                     DebitAmountBefore = 28_500_000,
                     PaymentDetailAmount = 28_500_000,
                     DebitAmountLeft = 0,
-                    Remark = "Tất toán toàn bộ lệnh RO"
+                    Remark = "Táº¥t toÃ¡n toÃ n bá»™ lá»‡nh RO"
                 },
                 new InsurancePaymentDetail
                 {
@@ -10574,7 +10585,7 @@ public static class Seeder
                     DebitAmountBefore = 16_200_000,
                     PaymentDetailAmount = 16_200_000,
                     DebitAmountLeft = 0,
-                    Remark = "Tất toán toàn bộ lệnh RO"
+                    Remark = "Táº¥t toÃ¡n toÃ n bá»™ lá»‡nh RO"
                 },
                 new InsurancePaymentDetail
                 {
@@ -10589,19 +10600,19 @@ public static class Seeder
                     DebitAmountBefore = 19_800_000,
                     PaymentDetailAmount = 10_300_000,
                     DebitAmountLeft = 9_500_000,
-                    Remark = "Thanh toán một phần nợ RO"
+                    Remark = "Thanh toÃ¡n má»™t pháº§n ná»£ RO"
                 }
             );
 
-            // Phiếu thu 2: Bảo Việt thanh toán 34,000,000 VND qua Cổng VNPay QR
+            // Phiáº¿u thu 2: Báº£o Viá»‡t thanh toÃ¡n 34,000,000 VND qua Cá»•ng VNPay QR
             var p2 = new InsurancePayment
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PaymentNo = "PM-INS-202505-002",
                 InsNo = "INS-BV",
-                InsName = "Tổng Công ty Bảo hiểm Bảo Việt",
+                InsName = "Tá»•ng CÃ´ng ty Báº£o hiá»ƒm Báº£o Viá»‡t",
                 PayDate = DateTime.Today.AddDays(-4),
-                PayPersonName = "Lê Thị Hồng (Kế toán Bồi thường Bảo Việt)",
+                PayPersonName = "LÃª Thá»‹ Há»“ng (Káº¿ toÃ¡n Bá»“i thÆ°á»ng Báº£o Viá»‡t)",
                 PayPersonIDCardNo = "001192034567",
                 PayPersonPhone = "0988776655",
                 PaymentAmount = 34_000_000,
@@ -10613,7 +10624,7 @@ public static class Seeder
                 TotalAllocated = 34_000_000,
                 UnallocatedAmount = 0,
                 Status = InsurancePaymentStatus.Settled,
-                Note = "Bảo Việt chuyển khoản quét mã QR VNPay thanh toán lệnh RO-2025-0505",
+                Note = "Báº£o Viá»‡t chuyá»ƒn khoáº£n quÃ©t mÃ£ QR VNPay thanh toÃ¡n lá»‡nh RO-2025-0505",
                 CreatedBy = "NguyenThiThu_KeToanThuNgan",
                 ConfirmedBy = "TranDinhTuan_KeToanTruong",
                 ConfirmedAt = DateTime.Today.AddDays(-4),
@@ -10638,31 +10649,31 @@ public static class Seeder
                     DebitAmountBefore = 34_000_000,
                     PaymentDetailAmount = 34_000_000,
                     DebitAmountLeft = 0,
-                    Remark = "Tất toán toàn bộ lệnh RO qua cổng VNPay"
+                    Remark = "Táº¥t toÃ¡n toÃ n bá»™ lá»‡nh RO qua cá»•ng VNPay"
                 }
             );
 
-            // Phiếu thu 3: PJICO thanh toán 27,000,000 VND (chuyển khoản MBBank)
+            // Phiáº¿u thu 3: PJICO thanh toÃ¡n 27,000,000 VND (chuyá»ƒn khoáº£n MBBank)
             var p3 = new InsurancePayment
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PaymentNo = "PM-INS-202505-003",
                 InsNo = "INS-PJICO",
-                InsName = "Tổng Công ty Cổ phần Bảo hiểm Petrolimex (PJICO)",
+                InsName = "Tá»•ng CÃ´ng ty Cá»• pháº§n Báº£o hiá»ƒm Petrolimex (PJICO)",
                 PayDate = DateTime.Today.AddDays(-1),
-                PayPersonName = "Hoàng Trọng Nghĩa (Giám định viên PJICO)",
+                PayPersonName = "HoÃ ng Trá»ng NghÄ©a (GiÃ¡m Ä‘á»‹nh viÃªn PJICO)",
                 PayPersonIDCardNo = "001095067890",
                 PayPersonPhone = "0933445566",
                 PaymentAmount = 27_000_000,
                 PaymentMethod = InsurancePaymentMethod.BankTransfer,
                 BankCode = "MBB",
-                BankName = "MBBank - CN Sở Giao Dịch",
+                BankName = "MBBank - CN Sá»Ÿ Giao Dá»‹ch",
                 BankAccountNo = "0880112345678",
                 BankTxnRef = "MB-TRANS-9908123",
                 TotalAllocated = 27_000_000,
                 UnallocatedAmount = 0,
                 Status = InsurancePaymentStatus.Confirmed,
-                Note = "PJICO chuyển tiền thanh toán theo thỏa thuận bồi thường xe Hyundai",
+                Note = "PJICO chuyá»ƒn tiá»n thanh toÃ¡n theo thá»a thuáº­n bá»“i thÆ°á»ng xe Hyundai",
                 CreatedBy = "NguyenThiThu_KeToanThuNgan",
                 ConfirmedBy = "TranDinhTuan_KeToanTruong",
                 ConfirmedAt = DateTime.Today.AddDays(-1),
@@ -10685,7 +10696,7 @@ public static class Seeder
                     DebitAmountBefore = 21_000_000,
                     PaymentDetailAmount = 21_000_000,
                     DebitAmountLeft = 0,
-                    Remark = "Tất toán toàn bộ lệnh RO"
+                    Remark = "Táº¥t toÃ¡n toÃ n bá»™ lá»‡nh RO"
                 },
                 new InsurancePaymentDetail
                 {
@@ -10700,14 +10711,14 @@ public static class Seeder
                     DebitAmountBefore = 12_800_000,
                     PaymentDetailAmount = 6_000_000,
                     DebitAmountLeft = 6_800_000,
-                    Remark = "Thanh toán một phần nợ RO"
+                    Remark = "Thanh toÃ¡n má»™t pháº§n ná»£ RO"
                 }
             );
 
             await db.SaveChangesAsync();
         }
 
-        // ===== 20. Seed Dữ liệu mẫu Công Nợ & Thanh Toán Quyết Toán Nhà Cung Cấp Phụ Tùng (Supplier Payment) =====
+        // ===== 20. Seed Dá»¯ liá»‡u máº«u CÃ´ng Ná»£ & Thanh ToÃ¡n Quyáº¿t ToÃ¡n NhÃ  Cung Cáº¥p Phá»¥ TÃ¹ng (Supplier Payment) =====
         if (!await db.SupplierDebits.AnyAsync())
         {
             var sd1 = new SupplierDebit
@@ -10715,20 +10726,20 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-SUPP-202505-001",
                 SupplierCode = "MOBIS-VN",
-                SupplierName = "Công ty TNHH Mobis Auto Parts Việt Nam",
+                SupplierName = "CÃ´ng ty TNHH Mobis Auto Parts Viá»‡t Nam",
                 SupplierPhone = "024-3768-9988",
-                SupplierAddress = "Lô E3, KCN Thăng Long, Huyện Đông Anh, Hà Nội",
+                SupplierAddress = "LÃ´ E3, KCN ThÄƒng Long, Huyá»‡n ÄÃ´ng Anh, HÃ  Ná»™i",
                 StockInNo = "PNK-2025-0501",
                 StockInDate = DateTime.Today.AddDays(-25),
                 OrderPartNo = "PO-2025-0480",
-                Category = "Linh kiện gầm máy & Lọc dầu nhớt Santa Fe/Tucson",
+                Category = "Linh kiá»‡n gáº§m mÃ¡y & Lá»c dáº§u nhá»›t Santa Fe/Tucson",
                 DebitDate = DateTime.Today.AddDays(-25),
                 DueDate = DateTime.Today.AddDays(5),
                 DebitAmount = 35_000_000,
                 PaidAmount = 35_000_000,
                 RemainAmount = 0,
                 Status = SupplierDebitStatus.Settled,
-                Note = "Nhập kho 100 bộ lọc dầu, 50 bộ lọc gió động cơ và cảm biến khí nạp",
+                Note = "Nháº­p kho 100 bá»™ lá»c dáº§u, 50 bá»™ lá»c giÃ³ Ä‘á»™ng cÆ¡ vÃ  cáº£m biáº¿n khÃ­ náº¡p",
                 CreatedBy = "VuVanChien_ThuKho",
                 CreatedAt = DateTime.Today.AddDays(-25)
             };
@@ -10738,20 +10749,20 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-SUPP-202505-002",
                 SupplierCode = "MOBIS-VN",
-                SupplierName = "Công ty TNHH Mobis Auto Parts Việt Nam",
+                SupplierName = "CÃ´ng ty TNHH Mobis Auto Parts Viá»‡t Nam",
                 SupplierPhone = "024-3768-9988",
-                SupplierAddress = "Lô E3, KCN Thăng Long, Huyện Đông Anh, Hà Nội",
+                SupplierAddress = "LÃ´ E3, KCN ThÄƒng Long, Huyá»‡n ÄÃ´ng Anh, HÃ  Ná»™i",
                 StockInNo = "PNK-2025-0502",
                 StockInDate = DateTime.Today.AddDays(-22),
                 OrderPartNo = "PO-2025-0485",
-                Category = "Má phanh đĩa trước sau & Cụm moay-ơ Creta/Accent",
+                Category = "MÃ¡ phanh Ä‘Ä©a trÆ°á»›c sau & Cá»¥m moay-Æ¡ Creta/Accent",
                 DebitDate = DateTime.Today.AddDays(-22),
                 DueDate = DateTime.Today.AddDays(8),
                 DebitAmount = 22_500_000,
                 PaidAmount = 22_500_000,
                 RemainAmount = 0,
                 Status = SupplierDebitStatus.Settled,
-                Note = "Lô má phanh đĩa gốm chính hãng nhập khẩu Mobis Hàn Quốc",
+                Note = "LÃ´ mÃ¡ phanh Ä‘Ä©a gá»‘m chÃ­nh hÃ£ng nháº­p kháº©u Mobis HÃ n Quá»‘c",
                 CreatedBy = "VuVanChien_ThuKho",
                 CreatedAt = DateTime.Today.AddDays(-22)
             };
@@ -10761,20 +10772,20 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-SUPP-202505-003",
                 SupplierCode = "MOBIS-VN",
-                SupplierName = "Công ty TNHH Mobis Auto Parts Việt Nam",
+                SupplierName = "CÃ´ng ty TNHH Mobis Auto Parts Viá»‡t Nam",
                 SupplierPhone = "024-3768-9988",
-                SupplierAddress = "Lô E3, KCN Thăng Long, Huyện Đông Anh, Hà Nội",
+                SupplierAddress = "LÃ´ E3, KCN ThÄƒng Long, Huyá»‡n ÄÃ´ng Anh, HÃ  Ná»™i",
                 StockInNo = "PNK-2025-0503",
                 StockInDate = DateTime.Today.AddDays(-15),
                 OrderPartNo = "PO-2025-0492",
-                Category = "Đèn pha Full LED & Gương chiếu hậu gập điện Palisade",
+                Category = "ÄÃ¨n pha Full LED & GÆ°Æ¡ng chiáº¿u háº­u gáº­p Ä‘iá»‡n Palisade",
                 DebitDate = DateTime.Today.AddDays(-15),
                 DueDate = DateTime.Today.AddDays(15),
                 DebitAmount = 48_000_000,
                 PaidAmount = 7_500_000,
                 RemainAmount = 40_500_000,
                 Status = SupplierDebitStatus.PartiallyPaid,
-                Note = "Cụm đèn pha thích ứng thông minh IFS và mặt gương sấy điện",
+                Note = "Cá»¥m Ä‘Ã¨n pha thÃ­ch á»©ng thÃ´ng minh IFS vÃ  máº·t gÆ°Æ¡ng sáº¥y Ä‘iá»‡n",
                 CreatedBy = "NguyenVanHieu_ThuKho",
                 CreatedAt = DateTime.Today.AddDays(-15)
             };
@@ -10784,20 +10795,20 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-SUPP-202505-004",
                 SupplierCode = "MOBIS-VN",
-                SupplierName = "Công ty TNHH Mobis Auto Parts Việt Nam",
+                SupplierName = "CÃ´ng ty TNHH Mobis Auto Parts Viá»‡t Nam",
                 SupplierPhone = "024-3768-9988",
-                SupplierAddress = "Lô E3, KCN Thăng Long, Huyện Đông Anh, Hà Nội",
+                SupplierAddress = "LÃ´ E3, KCN ThÄƒng Long, Huyá»‡n ÄÃ´ng Anh, HÃ  Ná»™i",
                 StockInNo = "PNK-2025-0504",
                 StockInDate = DateTime.Today.AddDays(-3),
                 OrderPartNo = "PO-2025-0510",
-                Category = "Càng chữ A & Giảm xóc hơi điện tử Custin",
+                Category = "CÃ ng chá»¯ A & Giáº£m xÃ³c hÆ¡i Ä‘iá»‡n tá»­ Custin",
                 DebitDate = DateTime.Today.AddDays(-3),
                 DueDate = DateTime.Today.AddDays(27),
                 DebitAmount = 31_000_000,
                 PaidAmount = 0,
                 RemainAmount = 31_000_000,
                 Status = SupplierDebitStatus.Pending,
-                Note = "Lô giảm xóc trước sau cho xe Custin 2.0 Turbo",
+                Note = "LÃ´ giáº£m xÃ³c trÆ°á»›c sau cho xe Custin 2.0 Turbo",
                 CreatedBy = "NguyenVanHieu_ThuKho",
                 CreatedAt = DateTime.Today.AddDays(-3)
             };
@@ -10807,20 +10818,20 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-SUPP-202505-005",
                 SupplierCode = "BOSCH-VN",
-                SupplierName = "Công ty TNHH Robert Bosch Việt Nam",
+                SupplierName = "CÃ´ng ty TNHH Robert Bosch Viá»‡t Nam",
                 SupplierPhone = "028-6258-3690",
-                SupplierAddress = "Tầng 14, Tòa nhà Deutsches Haus, 33 Lê Duẩn, Quận 1, TP. HCM",
+                SupplierAddress = "Táº§ng 14, TÃ²a nhÃ  Deutsches Haus, 33 LÃª Duáº©n, Quáº­n 1, TP. HCM",
                 StockInNo = "PNK-2025-0505",
                 StockInDate = DateTime.Today.AddDays(-18),
                 OrderPartNo = "PO-2025-0488",
-                Category = "Cần gạt mưa Aerotwin & Bugi Iridium cao cấp",
+                Category = "Cáº§n gáº¡t mÆ°a Aerotwin & Bugi Iridium cao cáº¥p",
                 DebitDate = DateTime.Today.AddDays(-18),
                 DueDate = DateTime.Today.AddDays(12),
                 DebitAmount = 18_500_000,
                 PaidAmount = 18_500_000,
                 RemainAmount = 0,
                 Status = SupplierDebitStatus.Settled,
-                Note = "Gạt mưa silicon đa năng và 120 chiếc bugi đánh lửa Bosch kép",
+                Note = "Gáº¡t mÆ°a silicon Ä‘a nÄƒng vÃ  120 chiáº¿c bugi Ä‘Ã¡nh lá»­a Bosch kÃ©p",
                 CreatedBy = "VuVanChien_ThuKho",
                 CreatedAt = DateTime.Today.AddDays(-18)
             };
@@ -10830,20 +10841,20 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-SUPP-202505-006",
                 SupplierCode = "BOSCH-VN",
-                SupplierName = "Công ty TNHH Robert Bosch Việt Nam",
+                SupplierName = "CÃ´ng ty TNHH Robert Bosch Viá»‡t Nam",
                 SupplierPhone = "028-6258-3690",
-                SupplierAddress = "Tầng 14, Tòa nhà Deutsches Haus, 33 Lê Duẩn, Quận 1, TP. HCM",
+                SupplierAddress = "Táº§ng 14, TÃ²a nhÃ  Deutsches Haus, 33 LÃª Duáº©n, Quáº­n 1, TP. HCM",
                 StockInNo = "PNK-2025-0506",
                 StockInDate = DateTime.Today.AddDays(-5),
                 OrderPartNo = "PO-2025-0505",
-                Category = "Cảm biến áp suất lốp TPMS & Còi sên ô tô 12V",
+                Category = "Cáº£m biáº¿n Ã¡p suáº¥t lá»‘p TPMS & CÃ²i sÃªn Ã´ tÃ´ 12V",
                 DebitDate = DateTime.Today.AddDays(-5),
                 DueDate = DateTime.Today.AddDays(25),
                 DebitAmount = 14_200_000,
                 PaidAmount = 0,
                 RemainAmount = 14_200_000,
                 Status = SupplierDebitStatus.Pending,
-                Note = "Cảm biến van trong tích hợp Bluetooth và còi sên âm lượng cao",
+                Note = "Cáº£m biáº¿n van trong tÃ­ch há»£p Bluetooth vÃ  cÃ²i sÃªn Ã¢m lÆ°á»£ng cao",
                 CreatedBy = "NguyenVanHieu_ThuKho",
                 CreatedAt = DateTime.Today.AddDays(-5)
             };
@@ -10853,20 +10864,20 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-SUPP-202505-007",
                 SupplierCode = "CASTROL-VN",
-                SupplierName = "Công ty TNHH Castrol BP Petco Việt Nam",
+                SupplierName = "CÃ´ng ty TNHH Castrol BP Petco Viá»‡t Nam",
                 SupplierPhone = "028-3821-9153",
-                SupplierAddress = "Lầu 9, Tòa nhà Times Square, 22-36 Nguyễn Huệ, Quận 1, TP. HCM",
+                SupplierAddress = "Láº§u 9, TÃ²a nhÃ  Times Square, 22-36 Nguyá»…n Huá»‡, Quáº­n 1, TP. HCM",
                 StockInNo = "PNK-2025-0507",
                 StockInDate = DateTime.Today.AddDays(-10),
                 OrderPartNo = "PO-2025-0498",
-                Category = "Dầu nhớt tổng hợp Castrol Magnatec & Edge 5W-30",
+                Category = "Dáº§u nhá»›t tá»•ng há»£p Castrol Magnatec & Edge 5W-30",
                 DebitDate = DateTime.Today.AddDays(-10),
                 DueDate = DateTime.Today.AddDays(20),
                 DebitAmount = 32_000_000,
                 PaidAmount = 0,
                 RemainAmount = 32_000_000,
                 Status = SupplierDebitStatus.Pending,
-                Note = "40 thùng dầu Castrol Magnatec Stop-Start 5W-30 và dầu cầu hộp số ATF",
+                Note = "40 thÃ¹ng dáº§u Castrol Magnatec Stop-Start 5W-30 vÃ  dáº§u cáº§u há»™p sá»‘ ATF",
                 CreatedBy = "VuVanChien_ThuKho",
                 CreatedAt = DateTime.Today.AddDays(-10)
             };
@@ -10876,20 +10887,20 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-SUPP-202505-008",
                 SupplierCode = "MICHELIN-VN",
-                SupplierName = "Công ty TNHH Michelin Việt Nam",
+                SupplierName = "CÃ´ng ty TNHH Michelin Viá»‡t Nam",
                 SupplierPhone = "028-3824-3456",
-                SupplierAddress = "Tầng 10, Tòa nhà Empress Tower, 138-142 Hai Bà Trưng, Quận 1, TP. HCM",
+                SupplierAddress = "Táº§ng 10, TÃ²a nhÃ  Empress Tower, 138-142 Hai BÃ  TrÆ°ng, Quáº­n 1, TP. HCM",
                 StockInNo = "PNK-2025-0508",
                 StockInDate = DateTime.Today.AddDays(-7),
                 OrderPartNo = "PO-2025-0502",
-                Category = "Lốp xe ô tô Michelin Primacy 4 & Pilot Sport SUV",
+                Category = "Lá»‘p xe Ã´ tÃ´ Michelin Primacy 4 & Pilot Sport SUV",
                 DebitDate = DateTime.Today.AddDays(-7),
                 DueDate = DateTime.Today.AddDays(23),
                 DebitAmount = 45_600_000,
                 PaidAmount = 0,
                 RemainAmount = 45_600_000,
                 Status = SupplierDebitStatus.Pending,
-                Note = "24 quả lốp kích thước 235/55R19 cho Santa Fe và 235/60R18 cho Tucson",
+                Note = "24 quáº£ lá»‘p kÃ­ch thÆ°á»›c 235/55R19 cho Santa Fe vÃ  235/60R18 cho Tucson",
                 CreatedBy = "NguyenVanHieu_ThuKho",
                 CreatedAt = DateTime.Today.AddDays(-7)
             };
@@ -10899,20 +10910,20 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-SUPP-202505-009",
                 SupplierCode = "3M-VN",
-                SupplierName = "Công ty TNHH 3M Việt Nam",
+                SupplierName = "CÃ´ng ty TNHH 3M Viá»‡t Nam",
                 SupplierPhone = "028-5416-0429",
-                SupplierAddress = "Tầng 20, Tòa nhà Mapletree Business Centre, 1060 Nguyễn Văn Linh, Quận 7, TP. HCM",
+                SupplierAddress = "Táº§ng 20, TÃ²a nhÃ  Mapletree Business Centre, 1060 Nguyá»…n VÄƒn Linh, Quáº­n 7, TP. HCM",
                 StockInNo = "PNK-2025-0509",
                 StockInDate = DateTime.Today.AddDays(-4),
                 OrderPartNo = "PO-2025-0508",
-                Category = "Phim cách nhiệt Crystalline & Hóa chất phủ gầm ceramic",
+                Category = "Phim cÃ¡ch nhiá»‡t Crystalline & HÃ³a cháº¥t phá»§ gáº§m ceramic",
                 DebitDate = DateTime.Today.AddDays(-4),
                 DueDate = DateTime.Today.AddDays(26),
                 DebitAmount = 26_800_000,
                 PaidAmount = 0,
                 RemainAmount = 26_800_000,
                 Status = SupplierDebitStatus.Pending,
-                Note = "5 cuộn phim cách nhiệt quang học 3M Crystalline và 30 chai xịt gầm chống rỉ",
+                Note = "5 cuá»™n phim cÃ¡ch nhiá»‡t quang há»c 3M Crystalline vÃ  30 chai xá»‹t gáº§m chá»‘ng rá»‰",
                 CreatedBy = "VuVanChien_ThuKho",
                 CreatedAt = DateTime.Today.AddDays(-4)
             };
@@ -10922,20 +10933,20 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-SUPP-202505-010",
                 SupplierCode = "PPG-VN",
-                SupplierName = "Công ty TNHH Sơn PPG Việt Nam",
+                SupplierName = "CÃ´ng ty TNHH SÆ¡n PPG Viá»‡t Nam",
                 SupplierPhone = "0274-375-7260",
-                SupplierAddress = "Đường số 6, KCN Việt Hương 1, Thị xã Thuận An, Bình Dương",
+                SupplierAddress = "ÄÆ°á»ng sá»‘ 6, KCN Viá»‡t HÆ°Æ¡ng 1, Thá»‹ xÃ£ Thuáº­n An, BÃ¬nh DÆ°Æ¡ng",
                 StockInNo = "PNK-2025-0510",
                 StockInDate = DateTime.Today.AddDays(-1),
                 OrderPartNo = "PO-2025-0515",
-                Category = "Sơn ô tô công nghiệp Deltron gốc nước & Dầu bóng 2K",
+                Category = "SÆ¡n Ã´ tÃ´ cÃ´ng nghiá»‡p Deltron gá»‘c nÆ°á»›c & Dáº§u bÃ³ng 2K",
                 DebitDate = DateTime.Today.AddDays(-1),
                 DueDate = DateTime.Today.AddDays(29),
                 DebitAmount = 17_500_000,
                 PaidAmount = 0,
                 RemainAmount = 17_500_000,
                 Status = SupplierDebitStatus.Pending,
-                Note = "Sơn pha màu vi tính chuẩn code màu Hyundai Trắng Tuyết, Đen Ngọc, Đỏ Mận",
+                Note = "SÆ¡n pha mÃ u vi tÃ­nh chuáº©n code mÃ u Hyundai Tráº¯ng Tuyáº¿t, Äen Ngá»c, Äá» Máº­n",
                 CreatedBy = "NguyenVanHieu_ThuKho",
                 CreatedAt = DateTime.Today.AddDays(-1)
             };
@@ -10943,28 +10954,28 @@ public static class Seeder
             db.SupplierDebits.AddRange(sd1, sd2, sd3, sd4, sd5, sd6, sd7, sd8, sd9, sd10);
             await db.SaveChangesAsync();
 
-            // Phiếu chi 1: Thanh toán cho Mobis 65,000,000 VND (chuyển khoản VietinBank CTG)
-            // Phân bổ: 35M cho PNK 1 (tất toán), 22.5M cho PNK 2 (tất toán), 7.5M cho PNK 3 (trả một phần)
+            // Phiáº¿u chi 1: Thanh toÃ¡n cho Mobis 65,000,000 VND (chuyá»ƒn khoáº£n VietinBank CTG)
+            // PhÃ¢n bá»•: 35M cho PNK 1 (táº¥t toÃ¡n), 22.5M cho PNK 2 (táº¥t toÃ¡n), 7.5M cho PNK 3 (tráº£ má»™t pháº§n)
             var sp1 = new SupplierPayment
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PaymentNo = "PM-SUPP-202505-001",
                 SupplierCode = "MOBIS-VN",
-                SupplierName = "Công ty TNHH Mobis Auto Parts Việt Nam",
+                SupplierName = "CÃ´ng ty TNHH Mobis Auto Parts Viá»‡t Nam",
                 PayDate = DateTime.Today.AddDays(-10),
-                PayPersonName = "Nguyễn Văn Hùng (Kế toán công nợ Mobis)",
+                PayPersonName = "Nguyá»…n VÄƒn HÃ¹ng (Káº¿ toÃ¡n cÃ´ng ná»£ Mobis)",
                 PayPersonIDCardNo = "001088019283",
                 PayPersonPhone = "024-3768-9988",
                 PaymentAmount = 65_000_000,
                 PaymentMethod = SupplierPaymentMethod.BankTransfer,
                 BankCode = "CTG",
-                BankName = "VietinBank - CN Đống Đa",
+                BankName = "VietinBank - CN Äá»‘ng Äa",
                 BankAccountNo = "113000088999",
                 BankTxnRef = "UNC-CTG-202505-00981",
                 TotalAllocated = 65_000_000,
                 UnallocatedAmount = 0,
                 Status = SupplierPaymentStatus.Settled,
-                Note = "Thanh toán công nợ đợt 1 tháng 05/2025 cho 3 phiếu nhập kho phụ tùng chính hãng",
+                Note = "Thanh toÃ¡n cÃ´ng ná»£ Ä‘á»£t 1 thÃ¡ng 05/2025 cho 3 phiáº¿u nháº­p kho phá»¥ tÃ¹ng chÃ­nh hÃ£ng",
                 CreatedBy = "NguyenThiThu_KeToanThanhToan",
                 ConfirmedBy = "TranDinhTuan_KeToanTruong",
                 ConfirmedAt = DateTime.Today.AddDays(-10),
@@ -10988,7 +10999,7 @@ public static class Seeder
                     DebitAmountBefore = 35_000_000,
                     PaymentDetailAmount = 35_000_000,
                     DebitAmountLeft = 0,
-                    Remark = "Tất toán toàn bộ nợ phiếu nhập kho"
+                    Remark = "Táº¥t toÃ¡n toÃ n bá»™ ná»£ phiáº¿u nháº­p kho"
                 },
                 new SupplierPaymentDetail
                 {
@@ -11002,7 +11013,7 @@ public static class Seeder
                     DebitAmountBefore = 22_500_000,
                     PaymentDetailAmount = 22_500_000,
                     DebitAmountLeft = 0,
-                    Remark = "Tất toán toàn bộ nợ phiếu nhập kho"
+                    Remark = "Táº¥t toÃ¡n toÃ n bá»™ ná»£ phiáº¿u nháº­p kho"
                 },
                 new SupplierPaymentDetail
                 {
@@ -11016,31 +11027,31 @@ public static class Seeder
                     DebitAmountBefore = 48_000_000,
                     PaymentDetailAmount = 7_500_000,
                     DebitAmountLeft = 40_500_000,
-                    Remark = "Thanh toán một phần nợ phiếu nhập kho"
+                    Remark = "Thanh toÃ¡n má»™t pháº§n ná»£ phiáº¿u nháº­p kho"
                 }
             );
 
-            // Phiếu chi 2: Thanh toán cho Bosch 18,500,000 VND (cổng VNPay QR B2B)
+            // Phiáº¿u chi 2: Thanh toÃ¡n cho Bosch 18,500,000 VND (cá»•ng VNPay QR B2B)
             var sp2 = new SupplierPayment
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PaymentNo = "PM-SUPP-202505-002",
                 SupplierCode = "BOSCH-VN",
-                SupplierName = "Công ty TNHH Robert Bosch Việt Nam",
+                SupplierName = "CÃ´ng ty TNHH Robert Bosch Viá»‡t Nam",
                 PayDate = DateTime.Today.AddDays(-6),
-                PayPersonName = "Trần Minh Đức (Đại diện kinh doanh Bosch)",
+                PayPersonName = "Tráº§n Minh Äá»©c (Äáº¡i diá»‡n kinh doanh Bosch)",
                 PayPersonIDCardNo = "079090012345",
                 PayPersonPhone = "028-6258-3690",
                 PaymentAmount = 18_500_000,
                 PaymentMethod = SupplierPaymentMethod.VnPay,
                 BankCode = "VCB",
-                BankName = "Vietcombank - CN Tân Định",
+                BankName = "Vietcombank - CN TÃ¢n Äá»‹nh",
                 BankAccountNo = "0071008899221",
                 BankTxnRef = "VNPAY-B2B-8839102",
                 TotalAllocated = 18_500_000,
                 UnallocatedAmount = 0,
                 Status = SupplierPaymentStatus.Settled,
-                Note = "Thanh toán qua cổng VNPay QR hóa đơn gạt mưa và bugi Bosch",
+                Note = "Thanh toÃ¡n qua cá»•ng VNPay QR hÃ³a Ä‘Æ¡n gáº¡t mÆ°a vÃ  bugi Bosch",
                 CreatedBy = "NguyenThiThu_KeToanThanhToan",
                 ConfirmedBy = "TranDinhTuan_KeToanTruong",
                 ConfirmedAt = DateTime.Today.AddDays(-6),
@@ -11064,31 +11075,31 @@ public static class Seeder
                     DebitAmountBefore = 18_500_000,
                     PaymentDetailAmount = 18_500_000,
                     DebitAmountLeft = 0,
-                    Remark = "Tất toán toàn bộ nợ phiếu nhập kho"
+                    Remark = "Táº¥t toÃ¡n toÃ n bá»™ ná»£ phiáº¿u nháº­p kho"
                 }
             );
 
-            // Phiếu chi 3: Đã lập & Kế toán trưởng thẩm định duyệt chi cho Castrol 32,000,000 VND (chờ xuất tiền UNC Techcombank)
+            // Phiáº¿u chi 3: ÄÃ£ láº­p & Káº¿ toÃ¡n trÆ°á»Ÿng tháº©m Ä‘á»‹nh duyá»‡t chi cho Castrol 32,000,000 VND (chá» xuáº¥t tiá»n UNC Techcombank)
             var sp3 = new SupplierPayment
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PaymentNo = "PM-SUPP-202505-003",
                 SupplierCode = "CASTROL-VN",
-                SupplierName = "Công ty TNHH Castrol BP Petco Việt Nam",
+                SupplierName = "CÃ´ng ty TNHH Castrol BP Petco Viá»‡t Nam",
                 PayDate = DateTime.Today,
-                PayPersonName = "Lê Quốc Bảo (Thủ quỹ đối tác Castrol)",
+                PayPersonName = "LÃª Quá»‘c Báº£o (Thá»§ quá»¹ Ä‘á»‘i tÃ¡c Castrol)",
                 PayPersonIDCardNo = "079085023456",
                 PayPersonPhone = "028-3821-9153",
                 PaymentAmount = 32_000_000,
                 PaymentMethod = SupplierPaymentMethod.BankTransfer,
                 BankCode = "TCB",
-                BankName = "Techcombank - Hội Sở Chính",
+                BankName = "Techcombank - Há»™i Sá»Ÿ ChÃ­nh",
                 BankAccountNo = "19028833990011",
                 BankTxnRef = "UNC-TCB-202505-00512",
                 TotalAllocated = 32_000_000,
                 UnallocatedAmount = 0,
                 Status = SupplierPaymentStatus.Confirmed,
-                Note = "Kế toán trưởng đã duyệt lệnh chi thanh toán tiền dầu nhờn Castrol, chuẩn bị đẩy UNC",
+                Note = "Káº¿ toÃ¡n trÆ°á»Ÿng Ä‘Ã£ duyá»‡t lá»‡nh chi thanh toÃ¡n tiá»n dáº§u nhá»n Castrol, chuáº©n bá»‹ Ä‘áº©y UNC",
                 CreatedBy = "NguyenThiThu_KeToanThanhToan",
                 ConfirmedBy = "TranDinhTuan_KeToanTruong",
                 ConfirmedAt = DateTime.Today,
@@ -11110,14 +11121,14 @@ public static class Seeder
                     DebitAmountBefore = 32_000_000,
                     PaymentDetailAmount = 32_000_000,
                     DebitAmountLeft = 0,
-                    Remark = "Tất toán toàn bộ nợ phiếu nhập kho"
+                    Remark = "Táº¥t toÃ¡n toÃ n bá»™ ná»£ phiáº¿u nháº­p kho"
                 }
             );
 
             await db.SaveChangesAsync();
         }
 
-        // ===== 21. Seed Dữ liệu mẫu Công Nợ & Thu Tiền Quyết Toán Khách Hàng Dịch Vụ Sửa Chữa (Customer Payment) =====
+        // ===== 21. Seed Dá»¯ liá»‡u máº«u CÃ´ng Ná»£ & Thu Tiá»n Quyáº¿t ToÃ¡n KhÃ¡ch HÃ ng Dá»‹ch Vá»¥ Sá»­a Chá»¯a (Customer Payment) =====
         if (!await db.CustomerDebits.AnyAsync())
         {
             var cd1 = new CustomerDebit
@@ -11125,22 +11136,22 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-CUS-202505-001",
                 CusId = "CUS-001",
-                CusName = "Nguyễn Văn Hùng",
+                CusName = "Nguyá»…n VÄƒn HÃ¹ng",
                 Phone = "0912-345-678",
-                Address = "Số 15 Phố Duy Tân, Cầu Giấy, Hà Nội",
+                Address = "Sá»‘ 15 Phá»‘ Duy TÃ¢n, Cáº§u Giáº¥y, HÃ  Ná»™i",
                 RONo = "RO-202505-0101",
                 RODate = DateTime.Today.AddDays(-14),
                 PlateNo = "30H-889.92",
                 VIN = "KMHSH81WPPU102911",
                 ModelCode = "SANTAFE",
-                ServiceType = "Bảo dưỡng định kỳ cấp lớn 40.000km",
+                ServiceType = "Báº£o dÆ°á»¡ng Ä‘á»‹nh ká»³ cáº¥p lá»›n 40.000km",
                 DebitDate = DateTime.Today.AddDays(-14),
                 DueDate = DateTime.Today.AddDays(1),
                 DebitAmount = 8_500_000,
                 PaidAmount = 8_500_000,
                 RemainAmount = 0,
                 Status = CustomerDebitStatus.Settled,
-                Note = "Bảo dưỡng cấp lớn 4 vạn: thay dầu động cơ, lọc dầu, lọc gió, dầu phanh và bugi",
+                Note = "Báº£o dÆ°á»¡ng cáº¥p lá»›n 4 váº¡n: thay dáº§u Ä‘á»™ng cÆ¡, lá»c dáº§u, lá»c giÃ³, dáº§u phanh vÃ  bugi",
                 CreatedBy = "VuMinhDuc_CoVanDichVu",
                 CreatedAt = DateTime.Today.AddDays(-14)
             };
@@ -11150,22 +11161,22 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-CUS-202505-002",
                 CusId = "CUS-001",
-                CusName = "Nguyễn Văn Hùng",
+                CusName = "Nguyá»…n VÄƒn HÃ¹ng",
                 Phone = "0912-345-678",
-                Address = "Số 15 Phố Duy Tân, Cầu Giấy, Hà Nội",
+                Address = "Sá»‘ 15 Phá»‘ Duy TÃ¢n, Cáº§u Giáº¥y, HÃ  Ná»™i",
                 RONo = "RO-202505-0205",
                 RODate = DateTime.Today.AddDays(-10),
                 PlateNo = "30H-889.92",
                 VIN = "KMHSH81WPPU102911",
                 ModelCode = "SANTAFE",
-                ServiceType = "Sửa chữa hệ thống phanh",
+                ServiceType = "Sá»­a chá»¯a há»‡ thá»‘ng phanh",
                 DebitDate = DateTime.Today.AddDays(-10),
                 DueDate = DateTime.Today.AddDays(5),
                 DebitAmount = 4_200_000,
                 PaidAmount = 4_200_000,
                 RemainAmount = 0,
                 Status = CustomerDebitStatus.Settled,
-                Note = "Thay má phanh đĩa gốm trước sau và láng đĩa phanh vi tính",
+                Note = "Thay mÃ¡ phanh Ä‘Ä©a gá»‘m trÆ°á»›c sau vÃ  lÃ¡ng Ä‘Ä©a phanh vi tÃ­nh",
                 CreatedBy = "VuMinhDuc_CoVanDichVu",
                 CreatedAt = DateTime.Today.AddDays(-10)
             };
@@ -11175,22 +11186,22 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-CUS-202505-003",
                 CusId = "CUS-002",
-                CusName = "Công ty CP Taxi Mai Linh Bắc Trung Bộ",
+                CusName = "CÃ´ng ty CP Taxi Mai Linh Báº¯c Trung Bá»™",
                 Phone = "024-3833-3333",
-                Address = "Khu đô thị Trung Hòa - Nhân Chính, Thanh Xuân, Hà Nội",
+                Address = "Khu Ä‘Ã´ thá»‹ Trung HÃ²a - NhÃ¢n ChÃ­nh, Thanh XuÃ¢n, HÃ  Ná»™i",
                 RONo = "RO-202505-0112",
                 RODate = DateTime.Today.AddDays(-8),
                 PlateNo = "29E-023.45",
                 VIN = "KMHDH41CPPU298102",
                 ModelCode = "ACCENT",
-                ServiceType = "Đại tu hộp số & Côn ly hợp",
+                ServiceType = "Äáº¡i tu há»™p sá»‘ & CÃ´n ly há»£p",
                 DebitDate = DateTime.Today.AddDays(-8),
                 DueDate = DateTime.Today.AddDays(7),
                 DebitAmount = 28_000_000,
                 PaidAmount = 15_000_000,
                 RemainAmount = 13_000_000,
                 Status = CustomerDebitStatus.PartiallyPaid,
-                Note = "Hạ hộp số thay bàn ép, lá côn, bi tê và bánh đà xe hợp đồng taxi",
+                Note = "Háº¡ há»™p sá»‘ thay bÃ n Ã©p, lÃ¡ cÃ´n, bi tÃª vÃ  bÃ¡nh Ä‘Ã  xe há»£p Ä‘á»“ng taxi",
                 CreatedBy = "NguyenTuanAnh_CoVanDichVu",
                 CreatedAt = DateTime.Today.AddDays(-8)
             };
@@ -11200,22 +11211,22 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-CUS-202505-004",
                 CusId = "CUS-002",
-                CusName = "Công ty CP Taxi Mai Linh Bắc Trung Bộ",
+                CusName = "CÃ´ng ty CP Taxi Mai Linh Báº¯c Trung Bá»™",
                 Phone = "024-3833-3333",
-                Address = "Khu đô thị Trung Hòa - Nhân Chính, Thanh Xuân, Hà Nội",
+                Address = "Khu Ä‘Ã´ thá»‹ Trung HÃ²a - NhÃ¢n ChÃ­nh, Thanh XuÃ¢n, HÃ  Ná»™i",
                 RONo = "RO-202505-0118",
                 RODate = DateTime.Today.AddDays(-6),
                 PlateNo = "29E-044.88",
                 VIN = "KMHDH41CPPU301984",
                 ModelCode = "ACCENT",
-                ServiceType = "Bảo dưỡng 80.000km & Thay lốp",
+                ServiceType = "Báº£o dÆ°á»¡ng 80.000km & Thay lá»‘p",
                 DebitDate = DateTime.Today.AddDays(-6),
                 DueDate = DateTime.Today.AddDays(9),
                 DebitAmount = 16_500_000,
                 PaidAmount = 0,
                 RemainAmount = 16_500_000,
                 Status = CustomerDebitStatus.Pending,
-                Note = "Bảo dưỡng tổng thể và thay 4 quả lốp Michelin 185/65R15 xe taxi",
+                Note = "Báº£o dÆ°á»¡ng tá»•ng thá»ƒ vÃ  thay 4 quáº£ lá»‘p Michelin 185/65R15 xe taxi",
                 CreatedBy = "NguyenTuanAnh_CoVanDichVu",
                 CreatedAt = DateTime.Today.AddDays(-6)
             };
@@ -11225,22 +11236,22 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-CUS-202505-005",
                 CusId = "CUS-003",
-                CusName = "Trần Thị Mai Phương",
+                CusName = "Tráº§n Thá»‹ Mai PhÆ°Æ¡ng",
                 Phone = "0988-123-456",
-                Address = "Biệt thự Vinhome Riverside, Long Biên, Hà Nội",
+                Address = "Biá»‡t thá»± Vinhome Riverside, Long BiÃªn, HÃ  Ná»™i",
                 RONo = "RO-202505-0125",
                 RODate = DateTime.Today.AddDays(-5),
                 PlateNo = "30K-128.66",
                 VIN = "KMHTG81BAPU504123",
                 ModelCode = "CRETA",
-                ServiceType = "Sơn gò phục hồi thân vỏ",
+                ServiceType = "SÆ¡n gÃ² phá»¥c há»“i thÃ¢n vá»",
                 DebitDate = DateTime.Today.AddDays(-5),
                 DueDate = DateTime.Today.AddDays(10),
                 DebitAmount = 6_800_000,
                 PaidAmount = 6_800_000,
                 RemainAmount = 0,
                 Status = CustomerDebitStatus.Settled,
-                Note = "Gò cản trước, sơn hấp buồng sấy ba đờ sốc và tai xe bên phụ",
+                Note = "GÃ² cáº£n trÆ°á»›c, sÆ¡n háº¥p buá»“ng sáº¥y ba Ä‘á» sá»‘c vÃ  tai xe bÃªn phá»¥",
                 CreatedBy = "PhamQuangHai_CoVanDichVu",
                 CreatedAt = DateTime.Today.AddDays(-5)
             };
@@ -11250,22 +11261,22 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-CUS-202505-006",
                 CusId = "CUS-004",
-                CusName = "Lê Hoàng Nam",
+                CusName = "LÃª HoÃ ng Nam",
                 Phone = "0904-567-890",
-                Address = "Tòa nhà Keangnam Landmark 72, Phạm Hùng, Nam Từ Liêm, Hà Nội",
+                Address = "TÃ²a nhÃ  Keangnam Landmark 72, Pháº¡m HÃ¹ng, Nam Tá»« LiÃªm, HÃ  Ná»™i",
                 RONo = "RO-202505-0130",
                 RODate = DateTime.Today.AddDays(-4),
                 PlateNo = "30F-998.12",
                 VIN = "KMHT381CMPU612844",
                 ModelCode = "TUCSON",
-                ServiceType = "Sửa chữa điều hòa & Hệ thống làm mát",
+                ServiceType = "Sá»­a chá»¯a Ä‘iá»u hÃ²a & Há»‡ thá»‘ng lÃ m mÃ¡t",
                 DebitDate = DateTime.Today.AddDays(-4),
                 DueDate = DateTime.Today.AddDays(11),
                 DebitAmount = 14_500_000,
                 PaidAmount = 0,
                 RemainAmount = 14_500_000,
                 Status = CustomerDebitStatus.Pending,
-                Note = "Thay lốc điều hòa Hanon, vệ sinh dàn lạnh và nạp ga R134a chuẩn",
+                Note = "Thay lá»‘c Ä‘iá»u hÃ²a Hanon, vá»‡ sinh dÃ n láº¡nh vÃ  náº¡p ga R134a chuáº©n",
                 CreatedBy = "PhamQuangHai_CoVanDichVu",
                 CreatedAt = DateTime.Today.AddDays(-4)
             };
@@ -11275,22 +11286,22 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-CUS-202505-007",
                 CusId = "CUS-005",
-                CusName = "Công ty Vận tải & Du lịch An Phú",
+                CusName = "CÃ´ng ty Váº­n táº£i & Du lá»‹ch An PhÃº",
                 Phone = "024-3999-8888",
-                Address = "Số 48 Hoàng Quốc Việt, Cầu Giấy, Hà Nội",
+                Address = "Sá»‘ 48 HoÃ ng Quá»‘c Viá»‡t, Cáº§u Giáº¥y, HÃ  Ná»™i",
                 RONo = "RO-202505-0142",
                 RODate = DateTime.Today.AddDays(-3),
                 PlateNo = "29B-512.34",
                 VIN = "KMHTS81DAPU718290",
                 ModelCode = "STARGAZER",
-                ServiceType = "Bảo dưỡng gầm & Hệ thống treo",
+                ServiceType = "Báº£o dÆ°á»¡ng gáº§m & Há»‡ thá»‘ng treo",
                 DebitDate = DateTime.Today.AddDays(-3),
                 DueDate = DateTime.Today.AddDays(12),
                 DebitAmount = 12_000_000,
                 PaidAmount = 0,
                 RemainAmount = 12_000_000,
                 Status = CustomerDebitStatus.Pending,
-                Note = "Thay bộ giảm chấn trước sau, cao su cân bằng và rotuyn lái",
+                Note = "Thay bá»™ giáº£m cháº¥n trÆ°á»›c sau, cao su cÃ¢n báº±ng vÃ  rotuyn lÃ¡i",
                 CreatedBy = "VuMinhDuc_CoVanDichVu",
                 CreatedAt = DateTime.Today.AddDays(-3)
             };
@@ -11300,22 +11311,22 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-CUS-202505-008",
                 CusId = "CUS-006",
-                CusName = "Vũ Minh Trí",
+                CusName = "VÅ© Minh TrÃ­",
                 Phone = "0915-888-999",
-                Address = "Chung cư Mandarin Garden, Hoàng Minh Giám, Cầu Giấy, Hà Nội",
+                Address = "Chung cÆ° Mandarin Garden, HoÃ ng Minh GiÃ¡m, Cáº§u Giáº¥y, HÃ  Ná»™i",
                 RONo = "RO-202505-0155",
                 RODate = DateTime.Today.AddDays(-2),
                 PlateNo = "30G-678.90",
                 VIN = "KMHC881EAPU823901",
                 ModelCode = "CUSTIN",
-                ServiceType = "Chăm sóc & Phụ kiện cao cấp",
+                ServiceType = "ChÄƒm sÃ³c & Phá»¥ kiá»‡n cao cáº¥p",
                 DebitDate = DateTime.Today.AddDays(-2),
                 DueDate = DateTime.Today.AddDays(13),
                 DebitAmount = 18_200_000,
                 PaidAmount = 0,
                 RemainAmount = 18_200_000,
                 Status = CustomerDebitStatus.Pending,
-                Note = "Dán phim cách nhiệt quang học 3M Crystalline và phủ gầm chống rỉ cao cấp",
+                Note = "DÃ¡n phim cÃ¡ch nhiá»‡t quang há»c 3M Crystalline vÃ  phá»§ gáº§m chá»‘ng rá»‰ cao cáº¥p",
                 CreatedBy = "PhamQuangHai_CoVanDichVu",
                 CreatedAt = DateTime.Today.AddDays(-2)
             };
@@ -11325,22 +11336,22 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-CUS-202505-009",
                 CusId = "CUS-007",
-                CusName = "Hoàng Đức Mạnh",
+                CusName = "HoÃ ng Äá»©c Máº¡nh",
                 Phone = "0936-777-222",
-                Address = "Khu đô thị Ecopark, Văn Giang, Hưng Yên",
+                Address = "Khu Ä‘Ã´ thá»‹ Ecopark, VÄƒn Giang, HÆ°ng YÃªn",
                 RONo = "RO-202505-0160",
                 RODate = DateTime.Today.AddDays(-1),
                 PlateNo = "30H-456.78",
                 VIN = "KMHEE81EAPU901844",
                 ModelCode = "IONIQ5",
-                ServiceType = "Bảo dưỡng chuyên biệt xe điện EV",
+                ServiceType = "Báº£o dÆ°á»¡ng chuyÃªn biá»‡t xe Ä‘iá»‡n EV",
                 DebitDate = DateTime.Today.AddDays(-1),
                 DueDate = DateTime.Today.AddDays(14),
                 DebitAmount = 5_500_000,
                 PaidAmount = 0,
                 RemainAmount = 5_500_000,
                 Status = CustomerDebitStatus.Pending,
-                Note = "Kiểm tra hệ thống quản lý pin BMS, cập nhật ECU và kiểm tra phanh hồi năng lượng",
+                Note = "Kiá»ƒm tra há»‡ thá»‘ng quáº£n lÃ½ pin BMS, cáº­p nháº­t ECU vÃ  kiá»ƒm tra phanh há»“i nÄƒng lÆ°á»£ng",
                 CreatedBy = "NguyenTuanAnh_CoVanDichVu",
                 CreatedAt = DateTime.Today.AddDays(-1)
             };
@@ -11350,22 +11361,22 @@ public static class Seeder
                 OrgId = TenantContext.DefaultOrgId,
                 DebitNo = "DEB-CUS-202505-010",
                 CusId = "CUS-008",
-                CusName = "Phạm Thu Hương",
+                CusName = "Pháº¡m Thu HÆ°Æ¡ng",
                 Phone = "0979-333-555",
-                Address = "Số 88 Phố Huế, Hai Bà Trưng, Hà Nội",
+                Address = "Sá»‘ 88 Phá»‘ Huáº¿, Hai BÃ  TrÆ°ng, HÃ  Ná»™i",
                 RODate = DateTime.Today,
                 PlateNo = "30A-789.01",
                 VIN = "KMHDH41DPPU410294",
                 ModelCode = "ELANTRA",
                 RONo = "RO-202505-0175",
-                ServiceType = "Căn chỉnh thước lái & Lốp xe",
+                ServiceType = "CÄƒn chá»‰nh thÆ°á»›c lÃ¡i & Lá»‘p xe",
                 DebitDate = DateTime.Today,
                 DueDate = DateTime.Today.AddDays(15),
                 DebitAmount = 7_200_000,
                 PaidAmount = 0,
                 RemainAmount = 7_200_000,
                 Status = CustomerDebitStatus.Pending,
-                Note = "Cân chỉnh góc đặt bánh xe 3D và thay 2 quả lốp trước Bridgestone 205/55R16",
+                Note = "CÃ¢n chá»‰nh gÃ³c Ä‘áº·t bÃ¡nh xe 3D vÃ  thay 2 quáº£ lá»‘p trÆ°á»›c Bridgestone 205/55R16",
                 CreatedBy = "VuMinhDuc_CoVanDichVu",
                 CreatedAt = DateTime.Today
             };
@@ -11373,29 +11384,29 @@ public static class Seeder
             db.CustomerDebits.AddRange(cd1, cd2, cd3, cd4, cd5, cd6, cd7, cd8, cd9, cd10);
             await db.SaveChangesAsync();
 
-            // Phiếu thu 1: Tất toán 2 lệnh sửa chữa cho anh Nguyễn Văn Hùng qua Chuyển khoản VietQR
+            // Phiáº¿u thu 1: Táº¥t toÃ¡n 2 lá»‡nh sá»­a chá»¯a cho anh Nguyá»…n VÄƒn HÃ¹ng qua Chuyá»ƒn khoáº£n VietQR
             var cp1 = new CustomerPayment
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PaymentNo = "PT-CUS-202505-001",
                 CusId = "CUS-001",
-                CusName = "Nguyễn Văn Hùng",
+                CusName = "Nguyá»…n VÄƒn HÃ¹ng",
                 CusPhone = "0912-345-678",
                 PlateNo = "30H-889.92",
                 PayDate = DateTime.Today.AddDays(-9),
-                PayPersonName = "Nguyễn Văn Hùng",
+                PayPersonName = "Nguyá»…n VÄƒn HÃ¹ng",
                 PayPersonIDCardNo = "001085002931",
                 PayPersonPhone = "0912-345-678",
                 PaymentAmount = 12_700_000,
                 PaymentMethod = CustomerPaymentMethod.BankTransfer,
                 BankCode = "CTG",
-                BankName = "VietinBank - Chi nhánh Nam Thăng Long",
+                BankName = "VietinBank - Chi nhÃ¡nh Nam ThÄƒng Long",
                 BankAccountNo = "113000889988",
                 BankTxnRef = "FT251299834211",
                 TotalAllocated = 12_700_000,
                 UnallocatedAmount = 0,
                 Status = CustomerPaymentStatus.Settled,
-                Note = "Thu tiền thanh toán dịch vụ bảo dưỡng và má phanh qua quét mã VietQR",
+                Note = "Thu tiá»n thanh toÃ¡n dá»‹ch vá»¥ báº£o dÆ°á»¡ng vÃ  mÃ¡ phanh qua quÃ©t mÃ£ VietQR",
                 CreatedBy = "LeThiHuyen_ThuNgan",
                 ConfirmedBy = "LeThiHuyen_ThuNgan",
                 ConfirmedAt = DateTime.Today.AddDays(-9),
@@ -11420,7 +11431,7 @@ public static class Seeder
                     DebitAmountBefore = 8_500_000,
                     PaymentDetailAmount = 8_500_000,
                     DebitAmountLeft = 0,
-                    Remark = "Tất toán toàn bộ nợ lệnh sửa chữa RO-202505-0101"
+                    Remark = "Táº¥t toÃ¡n toÃ n bá»™ ná»£ lá»‡nh sá»­a chá»¯a RO-202505-0101"
                 },
                 new CustomerPaymentDetail
                 {
@@ -11435,32 +11446,32 @@ public static class Seeder
                     DebitAmountBefore = 4_200_000,
                     PaymentDetailAmount = 4_200_000,
                     DebitAmountLeft = 0,
-                    Remark = "Tất toán toàn bộ nợ lệnh sửa chữa RO-202505-0205"
+                    Remark = "Táº¥t toÃ¡n toÃ n bá»™ ná»£ lá»‡nh sá»­a chá»¯a RO-202505-0205"
                 }
             );
 
-            // Phiếu thu 2: Tất toán chi phí sơn gò cho chị Trần Thị Mai Phương qua VNPay QR
+            // Phiáº¿u thu 2: Táº¥t toÃ¡n chi phÃ­ sÆ¡n gÃ² cho chá»‹ Tráº§n Thá»‹ Mai PhÆ°Æ¡ng qua VNPay QR
             var cp2 = new CustomerPayment
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PaymentNo = "PT-CUS-202505-002",
                 CusId = "CUS-003",
-                CusName = "Trần Thị Mai Phương",
+                CusName = "Tráº§n Thá»‹ Mai PhÆ°Æ¡ng",
                 CusPhone = "0988-123-456",
                 PlateNo = "30K-128.66",
                 PayDate = DateTime.Today.AddDays(-5),
-                PayPersonName = "Trần Thị Mai Phương",
+                PayPersonName = "Tráº§n Thá»‹ Mai PhÆ°Æ¡ng",
                 PayPersonIDCardNo = "001192004821",
                 PayPersonPhone = "0988-123-456",
                 PaymentAmount = 6_800_000,
                 PaymentMethod = CustomerPaymentMethod.VnPay,
                 BankCode = "VNPAY",
-                BankName = "Cổng thanh toán VNPay QR Pos",
+                BankName = "Cá»•ng thanh toÃ¡n VNPay QR Pos",
                 BankTxnRef = "VNPAY-POS-202505-8831",
                 TotalAllocated = 6_800_000,
                 UnallocatedAmount = 0,
                 Status = CustomerPaymentStatus.Settled,
-                Note = "Khách hàng thanh toán qua cổng VNPay QR tại quầy thu ngân dịch vụ",
+                Note = "KhÃ¡ch hÃ ng thanh toÃ¡n qua cá»•ng VNPay QR táº¡i quáº§y thu ngÃ¢n dá»‹ch vá»¥",
                 CreatedBy = "LeThiHuyen_ThuNgan",
                 ConfirmedBy = "LeThiHuyen_ThuNgan",
                 ConfirmedAt = DateTime.Today.AddDays(-5),
@@ -11485,33 +11496,33 @@ public static class Seeder
                     DebitAmountBefore = 6_800_000,
                     PaymentDetailAmount = 6_800_000,
                     DebitAmountLeft = 0,
-                    Remark = "Tất toán toàn bộ nợ sơn cản trước lệnh RO-202505-0125"
+                    Remark = "Táº¥t toÃ¡n toÃ n bá»™ ná»£ sÆ¡n cáº£n trÆ°á»›c lá»‡nh RO-202505-0125"
                 }
             );
 
-            // Phiếu thu 3: Thanh toán một phần cho Công ty Taxi Mai Linh Bắc Trung Bộ qua Techcombank UNC
+            // Phiáº¿u thu 3: Thanh toÃ¡n má»™t pháº§n cho CÃ´ng ty Taxi Mai Linh Báº¯c Trung Bá»™ qua Techcombank UNC
             var cp3 = new CustomerPayment
             {
                 OrgId = TenantContext.DefaultOrgId,
                 PaymentNo = "PT-CUS-202505-003",
                 CusId = "CUS-002",
-                CusName = "Công ty CP Taxi Mai Linh Bắc Trung Bộ",
+                CusName = "CÃ´ng ty CP Taxi Mai Linh Báº¯c Trung Bá»™",
                 CusPhone = "024-3833-3333",
                 PlateNo = "29E-023.45",
                 PayDate = DateTime.Today,
-                PayPersonName = "Hoàng Kim Tuấn (Kế toán đội xe Mai Linh)",
+                PayPersonName = "HoÃ ng Kim Tuáº¥n (Káº¿ toÃ¡n Ä‘á»™i xe Mai Linh)",
                 PayPersonIDCardNo = "036087001294",
                 PayPersonPhone = "0903-222-111",
                 PaymentAmount = 15_000_000,
                 PaymentMethod = CustomerPaymentMethod.BankTransfer,
                 BankCode = "TCB",
-                BankName = "Techcombank - Hội Sở",
+                BankName = "Techcombank - Há»™i Sá»Ÿ",
                 BankAccountNo = "19028833990011",
                 BankTxnRef = "UNC-TCB-CUS-202505-092",
                 TotalAllocated = 15_000_000,
                 UnallocatedAmount = 0,
                 Status = CustomerPaymentStatus.Confirmed,
-                Note = "Thu ngân xác nhận tiền nổi vào tài khoản Techcombank, trừ nợ đợt 1 lệnh đại tu hộp số RO-202505-0112",
+                Note = "Thu ngÃ¢n xÃ¡c nháº­n tiá»n ná»•i vÃ o tÃ i khoáº£n Techcombank, trá»« ná»£ Ä‘á»£t 1 lá»‡nh Ä‘áº¡i tu há»™p sá»‘ RO-202505-0112",
                 CreatedBy = "LeThiHuyen_ThuNgan",
                 ConfirmedBy = "LeThiHuyen_ThuNgan",
                 ConfirmedAt = DateTime.Today,
@@ -11534,28 +11545,28 @@ public static class Seeder
                     DebitAmountBefore = 28_000_000,
                     PaymentDetailAmount = 15_000_000,
                     DebitAmountLeft = 13_000_000,
-                    Remark = "Trừ nợ đợt 1 (15 triệu / 28 triệu), còn nợ 13 triệu"
+                    Remark = "Trá»« ná»£ Ä‘á»£t 1 (15 triá»‡u / 28 triá»‡u), cÃ²n ná»£ 13 triá»‡u"
                 }
             );
 
             await db.SaveChangesAsync();
         }
 
-        // Seed dữ liệu mẫu cho Quản lý Biên Bản Thỏa Thuận Hủy Hợp Đồng & Quyết Toán Nghĩa Vụ Tài Chính (BizHTC.Contract / DMS40.Contract)
+        // Seed dá»¯ liá»‡u máº«u cho Quáº£n lÃ½ BiÃªn Báº£n Thá»a Thuáº­n Há»§y Há»£p Äá»“ng & Quyáº¿t ToÃ¡n NghÄ©a Vá»¥ TÃ i ChÃ­nh (BizHTC.Contract / DMS40.Contract)
         if (!await db.ContractCancellations.AnyAsync())
         {
-            // 1. Biên bản hoàn tất quyết toán hoàn cọc 100% qua UNC VietinBank (Settled)
+            // 1. BiÃªn báº£n hoÃ n táº¥t quyáº¿t toÃ¡n hoÃ n cá»c 100% qua UNC VietinBank (Settled)
             var cc1 = new ContractCancellation
             {
                 OrgId = TenantContext.DefaultOrgId,
                 ContractCancelNo = "DCC-202505-001",
                 DlrContractNo = "HDMB-2025-HN01",
                 DealerCode = "VN001",
-                DealerName = "Công ty CP Ô tô Hyundai Hà Nội",
+                DealerName = "CÃ´ng ty CP Ã” tÃ´ Hyundai HÃ  Ná»™i",
                 CancelDate = DateTime.Today.AddDays(-10),
                 SettlementType = ContractCancelSettlementType.RefundDeposit,
                 BankCode = "CTG",
-                BankName = "Ngân hàng TMCP Công Thương Việt Nam (VietinBank)",
+                BankName = "NgÃ¢n hÃ ng TMCP CÃ´ng ThÆ°Æ¡ng Viá»‡t Nam (VietinBank)",
                 BankGuaranteeNo = null,
                 TransferContractNo = null,
                 TotalVehicles = 2,
@@ -11565,13 +11576,13 @@ public static class Seeder
                 TotalPenaltyAmount = 0,
                 TotalGuaranteeRelease = 0,
                 Status = ContractCancelStatus.Settled,
-                CancelReason = "Hãng điều chỉnh kế hoạch sản xuất linh kiện toàn cầu, không kịp giao xe đúng tiến độ cam kết. Hai bên thống nhất thỏa thuận hủy phụ lục hợp đồng và HTC hoàn lại 100% tiền cọc cho đại lý.",
+                CancelReason = "HÃ£ng Ä‘iá»u chá»‰nh káº¿ hoáº¡ch sáº£n xuáº¥t linh kiá»‡n toÃ n cáº§u, khÃ´ng ká»‹p giao xe Ä‘Ãºng tiáº¿n Ä‘á»™ cam káº¿t. Hai bÃªn thá»‘ng nháº¥t thá»a thuáº­n há»§y phá»¥ lá»¥c há»£p Ä‘á»“ng vÃ  HTC hoÃ n láº¡i 100% tiá»n cá»c cho Ä‘áº¡i lÃ½.",
                 BankTxnRef = "UNC-CTG-REF-202505-0019",
                 SettledBy = "NguyenVanQuyet_KeToanThanhToan",
                 SettledAt = DateTime.Today.AddDays(-8),
                 ApprovedBy = "TranMinhDuc_PhoTongGiamDocKinhDoanh",
                 ApprovedAt = DateTime.Today.AddDays(-9),
-                Remark = "Đã xuất lệnh chi UNC chuyển khoản VietinBank tài khoản thụ hưởng của đại lý thành công.",
+                Remark = "ÄÃ£ xuáº¥t lá»‡nh chi UNC chuyá»ƒn khoáº£n VietinBank tÃ i khoáº£n thá»¥ hÆ°á»Ÿng cá»§a Ä‘áº¡i lÃ½ thÃ nh cÃ´ng.",
                 CreatedBy = "VuThiThao_ChuyenVienQuanLyDaiLy",
                 CreatedAt = DateTime.Today.AddDays(-10)
             };
@@ -11587,7 +11598,7 @@ public static class Seeder
                     VIN = "KMHSH81DPNU100881",
                     CarId = "CAR-SANTAFE-0881",
                     ModelCode = "SANTAFE",
-                    ModelName = "Hyundai Santa Fe 2.5 AWD Cao Cấp",
+                    ModelName = "Hyundai Santa Fe 2.5 AWD Cao Cáº¥p",
                     SpecCode = "SF-2.5-PRE",
                     ColorCode = "TRANG",
                     UnitPrice = 1_450_000_000,
@@ -11596,7 +11607,7 @@ public static class Seeder
                     PenaltyAmount = 0,
                     GuaranteeAmount = 0,
                     Status = ContractCancelDetailStatus.Settled,
-                    Remark = "Hoàn cọc 15% do đứt gãy chuỗi cung ứng linh kiện radar"
+                    Remark = "HoÃ n cá»c 15% do Ä‘á»©t gÃ£y chuá»—i cung á»©ng linh kiá»‡n radar"
                 },
                 new ContractCancelDetail
                 {
@@ -11606,7 +11617,7 @@ public static class Seeder
                     VIN = "KMHCT81EPNU100882",
                     CarId = "CAR-CRETA-0882",
                     ModelCode = "CRETA",
-                    ModelName = "Hyundai Creta 1.5 Cao Cấp",
+                    ModelName = "Hyundai Creta 1.5 Cao Cáº¥p",
                     SpecCode = "CR-1.5-PRE",
                     ColorCode = "DO",
                     UnitPrice = 740_000_000,
@@ -11615,18 +11626,18 @@ public static class Seeder
                     PenaltyAmount = 0,
                     GuaranteeAmount = 0,
                     Status = ContractCancelDetailStatus.Settled,
-                    Remark = "Hoàn cọc 15% thỏa thuận hủy đơn hàng đại lý"
+                    Remark = "HoÃ n cá»c 15% thá»a thuáº­n há»§y Ä‘Æ¡n hÃ ng Ä‘áº¡i lÃ½"
                 }
             );
 
-            // 2. Biên bản phạt cọc do đại lý chậm nộp tiền thanh toán (Approved, chờ quyết toán)
+            // 2. BiÃªn báº£n pháº¡t cá»c do Ä‘áº¡i lÃ½ cháº­m ná»™p tiá»n thanh toÃ¡n (Approved, chá» quyáº¿t toÃ¡n)
             var cc2 = new ContractCancellation
             {
                 OrgId = TenantContext.DefaultOrgId,
                 ContractCancelNo = "DCC-202505-002",
                 DlrContractNo = "HDMB-2025-VH03",
                 DealerCode = "VN040",
-                DealerName = "Công ty CP Ô tô Hyundai Việt Hàn (Sài Gòn)",
+                DealerName = "CÃ´ng ty CP Ã” tÃ´ Hyundai Viá»‡t HÃ n (SÃ i GÃ²n)",
                 CancelDate = DateTime.Today.AddDays(-4),
                 SettlementType = ContractCancelSettlementType.ForfeitDeposit,
                 BankCode = null,
@@ -11640,11 +11651,11 @@ public static class Seeder
                 TotalPenaltyAmount = 237_000_000,
                 TotalGuaranteeRelease = 0,
                 Status = ContractCancelStatus.Approved,
-                CancelReason = "Đại lý vi phạm nghiêm trọng cam kết tiến độ thanh toán xe (quá hạn 45 ngày kể từ ngày thông báo giao xe). Căn cứ Điều 8 Hợp đồng phân phối đại lý, HTC quyết định hủy hợp đồng và tịch thu toàn bộ tiền cọc nộp phạt.",
+                CancelReason = "Äáº¡i lÃ½ vi pháº¡m nghiÃªm trá»ng cam káº¿t tiáº¿n Ä‘á»™ thanh toÃ¡n xe (quÃ¡ háº¡n 45 ngÃ y ká»ƒ tá»« ngÃ y thÃ´ng bÃ¡o giao xe). CÄƒn cá»© Äiá»u 8 Há»£p Ä‘á»“ng phÃ¢n phá»‘i Ä‘áº¡i lÃ½, HTC quyáº¿t Ä‘á»‹nh há»§y há»£p Ä‘á»“ng vÃ  tá»‹ch thu toÃ n bá»™ tiá»n cá»c ná»™p pháº¡t.",
                 BankTxnRef = null,
                 ApprovedBy = "PhamQuangHai_GiamDocTaiChinh",
                 ApprovedAt = DateTime.Today.AddDays(-2),
-                Remark = "Lãnh đạo đã ký duyệt phạt cọc, chuyển phòng Kế toán hạch toán sung doanh thu phạt vi phạm hợp đồng.",
+                Remark = "LÃ£nh Ä‘áº¡o Ä‘Ã£ kÃ½ duyá»‡t pháº¡t cá»c, chuyá»ƒn phÃ²ng Káº¿ toÃ¡n háº¡ch toÃ¡n sung doanh thu pháº¡t vi pháº¡m há»£p Ä‘á»“ng.",
                 CreatedBy = "VuThiThao_ChuyenVienQuanLyDaiLy",
                 CreatedAt = DateTime.Today.AddDays(-4)
             };
@@ -11669,7 +11680,7 @@ public static class Seeder
                     PenaltyAmount = 153_000_000,
                     GuaranteeAmount = 0,
                     Status = ContractCancelDetailStatus.Approved,
-                    Remark = "Phạt cọc 15% vi phạm thời hạn nộp tiền thanh toán dứt điểm"
+                    Remark = "Pháº¡t cá»c 15% vi pháº¡m thá»i háº¡n ná»™p tiá»n thanh toÃ¡n dá»©t Ä‘iá»ƒm"
                 },
                 new ContractCancelDetail
                 {
@@ -11679,7 +11690,7 @@ public static class Seeder
                     VIN = "KMHAC81EPNU200116",
                     CarId = "CAR-ACCENT-0116",
                     ModelCode = "ACCENT",
-                    ModelName = "Hyundai Accent 1.5 AT Đặc Biệt",
+                    ModelName = "Hyundai Accent 1.5 AT Äáº·c Biá»‡t",
                     SpecCode = "ACC-1.5-DB",
                     ColorCode = "BAC",
                     UnitPrice = 560_000_000,
@@ -11688,22 +11699,22 @@ public static class Seeder
                     PenaltyAmount = 84_000_000,
                     GuaranteeAmount = 0,
                     Status = ContractCancelDetailStatus.Approved,
-                    Remark = "Phạt cọc 15% vi phạm nhận xe theo thông báo số TB-GIAOXE-8839"
+                    Remark = "Pháº¡t cá»c 15% vi pháº¡m nháº­n xe theo thÃ´ng bÃ¡o sá»‘ TB-GIAOXE-8839"
                 }
             );
 
-            // 3. Biên bản giải phóng bảo lãnh ngân hàng VPBank (Submitted, đang trình duyệt)
+            // 3. BiÃªn báº£n giáº£i phÃ³ng báº£o lÃ£nh ngÃ¢n hÃ ng VPBank (Submitted, Ä‘ang trÃ¬nh duyá»‡t)
             var cc3 = new ContractCancellation
             {
                 OrgId = TenantContext.DefaultOrgId,
                 ContractCancelNo = "DCC-202505-003",
                 DlrContractNo = "HDMB-2025-DA08",
                 DealerCode = "VN005",
-                DealerName = "Công ty CP Thương mại Dịch vụ Hyundai Đông Anh",
+                DealerName = "CÃ´ng ty CP ThÆ°Æ¡ng máº¡i Dá»‹ch vá»¥ Hyundai ÄÃ´ng Anh",
                 CancelDate = DateTime.Today.AddDays(-2),
                 SettlementType = ContractCancelSettlementType.ReleaseGuarantee,
                 BankCode = "VPB",
-                BankName = "Ngân hàng TMCP Việt Nam Thịnh Vượng (VPBank)",
+                BankName = "NgÃ¢n hÃ ng TMCP Viá»‡t Nam Thá»‹nh VÆ°á»£ng (VPBank)",
                 BankGuaranteeNo = "BLTT-VPB-2025-9982",
                 TransferContractNo = null,
                 TotalVehicles = 2,
@@ -11713,9 +11724,9 @@ public static class Seeder
                 TotalPenaltyAmount = 0,
                 TotalGuaranteeRelease = 2_677_500_000,
                 Status = ContractCancelStatus.Submitted,
-                CancelReason = "Khách hàng mua lô doanh nghiệp của đại lý thay đổi nhu cầu sang xe thương mại tải nặng. Đại lý đề nghị hủy giao xe phụ lục HDMB-2025-DA08 và đề nghị HTC phát hành văn bản giải tỏa Thư bảo lãnh số BLTT-VPB-2025-9982 để hoàn trả hạn mức tín dụng cho đại lý.",
+                CancelReason = "KhÃ¡ch hÃ ng mua lÃ´ doanh nghiá»‡p cá»§a Ä‘áº¡i lÃ½ thay Ä‘á»•i nhu cáº§u sang xe thÆ°Æ¡ng máº¡i táº£i náº·ng. Äáº¡i lÃ½ Ä‘á» nghá»‹ há»§y giao xe phá»¥ lá»¥c HDMB-2025-DA08 vÃ  Ä‘á» nghá»‹ HTC phÃ¡t hÃ nh vÄƒn báº£n giáº£i tá»a ThÆ° báº£o lÃ£nh sá»‘ BLTT-VPB-2025-9982 Ä‘á»ƒ hoÃ n tráº£ háº¡n má»©c tÃ­n dá»¥ng cho Ä‘áº¡i lÃ½.",
                 BankTxnRef = null,
-                Remark = "Hồ sơ đầy đủ công văn giải trình của đại lý và biên bản làm việc giữa 2 bên. Đã trình Ban Giám đốc thẩm định.",
+                Remark = "Há»“ sÆ¡ Ä‘áº§y Ä‘á»§ cÃ´ng vÄƒn giáº£i trÃ¬nh cá»§a Ä‘áº¡i lÃ½ vÃ  biÃªn báº£n lÃ m viá»‡c giá»¯a 2 bÃªn. ÄÃ£ trÃ¬nh Ban GiÃ¡m Ä‘á»‘c tháº©m Ä‘á»‹nh.",
                 CreatedBy = "VuThiThao_ChuyenVienQuanLyDaiLy",
                 CreatedAt = DateTime.Today.AddDays(-2)
             };
@@ -11740,7 +11751,7 @@ public static class Seeder
                     PenaltyAmount = 0,
                     GuaranteeAmount = 1_589_500_000,
                     Status = ContractCancelDetailStatus.Pending,
-                    Remark = "Giải phóng nghĩa vụ bảo lãnh 85% giá trị xe tại VPBank"
+                    Remark = "Giáº£i phÃ³ng nghÄ©a vá»¥ báº£o lÃ£nh 85% giÃ¡ trá»‹ xe táº¡i VPBank"
                 },
                 new ContractCancelDetail
                 {
@@ -11750,7 +11761,7 @@ public static class Seeder
                     VIN = "KMHCU81EPNU300552",
                     CarId = "CAR-CUSTIN-0552",
                     ModelCode = "CUSTIN",
-                    ModelName = "Hyundai Custin 2.0 T-GDi Cao Cấp",
+                    ModelName = "Hyundai Custin 2.0 T-GDi Cao Cáº¥p",
                     SpecCode = "CUS-2.0T-PRE",
                     ColorCode = "TRANG",
                     UnitPrice = 1_280_000_000,
@@ -11759,18 +11770,18 @@ public static class Seeder
                     PenaltyAmount = 0,
                     GuaranteeAmount = 1_088_000_000,
                     Status = ContractCancelDetailStatus.Pending,
-                    Remark = "Giải phóng nghĩa vụ bảo lãnh 85% giá trị xe tại VPBank"
+                    Remark = "Giáº£i phÃ³ng nghÄ©a vá»¥ báº£o lÃ£nh 85% giÃ¡ trá»‹ xe táº¡i VPBank"
                 }
             );
 
-            // 4. Biên bản chuyển tiền cọc sang phụ lục hợp đồng xe khác (Draft)
+            // 4. BiÃªn báº£n chuyá»ƒn tiá»n cá»c sang phá»¥ lá»¥c há»£p Ä‘á»“ng xe khÃ¡c (Draft)
             var cc4 = new ContractCancellation
             {
                 OrgId = TenantContext.DefaultOrgId,
                 ContractCancelNo = "DCC-202505-004",
                 DlrContractNo = "HDMB-2025-HP05",
                 DealerCode = "VN018",
-                DealerName = "Công ty TNHH Hyundai Hải Phòng",
+                DealerName = "CÃ´ng ty TNHH Hyundai Háº£i PhÃ²ng",
                 CancelDate = DateTime.Today,
                 SettlementType = ContractCancelSettlementType.TransferDeposit,
                 BankCode = null,
@@ -11784,8 +11795,8 @@ public static class Seeder
                 TotalPenaltyAmount = 0,
                 TotalGuaranteeRelease = 0,
                 Status = ContractCancelStatus.Draft,
-                CancelReason = "Đại lý và khách hàng thỏa thuận chuyển đổi sang đặt mua dòng xe thuần điện IONIQ 5 thế hệ mới theo phụ lục hợp đồng HDMB-2025-HP12, xin chuyển toàn bộ 217,500,000 VND tiền cọc đã nộp sang hợp đồng mới.",
-                Remark = "Dự thảo biên bản thỏa thuận chuyển cọc, đang hoàn thiện hồ sơ đối chiếu phiếu thu tiền cọc ban đầu.",
+                CancelReason = "Äáº¡i lÃ½ vÃ  khÃ¡ch hÃ ng thá»a thuáº­n chuyá»ƒn Ä‘á»•i sang Ä‘áº·t mua dÃ²ng xe thuáº§n Ä‘iá»‡n IONIQ 5 tháº¿ há»‡ má»›i theo phá»¥ lá»¥c há»£p Ä‘á»“ng HDMB-2025-HP12, xin chuyá»ƒn toÃ n bá»™ 217,500,000 VND tiá»n cá»c Ä‘Ã£ ná»™p sang há»£p Ä‘á»“ng má»›i.",
+                Remark = "Dá»± tháº£o biÃªn báº£n thá»a thuáº­n chuyá»ƒn cá»c, Ä‘ang hoÃ n thiá»‡n há»“ sÆ¡ Ä‘á»‘i chiáº¿u phiáº¿u thu tiá»n cá»c ban Ä‘áº§u.",
                 CreatedBy = "VuThiThao_ChuyenVienQuanLyDaiLy",
                 CreatedAt = DateTime.Today
             };
@@ -11811,29 +11822,29 @@ public static class Seeder
                     GuaranteeAmount = 0,
                     TransferContractNo = "HDMB-2025-HP12",
                     Status = ContractCancelDetailStatus.Pending,
-                    Remark = "Chuyển tiền cọc sang hợp đồng mới HDMB-2025-HP12"
+                    Remark = "Chuyá»ƒn tiá»n cá»c sang há»£p Ä‘á»“ng má»›i HDMB-2025-HP12"
                 }
             );
 
             await db.SaveChangesAsync();
         }
 
-        // Seed dữ liệu mẫu cho Quản lý Hồ sơ Đề nghị Mượn / Bàn Giao Chứng Từ Gốc Xe Ô Tô & Xác Nhận Ngân Hàng (BizHTC.Car.Profile.cs / Car_DocReqList / FrmMngDocReq)
+        // Seed dá»¯ liá»‡u máº«u cho Quáº£n lÃ½ Há»“ sÆ¡ Äá» nghá»‹ MÆ°á»£n / BÃ n Giao Chá»©ng Tá»« Gá»‘c Xe Ã” TÃ´ & XÃ¡c Nháº­n NgÃ¢n HÃ ng (BizHTC.Car.Profile.cs / Car_DocReqList / FrmMngDocReq)
         if (!await db.CarDocRequests.AnyAsync())
         {
-            // Hồ sơ 1: Bàn giao chứng từ xe hoàn tất thanh toán (TypeCRR = Normal, Status = HandedOver)
+            // Há»“ sÆ¡ 1: BÃ n giao chá»©ng tá»« xe hoÃ n táº¥t thanh toÃ¡n (TypeCRR = Normal, Status = HandedOver)
             var req1 = new CarDocReqList
             {
                 OrgId = TenantContext.DefaultOrgId,
                 DRListCode = "DNGT-202505-001",
                 DealerCode = "DLR-PVD",
-                DealerName = "Công ty CP Ô tô Hyundai Phạm Văn Đồng",
+                DealerName = "CÃ´ng ty CP Ã” tÃ´ Hyundai Pháº¡m VÄƒn Äá»“ng",
                 BankCode = null,
                 BankName = null,
                 TypeCRR = CarDocReqType.Normal,
                 LetterRepresentationNo = "GGT-2025/05/PVD-01",
                 LetterRepresentationDate = DateTime.Today.AddDays(-5),
-                RepresentativeName = "Nguyễn Văn Hưng",
+                RepresentativeName = "Nguyá»…n VÄƒn HÆ°ng",
                 RepresentativeIdCard = "001092004812",
                 RepresentativePhone = "0912345678",
                 TotalVehicles = 2,
@@ -11848,8 +11859,8 @@ public static class Seeder
                 ApprovedDate2 = DateTime.Today.AddDays(-3),
                 HandoverDate = DateTime.Today.AddDays(-2),
                 HandedOverBy = "LeVanThang_ThuKhoChungTu",
-                HandoverRecipient = "Nguyễn Văn Hưng",
-                Remark = "Đại lý đã hoàn tất thanh toán 100% tiền mua 02 xe Santa Fe qua UNC ngân hàng VietinBank. Hồ sơ gốc CO/CQ đã xuất giao đủ cho đại diện đại lý nhận làm thủ tục bàn giao khách.",
+                HandoverRecipient = "Nguyá»…n VÄƒn HÆ°ng",
+                Remark = "Äáº¡i lÃ½ Ä‘Ã£ hoÃ n táº¥t thanh toÃ¡n 100% tiá»n mua 02 xe Santa Fe qua UNC ngÃ¢n hÃ ng VietinBank. Há»“ sÆ¡ gá»‘c CO/CQ Ä‘Ã£ xuáº¥t giao Ä‘á»§ cho Ä‘áº¡i diá»‡n Ä‘áº¡i lÃ½ nháº­n lÃ m thá»§ tá»¥c bÃ n giao khÃ¡ch.",
                 CreatedBy = "VuThiThao_ChuyenVienQuanLyDaiLy",
                 CreatedAt = DateTime.Today.AddDays(-5)
             };
@@ -11868,7 +11879,7 @@ public static class Seeder
                     ModelName = "Hyundai Santa Fe Calligraphy 2.5 AWD",
                     SpecCode = "STA-2.5-CAL",
                     EngineNo = "G4KP-PU018821",
-                    ColorNameVN = "Trắng Tinh Khôi",
+                    ColorNameVN = "Tráº¯ng Tinh KhÃ´i",
                     ContractNo = "HDMB-2025-PVD01",
                     UnitPriceActual = 1_280_000_000,
                     PaymentPercent = 100.0m,
@@ -11878,11 +11889,11 @@ public static class Seeder
                     CONo = "CO-2025-STA-8821",
                     CQNo = "CQ-2025-STA-8821",
                     HTCInvoiceNo = "HD-2025-001289",
-                    DocumentsGiven = "Bản gốc CO, Bản sao CQ, Giấy kiểm định xuất xưởng, Hóa đơn VAT",
+                    DocumentsGiven = "Báº£n gá»‘c CO, Báº£n sao CQ, Giáº¥y kiá»ƒm Ä‘á»‹nh xuáº¥t xÆ°á»Ÿng, HÃ³a Ä‘Æ¡n VAT",
                     BankApprStatus = BankDocApprStatus.Approved,
                     Status = CarDocReqDetailStatus.HandedOver,
                     HandoverDate = req1.HandoverDate,
-                    Remark = "Đã xuất giao hồ sơ gốc hoàn tất"
+                    Remark = "ÄÃ£ xuáº¥t giao há»“ sÆ¡ gá»‘c hoÃ n táº¥t"
                 },
                 new CarDocReqDetail
                 {
@@ -11892,10 +11903,10 @@ public static class Seeder
                     VIN = "KMHCT81DAPU029944",
                     CarId = "CAR-CRE-029944",
                     ModelCode = "CRETA",
-                    ModelName = "Hyundai Creta 1.5 Cao Cấp",
+                    ModelName = "Hyundai Creta 1.5 Cao Cáº¥p",
                     SpecCode = "CRE-1.5-PRE",
                     EngineNo = "G4FL-PU029944",
-                    ColorNameVN = "Đỏ Quyến Rũ",
+                    ColorNameVN = "Äá» Quyáº¿n RÅ©",
                     ContractNo = "HDMB-2025-PVD01",
                     UnitPriceActual = 870_000_000,
                     PaymentPercent = 100.0m,
@@ -11905,27 +11916,27 @@ public static class Seeder
                     CONo = "CO-2025-CRE-9944",
                     CQNo = "CQ-2025-CRE-9944",
                     HTCInvoiceNo = "HD-2025-001290",
-                    DocumentsGiven = "Bản gốc CO, Bản sao CQ, Hóa đơn VAT",
+                    DocumentsGiven = "Báº£n gá»‘c CO, Báº£n sao CQ, HÃ³a Ä‘Æ¡n VAT",
                     BankApprStatus = BankDocApprStatus.Approved,
                     Status = CarDocReqDetailStatus.HandedOver,
                     HandoverDate = req1.HandoverDate,
-                    Remark = "Đã xuất giao hồ sơ gốc hoàn tất"
+                    Remark = "ÄÃ£ xuáº¥t giao há»“ sÆ¡ gá»‘c hoÃ n táº¥t"
                 }
             );
 
-            // Hồ sơ 2: Bàn giao theo Thư bảo lãnh ngân hàng tài trợ Techcombank (TypeCRR = Special, Status = Approved2)
+            // Há»“ sÆ¡ 2: BÃ n giao theo ThÆ° báº£o lÃ£nh ngÃ¢n hÃ ng tÃ i trá»£ Techcombank (TypeCRR = Special, Status = Approved2)
             var req2 = new CarDocReqList
             {
                 OrgId = TenantContext.DefaultOrgId,
                 DRListCode = "DNGT-202505-002",
                 DealerCode = "DLR-DA",
-                DealerName = "Công ty CP Ô tô Hyundai Đông Anh",
+                DealerName = "CÃ´ng ty CP Ã” tÃ´ Hyundai ÄÃ´ng Anh",
                 BankCode = "TCB",
-                BankName = "Ngân hàng TMCP Kỹ Thương Việt Nam (Techcombank) - CN Thăng Long",
+                BankName = "NgÃ¢n hÃ ng TMCP Ká»¹ ThÆ°Æ¡ng Viá»‡t Nam (Techcombank) - CN ThÄƒng Long",
                 TypeCRR = CarDocReqType.Special,
                 LetterRepresentationNo = "GGT-2025/05/DA-08",
                 LetterRepresentationDate = DateTime.Today.AddDays(-3),
-                RepresentativeName = "Trần Hải Đăng",
+                RepresentativeName = "Tráº§n Háº£i ÄÄƒng",
                 RepresentativeIdCard = "001088009123",
                 RepresentativePhone = "0988776655",
                 TotalVehicles = 2,
@@ -11940,7 +11951,7 @@ public static class Seeder
                 BankApprovedAt = DateTime.Today.AddDays(-1),
                 ApprovedBy2 = "PhamQuangHuy_PhoTGDKD",
                 ApprovedDate2 = DateTime.Today,
-                Remark = "Đại lý đã thanh toán 30% tiền cọc và có Thư bảo lãnh Techcombank số BL-2025-TCB-8821 bảo lãnh 70% giá trị hợp đồng. Ngân hàng đã thẩm định và xác nhận chấp thuận giải phóng hồ sơ xe. Đã có lệnh xuất két A2.",
+                Remark = "Äáº¡i lÃ½ Ä‘Ã£ thanh toÃ¡n 30% tiá»n cá»c vÃ  cÃ³ ThÆ° báº£o lÃ£nh Techcombank sá»‘ BL-2025-TCB-8821 báº£o lÃ£nh 70% giÃ¡ trá»‹ há»£p Ä‘á»“ng. NgÃ¢n hÃ ng Ä‘Ã£ tháº©m Ä‘á»‹nh vÃ  xÃ¡c nháº­n cháº¥p thuáº­n giáº£i phÃ³ng há»“ sÆ¡ xe. ÄÃ£ cÃ³ lá»‡nh xuáº¥t kÃ©t A2.",
                 CreatedBy = "NguyenVanTam_ChuyenVienQuanLyDaiLy",
                 CreatedAt = DateTime.Today.AddDays(-3)
             };
@@ -11959,7 +11970,7 @@ public static class Seeder
                     ModelName = "Hyundai Tucson 1.6T HTRAC Turbo",
                     SpecCode = "TUC-1.6T-TURBO",
                     EngineNo = "G4FP-PU044120",
-                    ColorNameVN = "Đen Sang Trọng",
+                    ColorNameVN = "Äen Sang Trá»ng",
                     ContractNo = "HDMB-2025-TC01",
                     UnitPriceActual = 1_040_000_000,
                     PaymentPercent = 30.0m,
@@ -11970,13 +11981,13 @@ public static class Seeder
                     CONo = "CO-2025-TUC-4120",
                     CQNo = "CQ-2025-TUC-4120",
                     HTCInvoiceNo = "HD-2025-001305",
-                    DocumentsGiven = "Bản gốc CO, Bản sao CQ, Tờ khai HQ, Hóa đơn VAT",
+                    DocumentsGiven = "Báº£n gá»‘c CO, Báº£n sao CQ, Tá» khai HQ, HÃ³a Ä‘Æ¡n VAT",
                     BankApprStatus = BankDocApprStatus.Approved,
                     BankApprBy = "NguyenPhuongThao_CBTD_TCB",
                     BankApprDTime = DateTime.Today.AddDays(-1),
-                    BankApprNote = "Techcombank Thăng Long xác nhận bảo lãnh hợp lệ cho số khung KMHJT81WAPU044120",
+                    BankApprNote = "Techcombank ThÄƒng Long xÃ¡c nháº­n báº£o lÃ£nh há»£p lá»‡ cho sá»‘ khung KMHJT81WAPU044120",
                     Status = CarDocReqDetailStatus.Approved2,
-                    Remark = "Chờ thủ kho xuất giao chứng từ cho cán bộ ngân hàng ký nhận"
+                    Remark = "Chá» thá»§ kho xuáº¥t giao chá»©ng tá»« cho cÃ¡n bá»™ ngÃ¢n hÃ ng kÃ½ nháº­n"
                 },
                 new CarDocReqDetail
                 {
@@ -11986,10 +11997,10 @@ public static class Seeder
                     VIN = "KMHAC81CBPU077112",
                     CarId = "CAR-ACC-077112",
                     ModelCode = "ACCENT",
-                    ModelName = "Hyundai All-New Accent 1.5 AT Đặc Biệt",
+                    ModelName = "Hyundai All-New Accent 1.5 AT Äáº·c Biá»‡t",
                     SpecCode = "ACC-1.5-AT-DB",
                     EngineNo = "G4FA-PU077112",
-                    ColorNameVN = "Bạc Ánh Kim",
+                    ColorNameVN = "Báº¡c Ãnh Kim",
                     ContractNo = "HDMB-2025-TC01",
                     UnitPriceActual = 830_000_000,
                     PaymentPercent = 30.0m,
@@ -12000,29 +12011,29 @@ public static class Seeder
                     CONo = "CO-2025-ACC-7112",
                     CQNo = "CQ-2025-ACC-7112",
                     HTCInvoiceNo = "HD-2025-001306",
-                    DocumentsGiven = "Bản gốc CO, Bản sao CQ, Hóa đơn VAT",
+                    DocumentsGiven = "Báº£n gá»‘c CO, Báº£n sao CQ, HÃ³a Ä‘Æ¡n VAT",
                     BankApprStatus = BankDocApprStatus.Approved,
                     BankApprBy = "NguyenPhuongThao_CBTD_TCB",
                     BankApprDTime = DateTime.Today.AddDays(-1),
-                    BankApprNote = "Techcombank Thăng Long xác nhận bảo lãnh hợp lệ cho số khung KMHAC81CBPU077112",
+                    BankApprNote = "Techcombank ThÄƒng Long xÃ¡c nháº­n báº£o lÃ£nh há»£p lá»‡ cho sá»‘ khung KMHAC81CBPU077112",
                     Status = CarDocReqDetailStatus.Approved2,
-                    Remark = "Chờ thủ kho xuất giao chứng từ cho cán bộ ngân hàng ký nhận"
+                    Remark = "Chá» thá»§ kho xuáº¥t giao chá»©ng tá»« cho cÃ¡n bá»™ ngÃ¢n hÃ ng kÃ½ nháº­n"
                 }
             );
 
-            // Hồ sơ 3: Đại lý mượn hồ sơ gốc làm thủ tục đăng ký xe trước cho khách (TypeCRR = Dealer, Status = HandedOver kèm hạn trả két)
+            // Há»“ sÆ¡ 3: Äáº¡i lÃ½ mÆ°á»£n há»“ sÆ¡ gá»‘c lÃ m thá»§ tá»¥c Ä‘Äƒng kÃ½ xe trÆ°á»›c cho khÃ¡ch (TypeCRR = Dealer, Status = HandedOver kÃ¨m háº¡n tráº£ kÃ©t)
             var req3 = new CarDocReqList
             {
                 OrgId = TenantContext.DefaultOrgId,
                 DRListCode = "DNGT-202505-003",
                 DealerCode = "DLR-SG",
-                DealerName = "Công ty CP Hyundai Sài Gòn Phân Phối",
+                DealerName = "CÃ´ng ty CP Hyundai SÃ i GÃ²n PhÃ¢n Phá»‘i",
                 BankCode = "VCB",
-                BankName = "Ngân hàng TMCP Ngoại Thương Việt Nam (Vietcombank) - CN Kỳ Đồng",
+                BankName = "NgÃ¢n hÃ ng TMCP Ngoáº¡i ThÆ°Æ¡ng Viá»‡t Nam (Vietcombank) - CN Ká»³ Äá»“ng",
                 TypeCRR = CarDocReqType.Dealer,
                 LetterRepresentationNo = "GGT-2025/05/SG-14",
                 LetterRepresentationDate = DateTime.Today.AddDays(-7),
-                RepresentativeName = "Hoàng Minh Trí",
+                RepresentativeName = "HoÃ ng Minh TrÃ­",
                 RepresentativeIdCard = "079090001245",
                 RepresentativePhone = "0903334455",
                 TotalVehicles = 1,
@@ -12039,9 +12050,9 @@ public static class Seeder
                 ApprovedDate2 = DateTime.Today.AddDays(-4),
                 HandoverDate = DateTime.Today.AddDays(-3),
                 HandedOverBy = "LeVanThang_ThuKhoChungTu",
-                HandoverRecipient = "Hoàng Minh Trí",
-                ReturnDueDate = DateTime.Today.AddDays(7), // Hạn trả hồ sơ gốc trong vòng 10 ngày
-                Remark = "Đại lý mượn bản gốc CO xe Palisade để hoàn tất thủ tục đăng ký xe và đăng kiểm biển số cho khách hàng VIP của Vietcombank. Cam kết hoàn trả bản gốc CO về két trước ngày quy định.",
+                HandoverRecipient = "HoÃ ng Minh TrÃ­",
+                ReturnDueDate = DateTime.Today.AddDays(7), // Háº¡n tráº£ há»“ sÆ¡ gá»‘c trong vÃ²ng 10 ngÃ y
+                Remark = "Äáº¡i lÃ½ mÆ°á»£n báº£n gá»‘c CO xe Palisade Ä‘á»ƒ hoÃ n táº¥t thá»§ tá»¥c Ä‘Äƒng kÃ½ xe vÃ  Ä‘Äƒng kiá»ƒm biá»ƒn sá»‘ cho khÃ¡ch hÃ ng VIP cá»§a Vietcombank. Cam káº¿t hoÃ n tráº£ báº£n gá»‘c CO vá» kÃ©t trÆ°á»›c ngÃ y quy Ä‘á»‹nh.",
                 CreatedBy = "VuThiThao_ChuyenVienQuanLyDaiLy",
                 CreatedAt = DateTime.Today.AddDays(-7)
             };
@@ -12060,7 +12071,7 @@ public static class Seeder
                     ModelName = "Hyundai Palisade Calligraphy 2.2D AWD",
                     SpecCode = "PAL-2.2D-CAL",
                     EngineNo = "D4HB-PU066911",
-                    ColorNameVN = "Trắng Ngọc Trai",
+                    ColorNameVN = "Tráº¯ng Ngá»c Trai",
                     ContractNo = "HDMB-2025-SG04",
                     UnitPriceActual = 1_580_000_000,
                     PaymentPercent = 30.0m,
@@ -12071,31 +12082,31 @@ public static class Seeder
                     CONo = "CO-2025-PAL-6911",
                     CQNo = "CQ-2025-PAL-6911",
                     HTCInvoiceNo = "HD-2025-001318",
-                    DocumentsGiven = "Bản gốc CO mượn tạm, Bản sao CQ công chứng",
+                    DocumentsGiven = "Báº£n gá»‘c CO mÆ°á»£n táº¡m, Báº£n sao CQ cÃ´ng chá»©ng",
                     BankApprStatus = BankDocApprStatus.Approved,
                     BankApprBy = "VoThiKimOanh_CBTD_VCB",
                     BankApprDTime = DateTime.Today.AddDays(-5),
-                    BankApprNote = "Vietcombank Kỳ Đồng đồng ý cho đại lý mượn CO gốc đăng ký bấm biển xe cho KH",
+                    BankApprNote = "Vietcombank Ká»³ Äá»“ng Ä‘á»“ng Ã½ cho Ä‘áº¡i lÃ½ mÆ°á»£n CO gá»‘c Ä‘Äƒng kÃ½ báº¥m biá»ƒn xe cho KH",
                     Status = CarDocReqDetailStatus.HandedOver,
                     HandoverDate = req3.HandoverDate,
                     ReturnDueDate = req3.ReturnDueDate,
-                    Remark = "Đang mượn hồ sơ gốc làm thủ tục đăng ký xe, hạn trả két ngày " + req3.ReturnDueDate?.ToString("dd/MM/yyyy")
+                    Remark = "Äang mÆ°á»£n há»“ sÆ¡ gá»‘c lÃ m thá»§ tá»¥c Ä‘Äƒng kÃ½ xe, háº¡n tráº£ kÃ©t ngÃ y " + req3.ReturnDueDate?.ToString("dd/MM/yyyy")
                 }
             );
 
-            // Hồ sơ 4: Đề nghị mới tạo dự thảo (TypeCRR = Normal, Status = Draft)
+            // Há»“ sÆ¡ 4: Äá» nghá»‹ má»›i táº¡o dá»± tháº£o (TypeCRR = Normal, Status = Draft)
             var req4 = new CarDocReqList
             {
                 OrgId = TenantContext.DefaultOrgId,
                 DRListCode = "DNGT-202505-004",
                 DealerCode = "DLR-LB",
-                DealerName = "Công ty CP Ô tô Hyundai Long Biên",
+                DealerName = "CÃ´ng ty CP Ã” tÃ´ Hyundai Long BiÃªn",
                 BankCode = "VPB",
-                BankName = "Ngân hàng TMCP Việt Nam Thịnh Vượng (VPBank) - Hội Sở",
+                BankName = "NgÃ¢n hÃ ng TMCP Viá»‡t Nam Thá»‹nh VÆ°á»£ng (VPBank) - Há»™i Sá»Ÿ",
                 TypeCRR = CarDocReqType.Special,
                 LetterRepresentationNo = "GGT-2025/05/LB-03",
                 LetterRepresentationDate = DateTime.Today,
-                RepresentativeName = "Đoàn Văn Hùng",
+                RepresentativeName = "ÄoÃ n VÄƒn HÃ¹ng",
                 RepresentativeIdCard = "001094002871",
                 RepresentativePhone = "0944556677",
                 TotalVehicles = 1,
@@ -12104,7 +12115,7 @@ public static class Seeder
                 TotalGuaranteeAmount = 1_000_000_000,
                 AvgDutyCompletePercent = 100.0m,
                 Status = CarDocReqStatus.Draft,
-                Remark = "Dự thảo hồ sơ đề nghị giao hồ sơ gốc xe Hyundai Custin theo Thư bảo lãnh VPBank, đang chờ hoàn thiện sao y công chứng giấy giới thiệu.",
+                Remark = "Dá»± tháº£o há»“ sÆ¡ Ä‘á» nghá»‹ giao há»“ sÆ¡ gá»‘c xe Hyundai Custin theo ThÆ° báº£o lÃ£nh VPBank, Ä‘ang chá» hoÃ n thiá»‡n sao y cÃ´ng chá»©ng giáº¥y giá»›i thiá»‡u.",
                 CreatedBy = "VuThiThao_ChuyenVienQuanLyDaiLy",
                 CreatedAt = DateTime.Today
             };
@@ -12120,10 +12131,10 @@ public static class Seeder
                     VIN = "KMHCU81NBPU055209",
                     CarId = "CAR-CUS-055209",
                     ModelCode = "CUSTIN",
-                    ModelName = "Hyundai Custin 2.0T Cao Cấp MPV",
+                    ModelName = "Hyundai Custin 2.0T Cao Cáº¥p MPV",
                     SpecCode = "CUS-2.0T-PRE",
                     EngineNo = "G4NN-PU055209",
-                    ColorNameVN = "Xanh Lục Bảo",
+                    ColorNameVN = "Xanh Lá»¥c Báº£o",
                     ContractNo = "HDMB-2025-LB09",
                     UnitPriceActual = 1_250_000_000,
                     PaymentPercent = 20.0m,
@@ -12134,20 +12145,20 @@ public static class Seeder
                     CONo = "CO-2025-CUS-5209",
                     CQNo = "CQ-2025-CUS-5209",
                     HTCInvoiceNo = "HD-2025-001322",
-                    DocumentsGiven = "Bản gốc CO, Bản sao CQ, Hóa đơn VAT",
+                    DocumentsGiven = "Báº£n gá»‘c CO, Báº£n sao CQ, HÃ³a Ä‘Æ¡n VAT",
                     BankApprStatus = BankDocApprStatus.Pending,
                     Status = CarDocReqDetailStatus.Pending,
-                    Remark = "Dự thảo đề nghị, chuẩn bị trình chuyên viên công nợ HTC thẩm định A1"
+                    Remark = "Dá»± tháº£o Ä‘á» nghá»‹, chuáº©n bá»‹ trÃ¬nh chuyÃªn viÃªn cÃ´ng ná»£ HTC tháº©m Ä‘á»‹nh A1"
                 }
             );
 
             await db.SaveChangesAsync();
         }
 
-        // Dữ liệu mẫu Hóa đơn GTGT (VAT E-Invoice) bán buôn xe ô tô (VAT_HTCInvoice / PrintVAT)
+        // Dá»¯ liá»‡u máº«u HÃ³a Ä‘Æ¡n GTGT (VAT E-Invoice) bÃ¡n buÃ´n xe Ã´ tÃ´ (VAT_HTCInvoice / PrintVAT)
         if (!await db.HTCInvoices.AnyAsync(x => x.OrgId == TenantContext.DefaultOrgId))
         {
-            // Hóa đơn 1: Đã phát hành, Đã thanh toán 1 phần (PartiallyPaid)
+            // HÃ³a Ä‘Æ¡n 1: ÄÃ£ phÃ¡t hÃ nh, ÄÃ£ thanh toÃ¡n 1 pháº§n (PartiallyPaid)
             var inv1 = new HTCInvoice
             {
                 OrgId = TenantContext.DefaultOrgId,
@@ -12156,13 +12167,13 @@ public static class Seeder
                 InvoiceSymbol = "1C25THC",
                 InvoiceDate = DateTime.Today.AddDays(-6),
                 DealerCode = "DL-HYUNDAI-HADONG",
-                DealerName = "Công ty Cổ phần Ô tô Hyundai Hà Đông",
+                DealerName = "CÃ´ng ty Cá»• pháº§n Ã” tÃ´ Hyundai HÃ  ÄÃ´ng",
                 BuyerTaxCode = "0105882910",
-                BuyerAddress = "Tổ 17 Phường Yên Nghĩa, Quận Hà Đông, TP. Hà Nội",
-                BuyerLegalRepresentative = "Nguyễn Văn Tuấn - Tổng Giám Đốc",
+                BuyerAddress = "Tá»• 17 PhÆ°á»ng YÃªn NghÄ©a, Quáº­n HÃ  ÄÃ´ng, TP. HÃ  Ná»™i",
+                BuyerLegalRepresentative = "Nguyá»…n VÄƒn Tuáº¥n - Tá»•ng GiÃ¡m Äá»‘c",
                 PaymentMethod = "CK",
                 BankCode = "CTG",
-                BankName = "VietinBank - CN Đô Thành",
+                BankName = "VietinBank - CN ÄÃ´ ThÃ nh",
                 BankAccountNo = "118000293849",
                 TotalVehicles = 2,
                 TotalAmount = 2_228_000_000,
@@ -12180,7 +12191,7 @@ public static class Seeder
                 IssuedDate = DateTime.Today.AddDays(-6).AddHours(4),
                 CreatedBy = "KeToanBanHang_HTC",
                 CreatedAt = DateTime.Today.AddDays(-6),
-                Remark = "TT 1,500,000,000 đ qua UNC MBB-8921 ngày 10/05/2025"
+                Remark = "TT 1,500,000,000 Ä‘ qua UNC MBB-8921 ngÃ y 10/05/2025"
             };
             db.HTCInvoices.Add(inv1);
             await db.SaveChangesAsync();
@@ -12195,10 +12206,10 @@ public static class Seeder
                     CarId = "CAR-SAN-881023",
                     VIN = "KMHEN41LBCU881023",
                     ModelCode = "SANTAFE",
-                    ModelName = "Hyundai Santa Fe 2.5 H-Trac Xăng Cao Cấp",
+                    ModelName = "Hyundai Santa Fe 2.5 H-Trac XÄƒng Cao Cáº¥p",
                     SpecCode = "SAN-2.5-GAS-PRE",
                     EngineNo = "G4KM-CU881023",
-                    ColorVN = "Đen Sang Trọng",
+                    ColorVN = "Äen Sang Trá»ng",
                     ProductionYear = "2025",
                     CabinCONo = "CO-2025-SAN-1023",
                     CQNo = "CQ-2025-SAN-1023",
@@ -12208,7 +12219,7 @@ public static class Seeder
                     VATAmount = 126_900_000,
                     TotalPrice = 1_395_900_000,
                     Status = HTCInvoiceDetailStatus.Active,
-                    Remark = "Xe giao đợt 1 tháng 5/2025 theo HĐ đại lý"
+                    Remark = "Xe giao Ä‘á»£t 1 thÃ¡ng 5/2025 theo HÄ Ä‘áº¡i lÃ½"
                 },
                 new HTCInvoiceDetail
                 {
@@ -12219,10 +12230,10 @@ public static class Seeder
                     CarId = "CAR-TUC-881024",
                     VIN = "KMHEN41LBCU881024",
                     ModelCode = "TUCSON",
-                    ModelName = "Hyundai Tucson 2.0 Dầu Đặc Biệt",
+                    ModelName = "Hyundai Tucson 2.0 Dáº§u Äáº·c Biá»‡t",
                     SpecCode = "TUC-2.0D-SPE",
                     EngineNo = "D4HD-CU881024",
-                    ColorVN = "Trắng Tinh Khôi",
+                    ColorVN = "Tráº¯ng Tinh KhÃ´i",
                     ProductionYear = "2025",
                     CabinCONo = "CO-2025-TUC-1024",
                     CQNo = "CQ-2025-TUC-1024",
@@ -12232,12 +12243,12 @@ public static class Seeder
                     VATAmount = 95_900_000,
                     TotalPrice = 1_054_900_000,
                     Status = HTCInvoiceDetailStatus.Active,
-                    Remark = "Xe giao đợt 1 tháng 5/2025 theo HĐ đại lý"
+                    Remark = "Xe giao Ä‘á»£t 1 thÃ¡ng 5/2025 theo HÄ Ä‘áº¡i lÃ½"
                 }
             );
             await db.SaveChangesAsync();
 
-            // Hóa đơn 2: Đã phát hành, Đã quyết toán 100% (Settled)
+            // HÃ³a Ä‘Æ¡n 2: ÄÃ£ phÃ¡t hÃ nh, ÄÃ£ quyáº¿t toÃ¡n 100% (Settled)
             var inv2 = new HTCInvoice
             {
                 OrgId = TenantContext.DefaultOrgId,
@@ -12246,10 +12257,10 @@ public static class Seeder
                 InvoiceSymbol = "1C25THC",
                 InvoiceDate = DateTime.Today.AddDays(-5),
                 DealerCode = "DL-HYUNDAI-SAIGON",
-                DealerName = "Công ty Cổ phần Ô tô Hyundai Sài Gòn",
+                DealerName = "CÃ´ng ty Cá»• pháº§n Ã” tÃ´ Hyundai SÃ i GÃ²n",
                 BuyerTaxCode = "0304991823",
-                BuyerAddress = "Số 70 Lương Định Của, Phường An Phú, TP. Thủ Đức, TP. Hồ Chí Minh",
-                BuyerLegalRepresentative = "Lê Hoàng Nam - Giám Đốc",
+                BuyerAddress = "Sá»‘ 70 LÆ°Æ¡ng Äá»‹nh Cá»§a, PhÆ°á»ng An PhÃº, TP. Thá»§ Äá»©c, TP. Há»“ ChÃ­ Minh",
+                BuyerLegalRepresentative = "LÃª HoÃ ng Nam - GiÃ¡m Äá»‘c",
                 PaymentMethod = "CK",
                 BankCode = "VCB",
                 BankName = "Vietcombank - CN TP.HCM",
@@ -12270,7 +12281,7 @@ public static class Seeder
                 IssuedDate = DateTime.Today.AddDays(-5).AddHours(3),
                 CreatedBy = "KeToanBanHang_HTC",
                 CreatedAt = DateTime.Today.AddDays(-5),
-                Remark = "TT 2,065,800,000 đ qua UNC VCB-3498 ngày 08/05/2025"
+                Remark = "TT 2,065,800,000 Ä‘ qua UNC VCB-3498 ngÃ y 08/05/2025"
             };
             db.HTCInvoices.Add(inv2);
             await db.SaveChangesAsync();
@@ -12285,10 +12296,10 @@ public static class Seeder
                     CarId = "CAR-CRE-102941",
                     VIN = "KMHEC41ABNU102941",
                     ModelCode = "CRETA",
-                    ModelName = "Hyundai Creta 1.5 Cao Cấp",
+                    ModelName = "Hyundai Creta 1.5 Cao Cáº¥p",
                     SpecCode = "CRE-1.5-PRE",
                     EngineNo = "G4FL-NU102941",
-                    ColorVN = "Đỏ Mận",
+                    ColorVN = "Äá» Máº­n",
                     ProductionYear = "2025",
                     CabinCONo = "CO-2025-CRE-2941",
                     CQNo = "CQ-2025-CRE-2941",
@@ -12308,10 +12319,10 @@ public static class Seeder
                     CarId = "CAR-CRE-102942",
                     VIN = "KMHEC41ABNU102942",
                     ModelCode = "CRETA",
-                    ModelName = "Hyundai Creta 1.5 Đặc Biệt",
+                    ModelName = "Hyundai Creta 1.5 Äáº·c Biá»‡t",
                     SpecCode = "CRE-1.5-SPE",
                     EngineNo = "G4FL-NU102942",
-                    ColorVN = "Trắng Tuyết",
+                    ColorVN = "Tráº¯ng Tuyáº¿t",
                     ProductionYear = "2025",
                     CabinCONo = "CO-2025-CRE-2942",
                     CQNo = "CQ-2025-CRE-2942",
@@ -12331,10 +12342,10 @@ public static class Seeder
                     CarId = "CAR-ACC-332190",
                     VIN = "KMHBA41BBNU332190",
                     ModelCode = "ACCENT",
-                    ModelName = "Hyundai Accent 1.5 AT Đặc Biệt All New",
+                    ModelName = "Hyundai Accent 1.5 AT Äáº·c Biá»‡t All New",
                     SpecCode = "ACC-1.5-AT-SPE",
                     EngineNo = "G4LC-NU332190",
-                    ColorVN = "Bạc Ánh Kim",
+                    ColorVN = "Báº¡c Ãnh Kim",
                     ProductionYear = "2025",
                     CabinCONo = "CO-2025-ACC-2190",
                     CQNo = "CQ-2025-ACC-2190",
@@ -12348,7 +12359,7 @@ public static class Seeder
             );
             await db.SaveChangesAsync();
 
-            // Hóa đơn 3: Đã phát hành, Chưa thanh toán (Issued)
+            // HÃ³a Ä‘Æ¡n 3: ÄÃ£ phÃ¡t hÃ nh, ChÆ°a thanh toÃ¡n (Issued)
             var inv3 = new HTCInvoice
             {
                 OrgId = TenantContext.DefaultOrgId,
@@ -12357,13 +12368,13 @@ public static class Seeder
                 InvoiceSymbol = "1C25THC",
                 InvoiceDate = DateTime.Today.AddDays(-3),
                 DealerCode = "DL-HYUNDAI-DONGDO",
-                DealerName = "Công ty Cổ phần Hyundai Đông Đô",
+                DealerName = "CÃ´ng ty Cá»• pháº§n Hyundai ÄÃ´ng ÄÃ´",
                 BuyerTaxCode = "0106771890",
-                BuyerAddress = "Số 98 Phố Phùng Hưng, Quận Hoàn Kiếm, TP. Hà Nội",
-                BuyerLegalRepresentative = "Trần Mạnh Cường - Chủ Tịch HĐQT",
+                BuyerAddress = "Sá»‘ 98 Phá»‘ PhÃ¹ng HÆ°ng, Quáº­n HoÃ n Kiáº¿m, TP. HÃ  Ná»™i",
+                BuyerLegalRepresentative = "Tráº§n Máº¡nh CÆ°á»ng - Chá»§ Tá»‹ch HÄQT",
                 PaymentMethod = "CK",
                 BankCode = "MBB",
-                BankName = "MBBank - CN Sở Giao Dịch",
+                BankName = "MBBank - CN Sá»Ÿ Giao Dá»‹ch",
                 BankAccountNo = "0581100982734",
                 TotalVehicles = 2,
                 TotalAmount = 3_058_000_000,
@@ -12381,7 +12392,7 @@ public static class Seeder
                 IssuedDate = DateTime.Today.AddDays(-3).AddHours(4),
                 CreatedBy = "KeToanBanHang_HTC",
                 CreatedAt = DateTime.Today.AddDays(-3),
-                Remark = "Đã gửi hóa đơn điện tử cho đại lý, chờ kế toán đại lý ủy nhiệm chi"
+                Remark = "ÄÃ£ gá»­i hÃ³a Ä‘Æ¡n Ä‘iá»‡n tá»­ cho Ä‘áº¡i lÃ½, chá» káº¿ toÃ¡n Ä‘áº¡i lÃ½ á»§y nhiá»‡m chi"
             };
             db.HTCInvoices.Add(inv3);
             await db.SaveChangesAsync();
@@ -12396,10 +12407,10 @@ public static class Seeder
                     CarId = "CAR-PAL-091822",
                     VIN = "KMHPL41ABRU091822",
                     ModelCode = "PALISADE",
-                    ModelName = "Hyundai Palisade 2.2D Prestige 6 chỗ",
+                    ModelName = "Hyundai Palisade 2.2D Prestige 6 chá»—",
                     SpecCode = "PAL-2.2D-PRE-6S",
                     EngineNo = "D4HB-RU091822",
-                    ColorVN = "Xanh Bóng Đêm",
+                    ColorVN = "Xanh BÃ³ng ÄÃªm",
                     ProductionYear = "2025",
                     CabinCONo = "CO-2025-PAL-1822",
                     CQNo = "CQ-2025-PAL-1822",
@@ -12419,10 +12430,10 @@ public static class Seeder
                     CarId = "CAR-PAL-091823",
                     VIN = "KMHPL41ABRU091823",
                     ModelCode = "PALISADE",
-                    ModelName = "Hyundai Palisade 2.2D Exclusive 7 chỗ",
+                    ModelName = "Hyundai Palisade 2.2D Exclusive 7 chá»—",
                     SpecCode = "PAL-2.2D-EXC-7S",
                     EngineNo = "D4HB-RU091823",
-                    ColorVN = "Trắng Ngọc Trai",
+                    ColorVN = "Tráº¯ng Ngá»c Trai",
                     ProductionYear = "2025",
                     CabinCONo = "CO-2025-PAL-1823",
                     CQNo = "CQ-2025-PAL-1823",
@@ -12436,7 +12447,7 @@ public static class Seeder
             );
             await db.SaveChangesAsync();
 
-            // Hóa đơn 4: Đã duyệt, Chờ phát hành (Approved)
+            // HÃ³a Ä‘Æ¡n 4: ÄÃ£ duyá»‡t, Chá» phÃ¡t hÃ nh (Approved)
             var inv4 = new HTCInvoice
             {
                 OrgId = TenantContext.DefaultOrgId,
@@ -12444,13 +12455,13 @@ public static class Seeder
                 InvoiceSymbol = "1C25THC",
                 InvoiceDate = DateTime.Today.AddDays(-1),
                 DealerCode = "DL-HYUNDAI-DANANG",
-                DealerName = "Công ty Cổ phần Ô tô Hyundai Đà Nẵng",
+                DealerName = "CÃ´ng ty Cá»• pháº§n Ã” tÃ´ Hyundai ÄÃ  Náºµng",
                 BuyerTaxCode = "0401882716",
-                BuyerAddress = "Số 86 Duy Tân, Phường Hòa Thuận Tây, Quận Hải Châu, TP. Đà Nẵng",
-                BuyerLegalRepresentative = "Võ Văn Hùng - Giám Đốc",
+                BuyerAddress = "Sá»‘ 86 Duy TÃ¢n, PhÆ°á»ng HÃ²a Thuáº­n TÃ¢y, Quáº­n Háº£i ChÃ¢u, TP. ÄÃ  Náºµng",
+                BuyerLegalRepresentative = "VÃµ VÄƒn HÃ¹ng - GiÃ¡m Äá»‘c",
                 PaymentMethod = "CK",
                 BankCode = "VPB",
-                BankName = "VPBank - CN Đà Nẵng",
+                BankName = "VPBank - CN ÄÃ  Náºµng",
                 BankAccountNo = "192837465012",
                 TotalVehicles = 2,
                 TotalAmount = 1_828_000_000,
@@ -12465,7 +12476,7 @@ public static class Seeder
                 ApprovedDate = DateTime.Today.AddDays(-1).AddHours(3),
                 CreatedBy = "KeToanBanHang_HTC",
                 CreatedAt = DateTime.Today.AddDays(-1),
-                Remark = "Kế toán trưởng đã duyệt, sẵn sàng ký số CA phát hành"
+                Remark = "Káº¿ toÃ¡n trÆ°á»Ÿng Ä‘Ã£ duyá»‡t, sáºµn sÃ ng kÃ½ sá»‘ CA phÃ¡t hÃ nh"
             };
             db.HTCInvoices.Add(inv4);
             await db.SaveChangesAsync();
@@ -12480,10 +12491,10 @@ public static class Seeder
                     CarId = "CAR-CUS-055209",
                     VIN = "KMHCU81NBPU055209",
                     ModelCode = "CUSTIN",
-                    ModelName = "Hyundai Custin 2.0T Cao Cấp MPV",
+                    ModelName = "Hyundai Custin 2.0T Cao Cáº¥p MPV",
                     SpecCode = "CUS-2.0T-PRE",
                     EngineNo = "G4NN-PU055209",
-                    ColorVN = "Xanh Lục Bảo",
+                    ColorVN = "Xanh Lá»¥c Báº£o",
                     ProductionYear = "2025",
                     CabinCONo = "CO-2025-CUS-5209",
                     CQNo = "CQ-2025-CUS-5209",
@@ -12506,7 +12517,7 @@ public static class Seeder
                     ModelName = "Hyundai Elantra N-Line 1.6 Turbo",
                     SpecCode = "ELA-1.6T-NLINE",
                     EngineNo = "G4FP-PU033100",
-                    ColorVN = "Xám Xi Măng",
+                    ColorVN = "XÃ¡m Xi MÄƒng",
                     ProductionYear = "2025",
                     CabinCONo = "CO-2025-ELA-3100",
                     CQNo = "CQ-2025-ELA-3100",
@@ -12520,7 +12531,7 @@ public static class Seeder
             );
             await db.SaveChangesAsync();
 
-            // Hóa đơn 5: Dự thảo (Draft)
+            // HÃ³a Ä‘Æ¡n 5: Dá»± tháº£o (Draft)
             var inv5 = new HTCInvoice
             {
                 OrgId = TenantContext.DefaultOrgId,
@@ -12528,13 +12539,13 @@ public static class Seeder
                 InvoiceSymbol = "1C25THC",
                 InvoiceDate = DateTime.Today,
                 DealerCode = "DL-HYUNDAI-CANTHO",
-                DealerName = "Công ty TNHH MTV Hyundai Cần Thơ",
+                DealerName = "CÃ´ng ty TNHH MTV Hyundai Cáº§n ThÆ¡",
                 BuyerTaxCode = "1801293810",
-                BuyerAddress = "Quốc Lộ 91B, Phường An Khánh, Quận Ninh Kiều, TP. Cần Thơ",
-                BuyerLegalRepresentative = "Phạm Thị Mai - Giám Đốc",
+                BuyerAddress = "Quá»‘c Lá»™ 91B, PhÆ°á»ng An KhÃ¡nh, Quáº­n Ninh Kiá»u, TP. Cáº§n ThÆ¡",
+                BuyerLegalRepresentative = "Pháº¡m Thá»‹ Mai - GiÃ¡m Äá»‘c",
                 PaymentMethod = "CK",
                 BankCode = "TCB",
-                BankName = "Techcombank - CN Cần Thơ",
+                BankName = "Techcombank - CN Cáº§n ThÆ¡",
                 BankAccountNo = "19034455667788",
                 TotalVehicles = 1,
                 TotalAmount = 1_450_000_000,
@@ -12547,7 +12558,7 @@ public static class Seeder
                 Status = HTCInvoiceStatus.Draft,
                 CreatedBy = "KeToanBanHang_HTC",
                 CreatedAt = DateTime.Today,
-                Remark = "Dự thảo hóa đơn xe điện Ioniq 5 phân bổ về đại lý Cần Thơ"
+                Remark = "Dá»± tháº£o hÃ³a Ä‘Æ¡n xe Ä‘iá»‡n Ioniq 5 phÃ¢n bá»• vá» Ä‘áº¡i lÃ½ Cáº§n ThÆ¡"
             };
             db.HTCInvoices.Add(inv5);
             await db.SaveChangesAsync();
@@ -12562,10 +12573,10 @@ public static class Seeder
                     CarId = "CAR-IQ5-012899",
                     VIN = "KMHIQ51EBPU012899",
                     ModelCode = "IONIQ5",
-                    ModelName = "Hyundai Ioniq 5 Prestige Điện AWD",
+                    ModelName = "Hyundai Ioniq 5 Prestige Äiá»‡n AWD",
                     SpecCode = "IQ5-PRE-AWD",
                     EngineNo = "EM17-PU012899",
-                    ColorVN = "Vàng Cát Gravity Gold",
+                    ColorVN = "VÃ ng CÃ¡t Gravity Gold",
                     ProductionYear = "2025",
                     CabinCONo = "CO-2025-IQ5-2899",
                     CQNo = "CQ-2025-IQ5-2899",
@@ -12575,12 +12586,12 @@ public static class Seeder
                     VATAmount = 145_000_000,
                     TotalPrice = 1_595_000_000,
                     Status = HTCInvoiceDetailStatus.Active,
-                    Remark = "Dòng xe thuần điện EV cao cấp phân phối đại lý"
+                    Remark = "DÃ²ng xe thuáº§n Ä‘iá»‡n EV cao cáº¥p phÃ¢n phá»‘i Ä‘áº¡i lÃ½"
                 }
             );
             await db.SaveChangesAsync();
 
-            // Hóa đơn 6: Thu hồi / Hủy (Cancelled)
+            // HÃ³a Ä‘Æ¡n 6: Thu há»“i / Há»§y (Cancelled)
             var inv6 = new HTCInvoice
             {
                 OrgId = TenantContext.DefaultOrgId,
@@ -12589,12 +12600,12 @@ public static class Seeder
                 InvoiceSymbol = "1C25THC",
                 InvoiceDate = DateTime.Today.AddDays(-10),
                 DealerCode = "DL-HYUNDAI-LONGBIEN",
-                DealerName = "Công ty Cổ phần Ô tô Hyundai Long Biên",
+                DealerName = "CÃ´ng ty Cá»• pháº§n Ã” tÃ´ Hyundai Long BiÃªn",
                 BuyerTaxCode = "0107883921",
-                BuyerAddress = "Số 3-5 Nguyễn Văn Linh, Phường Gia Thụy, Quận Long Biên, TP. Hà Nội",
+                BuyerAddress = "Sá»‘ 3-5 Nguyá»…n VÄƒn Linh, PhÆ°á»ng Gia Thá»¥y, Quáº­n Long BiÃªn, TP. HÃ  Ná»™i",
                 PaymentMethod = "CK",
                 BankCode = "CTG",
-                BankName = "VietinBank - CN Đông Hà Nội",
+                BankName = "VietinBank - CN ÄÃ´ng HÃ  Ná»™i",
                 BankAccountNo = "119000188293",
                 TotalVehicles = 1,
                 TotalAmount = 599_000_000,
@@ -12606,14 +12617,14 @@ public static class Seeder
                 OS_HDDT_InvoiceCode = "EINV-202505-HTC-1109AACC",
                 SourceInvoiceCode = HTCInvoiceSource.Root,
                 Status = HTCInvoiceStatus.Cancelled,
-                Adj_DeleteReason = "BB số 14/BBTH-2025: Khách hàng đổi sang hợp đồng xe Santa Fe mới, thu hồi hóa đơn nhầm phiên bản.",
+                Adj_DeleteReason = "BB sá»‘ 14/BBTH-2025: KhÃ¡ch hÃ ng Ä‘á»•i sang há»£p Ä‘á»“ng xe Santa Fe má»›i, thu há»“i hÃ³a Ä‘Æ¡n nháº§m phiÃªn báº£n.",
                 ApprovedBy = "KeToanTruong_HTC",
                 ApprovedDate = DateTime.Today.AddDays(-10).AddHours(2),
                 IssuedBy = "GiamDocTaiChinh_HTC",
                 IssuedDate = DateTime.Today.AddDays(-10).AddHours(4),
                 CreatedBy = "KeToanBanHang_HTC",
                 CreatedAt = DateTime.Today.AddDays(-10),
-                Remark = "Đã lập biên bản thu hồi hóa đơn theo quy định của Cục Thuế"
+                Remark = "ÄÃ£ láº­p biÃªn báº£n thu há»“i hÃ³a Ä‘Æ¡n theo quy Ä‘á»‹nh cá»§a Cá»¥c Thuáº¿"
             };
             db.HTCInvoices.Add(inv6);
             await db.SaveChangesAsync();
@@ -12628,10 +12639,10 @@ public static class Seeder
                     CarId = "CAR-STG-011999",
                     VIN = "KMHST41ABPU011999",
                     ModelCode = "STARGAZER",
-                    ModelName = "Hyundai Stargazer X Cao Cấp 1.5 AT",
+                    ModelName = "Hyundai Stargazer X Cao Cáº¥p 1.5 AT",
                     SpecCode = "STG-X-PRE",
                     EngineNo = "G4FL-PU011999",
-                    ColorVN = "Trắng Mờ",
+                    ColorVN = "Tráº¯ng Má»",
                     ProductionYear = "2025",
                     SOCode = "SO-202505-LB01",
                     UnitPrice = 599_000_000,
@@ -12639,13 +12650,13 @@ public static class Seeder
                     VATAmount = 59_900_000,
                     TotalPrice = 658_900_000,
                     Status = HTCInvoiceDetailStatus.Cancelled,
-                    Remark = "Xe thu hồi do đổi sang hợp đồng xe Santa Fe"
+                    Remark = "Xe thu há»“i do Ä‘á»•i sang há»£p Ä‘á»“ng xe Santa Fe"
                 }
             );
             await db.SaveChangesAsync();
         }
 
-        // Dữ liệu mẫu Danh mục Ngân hàng - Đại lý (Mst_BankDealer / FrmDealerBank)
+        // Dá»¯ liá»‡u máº«u Danh má»¥c NgÃ¢n hÃ ng - Äáº¡i lÃ½ (Mst_BankDealer / FrmDealerBank)
         if (!await db.BankDealers.AnyAsync(x => x.OrgId == TenantContext.DefaultOrgId))
         {
             db.BankDealers.AddRange(
@@ -12653,18 +12664,18 @@ public static class Seeder
                 {
                     OrgId = TenantContext.DefaultOrgId,
                     DealerCode = "DL-HYUNDAI-LONGBIEN",
-                    DealerName = "Công ty Cổ phần Ô tô Hyundai Long Biên",
+                    DealerName = "CÃ´ng ty Cá»• pháº§n Ã” tÃ´ Hyundai Long BiÃªn",
                     BankCode = "VCB",
-                    BankName = "Vietcombank - CN Sở Giao Dịch",
-                    CreditContractNo = "HĐTD-VCB-2025-001",
+                    BankName = "Vietcombank - CN Sá»Ÿ Giao Dá»‹ch",
+                    CreditContractNo = "HÄTD-VCB-2025-001",
                     CreditContractDate = DateTime.Today.AddMonths(-6),
                     CreditAmount = 50_000_000_000,
                     BankBranchCode = "VCB-SGD",
-                    BankBranchName = "Vietcombank - Chi nhánh Sở Giao Dịch",
+                    BankBranchName = "Vietcombank - Chi nhÃ¡nh Sá»Ÿ Giao Dá»‹ch",
                     FlagBankGrt = true,
                     FlagBankPmt = true,
                     Status = BankDealerStatus.Active,
-                    Remark = "Hạn mức tín dụng bảo lãnh + thanh toán xe nhập khẩu",
+                    Remark = "Háº¡n má»©c tÃ­n dá»¥ng báº£o lÃ£nh + thanh toÃ¡n xe nháº­p kháº©u",
                     CreatedBy = "Admin_HTC",
                     CreatedAt = DateTime.Today.AddMonths(-6)
                 },
@@ -12672,18 +12683,18 @@ public static class Seeder
                 {
                     OrgId = TenantContext.DefaultOrgId,
                     DealerCode = "DL-HYUNDAI-LONGBIEN",
-                    DealerName = "Công ty Cổ phần Ô tô Hyundai Long Biên",
+                    DealerName = "CÃ´ng ty Cá»• pháº§n Ã” tÃ´ Hyundai Long BiÃªn",
                     BankCode = "TCB",
-                    BankName = "Techcombank - CN Long Biên",
-                    CreditContractNo = "HĐTD-TCB-2025-014",
+                    BankName = "Techcombank - CN Long BiÃªn",
+                    CreditContractNo = "HÄTD-TCB-2025-014",
                     CreditContractDate = DateTime.Today.AddMonths(-4),
                     CreditAmount = 30_000_000_000,
                     BankBranchCode = "TCB-LB",
-                    BankBranchName = "Techcombank - Chi nhánh Long Biên",
+                    BankBranchName = "Techcombank - Chi nhÃ¡nh Long BiÃªn",
                     FlagBankGrt = true,
                     FlagBankPmt = false,
                     Status = BankDealerStatus.Active,
-                    Remark = "Chỉ dùng cho bảo lãnh mở L/C nhập khẩu",
+                    Remark = "Chá»‰ dÃ¹ng cho báº£o lÃ£nh má»Ÿ L/C nháº­p kháº©u",
                     CreatedBy = "Admin_HTC",
                     CreatedAt = DateTime.Today.AddMonths(-4)
                 },
@@ -12691,18 +12702,18 @@ public static class Seeder
                 {
                     OrgId = TenantContext.DefaultOrgId,
                     DealerCode = "DL-HYUNDAI-DANANG",
-                    DealerName = "Công ty Cổ phần Ô tô Hyundai Đà Nẵng",
+                    DealerName = "CÃ´ng ty Cá»• pháº§n Ã” tÃ´ Hyundai ÄÃ  Náºµng",
                     BankCode = "VPB",
-                    BankName = "VPBank - CN Đà Nẵng",
-                    CreditContractNo = "HĐTD-VPB-2025-007",
+                    BankName = "VPBank - CN ÄÃ  Náºµng",
+                    CreditContractNo = "HÄTD-VPB-2025-007",
                     CreditContractDate = DateTime.Today.AddMonths(-3),
                     CreditAmount = 20_000_000_000,
                     BankBranchCode = "VPB-DN",
-                    BankBranchName = "VPBank - Chi nhánh Đà Nẵng",
+                    BankBranchName = "VPBank - Chi nhÃ¡nh ÄÃ  Náºµng",
                     FlagBankGrt = true,
                     FlagBankPmt = true,
                     Status = BankDealerStatus.Active,
-                    Remark = "Hạn mức tín dụng bảo lãnh + thanh toán",
+                    Remark = "Háº¡n má»©c tÃ­n dá»¥ng báº£o lÃ£nh + thanh toÃ¡n",
                     CreatedBy = "Admin_HTC",
                     CreatedAt = DateTime.Today.AddMonths(-3)
                 },
@@ -12710,18 +12721,18 @@ public static class Seeder
                 {
                     OrgId = TenantContext.DefaultOrgId,
                     DealerCode = "DL-HYUNDAI-CANTHO",
-                    DealerName = "Công ty TNHH MTV Hyundai Cần Thơ",
+                    DealerName = "CÃ´ng ty TNHH MTV Hyundai Cáº§n ThÆ¡",
                     BankCode = "CTG",
-                    BankName = "VietinBank - CN Cần Thơ",
-                    CreditContractNo = "HĐTD-CTG-2025-021",
+                    BankName = "VietinBank - CN Cáº§n ThÆ¡",
+                    CreditContractNo = "HÄTD-CTG-2025-021",
                     CreditContractDate = DateTime.Today.AddMonths(-2),
                     CreditAmount = 15_000_000_000,
                     BankBranchCode = "CTG-CT",
-                    BankBranchName = "VietinBank - Chi nhánh Cần Thơ",
+                    BankBranchName = "VietinBank - Chi nhÃ¡nh Cáº§n ThÆ¡",
                     FlagBankGrt = false,
                     FlagBankPmt = true,
                     Status = BankDealerStatus.Active,
-                    Remark = "Chỉ dùng cho thanh toán UNC, không dùng bảo lãnh",
+                    Remark = "Chá»‰ dÃ¹ng cho thanh toÃ¡n UNC, khÃ´ng dÃ¹ng báº£o lÃ£nh",
                     CreatedBy = "Admin_HTC",
                     CreatedAt = DateTime.Today.AddMonths(-2)
                 },
@@ -12729,18 +12740,18 @@ public static class Seeder
                 {
                     OrgId = TenantContext.DefaultOrgId,
                     DealerCode = "DL-HYUNDAI-HAIPHONG",
-                    DealerName = "Công ty Cổ phần Ô tô Hyundai Hải Phòng",
+                    DealerName = "CÃ´ng ty Cá»• pháº§n Ã” tÃ´ Hyundai Háº£i PhÃ²ng",
                     BankCode = "MBB",
-                    BankName = "MBBank - CN Hải Phòng",
-                    CreditContractNo = "HĐTD-MBB-2024-088",
+                    BankName = "MBBank - CN Háº£i PhÃ²ng",
+                    CreditContractNo = "HÄTD-MBB-2024-088",
                     CreditContractDate = DateTime.Today.AddMonths(-10),
                     CreditAmount = 10_000_000_000,
                     BankBranchCode = "MBB-HP",
-                    BankBranchName = "MBBank - Chi nhánh Hải Phòng",
+                    BankBranchName = "MBBank - Chi nhÃ¡nh Háº£i PhÃ²ng",
                     FlagBankGrt = true,
                     FlagBankPmt = true,
                     Status = BankDealerStatus.Inactive,
-                    Remark = "Hợp đồng tín dụng đã tất toán, tạm ngưng sử dụng",
+                    Remark = "Há»£p Ä‘á»“ng tÃ­n dá»¥ng Ä‘Ã£ táº¥t toÃ¡n, táº¡m ngÆ°ng sá»­ dá»¥ng",
                     CreatedBy = "Admin_HTC",
                     CreatedAt = DateTime.Today.AddMonths(-10),
                     UpdatedBy = "Admin_HTC",
@@ -12750,7 +12761,7 @@ public static class Seeder
             await db.SaveChangesAsync();
         }
 
-        // Dữ liệu mẫu Cập nhật Chứng từ Kế toán (FrmUpdateChungTuKT / Pmt_Payment_UpdateFinancial)
+        // Dá»¯ liá»‡u máº«u Cáº­p nháº­t Chá»©ng tá»« Káº¿ toÃ¡n (FrmUpdateChungTuKT / Pmt_Payment_UpdateFinancial)
         if (!await db.AccountingVoucherUpdates.AnyAsync(x => x.OrgId == TenantContext.DefaultOrgId))
         {
             db.AccountingVoucherUpdates.AddRange(
@@ -12758,7 +12769,7 @@ public static class Seeder
                 {
                     OrgId = TenantContext.DefaultOrgId,
                     BatchNo = "CTKT-202505-001",
-                    Description = "Cập nhật số chứng từ kế toán đợt 1 tháng 05/2025",
+                    Description = "Cáº­p nháº­t sá»‘ chá»©ng tá»« káº¿ toÃ¡n Ä‘á»£t 1 thÃ¡ng 05/2025",
                     TotalItems = 2,
                     UpdatedItems = 1,
                     SkippedItems = 1,
@@ -12767,7 +12778,7 @@ public static class Seeder
                     CreatedAt = DateTime.Today.AddDays(-6),
                     AppliedBy = "KeToanTruong",
                     AppliedAt = DateTime.Today.AddDays(-5),
-                    Remark = "Ghi sổ chứng từ cho các phiếu thanh toán đã hoàn tất",
+                    Remark = "Ghi sá»• chá»©ng tá»« cho cÃ¡c phiáº¿u thanh toÃ¡n Ä‘Ã£ hoÃ n táº¥t",
                     Details =
                     {
                         new AccountingVoucherUpdateDetail
@@ -12777,7 +12788,7 @@ public static class Seeder
                             OldAccountingRecordNo = "PKT-202505-0145",
                             NewAccountingRecordNo = "PKT-202505-0301",
                             Status = AccountingVoucherUpdateDetailStatus.Updated,
-                            Note = "Đã cập nhật số chứng từ kế toán."
+                            Note = "ÄÃ£ cáº­p nháº­t sá»‘ chá»©ng tá»« káº¿ toÃ¡n."
                         },
                         new AccountingVoucherUpdateDetail
                         {
@@ -12785,7 +12796,7 @@ public static class Seeder
                             PaymentNo = "PM-DEMO-20250510-002",
                             NewAccountingRecordNo = "PKT-202505-0302",
                             Status = AccountingVoucherUpdateDetailStatus.Skipped,
-                            Note = "Phiếu chưa hoàn tất ghi sổ (trạng thái hiện tại: Approved)."
+                            Note = "Phiáº¿u chÆ°a hoÃ n táº¥t ghi sá»• (tráº¡ng thÃ¡i hiá»‡n táº¡i: Approved)."
                         }
                     }
                 },
@@ -12793,14 +12804,14 @@ public static class Seeder
                 {
                     OrgId = TenantContext.DefaultOrgId,
                     BatchNo = "CTKT-202505-002",
-                    Description = "Cập nhật số chứng từ kế toán đợt 2 tháng 05/2025 (chờ áp dụng)",
+                    Description = "Cáº­p nháº­t sá»‘ chá»©ng tá»« káº¿ toÃ¡n Ä‘á»£t 2 thÃ¡ng 05/2025 (chá» Ã¡p dá»¥ng)",
                     TotalItems = 1,
                     UpdatedItems = 0,
                     SkippedItems = 0,
                     Status = AccountingVoucherUpdateStatus.Draft,
                     CreatedBy = "KeToanTongHop",
                     CreatedAt = DateTime.Today.AddDays(-1),
-                    Remark = "Chờ kế toán trưởng áp dụng ghi sổ",
+                    Remark = "Chá» káº¿ toÃ¡n trÆ°á»Ÿng Ã¡p dá»¥ng ghi sá»•",
                     Details =
                     {
                         new AccountingVoucherUpdateDetail
@@ -12816,8 +12827,8 @@ public static class Seeder
             await db.SaveChangesAsync();
         }
 
-        // Dữ liệu mẫu Lịch Làm Việc & Hạn Nộp Cọc (Mst_Calendar / Mst_Calendar_ResetYear)
-        // Sinh lịch làm việc cho năm hiện tại: Thứ 2..Thứ 6 làm việc, Thứ 7 & Chủ nhật nghỉ.
+        // Dá»¯ liá»‡u máº«u Lá»‹ch LÃ m Viá»‡c & Háº¡n Ná»™p Cá»c (Mst_Calendar / Mst_Calendar_ResetYear)
+        // Sinh lá»‹ch lÃ m viá»‡c cho nÄƒm hiá»‡n táº¡i: Thá»© 2..Thá»© 6 lÃ m viá»‡c, Thá»© 7 & Chá»§ nháº­t nghá»‰.
         if (!await db.CalendarEntries.AnyAsync(x => x.OrgId == TenantContext.DefaultOrgId))
         {
             int seedYear = DateTime.Now.Year;
@@ -12841,7 +12852,7 @@ public static class Seeder
             await db.SaveChangesAsync();
         }
 
-        // Dữ liệu mẫu Hợp đồng Mua bán Xe Đại lý (DMS40_CT_DealerContract / FrmMngDC)
+        // Dá»¯ liá»‡u máº«u Há»£p Ä‘á»“ng Mua bÃ¡n Xe Äáº¡i lÃ½ (DMS40_CT_DealerContract / FrmMngDC)
         if (!await db.DealerContracts.AnyAsync(x => x.OrgId == TenantContext.DefaultOrgId))
         {
             db.DealerContracts.AddRange(
@@ -12851,9 +12862,9 @@ public static class Seeder
                     DlrCtrNo = "PLHD-202505-001",
                     DCPType = DlrCtrPaymentType.BankGuarantee,
                     DealerCode = "DL-HYUNDAI-LONGBIEN",
-                    DealerName = "Công ty Cổ phần Ô tô Hyundai Long Biên",
+                    DealerName = "CÃ´ng ty Cá»• pháº§n Ã” tÃ´ Hyundai Long BiÃªn",
                     BankCodeMD = "VCB",
-                    BankNameMD = "Vietcombank - CN Sở Giao Dịch",
+                    BankNameMD = "Vietcombank - CN Sá»Ÿ Giao Dá»‹ch",
                     ContractDate = DateTime.Today.AddDays(-20),
                     TotalVehicles = 3,
                     TotalAmount = 2_400_000_000,
@@ -12861,7 +12872,7 @@ public static class Seeder
                     DlrSignStatus = DlrSignStatus.Approved,
                     HTCSignStatus = HTCSignStatus.Approved2,
                     DlrCtrStatus = DlrCtrStatus.Signed,
-                    Remark = "Hợp đồng bán buôn xe Santa Fe & Tucson, bảo lãnh VCB",
+                    Remark = "Há»£p Ä‘á»“ng bÃ¡n buÃ´n xe Santa Fe & Tucson, báº£o lÃ£nh VCB",
                     CreatedBy = "Admin_HTC",
                     CreatedAt = DateTime.Today.AddDays(-20),
                     DlrApprovedBy = "GiamDoc_DaiLy_LB",
@@ -12872,9 +12883,9 @@ public static class Seeder
                     HTCApproved2At = DateTime.Today.AddDays(-15),
                     Details =
                     {
-                        new DealerContractDetail { OrgId = TenantContext.DefaultOrgId, DlrCtrNo = "PLHD-202505-001", CarId = "CAR-SF-001", VIN = "KMHST81D8PU123001", ModelCode = "SANTAFE", ModelName = "Hyundai Santa Fe", SpecCode = "SF-2025-PRE", ColorCode = "WHT", ColorName = "Trắng", OriginNo = "CO-2025-001", ProductionYear = 2025, UnitPrice = 1_200_000_000, DlrCtrStatusDtl = DlrCtrDetailStatus.Signed },
-                        new DealerContractDetail { OrgId = TenantContext.DefaultOrgId, DlrCtrNo = "PLHD-202505-001", CarId = "CAR-TU-002", VIN = "KMHJ3813DPU123002", ModelCode = "TUCSON", ModelName = "Hyundai Tucson", SpecCode = "TU-2025-STD", ColorCode = "BLK", ColorName = "Đen", OriginNo = "CO-2025-002", ProductionYear = 2025, UnitPrice = 800_000_000, DlrCtrStatusDtl = DlrCtrDetailStatus.Signed },
-                        new DealerContractDetail { OrgId = TenantContext.DefaultOrgId, DlrCtrNo = "PLHD-202505-001", CarId = "CAR-TU-003", VIN = "KMHJ3813DPU123003", ModelCode = "TUCSON", ModelName = "Hyundai Tucson", SpecCode = "TU-2025-STD", ColorCode = "SLV", ColorName = "Bạc", OriginNo = "CO-2025-003", ProductionYear = 2025, UnitPrice = 400_000_000, DlrCtrStatusDtl = DlrCtrDetailStatus.Signed }
+                        new DealerContractDetail { OrgId = TenantContext.DefaultOrgId, DlrCtrNo = "PLHD-202505-001", CarId = "CAR-SF-001", VIN = "KMHST81D8PU123001", ModelCode = "SANTAFE", ModelName = "Hyundai Santa Fe", SpecCode = "SF-2025-PRE", ColorCode = "WHT", ColorName = "Tráº¯ng", OriginNo = "CO-2025-001", ProductionYear = 2025, UnitPrice = 1_200_000_000, DlrCtrStatusDtl = DlrCtrDetailStatus.Signed },
+                        new DealerContractDetail { OrgId = TenantContext.DefaultOrgId, DlrCtrNo = "PLHD-202505-001", CarId = "CAR-TU-002", VIN = "KMHJ3813DPU123002", ModelCode = "TUCSON", ModelName = "Hyundai Tucson", SpecCode = "TU-2025-STD", ColorCode = "BLK", ColorName = "Äen", OriginNo = "CO-2025-002", ProductionYear = 2025, UnitPrice = 800_000_000, DlrCtrStatusDtl = DlrCtrDetailStatus.Signed },
+                        new DealerContractDetail { OrgId = TenantContext.DefaultOrgId, DlrCtrNo = "PLHD-202505-001", CarId = "CAR-TU-003", VIN = "KMHJ3813DPU123003", ModelCode = "TUCSON", ModelName = "Hyundai Tucson", SpecCode = "TU-2025-STD", ColorCode = "SLV", ColorName = "Báº¡c", OriginNo = "CO-2025-003", ProductionYear = 2025, UnitPrice = 400_000_000, DlrCtrStatusDtl = DlrCtrDetailStatus.Signed }
                     }
                 },
                 new DealerContract
@@ -12883,9 +12894,9 @@ public static class Seeder
                     DlrCtrNo = "PLHD-202505-002",
                     DCPType = DlrCtrPaymentType.LetterOfCredit,
                     DealerCode = "DL-HYUNDAI-DANANG",
-                    DealerName = "Công ty Cổ phần Ô tô Hyundai Đà Nẵng",
+                    DealerName = "CÃ´ng ty Cá»• pháº§n Ã” tÃ´ Hyundai ÄÃ  Náºµng",
                     BankCodeMD = "TCB",
-                    BankNameMD = "Techcombank - CN Đà Nẵng",
+                    BankNameMD = "Techcombank - CN ÄÃ  Náºµng",
                     ContractDate = DateTime.Today.AddDays(-10),
                     TotalVehicles = 2,
                     TotalAmount = 1_500_000_000,
@@ -12893,7 +12904,7 @@ public static class Seeder
                     DlrSignStatus = DlrSignStatus.Approved,
                     HTCSignStatus = HTCSignStatus.Approved1,
                     DlrCtrStatus = DlrCtrStatus.NotSign,
-                    Remark = "Hợp đồng xe nhập khẩu mở L/C qua Techcombank, chờ HTC duyệt cấp 2",
+                    Remark = "Há»£p Ä‘á»“ng xe nháº­p kháº©u má»Ÿ L/C qua Techcombank, chá» HTC duyá»‡t cáº¥p 2",
                     CreatedBy = "Admin_HTC",
                     CreatedAt = DateTime.Today.AddDays(-10),
                     DlrApprovedBy = "GiamDoc_DaiLy_DN",
@@ -12902,8 +12913,8 @@ public static class Seeder
                     HTCApproved1At = DateTime.Today.AddDays(-6),
                     Details =
                     {
-                        new DealerContractDetail { OrgId = TenantContext.DefaultOrgId, DlrCtrNo = "PLHD-202505-002", CarId = "CAR-PA-004", VIN = "KMHST81D8PU123004", ModelCode = "PALISADE", ModelName = "Hyundai Palisade", SpecCode = "PA-2025-PRE", ColorCode = "GRY", ColorName = "Xám", OriginNo = "CO-2025-004", ProductionYear = 2025, UnitPrice = 1_000_000_000, DlrCtrStatusDtl = DlrCtrDetailStatus.Signed },
-                        new DealerContractDetail { OrgId = TenantContext.DefaultOrgId, DlrCtrNo = "PLHD-202505-002", CarId = "CAR-PA-005", VIN = "KMHST81D8PU123005", ModelCode = "PALISADE", ModelName = "Hyundai Palisade", SpecCode = "PA-2025-STD", ColorCode = "WHT", ColorName = "Trắng", OriginNo = "CO-2025-005", ProductionYear = 2025, UnitPrice = 500_000_000, DlrCtrStatusDtl = DlrCtrDetailStatus.Signed }
+                        new DealerContractDetail { OrgId = TenantContext.DefaultOrgId, DlrCtrNo = "PLHD-202505-002", CarId = "CAR-PA-004", VIN = "KMHST81D8PU123004", ModelCode = "PALISADE", ModelName = "Hyundai Palisade", SpecCode = "PA-2025-PRE", ColorCode = "GRY", ColorName = "XÃ¡m", OriginNo = "CO-2025-004", ProductionYear = 2025, UnitPrice = 1_000_000_000, DlrCtrStatusDtl = DlrCtrDetailStatus.Signed },
+                        new DealerContractDetail { OrgId = TenantContext.DefaultOrgId, DlrCtrNo = "PLHD-202505-002", CarId = "CAR-PA-005", VIN = "KMHST81D8PU123005", ModelCode = "PALISADE", ModelName = "Hyundai Palisade", SpecCode = "PA-2025-STD", ColorCode = "WHT", ColorName = "Tráº¯ng", OriginNo = "CO-2025-005", ProductionYear = 2025, UnitPrice = 500_000_000, DlrCtrStatusDtl = DlrCtrDetailStatus.Signed }
                     }
                 },
                 new DealerContract
@@ -12912,7 +12923,7 @@ public static class Seeder
                     DlrCtrNo = "PLHD-202505-003",
                     DCPType = DlrCtrPaymentType.OwnCapital,
                     DealerCode = "DL-HYUNDAI-CANTHO",
-                    DealerName = "Công ty TNHH MTV Hyundai Cần Thơ",
+                    DealerName = "CÃ´ng ty TNHH MTV Hyundai Cáº§n ThÆ¡",
                     BankCodeMD = null,
                     BankNameMD = null,
                     ContractDate = DateTime.Today.AddDays(-3),
@@ -12922,12 +12933,12 @@ public static class Seeder
                     DlrSignStatus = DlrSignStatus.Pending,
                     HTCSignStatus = HTCSignStatus.Pending,
                     DlrCtrStatus = DlrCtrStatus.NotSign,
-                    Remark = "Hợp đồng thanh toán vốn tự có, chờ đại lý ký",
+                    Remark = "Há»£p Ä‘á»“ng thanh toÃ¡n vá»‘n tá»± cÃ³, chá» Ä‘áº¡i lÃ½ kÃ½",
                     CreatedBy = "Admin_HTC",
                     CreatedAt = DateTime.Today.AddDays(-3),
                     Details =
                     {
-                        new DealerContractDetail { OrgId = TenantContext.DefaultOrgId, DlrCtrNo = "PLHD-202505-003", CarId = "CAR-AC-006", VIN = "KMHCT41D8PU123006", ModelCode = "ACCENT", ModelName = "Hyundai Accent", SpecCode = "AC-2025-STD", ColorCode = "RED", ColorName = "Đỏ", OriginNo = "CO-2025-006", ProductionYear = 2025, UnitPrice = 500_000_000, DlrCtrStatusDtl = DlrCtrDetailStatus.NotSign },
+                        new DealerContractDetail { OrgId = TenantContext.DefaultOrgId, DlrCtrNo = "PLHD-202505-003", CarId = "CAR-AC-006", VIN = "KMHCT41D8PU123006", ModelCode = "ACCENT", ModelName = "Hyundai Accent", SpecCode = "AC-2025-STD", ColorCode = "RED", ColorName = "Äá»", OriginNo = "CO-2025-006", ProductionYear = 2025, UnitPrice = 500_000_000, DlrCtrStatusDtl = DlrCtrDetailStatus.NotSign },
                         new DealerContractDetail { OrgId = TenantContext.DefaultOrgId, DlrCtrNo = "PLHD-202505-003", CarId = "CAR-CR-007", VIN = "KMHCT41D8PU123007", ModelCode = "CRETA", ModelName = "Hyundai Creta", SpecCode = "CR-2025-STD", ColorCode = "BLU", ColorName = "Xanh", OriginNo = "CO-2025-007", ProductionYear = 2025, UnitPrice = 400_000_000, DlrCtrStatusDtl = DlrCtrDetailStatus.NotSign }
                     }
                 }
@@ -12935,7 +12946,7 @@ public static class Seeder
             await db.SaveChangesAsync();
         }
 
-        // Dữ liệu mẫu Yêu cầu Điều chuyển Vận tải Kho (Sto_StorageRearrange / FrmMngSC)
+        // Dá»¯ liá»‡u máº«u YÃªu cáº§u Äiá»u chuyá»ƒn Váº­n táº£i Kho (Sto_StorageRearrange / FrmMngSC)
         if (!await db.StorageRearranges.AnyAsync(x => x.OrgId == TenantContext.DefaultOrgId))
         {
             db.StorageRearranges.AddRange(
@@ -12944,7 +12955,7 @@ public static class Seeder
                     OrgId = TenantContext.DefaultOrgId,
                     StorageRearrangeNo = "SC-202505-001",
                     RearrangeStatus = StorageRearrangeStatus.Approved2,
-                    Remark = "Điều chuyển xe Santa Fe & Tucson từ kho Ninh Bình về kho Đông Anh",
+                    Remark = "Äiá»u chuyá»ƒn xe Santa Fe & Tucson tá»« kho Ninh BÃ¬nh vá» kho ÄÃ´ng Anh",
                     CreatedBy = "Admin_HTC",
                     CreatedAt = DateTime.Today.AddDays(-12),
                     ApprovedBy1 = "TruongKho_HTC",
@@ -12953,7 +12964,7 @@ public static class Seeder
                     ApprovedAt2 = DateTime.Today.AddDays(-10),
                     Details =
                     {
-                        new StorageRearrangeDetail { OrgId = TenantContext.DefaultOrgId, StorageRearrangeNo = "SC-202505-001", VIN = "KMHST81D8PU123001", StorageCodeFrom = "KHO-NBD", StorageCodeTo = "KHO-DA", ExpectedStartDate = DateTime.Today.AddDays(-9), ExpectedEndDate = DateTime.Today.AddDays(-7), RearrangeDtlStatus = StorageRearrangeDetailStatus.Approved2, Remark = "Xe ưu tiên giao đại lý Long Biên" },
+                        new StorageRearrangeDetail { OrgId = TenantContext.DefaultOrgId, StorageRearrangeNo = "SC-202505-001", VIN = "KMHST81D8PU123001", StorageCodeFrom = "KHO-NBD", StorageCodeTo = "KHO-DA", ExpectedStartDate = DateTime.Today.AddDays(-9), ExpectedEndDate = DateTime.Today.AddDays(-7), RearrangeDtlStatus = StorageRearrangeDetailStatus.Approved2, Remark = "Xe Æ°u tiÃªn giao Ä‘áº¡i lÃ½ Long BiÃªn" },
                         new StorageRearrangeDetail { OrgId = TenantContext.DefaultOrgId, StorageRearrangeNo = "SC-202505-001", VIN = "KMHJ3813DPU123002", StorageCodeFrom = "KHO-NBD", StorageCodeTo = "KHO-DA", ExpectedStartDate = DateTime.Today.AddDays(-9), ExpectedEndDate = DateTime.Today.AddDays(-7), RearrangeDtlStatus = StorageRearrangeDetailStatus.Approved2 }
                     }
                 },
@@ -12962,7 +12973,7 @@ public static class Seeder
                     OrgId = TenantContext.DefaultOrgId,
                     StorageRearrangeNo = "SC-202505-002",
                     RearrangeStatus = StorageRearrangeStatus.Approved1,
-                    Remark = "Điều chuyển xe Palisade từ kho Hưng Yên về kho Hiệp Phước SG, chờ duyệt cấp 2",
+                    Remark = "Äiá»u chuyá»ƒn xe Palisade tá»« kho HÆ°ng YÃªn vá» kho Hiá»‡p PhÆ°á»›c SG, chá» duyá»‡t cáº¥p 2",
                     CreatedBy = "Admin_HTC",
                     CreatedAt = DateTime.Today.AddDays(-5),
                     ApprovedBy1 = "TruongKho_HTC",
@@ -12978,7 +12989,7 @@ public static class Seeder
                     OrgId = TenantContext.DefaultOrgId,
                     StorageRearrangeNo = "SC-202505-003",
                     RearrangeStatus = StorageRearrangeStatus.Pending,
-                    Remark = "Điều chuyển xe Accent & Creta từ kho Đông Anh về kho Ninh Bình, chờ duyệt cấp 1",
+                    Remark = "Äiá»u chuyá»ƒn xe Accent & Creta tá»« kho ÄÃ´ng Anh vá» kho Ninh BÃ¬nh, chá» duyá»‡t cáº¥p 1",
                     CreatedBy = "Admin_HTC",
                     CreatedAt = DateTime.Today.AddDays(-1),
                     Details =
@@ -12991,7 +13002,7 @@ public static class Seeder
             await db.SaveChangesAsync();
         }
 
-        // Dữ liệu mẫu Phiên bản Cước phí Vận tải (Mst_TranspFeeVer / Mst_TranspFee)
+        // Dá»¯ liá»‡u máº«u PhiÃªn báº£n CÆ°á»›c phÃ­ Váº­n táº£i (Mst_TranspFeeVer / Mst_TranspFee)
         if (!await db.TransportFeeVersions.AnyAsync(x => x.OrgId == TenantContext.DefaultOrgId))
         {
             db.TransportFeeVersions.AddRange(
@@ -12999,42 +13010,42 @@ public static class Seeder
                 {
                     OrgId = TenantContext.DefaultOrgId,
                     TFVCode = "TFV-2025-01",
-                    Description = "Bảng cước phí vận tải áp dụng từ 01/2025",
+                    Description = "Báº£ng cÆ°á»›c phÃ­ váº­n táº£i Ã¡p dá»¥ng tá»« 01/2025",
                     Status = TransportFeeVersionStatus.Active,
                     CreatedDate = DateTime.Today.AddDays(-60),
                     AppliedDate = DateTime.Today.AddDays(-55),
-                    Remark = "Cước vận tải tuyến Bắc - Nam, nhà vận tải NewWay & Đạt Đức",
+                    Remark = "CÆ°á»›c váº­n táº£i tuyáº¿n Báº¯c - Nam, nhÃ  váº­n táº£i NewWay & Äáº¡t Äá»©c",
                     CreatedBy = "Admin_HTC",
                     CreatedAt = DateTime.Today.AddDays(-60),
                     Rates =
                     {
-                        new TransportFeeRate { OrgId = TenantContext.DefaultOrgId, TFVCode = "TFV-2025-01", ProvinceCodeFrom = "HN", ProvinceNameFrom = "Hà Nội", DistrictCodeFrom = "HN-DA", DistrictNameFrom = "Đông Anh", ProvinceCodeTo = "HCM", ProvinceNameTo = "TP. Hồ Chí Minh", DistrictCodeTo = "HCM-HP", DistrictNameTo = "Hiệp Phước", TransporterCode = "NEWWAY", TransporterName = "Công ty Vận tải NewWay", ModelCode = "SANTAFE", ModelName = "Hyundai Santa Fe", ValFee = 18_000_000, ExpectedDays = 5 },
-                        new TransportFeeRate { OrgId = TenantContext.DefaultOrgId, TFVCode = "TFV-2025-01", ProvinceCodeFrom = "HN", ProvinceNameFrom = "Hà Nội", DistrictCodeFrom = "HN-DA", DistrictNameFrom = "Đông Anh", ProvinceCodeTo = "HCM", ProvinceNameTo = "TP. Hồ Chí Minh", DistrictCodeTo = "HCM-HP", DistrictNameTo = "Hiệp Phước", TransporterCode = "NEWWAY", TransporterName = "Công ty Vận tải NewWay", ModelCode = "TUCSON", ModelName = "Hyundai Tucson", ValFee = 16_000_000, ExpectedDays = 5 },
-                        new TransportFeeRate { OrgId = TenantContext.DefaultOrgId, TFVCode = "TFV-2025-01", ProvinceCodeFrom = "HN", ProvinceNameFrom = "Hà Nội", DistrictCodeFrom = "HN-DA", DistrictNameFrom = "Đông Anh", ProvinceCodeTo = "DN", ProvinceNameTo = "Đà Nẵng", DistrictCodeTo = "DN-HC", DistrictNameTo = "Hòa Cường", TransporterCode = "DATDUC", TransporterName = "Công ty Vận tải Đạt Đức", ModelCode = "SANTAFE", ModelName = "Hyundai Santa Fe", ValFee = 12_000_000, ExpectedDays = 3 },
-                        new TransportFeeRate { OrgId = TenantContext.DefaultOrgId, TFVCode = "TFV-2025-01", ProvinceCodeFrom = "HN", ProvinceNameFrom = "Hà Nội", DistrictCodeFrom = "HN-DA", DistrictNameFrom = "Đông Anh", ProvinceCodeTo = "DN", ProvinceNameTo = "Đà Nẵng", DistrictCodeTo = "DN-HC", DistrictNameTo = "Hòa Cường", TransporterCode = "DATDUC", TransporterName = "Công ty Vận tải Đạt Đức", ModelCode = "CRETA", ModelName = "Hyundai Creta", ValFee = 9_000_000, ExpectedDays = 3 }
+                        new TransportFeeRate { OrgId = TenantContext.DefaultOrgId, TFVCode = "TFV-2025-01", ProvinceCodeFrom = "HN", ProvinceNameFrom = "HÃ  Ná»™i", DistrictCodeFrom = "HN-DA", DistrictNameFrom = "ÄÃ´ng Anh", ProvinceCodeTo = "HCM", ProvinceNameTo = "TP. Há»“ ChÃ­ Minh", DistrictCodeTo = "HCM-HP", DistrictNameTo = "Hiá»‡p PhÆ°á»›c", TransporterCode = "NEWWAY", TransporterName = "CÃ´ng ty Váº­n táº£i NewWay", ModelCode = "SANTAFE", ModelName = "Hyundai Santa Fe", ValFee = 18_000_000, ExpectedDays = 5 },
+                        new TransportFeeRate { OrgId = TenantContext.DefaultOrgId, TFVCode = "TFV-2025-01", ProvinceCodeFrom = "HN", ProvinceNameFrom = "HÃ  Ná»™i", DistrictCodeFrom = "HN-DA", DistrictNameFrom = "ÄÃ´ng Anh", ProvinceCodeTo = "HCM", ProvinceNameTo = "TP. Há»“ ChÃ­ Minh", DistrictCodeTo = "HCM-HP", DistrictNameTo = "Hiá»‡p PhÆ°á»›c", TransporterCode = "NEWWAY", TransporterName = "CÃ´ng ty Váº­n táº£i NewWay", ModelCode = "TUCSON", ModelName = "Hyundai Tucson", ValFee = 16_000_000, ExpectedDays = 5 },
+                        new TransportFeeRate { OrgId = TenantContext.DefaultOrgId, TFVCode = "TFV-2025-01", ProvinceCodeFrom = "HN", ProvinceNameFrom = "HÃ  Ná»™i", DistrictCodeFrom = "HN-DA", DistrictNameFrom = "ÄÃ´ng Anh", ProvinceCodeTo = "DN", ProvinceNameTo = "ÄÃ  Náºµng", DistrictCodeTo = "DN-HC", DistrictNameTo = "HÃ²a CÆ°á»ng", TransporterCode = "DATDUC", TransporterName = "CÃ´ng ty Váº­n táº£i Äáº¡t Äá»©c", ModelCode = "SANTAFE", ModelName = "Hyundai Santa Fe", ValFee = 12_000_000, ExpectedDays = 3 },
+                        new TransportFeeRate { OrgId = TenantContext.DefaultOrgId, TFVCode = "TFV-2025-01", ProvinceCodeFrom = "HN", ProvinceNameFrom = "HÃ  Ná»™i", DistrictCodeFrom = "HN-DA", DistrictNameFrom = "ÄÃ´ng Anh", ProvinceCodeTo = "DN", ProvinceNameTo = "ÄÃ  Náºµng", DistrictCodeTo = "DN-HC", DistrictNameTo = "HÃ²a CÆ°á»ng", TransporterCode = "DATDUC", TransporterName = "CÃ´ng ty Váº­n táº£i Äáº¡t Äá»©c", ModelCode = "CRETA", ModelName = "Hyundai Creta", ValFee = 9_000_000, ExpectedDays = 3 }
                     }
                 },
                 new TransportFeeVersion
                 {
                     OrgId = TenantContext.DefaultOrgId,
                     TFVCode = "TFV-2025-02",
-                    Description = "Bảng cước phí vận tải điều chỉnh quý 2/2025 (chờ áp dụng)",
+                    Description = "Báº£ng cÆ°á»›c phÃ­ váº­n táº£i Ä‘iá»u chá»‰nh quÃ½ 2/2025 (chá» Ã¡p dá»¥ng)",
                     Status = TransportFeeVersionStatus.Draft,
                     CreatedDate = DateTime.Today.AddDays(-3),
-                    Remark = "Điều chỉnh tăng cước tuyến Hà Nội - TP.HCM do giá nhiên liệu",
+                    Remark = "Äiá»u chá»‰nh tÄƒng cÆ°á»›c tuyáº¿n HÃ  Ná»™i - TP.HCM do giÃ¡ nhiÃªn liá»‡u",
                     CreatedBy = "Admin_HTC",
                     CreatedAt = DateTime.Today.AddDays(-3),
                     Rates =
                     {
-                        new TransportFeeRate { OrgId = TenantContext.DefaultOrgId, TFVCode = "TFV-2025-02", ProvinceCodeFrom = "HN", ProvinceNameFrom = "Hà Nội", DistrictCodeFrom = "HN-DA", DistrictNameFrom = "Đông Anh", ProvinceCodeTo = "HCM", ProvinceNameTo = "TP. Hồ Chí Minh", DistrictCodeTo = "HCM-HP", DistrictNameTo = "Hiệp Phước", TransporterCode = "NEWWAY", TransporterName = "Công ty Vận tải NewWay", ModelCode = "SANTAFE", ModelName = "Hyundai Santa Fe", ValFee = 19_500_000, ExpectedDays = 5 },
-                        new TransportFeeRate { OrgId = TenantContext.DefaultOrgId, TFVCode = "TFV-2025-02", ProvinceCodeFrom = "HN", ProvinceNameFrom = "Hà Nội", DistrictCodeFrom = "HN-DA", DistrictNameFrom = "Đông Anh", ProvinceCodeTo = "HCM", ProvinceNameTo = "TP. Hồ Chí Minh", DistrictCodeTo = "HCM-HP", DistrictNameTo = "Hiệp Phước", TransporterCode = "NEWWAY", TransporterName = "Công ty Vận tải NewWay", ModelCode = "PALISADE", ModelName = "Hyundai Palisade", ValFee = 21_000_000, ExpectedDays = 5 }
+                        new TransportFeeRate { OrgId = TenantContext.DefaultOrgId, TFVCode = "TFV-2025-02", ProvinceCodeFrom = "HN", ProvinceNameFrom = "HÃ  Ná»™i", DistrictCodeFrom = "HN-DA", DistrictNameFrom = "ÄÃ´ng Anh", ProvinceCodeTo = "HCM", ProvinceNameTo = "TP. Há»“ ChÃ­ Minh", DistrictCodeTo = "HCM-HP", DistrictNameTo = "Hiá»‡p PhÆ°á»›c", TransporterCode = "NEWWAY", TransporterName = "CÃ´ng ty Váº­n táº£i NewWay", ModelCode = "SANTAFE", ModelName = "Hyundai Santa Fe", ValFee = 19_500_000, ExpectedDays = 5 },
+                        new TransportFeeRate { OrgId = TenantContext.DefaultOrgId, TFVCode = "TFV-2025-02", ProvinceCodeFrom = "HN", ProvinceNameFrom = "HÃ  Ná»™i", DistrictCodeFrom = "HN-DA", DistrictNameFrom = "ÄÃ´ng Anh", ProvinceCodeTo = "HCM", ProvinceNameTo = "TP. Há»“ ChÃ­ Minh", DistrictCodeTo = "HCM-HP", DistrictNameTo = "Hiá»‡p PhÆ°á»›c", TransporterCode = "NEWWAY", TransporterName = "CÃ´ng ty Váº­n táº£i NewWay", ModelCode = "PALISADE", ModelName = "Hyundai Palisade", ValFee = 21_000_000, ExpectedDays = 5 }
                     }
                 }
             );
             await db.SaveChangesAsync();
         }
 
-        // Dữ liệu mẫu Hóa đơn GTGT Nhà máy sản xuất TCG (VAT_TCGInvoice / FrmMngTCGInvoice)
+        // Dá»¯ liá»‡u máº«u HÃ³a Ä‘Æ¡n GTGT NhÃ  mÃ¡y sáº£n xuáº¥t TCG (VAT_TCGInvoice / FrmMngTCGInvoice)
         if (!await db.TCGInvoices.AnyAsync(x => x.OrgId == TenantContext.DefaultOrgId))
         {
             db.TCGInvoices.AddRange(
@@ -13050,7 +13061,7 @@ public static class Seeder
                     TCGInvoiceDate = DateTime.Today.AddDays(-20),
                     VAT = "10",
                     FlagisHTC = "1",
-                    Remark = "Hóa đơn GTGT nhà máy TCG xuất cho HTC lô xe Santa Fe & Tucson nhập kho",
+                    Remark = "HÃ³a Ä‘Æ¡n GTGT nhÃ  mÃ¡y TCG xuáº¥t cho HTC lÃ´ xe Santa Fe & Tucson nháº­p kho",
                     CreatedBy = "Admin_HTC",
                     CreatedAt = DateTime.Today.AddDays(-22),
                     ApprovedBy = "KeToanTruong_HTC",
@@ -13073,7 +13084,7 @@ public static class Seeder
                     TCGInvoiceDate = null,
                     VAT = "10",
                     FlagisHTC = "1",
-                    Remark = "Hóa đơn GTGT nhà máy TCG lô xe Palisade nhập khẩu CBU, chờ duyệt",
+                    Remark = "HÃ³a Ä‘Æ¡n GTGT nhÃ  mÃ¡y TCG lÃ´ xe Palisade nháº­p kháº©u CBU, chá» duyá»‡t",
                     CreatedBy = "Admin_HTC",
                     CreatedAt = DateTime.Today.AddDays(-3),
                     Details =
@@ -13094,7 +13105,7 @@ public static class Seeder
                     TCGInvoiceDate = DateTime.Today.AddDays(-15),
                     VAT = "10",
                     FlagisHTC = "1",
-                    Remark = "Hóa đơn GTGT nhà máy TCG lô xe Accent bị hủy do sai thông tin",
+                    Remark = "HÃ³a Ä‘Æ¡n GTGT nhÃ  mÃ¡y TCG lÃ´ xe Accent bá»‹ há»§y do sai thÃ´ng tin",
                     CreatedBy = "Admin_HTC",
                     CreatedAt = DateTime.Today.AddDays(-18),
                     ApprovedBy = "KeToanTruong_HTC",
@@ -13110,7 +13121,7 @@ public static class Seeder
             await db.SaveChangesAsync();
         }
 
-        // Dữ liệu mẫu File / Chứng từ Đính kèm Thư bảo lãnh (Pmt_GuaranteeAttachFile / Pmt_GuaranteeAttachFileHis)
+        // Dá»¯ liá»‡u máº«u File / Chá»©ng tá»« ÄÃ­nh kÃ¨m ThÆ° báº£o lÃ£nh (Pmt_GuaranteeAttachFile / Pmt_GuaranteeAttachFileHis)
         if (!await db.GuaranteeAttachFiles.AnyAsync(x => x.OrgId == TenantContext.DefaultOrgId))
         {
             var grtVcb = await db.Guarantees.FirstOrDefaultAsync(g => g.OrgId == TenantContext.DefaultOrgId && g.GuaranteeNo == "GRT-20250501-001");
@@ -13128,7 +13139,7 @@ public static class Seeder
                         GrtFilePath = "UploadedFiles/PmtGrtAttachFile/DLR-HYUNDAI-THANHXUAN-VCB-BL-VCB-2025-088-01.PDF",
                         GrtFileName = "DLR-HYUNDAI-THANHXUAN-VCB-BL-VCB-2025/088-01.PDF",
                         FileSizeInBytes = 1_248_576,
-                        GrtFileRemark = "Bản scan Thư bảo lãnh gốc do Vietcombank phát hành",
+                        GrtFileRemark = "Báº£n scan ThÆ° báº£o lÃ£nh gá»‘c do Vietcombank phÃ¡t hÃ nh",
                         LogLUBy = "ChuyenVienKinhDoanh",
                         LogLUDateTime = DateTime.Now.AddDays(-19)
                     },
@@ -13141,7 +13152,7 @@ public static class Seeder
                         GrtFilePath = "UploadedFiles/PmtGrtAttachFile/DLR-HYUNDAI-THANHXUAN-VCB-BL-VCB-2025-088-02.PDF",
                         GrtFileName = "DLR-HYUNDAI-THANHXUAN-VCB-BL-VCB-2025/088-02.PDF",
                         FileSizeInBytes = 512_000,
-                        GrtFileRemark = "Công văn xác nhận hạn mức bảo lãnh của ngân hàng",
+                        GrtFileRemark = "CÃ´ng vÄƒn xÃ¡c nháº­n háº¡n má»©c báº£o lÃ£nh cá»§a ngÃ¢n hÃ ng",
                         LogLUBy = "ChuyenVienKinhDoanh",
                         LogLUDateTime = DateTime.Now.AddDays(-18)
                     }
@@ -13160,7 +13171,7 @@ public static class Seeder
                         GrtFilePath = "UploadedFiles/PmtGrtAttachFile/DLR-HYUNDAI-HADONG-TCB-BL-TCB-2025-112-01.PDF",
                         GrtFileName = "DLR-HYUNDAI-HADONG-TCB-BL-TCB-2025/112-01.PDF",
                         FileSizeInBytes = 2_048_000,
-                        GrtFileRemark = "Bản scan Thư bảo lãnh Techcombank",
+                        GrtFileRemark = "Báº£n scan ThÆ° báº£o lÃ£nh Techcombank",
                         LogLUBy = "ChuyenVienKinhDoanh",
                         LogLUDateTime = DateTime.Now.AddDays(-10)
                     }
@@ -13169,7 +13180,7 @@ public static class Seeder
 
             await db.SaveChangesAsync();
 
-            // Lịch sử lưu file (Pmt_GuaranteeAttachFileHis) — ghi lại trạng thái file hiện hành
+            // Lá»‹ch sá»­ lÆ°u file (Pmt_GuaranteeAttachFileHis) â€” ghi láº¡i tráº¡ng thÃ¡i file hiá»‡n hÃ nh
             var seededFiles = await db.GuaranteeAttachFiles
                 .Where(x => x.OrgId == TenantContext.DefaultOrgId)
                 .ToListAsync();
@@ -13191,7 +13202,7 @@ public static class Seeder
             await db.SaveChangesAsync();
         }
 
-        // Dữ liệu mẫu Đề nghị xuất hóa đơn / giao hồ sơ (RD_ReqInvoice / RD_ReqInvoiceDtl)
+        // Dá»¯ liá»‡u máº«u Äá» nghá»‹ xuáº¥t hÃ³a Ä‘Æ¡n / giao há»“ sÆ¡ (RD_ReqInvoice / RD_ReqInvoiceDtl)
         if (!await db.ReqInvoices.AnyAsync(x => x.OrgId == TenantContext.DefaultOrgId))
         {
             db.ReqInvoices.AddRange(
@@ -13200,15 +13211,15 @@ public static class Seeder
                     OrgId = TenantContext.DefaultOrgId,
                     ReqIVNo = "RDIV-202505-001",
                     ReqIVStatus = ReqIVStatus.Approved,
-                    Remark = "Đề nghị giao hồ sơ (hóa đơn GTGT + chứng từ gốc) cho đại lý Hyundai Thanh Xuân",
+                    Remark = "Äá» nghá»‹ giao há»“ sÆ¡ (hÃ³a Ä‘Æ¡n GTGT + chá»©ng tá»« gá»‘c) cho Ä‘áº¡i lÃ½ Hyundai Thanh XuÃ¢n",
                     CreatedBy = "ChuyenVienKinhDoanh",
                     CreatedAt = DateTime.Today.AddDays(-15),
                     ApprovedBy = "KeToan_HTC",
                     ApprovedAt = DateTime.Today.AddDays(-14),
                     Details =
                     {
-                        new ReqInvoiceDetail { OrgId = TenantContext.DefaultOrgId, ReqIVNo = "RDIV-202505-001", VIN = "KMHST81D8PU123001", CarId = "CAR-SF-001", ModelCode = "SANTAFE", ModelName = "Hyundai Santa Fe", ColorCode = "WHT", ColorName = "Trắng", EngineNo = "D4HB-123001", TypeRDReqIv = RDInvoiceType.Dealer, DealerCode = "DLR-HYUNDAI-THANHXUAN", DealerName = "Công ty TNHH Hyundai Thanh Xuân", HTCInvoiceNo = "0000123", DlrCtrNo = "PLHD-202505-001", ProvinceName = "Hà Nội", RDReqIvDtlStatus = RDReqIvDtlStatus.Approved, CreatedBy = "ChuyenVienKinhDoanh", CreatedAt = DateTime.Today.AddDays(-15), ApprovedBy = "KeToan_HTC", ApprovedAt = DateTime.Today.AddDays(-14) },
-                        new ReqInvoiceDetail { OrgId = TenantContext.DefaultOrgId, ReqIVNo = "RDIV-202505-001", VIN = "KMHJ3813DPU123002", CarId = "CAR-TU-002", ModelCode = "TUCSON", ModelName = "Hyundai Tucson", ColorCode = "BLK", ColorName = "Đen", EngineNo = "G4NA-123002", TypeRDReqIv = RDInvoiceType.Dealer, DealerCode = "DLR-HYUNDAI-THANHXUAN", DealerName = "Công ty TNHH Hyundai Thanh Xuân", HTCInvoiceNo = "0000123", DlrCtrNo = "PLHD-202505-001", ProvinceName = "Hà Nội", RDReqIvDtlStatus = RDReqIvDtlStatus.Approved, CreatedBy = "ChuyenVienKinhDoanh", CreatedAt = DateTime.Today.AddDays(-15), ApprovedBy = "KeToan_HTC", ApprovedAt = DateTime.Today.AddDays(-14) }
+                        new ReqInvoiceDetail { OrgId = TenantContext.DefaultOrgId, ReqIVNo = "RDIV-202505-001", VIN = "KMHST81D8PU123001", CarId = "CAR-SF-001", ModelCode = "SANTAFE", ModelName = "Hyundai Santa Fe", ColorCode = "WHT", ColorName = "Tráº¯ng", EngineNo = "D4HB-123001", TypeRDReqIv = RDInvoiceType.Dealer, DealerCode = "DLR-HYUNDAI-THANHXUAN", DealerName = "CÃ´ng ty TNHH Hyundai Thanh XuÃ¢n", HTCInvoiceNo = "0000123", DlrCtrNo = "PLHD-202505-001", ProvinceName = "HÃ  Ná»™i", RDReqIvDtlStatus = RDReqIvDtlStatus.Approved, CreatedBy = "ChuyenVienKinhDoanh", CreatedAt = DateTime.Today.AddDays(-15), ApprovedBy = "KeToan_HTC", ApprovedAt = DateTime.Today.AddDays(-14) },
+                        new ReqInvoiceDetail { OrgId = TenantContext.DefaultOrgId, ReqIVNo = "RDIV-202505-001", VIN = "KMHJ3813DPU123002", CarId = "CAR-TU-002", ModelCode = "TUCSON", ModelName = "Hyundai Tucson", ColorCode = "BLK", ColorName = "Äen", EngineNo = "G4NA-123002", TypeRDReqIv = RDInvoiceType.Dealer, DealerCode = "DLR-HYUNDAI-THANHXUAN", DealerName = "CÃ´ng ty TNHH Hyundai Thanh XuÃ¢n", HTCInvoiceNo = "0000123", DlrCtrNo = "PLHD-202505-001", ProvinceName = "HÃ  Ná»™i", RDReqIvDtlStatus = RDReqIvDtlStatus.Approved, CreatedBy = "ChuyenVienKinhDoanh", CreatedAt = DateTime.Today.AddDays(-15), ApprovedBy = "KeToan_HTC", ApprovedAt = DateTime.Today.AddDays(-14) }
                     }
                 },
                 new ReqInvoice
@@ -13216,13 +13227,13 @@ public static class Seeder
                     OrgId = TenantContext.DefaultOrgId,
                     ReqIVNo = "RDIV-202505-002",
                     ReqIVStatus = ReqIVStatus.Pending,
-                    Remark = "Đề nghị giao hồ sơ cho ngân hàng bảo lãnh Vietcombank (chờ duyệt chi tiết)",
+                    Remark = "Äá» nghá»‹ giao há»“ sÆ¡ cho ngÃ¢n hÃ ng báº£o lÃ£nh Vietcombank (chá» duyá»‡t chi tiáº¿t)",
                     CreatedBy = "ChuyenVienKinhDoanh",
                     CreatedAt = DateTime.Today.AddDays(-5),
                     Details =
                     {
-                        new ReqInvoiceDetail { OrgId = TenantContext.DefaultOrgId, ReqIVNo = "RDIV-202505-002", VIN = "KMHST81D8PU123004", CarId = "CAR-PA-004", ModelCode = "PALISADE", ModelName = "Hyundai Palisade", ColorCode = "GRY", ColorName = "Xám", EngineNo = "D4HB-123004", TypeRDReqIv = RDInvoiceType.BankBL, DealerCode = "DLR-HYUNDAI-HADONG", DealerName = "Công ty TNHH Hyundai Hà Đông", MortageBankCode = "VCB", GuaranteeNo = "GRT-20250501-001", PGBankCode = "VCB", PGBankCodeMonitor = "VCB", PGDateExpired = DateTime.Today.AddDays(60), DlrCtrNo = "PLHD-202505-002", ProvinceName = "Hà Nội", RDReqIvDtlStatus = RDReqIvDtlStatus.Approved, CreatedBy = "ChuyenVienKinhDoanh", CreatedAt = DateTime.Today.AddDays(-5), ApprovedBy = "KeToan_HTC", ApprovedAt = DateTime.Today.AddDays(-4) },
-                        new ReqInvoiceDetail { OrgId = TenantContext.DefaultOrgId, ReqIVNo = "RDIV-202505-002", VIN = "KMHST81D8PU123005", CarId = "CAR-PA-005", ModelCode = "PALISADE", ModelName = "Hyundai Palisade", ColorCode = "WHT", ColorName = "Trắng", EngineNo = "D4HB-123005", TypeRDReqIv = RDInvoiceType.BankBL, DealerCode = "DLR-HYUNDAI-HADONG", DealerName = "Công ty TNHH Hyundai Hà Đông", MortageBankCode = "VCB", GuaranteeNo = "GRT-20250501-001", PGBankCode = "VCB", PGBankCodeMonitor = "VCB", PGDateExpired = DateTime.Today.AddDays(60), DlrCtrNo = "PLHD-202505-002", ProvinceName = "Hà Nội", RDReqIvDtlStatus = RDReqIvDtlStatus.Pending, CreatedBy = "ChuyenVienKinhDoanh", CreatedAt = DateTime.Today.AddDays(-5) }
+                        new ReqInvoiceDetail { OrgId = TenantContext.DefaultOrgId, ReqIVNo = "RDIV-202505-002", VIN = "KMHST81D8PU123004", CarId = "CAR-PA-004", ModelCode = "PALISADE", ModelName = "Hyundai Palisade", ColorCode = "GRY", ColorName = "XÃ¡m", EngineNo = "D4HB-123004", TypeRDReqIv = RDInvoiceType.BankBL, DealerCode = "DLR-HYUNDAI-HADONG", DealerName = "CÃ´ng ty TNHH Hyundai HÃ  ÄÃ´ng", MortageBankCode = "VCB", GuaranteeNo = "GRT-20250501-001", PGBankCode = "VCB", PGBankCodeMonitor = "VCB", PGDateExpired = DateTime.Today.AddDays(60), DlrCtrNo = "PLHD-202505-002", ProvinceName = "HÃ  Ná»™i", RDReqIvDtlStatus = RDReqIvDtlStatus.Approved, CreatedBy = "ChuyenVienKinhDoanh", CreatedAt = DateTime.Today.AddDays(-5), ApprovedBy = "KeToan_HTC", ApprovedAt = DateTime.Today.AddDays(-4) },
+                        new ReqInvoiceDetail { OrgId = TenantContext.DefaultOrgId, ReqIVNo = "RDIV-202505-002", VIN = "KMHST81D8PU123005", CarId = "CAR-PA-005", ModelCode = "PALISADE", ModelName = "Hyundai Palisade", ColorCode = "WHT", ColorName = "Tráº¯ng", EngineNo = "D4HB-123005", TypeRDReqIv = RDInvoiceType.BankBL, DealerCode = "DLR-HYUNDAI-HADONG", DealerName = "CÃ´ng ty TNHH Hyundai HÃ  ÄÃ´ng", MortageBankCode = "VCB", GuaranteeNo = "GRT-20250501-001", PGBankCode = "VCB", PGBankCodeMonitor = "VCB", PGDateExpired = DateTime.Today.AddDays(60), DlrCtrNo = "PLHD-202505-002", ProvinceName = "HÃ  Ná»™i", RDReqIvDtlStatus = RDReqIvDtlStatus.Pending, CreatedBy = "ChuyenVienKinhDoanh", CreatedAt = DateTime.Today.AddDays(-5) }
                     }
                 },
                 new ReqInvoice
@@ -13230,16 +13241,50 @@ public static class Seeder
                     OrgId = TenantContext.DefaultOrgId,
                     ReqIVNo = "RDIV-202505-003",
                     ReqIVStatus = ReqIVStatus.Pending,
-                    Remark = "Đề nghị giao hồ sơ cho ngân hàng L/C Techcombank",
+                    Remark = "Äá» nghá»‹ giao há»“ sÆ¡ cho ngÃ¢n hÃ ng L/C Techcombank",
                     CreatedBy = "ChuyenVienKinhDoanh",
                     CreatedAt = DateTime.Today.AddDays(-2),
                     Details =
                     {
-                        new ReqInvoiceDetail { OrgId = TenantContext.DefaultOrgId, ReqIVNo = "RDIV-202505-003", VIN = "KMHCT41D8PU123006", CarId = "CAR-AC-006", ModelCode = "ACCENT", ModelName = "Hyundai Accent", ColorCode = "RED", ColorName = "Đỏ", EngineNo = "G4LC-123006", TypeRDReqIv = RDInvoiceType.BankLC, DealerCode = "DLR-HYUNDAI-CANTHO", DealerName = "Công ty TNHH MTV Hyundai Cần Thơ", MortageBankCode = "TCB", GuaranteeNo = "GRT-20250510-002", PGBankCode = "TCB", PGBankCodeMonitor = "TCB", PGDateExpired = DateTime.Today.AddDays(45), DlrCtrNo = "PLHD-202505-003", ProvinceName = "Cần Thơ", RDReqIvDtlStatus = RDReqIvDtlStatus.Pending, CreatedBy = "ChuyenVienKinhDoanh", CreatedAt = DateTime.Today.AddDays(-2) }
+                        new ReqInvoiceDetail { OrgId = TenantContext.DefaultOrgId, ReqIVNo = "RDIV-202505-003", VIN = "KMHCT41D8PU123006", CarId = "CAR-AC-006", ModelCode = "ACCENT", ModelName = "Hyundai Accent", ColorCode = "RED", ColorName = "Äá»", EngineNo = "G4LC-123006", TypeRDReqIv = RDInvoiceType.BankLC, DealerCode = "DLR-HYUNDAI-CANTHO", DealerName = "CÃ´ng ty TNHH MTV Hyundai Cáº§n ThÆ¡", MortageBankCode = "TCB", GuaranteeNo = "GRT-20250510-002", PGBankCode = "TCB", PGBankCodeMonitor = "TCB", PGDateExpired = DateTime.Today.AddDays(45), DlrCtrNo = "PLHD-202505-003", ProvinceName = "Cáº§n ThÆ¡", RDReqIvDtlStatus = RDReqIvDtlStatus.Pending, CreatedBy = "ChuyenVienKinhDoanh", CreatedAt = DateTime.Today.AddDays(-2) }
                     }
                 }
             );
             await db.SaveChangesAsync();
+        }
+    }
+
+    /// <summary>
+    /// Thêm cột cho bảng SQLite nếu cột thực sự chưa tồn tại (SQLite không hỗ trợ ADD COLUMN IF NOT EXISTS).
+    /// Tránh lỗi "duplicate column name" khi bảng đã có cột (tạo bằng CREATE TABLE ở trên).
+    /// </summary>
+    private static async Task EnsureSqliteColumnAsync(AppDbContext db, string table, string column, string columnDef)
+    {
+        var conn = db.Database.GetDbConnection();
+        if (conn.State != System.Data.ConnectionState.Open)
+            await conn.OpenAsync();
+        await using (var cmd = conn.CreateCommand())
+        {
+            cmd.CommandText = $"PRAGMA table_info(\"{table}\");";
+            var exists = false;
+            await using (var reader = await cmd.ExecuteReaderAsync())
+            {
+                while (await reader.ReadAsync())
+                {
+                    var name = reader.GetString(reader.GetOrdinal("name"));
+                    if (string.Equals(name, column, System.StringComparison.OrdinalIgnoreCase))
+                    {
+                        exists = true;
+                        break;
+                    }
+                }
+            }
+            if (!exists)
+            {
+                await using var alter = conn.CreateCommand();
+                alter.CommandText = $"ALTER TABLE \"{table}\" ADD COLUMN {columnDef};";
+                await alter.ExecuteNonQueryAsync();
+            }
         }
     }
 }
